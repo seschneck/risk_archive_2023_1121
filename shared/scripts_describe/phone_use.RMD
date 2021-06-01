@@ -1,0 +1,102 @@
+---
+title: "Phone use stats for AJ Goldstein"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r, echo = FALSE}
+library(tidyverse)
+library(readxl)
+library(janitor) #tabyl
+
+path_rawdata <- "P:/StudyData/RISK/raw_data"
+path_data <- "P:/StudyData/RISK/analysis/shared/data"
+```
+
+
+```{r, echo = FALSE}
+fin_sample <- read_rds(file.path(path_data,"valid_subids.rds")) %>% 
+  pull(SubID)
+
+dem <- read_rds(file.path(path_data, "ID.rds")) %>%
+  select(subid = SubID, 
+         age = DEM_1, 
+         sex = DEM_2, 
+         race = DEM_3, 
+         hispanic = DEM_4,
+         income = DEM_7) %>% 
+  mutate(sex = recode(sex, 
+                         `1`="Female",
+                         `2`="Male"),
+         race = recode(race,
+           `1` = "American Indian/Alaska Native",
+           `2` = "Asian",
+           `3` = "Native Hawaiian or Other Pacific Islander",
+           `4` = "Black/African American",
+           `5` = "White/Caucasian",
+           `6` = "Other/Multiracial"),
+         hispanic = recode(hispanic,
+           `1` = "No",
+           `2` = "Yes",
+           `3` = "Yes",
+           `4` = "Yes",
+           `5` = "Yes")) %>%
+  filter(subid %in% fin_sample)
+
+phones <- read_xlsx(path = file.path(path_rawdata,"phones.xlsx")) %>% 
+  mutate(subid = as.numeric(subid)) %>%
+  filter(subid %in% fin_sample) %>%
+  mutate(own_phone = case_when(own_phone == "OWN" ~ "own",
+                               own_phone == "Own" ~ "own",
+                               own_phone == "Study Phone" ~ "study",   
+                               own_phone == "Port" ~ "study", 
+                               own_phone == "Other-Study iPhone" ~ "study", 
+                               own_phone == "Other" ~ "study")) %>%
+  mutate(phone_os = case_when(str_detect(phone_type,fixed("phoneix", ignore_case=TRUE)) == TRUE ~ "android",
+                          str_detect(phone_type,fixed("phone", ignore_case=TRUE)) == TRUE ~ "iphone",
+                          str_detect(phone_type,fixed("phone", ignore_case=TRUE)) == FALSE ~ "android")) 
+
+d <- left_join(dem, phones)
+```
+
+### Sample demographics
+
+We have a pretty wisconsin sample.   Not much racial/ethnic diversity.   But we do see a range of income.
+```{r}
+
+tabyl(d$sex)
+tabyl(d$race)
+tabyl(d$hispanic)
+
+library(ggthemes)
+theme_set(theme_classic())
+ggplot(data = d , aes(x = income)) + 
+  geom_histogram()
+```
+
+### Phone OS info
+
+These analyses are limited to only those phones that were owned by our participants. We gave phones to participants who didnt own a smartphone that was sufficient to run study apps.
+
+There is a clear income difference between iPhone and Android users (see below) but many low income participants do own iPhones and iPhones were owned by almost half our sample.
+```{r}
+d_own <- d %>%
+  filter(own_phone == "own")
+
+tabyl(d_own$phone_os)
+
+d_own %>% 
+  select(phone_os, income) %>% 
+  group_by(phone_os) %>% 
+  summarise(mean(income), median(income), min(income), max(income))
+
+ggplot(data = d_own , aes(x = phone_os, y = income)) + 
+  geom_boxplot() +
+  geom_violin(alpha = .05) 
+
+```

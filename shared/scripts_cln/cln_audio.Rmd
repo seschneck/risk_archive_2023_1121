@@ -1,0 +1,210 @@
+---
+title: "Clean Audio Metadata"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script gets metadata info regarding daily check in, such as number of days with audio, file names, and duration of audio clip.   
+
+**Can add audio transcripts to this script at a later date**   
+
+FIX: This script takes a long time to run - need to use future_map or foreach loops to speed it up but I have not figured out how to do this yet.  
+
+Inputs:  
+* raw audio files
+
+
+### Setup
+```{css, include = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "/Volumes/private/StudyData/RISK/raw_data"
+path_out <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(av)
+```
+
+
+### Read in audio files
+
+#### Function
+
+```{r message = FALSE}
+read_audio <- function(subid) {
+    audio_log <- tibble(subid = character(),
+                   message = character())
+    audio_files <- list.files(file.path(path_raw, subid, "Audio"))
+    if(length(audio_files) > 0) {
+      for(file in audio_files) {
+        path <- file.path(path_raw, subid, "Audio", file)
+        extension <- str_extract(path, "[^.]*$")
+        
+        # filter out non-audio files
+        if(extension != "db" & extension != "lnk") {
+          
+          log <- tibble(subid = subid,
+                 audio_file_name = file,
+                 created = file.info(path)$ctime,
+                 modified = file.info(path)$mtime,
+                 
+                 # estimated duration of audio clip from bitrate
+                 duration = av_media_info(path)$duration) %>% 
+            
+                 # extract date from file name
+                 mutate(date = str_trunc(audio_file_name, 13, "right", ellipsis = ""),
+                 date = str_trunc(date, 9, "left", ellipsis = ""),
+                 date = str_replace(date, "_", ""),
+                 date = ymd(date))
+
+          audio_log <- audio_log %>%
+            full_join(log) 
+        } 
+      }
+      return(audio_log)
+      } else if(length(audio_files) == 0){
+        audio_log <- audio_log %>% add_row(subid = subid, message = "No audio files found")
+        return(audio_log)
+    }
+}
+```
+
+#### Get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+```
+
+
+#### Read in all audio files
+```{r message = FALSE}
+all_audio <- tibble(subid = character())
+all_audio <- map_df(subids$subid, ~read_audio(.)) %>% 
+  glimpse()
+```
+
+<br>
+
+<br>
+
+### EDA 
+
+```{r}
+table(all_audio$message)
+
+audio <- all_audio %>% 
+  filter(is.na(message)) %>% 
+  select(subid, date, duration, everything(), -message) %>% 
+  glimpse()
+
+no_audio <- all_audio %>% 
+  filter(message == "No audio files found") %>% 
+  select(subid, message) %>% 
+  glimpse()
+```
+
+`r nrow(audio)` sleep observations from `r length(unique(audio$subid))` subids.  
+`r length(unique(no_audio$subid))` subids have no audio files.   
+*Subids with no audio were mnaually confirmed by checking raw data folders*   
+
+Audio data ranges from `r min(audio$date)` to `r max(audio$date)`  
+
+
+#### audio files per subid
+
+```{r}
+audio %>% 
+  count(subid) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(color = "black", fill = "light grey", bins = 20) +
+  theme_classic() +
+  labs(title = "Histogram of audio files per subid",
+       x = "Number of audio files",
+       y = "Number of subids")
+```
+
+more than 90 days worth of audio files
+```{r}
+audio %>% 
+  count(subid) %>% 
+  filter(n > 90)
+```
+
+
+#### check for duplicate dates
+
+```{r}
+audio %>% 
+  count(subid, date) %>% 
+  filter(n > 1) %>% 
+  arrange(desc(n))
+```
+
+```{r}
+audio %>% 
+  filter(subid == 128) %>% 
+  select(subid, date, duration) %>% 
+  print(n = Inf)
+```
+
+FIX: Not clear why there is duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date.  
+
+
+
+#### Duration
+
+Audio files range from `r min(audio$duration)` to `r max(audio$duration)` seconds in duration.    
+
+```{r}
+audio %>% 
+  mutate(duration = case_when(duration > 120 ~ 120,
+                              TRUE ~ duration)) %>% 
+  ggplot(aes(x = duration)) +
+  geom_histogram(color = "black", fill = "light grey", bins = 20) +
+  theme_classic() +
+  labs(title = "Histogram of length of audio files",
+       x = "Duration (in seconds)",
+       y = "Number of files")
+```
+
+files less than 5 seconds long
+```{r}
+short_audio <- audio %>% 
+  filter(duration < 5) %>% 
+  select(subid, date, duration) 
+```
+
+There are `r nrow(short_audio)` short audio files (less than 5 seconds long), but there is a clear pattern among subids.  
+`r length(unique(short_audio$subid))` subids make up all the short audio clips.    
+```{r}
+print(short_audio, n = Inf)
+```
+
+
+### Write csv
+```{r}
+write_csv(audio, file.path(path_out, "audio.csv")) %>% 
+  glimpse()
+```
+

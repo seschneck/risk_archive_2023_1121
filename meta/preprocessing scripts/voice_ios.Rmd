@@ -1,0 +1,518 @@
+---
+title: "IOS/Voice Logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script contains code to open all voice log files in sql format from participants raw data folders.  
+
+Inputs:   
+[subid]_Voice_1.sql  
+[subid]_Voice_2.sql  
+[subid]_Voice_3.sql  
+etc. for as many voice sql logs in the subid's folder  
+
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "Z:/StudyData/RISK/raw_data"
+path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(RSQLite)
+library(lubridate)
+```
+
+
+### IOS Voice Logs (SQL) 
+
+#### Create function to read in subid logs
+
+```{r}
+read_sql <- function(subid) {
+    logs <- tibble(subid = character(),
+                   message = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'.sql')) {
+          path <- file.path(path_raw, subid, file)
+          log_db <- dbConnect(RSQLite::SQLite(), path)
+          
+          log <- dbGetQuery(log_db,'select * from ZCALLRECORD')
+          
+          # Add subid and log information to dataframe
+          log <- log %>% 
+            mutate(subid = subid,
+                   log_file = file,
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime)
+          
+          # Update ZAddress to text instead of blob SQL object
+          address <-  dbGetQuery(log_db,'select cast(ZADDRESS as text) from ZCALLRECORD')
+          log <- log %>% 
+            mutate(ZADDRESS = unlist(address)) %>% 
+            # converting disconnected and face_time variable to character
+            # most logs are all numeric but at least one log has a character string in column
+            mutate(ZDISCONNECTED_CAUSE = as.character(ZDISCONNECTED_CAUSE),
+                   ZFACE_TIME_DATA = as.character(ZFACE_TIME_DATA))
+          
+            # convert binary objects for new variables in more recent SQL files to character
+            if("ZLOCALPARTICIPANTUUID" %in% names(log)) {
+              ZLOCALPARTICIPANTUUID_2 <-  
+                dbGetQuery(log_db,'select cast(ZLOCALPARTICIPANTUUID as text) from ZCALLRECORD') %>% 
+                unlist()
+              ZOUTGOINGLOCALPARTICIPANTUUID_2 <-  
+                dbGetQuery(log_db,'select cast(ZOUTGOINGLOCALPARTICIPANTUUID as text) from ZCALLRECORD') %>%
+                unlist()
+              ZLOCAL_ADDRESS_2 <-  dbGetQuery(log_db,'select cast(ZLOCAL_ADDRESS as text) from ZCALLRECORD') %>%
+                unlist()
+              log <- log %>% 
+                mutate(ZLOCALPARTICIPANTUUID = ZLOCALPARTICIPANTUUID_2,
+                       ZOUTGOINGLOCALPARTICIPANTUUID = ZOUTGOINGLOCALPARTICIPANTUUID_2,
+                       ZLOCAL_ADDRESS = ZLOCAL_ADDRESS_2)
+            }
+          
+          #close the db connection
+          dbDisconnect(log_db)
+    
+                  
+           # Join log files
+          logs <- logs %>% 
+            full_join(log)
+          
+        }
+         
+        if(nrow(logs) == 0) {
+          extension <- str_extract(log_files[1], "[^.]*$")
+          logs <- logs %>% add_row(subid = subid, message = str_c("Log files in ", extension, " format"))
+        }
+      }
+      return(logs)
+    } else if(length(log_files) == 0){
+        logs <- logs %>% add_row(subid = subid, message = "No log files found")
+        return(logs)
+    }
+}
+```
+
+#### get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+```
+
+
+#### read in all logs
+```{r message = FALSE}
+all_logs <- tibble(subid = character())
+all_logs <- map_df(subids$subid, ~read_sql(.)) %>% 
+  glimpse()
+```
+
+
+#### Separate logs and messages
+```{r}
+log_messages <- all_logs %>% 
+  filter(!is.na(message)) %>% 
+  select(subid, message)
+table(log_messages$message)
+
+logs_ios <- all_logs %>% 
+  filter(is.na(message)) %>% 
+  select(-message) %>% 
+  glimpse()
+
+# remove identical rows and fix how some logs were read in with blank cells instead of NA
+logs_ios <- logs_ios %>% 
+  mutate(ZDISCONNECTED_CAUSE = case_when(ZDISCONNECTED_CAUSE == "" ~ as.character(NA),
+                                         TRUE ~ ZDISCONNECTED_CAUSE),
+         ZFACE_TIME_DATA = case_when(ZFACE_TIME_DATA == "" ~ as.character(NA),
+                                     TRUE ~ ZFACE_TIME_DATA),
+         ZDEVICE_ID = case_when(ZDEVICE_ID == "" ~ as.character(NA),
+                                TRUE ~ ZDEVICE_ID),
+         ZNAME = case_when(ZNAME == "" ~ as.character(NA),
+                           TRUE ~ ZNAME),
+         ZLOCATION = case_when(ZLOCATION == "" ~ as.character(NA),
+                               TRUE ~ ZLOCATION),
+         ZADDRESS = case_when(ZADDRESS == "" ~ as.character(NA),
+                              TRUE ~ ZADDRESS)) %>% 
+  distinct(across(c(subid, ZUNIQUE_ID)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
+NOTE: Confirmed created/modified dates being read in as same time, may need to update TZ though - will look into.   
+NOTE: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS)   
+
+FIX: figure out what these variables are and why blank; Also found 2 new tables in later SQL files - need to look more into these tables      
+
+
+<br>
+
+### Read in CSV logs (IOS 13+)
+
+```{r}
+read_csv <- function(subid) {
+    logs <- tibble(subid = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'.xls')) {
+          path <- file.path(path_raw, subid, file)
+          log <- readxl::read_excel(file.path(path)) %>% 
+            mutate(subid = subid,
+                   # convert to character for merging
+                   Number = as.character(Number),
+                   log_file = file,
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime) 
+        
+           # Join log files
+          logs <- logs %>% 
+            full_join(log)
+        }
+        if(nrow(logs) > 0) {
+        return(logs)
+        }
+      }
+    }
+}
+```
+
+
+```{r message = FALSE}
+csv_logs <- tibble(subid = character())
+csv_logs <- map_df(subids$subid, ~read_csv(.)) %>% 
+  glimpse()
+```
+
+Change variables to match sql db
+```{r}
+csv_logs <- csv_logs %>% 
+  rename(ZADDRESS = Number,
+         ZLOCATION = Location,
+         ZCALLTYPE = Service,
+         ZDURATION = Duration,
+         ZNAME = Contact,
+         ZORIGINATED = `Call type`) %>% 
+  mutate(ZCALLTYPE = case_when(ZCALLTYPE == "FaceTime Audio" ~ "8",
+                               ZCALLTYPE == "FaceTime Video" ~ "16",
+                               ZCALLTYPE == "Phone" ~ "1",
+                               TRUE ~ ZCALLTYPE),
+         ZCALLTYPE = as.numeric(ZCALLTYPE),
+         ZDURATION = as.numeric(ZDURATION - as_datetime("1899-12-31 00:00:00")),
+         ZORIGINATED = case_when(ZORIGINATED == "Incoming" ~ 0,
+                                 ZORIGINATED == "Outgoing" ~ 1)) %>% 
+  glimpse()
+```
+
+
+Join csv and sql files
+```{r}
+# update date in sql to UTC
+logs_ios <- logs_ios %>% 
+  mutate(Date = ZDATE + 978307200,
+         Date = as_datetime(Date, tz = "UTC")) %>% 
+  select(subid, Date, everything()) %>% 
+  glimpse()
+
+# join
+logs_ios <- logs_ios %>% 
+  full_join(csv_logs) %>% 
+  glimpse()
+```
+
+remove newly created duplicates
+```{r}
+logs_ios <- logs_ios %>% 
+  distinct(across(c(subid, Date, ZADDRESS, ZCALLTYPE, ZDURATION, ZORIGINATED)), .keep_all = TRUE)
+```
+
+FIX: parsing error with ZNAME when read back in
+
+### EDA
+
+`r length(unique(logs_ios$subid))` subids had SQL voice data logs read in.   
+`r nrow(subset(log_messages, message == "No log files found"))` subids did not have logs.  
+`r nrow(subset(log_messages, message != "No log files found"))` subids had logs but not in SQL format.    
+
+This accounts for a total of 216 participants.  
+
+Dates range from `r min(logs_ios$Date)` to `r max(logs_ios$Date)`
+
+FIX: 2 dates are out of study range - not sure why 
+```{r}
+logs_ios %>% 
+  arrange(desc(Date))
+```
+
+
+<br>
+
+#### Primary key
+
+4 subids are missing primary keys because they had csv files where this variable did not exist
+```{r}
+logs_ios %>% 
+  filter(is.na(Z_PK)) %>% 
+  count(subid)
+```
+
+
+Check for duplicate keys within subid
+```{r}
+(dup_keys <- logs_ios %>% 
+  count(subid, Z_PK) %>% 
+  filter(n > 1)) %>% 
+  print(n = Inf)
+```
+
+`r nrow(dup_keys)` duplicate keys.  
+`r length(unique(dup_keys$subid))` subids have duplicate keys.   
+
+
+FIX: Subid 37 looks problematic - They have 6 dupicate keys and date, location, uniqueID, and phone number all different   
+**These are not repeated entries**
+```{r}
+logs_ios %>% 
+  filter(subid == "037" & Z_PK == 3745) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+logs_ios %>% 
+  filter(subid == "037" & Z_PK == 3765) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+Subid 100 also has 1 duplicate key with completely different entries
+```{r}
+logs_ios %>% 
+  filter(subid == "100" & Z_PK == 39) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+
+#### Phone number (ZADDRESS)
+
+Missing phone numbers
+```{r}
+logs_ios %>% 
+  filter(is.na(ZADDRESS)) %>% 
+  count(subid) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+Note: Looks like when number_availability = 1 then there is no phone number (likely blocked number)
+```{r}
+logs_ios %>% 
+  filter(is.na(ZADDRESS)) %>% 
+  kbl(caption = "Missing phone numbers") %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%", height = "500px") 
+
+logs_ios %>% 
+  filter(!is.na(ZADDRESS)) %>% 
+  head(n = 40) %>% 
+  kbl(caption = "Phone numbers available") %>% 
+  kable_styling(bootstrap_options = c("condensed")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+Phone numbers are in all different formats
+```{r}
+logs_ios %>% 
+  select(ZADDRESS) %>% 
+  print(n = Inf)
+
+# remove US country code and formatting inconsistencies
+logs_ios <- logs_ios %>% 
+  mutate(phone_number = str_replace_all(ZADDRESS, "\\+1", ""),
+         phone_number = str_replace_all(phone_number, "-", ""),
+         phone_number = str_replace_all(phone_number, "\\(", ""),
+         phone_number = str_replace_all(phone_number, "\\)", ""),
+         phone_number = str_replace_all(phone_number, "[[:space:]]", ""))
+
+logs_ios %>% 
+  select(ZADDRESS, phone_number) %>% 
+  print(n = 100)
+```
+
+*FIX: Numbers without area code?*  
+*FIX: How to handle non-phone numbers - 0, 3 digit numbers, weird strings, email addresses, phone number followed by string*
+*FIX: leave pound sign or asterick in numbers less than 7 digits?*  
+
+Examine numbers with more than 10 digits for cleaning  
+*FIX: remove leading 1 for US numbers*
+```{r}
+logs_ios %>% 
+  filter(str_length(phone_number) > 11) %>% 
+  select(phone_number) %>% 
+  print(n = Inf)
+```
+
+
+#### Look at country code
+No missing country codes   
+be = belgium; ca = canada; de = germany; mx = mexico; nz = new zealand; pe = peru; tr = turkey   
+Source: https://www.nationsonline.org/oneworld/country_code_list.htm   
+```{r}
+logs_ios %>% 
+  filter(is.na(ZISO_COUNTRY_CODE))
+
+table(logs_ios$ZISO_COUNTRY_CODE)
+```
+
+FIX: some non-us country codes are paired with us numbers - may indicate traveling?  
+```{r}
+logs_ios %>% 
+  select(ZADDRESS, phone_number, ZISO_COUNTRY_CODE) %>% 
+  filter(ZISO_COUNTRY_CODE != "us") %>% 
+  print(n = Inf)
+```
+
+
+Can't use location to infer area code  
+*FIX: Look into why no area code - may mean its stored in phone as a contact which could be a good feature or linked to known contacts file.*  
+```{r}
+logs_ios %>% 
+  filter(nchar(phone_number) == 7) %>% 
+  select(ZADDRESS, phone_number, ZISO_COUNTRY_CODE, ZLOCATION) %>% 
+  print(n = 500)
+
+table(all_logs$ZLOCATION)
+```
+
+
+#### Z_ENT
+```{r}
+table(logs_ios$Z_ENT)
+```
+
+Z_ENT is the identifier of the SQL table - all log info is coming from table ZCALLRECORD (table 2) so can remove this variable
+
+#### Z_OPT
+```{r}
+table(logs_ios$Z_OPT)
+```
+
+Z_OPT indicates the number of times an entity has been changed (starting with 1 when it is initially added to the database).
+
+#### call type (ZCALLTYPE)
+```{r}
+table(logs_ios$ZCALLTYPE)
+```
+
+0 = ?
+1 = standard phone call
+8 = facetime audio call
+16 = facetime audio/video call
+
+
+#### Facetime info (ZFACE_TIME_DATA)
+```{r}
+logs_ios %>% 
+  filter(!is.na(ZFACE_TIME_DATA)) %>% 
+  select(ZFACE_TIME_DATA, ZCALLTYPE, phone_number)
+```
+
+Not sure what these data are yet, but matches onto FACETIME call type (8/16)   
+**NOTE: 0 is not blank - should not be removed**  
+
+#### answered vs rejected calls (ZANSWERED)
+```{r}
+table(logs_ios$ZANSWERED)
+
+logs_ios %>% 
+  filter(ZANSWERED == 1) %>% 
+  select(phone_number, ZANSWERED, ZDURATION, ZORIGINATED)
+```
+
+0 = answered
+1 = rejected
+
+Not sure why the duration is not 0 for rejected calls. All calls are incoming (ZORIGINATED == 0) so that matches up but need to check on how duration is calculated.
+
+#### incoming vs outgoing calls (ZORIGINATED)
+```{r}
+table(logs_ios$ZORIGINATED)
+```
+
+0 = incoming
+1 = outgoing
+
+#### duration of call in seconds (ZDURATION)
+```{r}
+psych::describe(logs_ios$ZDURATION)
+
+logs_ios %>% 
+  filter(ZDURATION == 0) %>% 
+  janitor::tabyl(ZANSWERED)
+
+logs_ios %>% 
+  filter(ZDURATION == 0) %>% 
+  janitor::tabyl(ZORIGINATED)
+```
+
+All calls with a duration of 0 have ZANSWERED == 0 which means the call was answered?  
+Calls are both incoming and outgoing.  
+
+
+#### call read?
+```{r}
+table(logs_ios$ZREAD)
+```
+
+
+### Rename variables and remove unused variables (i.e., with no  variance)
+```{r}
+logs_ios %>% 
+  select(-c(Z_ENT))
+```
+
+
+
+
+### Write CSV
+```{r}
+write_csv(logs_ios, file.path(path_out, "voice_ios.csv")) %>% 
+  glimpse()
+```
+
+Note: date saved as UTC
+

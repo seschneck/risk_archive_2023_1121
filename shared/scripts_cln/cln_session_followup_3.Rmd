@@ -1,0 +1,528 @@
+---
+title: "Session FU3 Clean File"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+ 
+### Notes
+This script creates a single csv file from the four raw data session FU3 files. Includes file merging and minimal variable renaming (only to merge files with inconsistent names).    
+
+Inputs:   
+
+* session_followup_3_v1.csv  
+* session_followup_3_v2.csv  
+* session_followup_3_v3.csv
+* session_followup_3_v4.csv
+
+* log_session_followup_3_v4.csv
+
+Output:  
+
+* session_followup_3.csv 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths
+```{r}
+path_in <- "./raw_data/qualtrics"
+path_out <- "./analysis/shared/data"
+path_log <- "./analysis/shared/notes"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+
+source("P:/toolboxes/lab_support/clean_qualtrics_by_log.R")
+```
+
+
+### Read in session screen csvs
+
+```{r}
+session_1 <- read_csv(file.path(path_in, "session_followup_3_v1.csv")) %>%
+  rename(subid = SSFU3_3, response_id = ResponseID) %>% 
+  glimpse()
+session_2 <- read_csv(file.path(path_in, "session_followup_3_v2.csv")) %>% 
+  rename(subid = SSFU3_3, response_id = ResponseID) %>% 
+  glimpse()
+session_3 <- read_csv(file.path(path_in, "session_followup_3_v3.csv")) %>% 
+  rename(subid = SSFU3_3, response_id = ResponseID) %>% 
+  glimpse()
+session_4 <- read_csv(file.path(path_in, "session_followup_3_v4.csv")) %>% 
+  rename(subid = SSFU3_3, response_id = ResponseID) %>% 
+  glimpse()
+```
+
+###  Clean and merge
+
+```{r}
+log_1 <- read_csv(file.path(path_log, "log_session_followup_3_v1.csv"))  %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+```
+
+#### Log actions
+
+```{r}
+tabyl(log_1$log_action) 
+```
+
+Variables with recode_one edits
+```{r}
+log_1 %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to subid variable
+```{r}
+log_1 %>%
+  filter(var_name == "subid") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Entries removed
+```{r}
+log_1 %>% 
+  filter(log_action == "remove") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+#### Clean session data
+
+```{r}
+session_1 <- clean_qualtrics_by_log(session_1, log_1)
+```
+
+
+### Tidy data
+
+```{r}
+session_1 <- session_1 %>% 
+  rename("real_data" = SFFU3_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFFU3_4 = as.character(Q47_TEXT),
+         SFFU3_32 = as.character(Q64),
+         across(where(is.logical), as.character)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SFFU3_4,
+         SFFU3_5,
+         SFFU3_12,
+         SFFU3_13,
+         SFFU3_14,
+         SFFU3_15,
+         SFFU3_16,
+         Q37,
+         SFFU3_23,
+         SFFU3_24,
+         SFFU3_25,
+         SFFU3_26,
+         SFFU3_27,
+         SFFU3_28,
+         SFFU3_29,
+         SFFU3_30,
+         SFFU3_31 = SSFU3_31,
+         SFFU3_32,
+         SFFU3_33,
+         SFFU3_34) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_2 <- session_2 %>% 
+  rename("real_data" = SFFU3_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFFU3_4 = as.character(SFFU3_4),
+         SFFU3_32 = as.character(SFFU3_32),
+         across(where(is.logical), as.character)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SFFU3_4,
+         SFFU3_5,
+         SFFU3_6,
+         SFFU3_7,
+         SFFU3_12,
+         SFFU3_13,
+         SFFU3_14,
+         SFFU3_15,
+         SFFU3_16,
+         SFFU3_19,
+         SFFU3_20,
+         Q37,
+         SFFU3_23,
+         SFFU3_24,
+         SFFU3_25,
+         SFFU3_26,
+         SFFU3_27,
+         SFFU3_28,
+         SFFU3_29,
+         SFFU3_30,
+         SFFU3_31 = SSFU3_31,
+         SFFU3_32,
+         SFFU3_33,
+         SFFU3_34) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_3 <- session_3 %>% 
+  rename("real_data" = SFFU3_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFFU3_4 = as.character(SFFU3_4),
+         SFFU3_32 = as.character(SFFU3_32),
+         across(where(is.logical), as.character)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SFFU3_4,
+         SFFU3_5,
+         SFFU3_6,
+         SFFU3_7,
+         SFFU3_8,
+         SFFU3_9,
+         SFFU3_10,
+         SFFU3_11,
+         SFFU3_12,
+         SFFU3_13,
+         SFFU3_14,
+         SFFU3_15,
+         SFFU3_16,
+         SFFU3_17,
+         SFFU3_18,
+         SFFU3_19,
+         SFFU3_20,
+         SFFU3_21,
+         SFFU3_22,
+         SFFU3_23,
+         SFFU3_24,
+         SFFU3_25,
+         SFFU3_26,
+         SFFU3_27,
+         SFFU3_28,
+         SFFU3_29,
+         SFFU3_30,
+         SFFU3_31 = SSFU3_31,
+         SFFU3_32,
+         SFFU3_33,
+         SFFU3_34) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_4 <- session_4 %>% 
+  rename("real_data" = SFFU3_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFFU3_4 = as.character(SFFU3_4),
+         SFFU3_32 = as.character(SFFU3_32),
+         across(where(is.logical), as.character)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         Finished,
+         SFFU3_4,
+         SFFU3_5,
+         SFFU3_6,
+         SFFU3_7,
+         SFFU3_8,
+         SFFU3_9,
+         SFFU3_10,
+         SFFU3_11,
+         SFFU3_12,
+         SFFU3_13,
+         SFFU3_14,
+         SFFU3_15,
+         SFFU3_16,
+         SFFU3_17,
+         SFFU3_18,
+         SFFU3_19,
+         SFFU3_20,
+         SFFU3_21,
+         SFFU3_22,
+         SFFU3_23,
+         SFFU3_24,
+         SFFU3_25,
+         SFFU3_26,
+         SFFU3_27,
+         SFFU3_28,
+         SFFU3_29,
+         SFFU3_30,
+         SFFU3_31 = SSFU3_31,
+         SFFU3_32,
+         SFFU3_33,
+         SFFU3_34) %>% 
+  clean_names() %>% 
+  glimpse()
+```
+
+
+### Merge data sets
+```{r}
+fu_3 <- session_1 %>% 
+  full_join(session_2) %>% 
+  full_join(session_3) %>% 
+  full_join(session_4) %>% 
+  glimpse()
+
+rm(session_1, session_2, session_3)
+```
+
+
+### EDA
+
+The earliest recorded report is from `r min(fu_3$start_date, na.rm = TRUE)` 
+and the most recent is from `r max(fu_3$start_date, na.rm = TRUE)`. 
+
+All timezones in UTC
+```{r}
+fu_3 %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+
+print(fu_3$start_date)
+print(fu_3$end_date)
+```
+
+UTC values that do not fall within range of start_date to end_date
+```{r}
+options(tibble.print_max = Inf)
+
+fu_3 %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(!(utc >= start_date & utc <= end_date))
+
+fu_3 %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(date(utc) != date(start_date))
+```
+
+UTCs match start date (1 hour ahead for some in months End of March - October). No date inconsistencies.  
+
+#### Duplicate subids
+
+`r length(unique(fu_3$subid))` participants contribute to a total of `r nrow(fu_3)` 
+reports.  
+
+Duplicate subids due to no shows    
+
+Note that this 128 is less than the 133 participants that completed the qualtrics followup 3 survey because some were emailed survey link since they were not able to make it in in-person.  
+
+<br>
+
+No shows 
+```{r}
+fu_3 %>% 
+  filter(is.na(sffu3_4)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  scroll_box(width = "100%")
+```
+
+#### Missing values
+
+Missing (NA) values
+```{r}
+fu_3 %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(digits = 2, table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+All participants are missing values for sffu3_13, sffu3_26, sffu3_28, sffu3_34, sffu3_18, and sffu3_22 - which are all "if no, please explain" questions.   
+
+Missing ssfu3_4 (time arrived) values represent no shows.  
+
+FIX: Subid 1 had their own version of followup 3 and no UTC was on the survey as a variable.  
+FIX: 149 and and 166 also missing UTC variables
+
+Nothing else appears problematic in missing data, however not all variables were checked with fine tooth comb.   
+
+Reasons for missing data include:  
+* participants discontinuing or being withdrawn due to eligibility reasons before completing session  
+* questions changed across 3 versions so some were only asked on a single survey version  
+* questions were conditional  
+
+
+#### Descriptives
+
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = fu_3)
+)
+```
+
+Has the participant drank alcohol since you last saw them?
+```{r}
+kabyl(sffu3_5) %>% 
+  add_header_above(c("Has the participant drank alcohol since you last saw them?" = 4),
+                   align = "l")
+```
+
+Does participant want to complete a BMI/MET session? 
+```{r}
+kabyl(sffu3_6) %>% 
+  add_header_above(c("Does participant want to complete a BMI/MET session?" = 4),
+                   align = "l")
+```
+
+Did lab staff retrieve phone log and sms content from participant's phone? 
+```{r}
+kabyl(sffu3_14) %>% 
+  add_header_above(c("Did lab staff retrieve phone log and sms content from participant's phone?" = 4),
+                   align = "l")
+```
+
+If no please explain below
+```{r}
+fu_3 %>% 
+  select(subid, sffu3_15) %>% 
+  filter(!is.na(sffu3_15)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  add_header_above(c("If no please explain below" = 2),
+                   align = "l")
+```
+
+Did participant complete the ID followup 3 Battery?
+```{r}
+kabyl(sffu3_12) %>% 
+  add_header_above(c("Did participant complete the ID followup 3 Battery?" = 4),
+                   align = "l")
+```
+
+Were all wristband items returned (wristband, charging cradle, and USB cord)?
+```{r}
+kabyl(sffu3_17) %>% 
+  add_header_above(c("Were all wristband items returned (wristband, charging cradle, and USB cord)?" = 4),
+                   align = "l")
+```
+
+Was the sleep monitor returned? 
+```{r}
+kabyl(sffu3_19) %>% 
+  add_header_above(c("Was the sleep monitor returned?" = 4),
+                   align = "l")
+```
+
+If no, please explain why. If participant plans to return it, note what the plan is below. 
+```{r}
+fu_3 %>% 
+  select(subid, sffu3_20) %>% 
+  filter(!is.na(sffu3_20)) %>% 
+  kbl() %>% 
+  kable_classic()  %>% 
+  add_header_above(c("If no, please explain why. If participant plans to return it, note what the plan is below." = 2),
+                   align = "l")
+```
+
+Was the tablet and power cord returned?
+```{r}
+kabyl(sffu3_21) %>% 
+  add_header_above(c("Was the tablet and power cord returned?" = 4),
+                   align = "l")
+```
+
+Was the iPhone battery case returned? 
+```{r}
+kabyl(sffu3_23) %>% 
+  add_header_above(c("Was the iPhone battery case returned?" = 4),
+                   align = "l")
+```
+
+If no, please explain why. If participant plans to return it, note what the plan is below. 
+```{r}
+fu_3 %>% 
+  select(subid, sffu3_24) %>% 
+  filter(!is.na(sffu3_24)) %>% 
+  kbl() %>% 
+  kable_classic()  %>% 
+  add_header_above(c("If no, please explain why. If participant plans to return it, note what the plan is below" = 2),
+                   align = "l")
+```
+
+Did the participant use a study iPhone?
+```{r}
+kabyl(q37) %>% 
+  add_header_above(c("Did the participant use a study iPhone?" = 4),
+                   align = "l")
+```
+
+Did participant complete the followup #3 session?
+```{r}
+kabyl(sffu3_33) %>% 
+  add_header_above(c("Did participant complete the followup #3 session?" = 4),
+                   align = "l")
+```
+
+Did participant complete feedback form? 
+```{r}
+kabyl(sffu3_25) %>% 
+  add_header_above(c("Did participant complete feedback form? " = 4),
+                   align = "l")
+```
+
+Additional Notes on Followup #3
+```{r}
+fu_3 %>% 
+  select(subid, sffu3_31) %>% 
+  filter(!is.na(sffu3_31) & sffu3_31 != "None" & sffu3_31 != "N/a" & sffu3_31 != "N/A" & sffu3_31 != "none" & sffu3_31 != "None." & sffu3_31 != "n/a" & sffu3_31 != "Na" & sffu3_31 != "No") %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Additional Notes on Followup #3" = 2),
+                   align = "l") %>% 
+scroll_box(height = "500px")
+```
+
+
+### Save
+
+```{r}
+write_csv(fu_3, file.path(path_out, "session_followup_3.csv"))
+```
+
+
+
+
+

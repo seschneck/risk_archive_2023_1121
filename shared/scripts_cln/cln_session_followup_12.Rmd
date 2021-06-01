@@ -1,0 +1,530 @@
+---
+title: "Session FU12 Clean File"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+This script creates a single csv file from the three raw data session FU12 files. Uses cleaning function to clean according to data log. Includes file merging and minimal variable renaming (only to merge files with inconsistent names).    
+
+Inputs:   
+
+* session_followup_12_v1.csv  
+* session_followup_12_v2.csv  
+* session_followup_12_v3.csv  
+* log_session_followup_12_v2.csv
+* log_session_followup_12_v3.csv
+
+There is no log for v1.
+
+Output:  
+
+* session_followup_12.csv 
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths
+```{r}
+path_in <- "./raw_data/qualtrics"
+path_out <- "./analysis/shared/data"
+path_log <- "./analysis/shared/notes"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+
+source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+
+
+### Read in session screen csvs
+
+```{r}
+session_1 <- read_csv(file.path(path_in, "session_followup_12_v1.csv")) %>%
+  rename(subid = Q4, response_id = ResponseID) %>% 
+  glimpse()
+session_2 <- read_csv(file.path(path_in, "session_followup_12_v2.csv")) %>% 
+  rename(subid = Q4, response_id = ResponseID) %>% 
+  glimpse()
+session_3 <- read_csv(file.path(path_in, "session_followup_12_v3.csv")) %>% 
+  rename(subid = SSFU_4, response_id = ResponseID) %>% 
+  glimpse()
+```
+
+### Clean data
+
+Open logs
+```{r}
+log_1 <- read_csv(file.path(path_log, "log_session_followup_12_v1.csv"))  %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+log_2 <- read_csv(file.path(path_log, "log_session_followup_12_v2.csv"))  %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+```
+
+#### Log actions
+
+```{r}
+tabyl(log_1$log_action) 
+tabyl(log_2$log_action)
+```
+
+Variables with recode_one edits
+```{r}
+log_1 %>% 
+  rbind(log_2) %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to subid variable
+```{r}
+log_1 %>%
+  rbind(log_2) %>% 
+  filter(var_name == "subid") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Entry removed
+```{r}
+log_2 %>% 
+  filter(log_action == "remove") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+
+#### Clean session data
+
+```{r}
+session_1 <- clean_qualtrics_by_log(session_1, log_1)
+session_2 <- clean_qualtrics_by_log(session_2, log_2)
+```
+
+### Tidy data
+
+```{r}
+session_1 <- session_1 %>% 
+  rename("real_data" = Q1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(Q39_TEXT = as.character(Q39_TEXT)) %>%
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SSFU_2 = Q2,
+         SSFU_5 = Q51_TEXT,
+         SSFU_6 = Q32,
+         Q22,
+         Q23,
+         SSFU_11 = Q29,
+         SSFU_12 = Q30,
+         SSFU_13 = Q31,
+         SSFU_14 = Q7,
+         SSFU_15 = Q8,
+         Q35,
+         Q36,
+         Q62,
+         SSFU_20 = Q26,
+         SSFU_21 = Q27,
+         SSFU_22 = Q28,
+         SSFU_25 = Q9,
+         SSFU_26 = Q10,
+         SSFU_27 = Q11,
+         SSFU_28 = Q12,
+         SSFU_29 = Q13,
+         SSFU_30 = Q14,
+         Q72,
+         Q74,
+         SSFU_33 = Q17,
+         SSFU_34 = Q18,
+         SSFU_35 = Q19,
+         SSFU_36 = Q37,
+         SSFU_40 = Q41) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_2 <- session_2 %>% 
+  rename("real_data" = Q1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SSFU_5 = as.character(Q5),
+         SSFU_15 = as.character(Q8),
+         SSFU_12 = as.character(Q30),
+         SSFU_35 = as.character(Q19)) %>%
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SSFU_2 = Q2,
+         SSFU_5,
+         SSFU_6 = Q32,
+         SSFU_7 = Q33,
+         SSFU_8 = Q34,
+         Q22,
+         Q23,
+         SSFU_11 = Q29,
+         SSFU_12,
+         SSFU_13 = Q31,
+         SSFU_14 = Q7,
+         SSFU_15,
+         Q35,
+         Q36,
+         SSFU_19 = Q25,
+         SSFU_20 = Q26,
+         SSFU_21 = Q27,
+         SSFU_22 = Q28,
+         SSFU_25 = Q9,
+         SSFU_26 = Q10,
+         SSFU_27 = Q11,
+         SSFU_28 = Q12,
+         SSFU_29 = Q13,
+         SSFU_30 = Q14,
+         SSFU_33 = Q17,
+         SSFU_34 = Q18,
+         SSFU_35,
+         SSFU_36 = Q37,
+         SSFU_40 = Q41) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_3 <- session_3 %>% 
+  rename("real_data" = SSFU_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SSFU_5 = as.character(SSFU_5),
+        SSFU_8 = as.character(SSFU_8),
+        SSFU_10 = as.character(SSFU_10),
+        SSFU_12 = as.character(SSFU_12),
+        SSFU_15 = as.character(SSFU_15),
+        SSFU_17 = as.character(SSFU_17),
+        SSFU_28 = as.character(SSFU_28),
+        SSFU_35 = as.character(SSFU_35),
+        SSFU_40 = as.character(SSFU_40)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         Finished,
+         SSFU_2,
+         SSFU_5,
+         SSFU_6,
+         SSFU_7,
+         SSFU_8,
+         SSFU_9,
+         SSFU_10,
+         SSFU_11,
+         SSFU_12,
+         SSFU_13,
+         SSFU_14,
+         SSFU_15,
+         SSFU_16,
+         SSFU_17,
+         SSFU_18,
+         SSFU_19,
+         SSFU_20,
+         SSFU_21,
+         SSFU_22,
+         SSFU_23,
+         SSFU_24,
+         SSFU_25,
+         SSFU_26,
+         SSFU_27,
+         SSFU_28,
+         SSFU_29,
+         SSFU_30,
+         SSFU_33,
+         SSFU_34,
+         SSFU_35,
+         SSFU_36,
+         SSFU_40) %>% 
+  clean_names() %>% 
+  glimpse()
+```
+
+
+### Merge data sets
+```{r}
+fu_12_session <- session_1 %>% 
+  full_join(session_2) %>% 
+  full_join(session_3) %>% 
+  glimpse()
+
+rm(session_1, session_2, session_3)
+```
+
+
+### EDA
+
+The earliest recorded report is from `r min(fu_12_session$start_date, na.rm = TRUE)` 
+and the most recent is from `r max(fu_12_session$start_date, na.rm = TRUE)`. 
+
+All timezones in UTC
+```{r}
+fu_12_session %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+
+print(fu_12_session$start_date)
+print(fu_12_session$end_date)
+```
+
+UTC values that do not fall within range of start_date to end_date
+```{r}
+options(tibble.print_max = Inf)
+
+fu_12_session %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(!(utc >= start_date & utc <= end_date))
+
+fu_12_session %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(date(utc) != date(start_date))
+```
+
+UTCs match start date (1 hour ahead for some in months End of March - October).  
+Subid 9 has UTC that follows same pattern (1 hour ahead of start date), however, start_date time listed as 11:50 pm so UTC crosses over into next day. Time likely incorrect (start to end time = 3 min), but according to enrollment db the date is correct (9-05-2017).  
+
+
+#### Duplicate subids
+
+```{r}
+fu1 <- fu_12_session %>% 
+  filter(ssfu_2 == "Followup #1")
+fu2 <- fu_12_session %>% 
+  filter(ssfu_2 == "Followup #2")
+```
+
+
+`r length(unique(fu_12_session$subid))` participants contribute to a total of `r nrow(fu_12_session)` 
+reports.  
+
+`r length(unique(fu1$subid))` participants in followup #1 contributing to `r nrow(fu1)` observations.    
+`r length(unique(fu2$subid))` participants in followup #2 contributing to `r nrow(fu2)` observations.  
+
+Duplicate subids due to no shows  
+
+No shows - subid 61 never made it in for their FU_1 visit
+```{r}
+fu_12_session %>% 
+  filter(is.na(ssfu_5)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  scroll_box(width = "100%")
+```
+
+
+#### Missing values
+
+Missing (NA) values
+```{r}
+fu_12_session %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(digits = 2, table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing ssfu_5 (time arrived) values represent no shows documented.  
+ssfu_10 ("If no please explain below (interview form updated)") and ssfu_17 ("If no please explain below (ema form updated)") was blank for all participants.   
+
+FIX: subid 98 has a completely blank FU 2 session form other than arrival time. No notes why.  
+
+Nothing else appears problematic in missing data.  
+
+Reasons for missing data include:  
+* participants discontinuing or being withdrawn due to eligibility reasons before completing session  
+* questions changed across 3 versions so some were only asked on a single survey version  
+* questions were conditional (e.g., ssfu_35 = "If no, please explain below why session is incomplete.")  
+
+
+#### Descriptives
+
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = fu_12_session)
+)
+```
+
+which followup visit is this?
+```{r}
+kabyl(ssfu_2) %>% 
+  add_header_above(c("which followup visit is this?" = 3),
+                   align = "l")
+```
+
+Has the participant drank alcohol since you last saw them?
+```{r}
+kabyl(ssfu_6) %>% 
+  add_header_above(c("Has the participant drank alcohol since you last saw them?" = 4),
+                   align = "l")
+```
+
+Does participant want to complete a BMI session? 
+```{r}
+kabyl(ssfu_7) %>% 
+  add_header_above(c("Does participant want to complete a BMI session?" = 4),
+                   align = "l")
+```
+
+Was the interview form reviewed and updated as needed? 
+```{r}
+kabyl(ssfu_9) %>% 
+  add_header_above(c("Was the interview form reviewed and updated as needed?" = 4),
+                   align = "l")
+```
+
+Did lab staff retrieve phone log and sms content from participant's phone? 
+```{r}
+kabyl(ssfu_11) %>% 
+  add_header_above(c("Did lab staff retrieve phone log and sms content from participant's phone?" = 4),
+                   align = "l")
+```
+
+If no please explain below
+```{r}
+fu_12_session %>% 
+  select(subid, ssfu_12) %>% 
+  filter(!is.na(ssfu_12)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("If no please explain below" = 2),
+                   align = "l")
+```
+
+Did participant complete the ID followup 1 and 2 Battery?
+```{r}
+kabyl(ssfu_14) %>% 
+  add_header_above(c("Did participant complete the ID followup 1 and 2 Battery?" = 4),
+                   align = "l")
+```
+
+If no please explain below
+```{r}
+fu_12_session %>% 
+  select(subid, ssfu_15) %>% 
+  filter(!is.na(ssfu_15)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("If no please explain below" = 2),
+                   align = "l")
+```
+
+Was participant's ema form reviewed and updated as needed?
+```{r}
+kabyl(ssfu_16) %>% 
+  add_header_above(c("Was participant's ema form reviewed and updated as needed?" = 4),
+                   align = "l")
+```
+
+Please note any questions or concerns expressed by participant about the use of mobile and wireless devices. If participant did not have any questions, or express any concerns, please indicate that below. 
+```{r}
+fu_12_session %>% 
+  select(subid, ssfu_22) %>% 
+  filter(!is.na(ssfu_22) & ssfu_22 != "N/a" & ssfu_22 != "None" & ssfu_22 != "none" & ssfu_22 != "N/A" & ssfu_22 != "No" & ssfu_22!= "No concerns" & ssfu_22 != "No issues" & ssfu_22 != "n/a" & ssfu_22 != "no issues" & ssfu_22 != "No concerns." & ssfu_22 != "No issues." & ssfu_22 != "None." & ssfu_22 != "No concerns noted" & ssfu_22 != "No issues reported" & ssfu_22 != "No concerns expressed" & ssfu_22 != "none noted" & ssfu_22 != "No concerns noted." & ssfu_22 != "No questions or concerns expressed.") %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please note any questions or concerns expressed by participant about the use of mobile and wireless devices. If participant did not have any questions, or express any concerns, please indicate that below." = 2),
+                   align = "l") %>% 
+  scroll_box(height = "500px")
+```
+
+Was participant's follow up appointment scheduled?   
+duplicate question - ssfu_25 and ssfu_36
+```{r}
+kabyl(ssfu_25) %>% 
+  add_header_above(c("Was participant's follow up appointment scheduled?" = 4),
+                   align = "l")
+kabyl(ssfu_36) %>% 
+  add_header_above(c("Was participant's follow up appointment scheduled?" = 4),
+                   align = "l")
+```
+
+Which followup session was scheduled?
+```{r}
+kabyl(ssfu_26) %>% 
+  add_header_above(c("Which followup session was scheduled?" = 4),
+                   align = "l")
+```
+
+Please explain below why participant's follow-up appointment was not scheduled. 
+```{r}
+fu_12_session %>% 
+  select(subid, ssfu_40) %>% 
+  filter(!is.na(ssfu_40) & ssfu_40 != "Appointment was scheduled") %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped"))  %>% 
+  add_header_above(c("Please explain below why participant's follow-up appointment was not scheduled" = 2),
+                   align = "l") %>% 
+  scroll_box(height = "500px")
+```
+
+Did participant complete this session?
+```{r}
+kabyl(ssfu_34) %>% 
+  add_header_above(c("Did participant complete this session?" = 4),
+                   align = "l")
+```
+
+If no, please explain below why session is incomplete. 
+```{r}
+fu_12_session %>% 
+  select(subid, ssfu_35) %>% 
+  filter(!is.na(ssfu_35)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("If no, please explain below why session is incomplete" = 2),
+                   align = "l")
+```
+
+
+### Save
+
+```{r}
+write_csv(fu_12_session, file.path(path_out, "session_followup_12.csv"))
+```
+
+
+
+
+

@@ -1,0 +1,115 @@
+---
+title: "Make Features"
+author: "John Curtin"
+date: "4/2/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+## Set up
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+To start you nned to select features to create using "all" or name of feature.  Available data sources include: id, sr, ema, visits, dates, gps, voice, sms, audio
+
+```{r, messages = FALSE}
+features <- "gps"
+
+data_path <- "./shared/data"
+script_path <- "./shared/scripts_make"
+
+library(tidyverse)
+source(file.path(script_path, "fun_features.R"))
+```
+
+
+## Open y 
+
+```{r}
+lapses <- read_rds(file.path (data_path, "lapses.rds")) %>% 
+  glimpse()
+              
+```
+
+## Open relevant data sources
+Need to UDPATE for other data sources
+
+```{r}
+if (features == "gps" | features == "all"){
+  file_name <- "ds_gps.rds"
+  gps <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "id" | features == "all"){
+  file_name <- "ds_id.rds"
+  id <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "sr" | features == "all"){
+  file_name <- "ds_sr.rds"
+  sr <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "ema" | features == "all"){
+  file_name <- "ds_ema.rds"
+  ema <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "visits" | features == "all"){
+  file_name <- "ds_visits.rds"
+  visits <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+if (features == "dates" | features == "all"){
+  file_name <- "ds_dates.rds"
+  dates <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "voice" | features == "all"){
+  file_name <- "ds_voice.rds"
+  voice <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "sms" | features == "all"){
+  file_name <- "ds_sms.rds"
+  sms <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+
+if (features == "audio" | features == "all"){
+  file_name <- "ds_audio.rds"
+  audio <- read_rds(file.path(data_path, file_name)) %>% 
+    glimpse()
+}
+```
+
+
+## Make and save features
+
+```{r}
+(start_time <- Sys.time())
+if(features == "all"){
+  x <- make_x("Day", y = lapses, id = id, sr = sr, ema = ema, visits = visits, dates = dates, gps = gps, 
+                 voice = voice, sms = sms, audio = audio)
+  
+} else {
+  #eval(as.name(features)) takes text name of data object and replaces with object
+  x <- make_x("Day", lapses, gps = eval(as.name(features)))  
+}
+end_time <- Sys.time()
+
+x %>% 
+  glimpse() %>% 
+  write_rds(file.path(data_path, str_c("features_", features, ".rds")))
+
+message("Processing time for ", features, " = ", round(difftime(end_time, start_time, units = "mins")), " minutes")
+```

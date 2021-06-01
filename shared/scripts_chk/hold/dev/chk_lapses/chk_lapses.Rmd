@@ -1,0 +1,613 @@
+---
+title: "Check lapses"
+author: "Sarah, Megan"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+## GOALS/OUTCOMES OF THE FILE------------------
+The goal of this file is to examine lapses reported by participants, identify cases that required individual review by Sarah and Megan, make appropriate changes to errors in lapses reported in EMA, incorportate lapses reported outside of EMA (e.g. study visits), and examine trends in lapse frequency, distance, and trustworthiness. 
+There willl be three outcomes from this script:
+1) The creation of the initial log_lapses.csv. This is the csv file that identifies lapses that need hand review by Sarah and Megan (e.g. the distance between reported lapse start and end is negative, lapses were reported weeks after the lapse occured, etc)
+
+2) Updating raw ema_morning and ema_later files. After this hand review, log_lapses is read back into this script and updates the ema_morning and ema_later files with data corrections. All corrections are accompanied by handfilled notes in the log_lapses file. These corrections are determined by looking at staff notes and corroborating participant evidence (ema responses, voice check ins, gps data)
+
+3) The creation of lapses.rds. This file uses the corrected ema files in combination with other_lapses.csv (which is the notes file established to record lapses that were not reported in EMA/are not associated with an EMA response ID) to make the final account of all lapses. Individuals will then use this file to create their respective outcomes (e.g. lapse by day instead of hour) or can use different lapse defining characteristics (e.g. can choose how much time should be between lapses to count as a lapse, how to handle overlapping lapse reports, etc).
+
+
+## EXTENDED NOTES ABOUT FILE OUTCOMES--------------
+These outcomes identifed above serve two goals: actual correction of data entry errors and creating a usable lapse file
+
+1. CORRECTING raw data from the ema morning and evening files
+  *ONLY THINGS that were reported in ERROR
+    *forgetting a lapse label
+    *reporting a change to lapse start/end related to a SPECIFIC qualtrics survey
+    *Staff reviewing REPORTED ON QUALTRICS start and end labels and think they should be changed
+    *THIS DOES NOT INCLUDE lapses reported during visits that were not tied to a specific survey, lapse chains/breakup lapses, anything about GPS or timezones
+    *The only variables that would be corrected in the EMA files themselves are ema_1 (did you lapse), lapse start time, lapse end time, and the addition of a lapse timezone
+    *All of these changes are made by log_ema.
+      *log_type is used to let you know why a certain case was visually looked at (e.g. multiple timezone)
+      *log_action has two values - change (meaning the variables need to be updated) or note (meaning the case was visually inspected and there is no change to the data recommended)
+      *OUTPUT = corrected ema morning and ema later files. No new variables, no timezones, nothing
+          
+2.CREATING a lapses file that we trust - lapses.rds
+  *This file is created from the correct ema morning and later files above
+  *This file includes lapse start, end, timezone (but maybe response_id, survey start and end times?)
+  *This file also adds in EXTRA non ema reported lapses (reported at visits, if someone reports a lapse in an audio message that there was no ema
+  I dont think this will happen and I have no idea how we would find these except by accident?) from lapses_other.csv (SEPARATE FROM EMA LOG, THESE 
+  LAPSES HAVE NO repsonse id associated with them). We will only have one ema/lapse report per response id, so if the participant tells us a response was actually multiple lapses, or if we uncover evidence which suggests we should break a lapse in to multiple lapses, the first lapse is retained in the log_ema file with the response id (and edited to reflect the end time of the first lapse), and the others are added to lapses_other.csv and do not have a response_id.
+  *Open lapses other and add to ema lapses > make decisions about breaking up lapses, overlapping lapses, and chaining lapses. 
+  
+3. Conclusion/Clarfication notes
+After running this file we will have inspected and updated as needed lapses that:
+  *Did not have a close timezone to make us trust the timestamp
+  *That occured in different time zones, to make sure we trusted the report and calculations of lapse distances
+  *Lapses that had impossible relationships (i.e. negative values) between:
+    *Start of the survey and the start of the reported lapse
+    *start of the survey and the end of the reported lapse
+    *length of the lapse
+  *Lapses that had unusually long values for
+    *The distance between the start of the survey and the start of the lapse
+    *Do not need to look at start of survey and end of lapse because captured above (end would only be further away from start if negative)
+    *length of the lapse
+  *Lapses that were missing a start or end time
+  *Lapses that are close to or overlapping with other lapses (e.g. we don't think they are really separate) [THIS IS LIKELY PROJECT SPECIFIC AND IS NOT DONE/DECIDED IN THIS FILE, JUST LOOKED AT, CURRENTLY IN PROGRESS]
+  
+Ideas for other potential lapses to examine :
+  *Should we look at lapses reported during other lapses -- we think NO, this is likely captured and we wouldnt really probablu find any evidence
+  to support/disrprove these...if we assumed that, wed have to check every lapse
+  
+Note: this lapse checking is SEPARATE from chk_EMA 
+  *The chk_ema script starts with cleaned ema morning and evening above
+  *In chk_ema, we look at
+    *length of the survey time -- length of the survey does not invalidate reports of lapses, but it might invalidate reports of stress, etc.
+  *missing/outlier values
+  *# of stressfull events
+  *# of emas completed
+  *filtering problematic ema responders
+  *etc. NONE of these things are considered here in chk_lapses 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Setup------------------------------------------
+NOTE: You will need to open the RISK project file at the root of the RISK folder to run this script.(File > Open project, navigate to the root of the RISK folder and click the project file called RISK. You will need to reopen this file)
+```{r}
+library(tidyverse)
+library(knitr)
+library(janitor)
+library(lutz)
+library(furrr)
+#Change Q to P -- my laptop is mapped weird sorry!
+path_shared_data <- "Q:/StudyData/RISK/analysis/shared/data" 
+path_out <- "Q:/StudyData/RISK/analysis/shared/data" #Right location? SARAH will update when final location decided
+path_raw <- "Q:/StudyData/RISK/raw_data"
+
+path_qualtrics <- "Q:/StudyData/RISK/raw_data/qualtrics"
+```
+
+##Load and configure data------------------------------------
+Loading ema_morning ema_later
+*NOTE: raw qualtrics file times are recorded in UTC 00:00 - Abidjan, Accra...Reykjavik. These DO correct for British Summer time and are accurate relative to as_datetime conversions to UTC (UTC 00:00 London was NOT)
+
+Filter down to just variables we will use to identify lapses and combine
+
+```{r}
+#Sarah will update the read_csv order eventually (clean_names should come first)
+#Note that I am choosing to change the names of EMA variables to make it easier to work with, but when we update raw EMA files we will need to use the original variable names.
+
+ema_morning <- read_csv(file.path(path_qualtrics, "ema_morning.csv")) %>% 
+  select(c(ResponseID, StartDate, EndDate, SubID, EMAM_1, EMAM_1.1, EMAM_1.2, EMAM_1.3, EMAM_1.4, EMAM_1.5, Finished)) %>% 
+  mutate(ema_type = "morning") %>% 
+    rename(lapse = EMAM_1,lapse_start_date= EMAM_1.1, lapse_start_hour = EMAM_1.2, lapse_end_date = EMAM_1.3, lapse_end_hour = EMAM_1.4,
+         abstinent = EMAM_1.5, subid = SubID) %>% 
+  clean_names(case="snake")
+
+
+ema_later <- read_csv(file.path(path_qualtrics, "ema_later.csv")) %>% 
+    select(c(ResponseID, StartDate, EndDate, SubID, EMAL_1, EMAL_1.1, EMAL_1.2, EMAL_1.3, EMAL_1.4, EMAL_1.5, Finished)) %>% 
+  mutate(ema_type = "later") %>% 
+  rename(lapse = EMAL_1,lapse_start_date= EMAL_1.1, lapse_start_hour = EMAL_1.2, lapse_end_date = EMAL_1.3, lapse_end_hour = EMAL_1.4,
+         abstinent = EMAL_1.5, subid = SubID) %>% 
+  clean_names(case="snake")
+
+ema <- full_join(ema_morning, ema_later)
+
+#Make a separate data frame for lapses
+#filter down to only subs that were not discontinued
+
+subs_ran <-  list.files(path = path_raw)[1:154]
+
+lapses <- ema %>% 
+  filter(lapse==2)
+
+lapses <- lapses %>% 
+  filter(subid %in% subs_ran)
+```
+
+Add timezones to lapses----------
+I am only going to get timezones nearest to lapses because it takes such a long time to do the whole file
+
+```{r}
+#open the newest gps file (takes awhile)
+#use the lutz package to get the estimated tz based on lat/long
+#Note: we are not using method=accurate due to consideration of overlapping time points causing incorrect labels
+gps <- read_rds(file.path(path_shared_data, "ds_gps.rds"))
+
+gps <- gps %>% 
+  mutate(lutz_tz = tz_lookup_coords(lat, long, method = "fast"))
+```
+
+For each lapse, I find the nearest date we  have GPS coordinates for that subject.
+I will record reported timezones for the full lapse date (not just the closest point in time) because lapses are not reported with timezones, so I don't know the UTC of the time yet to match to GPS. Lapses on dates with multiple timezones (the participant was traveling) will be visually inspected to determine the best lapse tz.
+```{r message=FALSE}
+#First I'm selecting down GPS to only variables I need for lapse context for easier viewing
+
+gps_tz <- gps %>% 
+  select(subid, lat, long, time_central,lutz_tz) %>% 
+  x <- gps_tz %>% 
+  mapply(fun = function(a, b)
+{
+  c = with_tz(a,b)
+  return(c)
+}, a = time_central, b =.$lutz_tmapply(
+  
+  
+  , ...)
+
+
+map2_dfc(time, tzone,with_tz)
+
+time <- gps_tz$time_central
+tzone <-gps_tz$lutz_tz
+# mean of values using sapply
+local_time <- mapply(with_tz,time, tzone)
+# what type of object was returned?
+class(l.mean)
+[1] "numeric"
+# it's a numeric vector, so we can get element "a" like this
+l.mean[['a']]
+[1] 5.5
+
+gps_tz %>% cmapply(a=time_central, b=lutz_tz, FUN=function(a, b) c(with_tz(a,b)))
+  
+ x<- gps_tz %>% mutate(new_time = map2(.x = time_central, .y = lutz_tz, 
+                       .if = function(x, y) {with_tz(time = x, tzone = y)})) %>% 
+unnest(new_time) 
+
+  mutate(time_local = as_datetime(time_central, tz = lutz_tz,  format="%Y-%m-%d %H:%M:%S%z"))
+  new_time := map2(.x = date, .y = timezone, 
+                       .f = function(x, y) {with_tz(time = x, tzone = y)})]
+
+#Now I am going to get the local time for all gps observations (to match up to the lapses). Because it cannot be applied in a vectorized fashion across the tibble, I will convert by tz group
+gps_tz <- gps_tz %>% 
+  mutate(time_local = case_when(lutz_tz == "America/Boise" ~ as_datetime(time_central, tz = "America/Boise"),
+                                lutz_tz == "America/Chicago"))
+  mutate(time_local=with_tz(time_central, tzone = lutz_tz))
+
+#remove local time without tz (no lat/long in gps)
+gps_tz[is.na(gps_tz$lutz_tz), "time_local"] = NA
+
+#split local time into date and time
+gps_tz <- gpz_tz %>% 
+  mutate(date_local = as_date(str_sub(raw_orig_time, 1, 10))) %>% 
+  mutate(hour_local = as.numeric(str_sub(raw_orig_time, 12, 13)))
+
+
+#Iterate through all lapses with furrr
+#Input: tibble of lapses, tibble of gps data
+#Output: tibble of lapses with new variables for timezone (pulled from closet gps day to lapse), number of timezones on that day, distance between lapse date and nearest gps date, the date of nearest gps, and the offset from UTC for the recommended tz on the lapse date.
+
+plan(multisession)
+lapses <- lapses %>%
+  future_pmap_dfr(function(...) {
+    current_row <- tibble(...)
+    #If some lapses do not have a start date, we cannot match them to a tz
+    if(is.na(current_row$lapse_start_date)){
+      current_row %>% 
+        mutate(tz = NA) %>% 
+        mutate(tz_num =NA) %>% 
+        mutate(tz_distance = NA) %>% 
+        mutate(tz_date = NA) %>% 
+        mutate(tz_offset = NA)
+    }else{
+      #change character start date in lapses to date variable so we can do subtraction
+      #Using strptime so that I do not need to assign a timezone (we do not know the tz at this point yet)
+      start_date <- as_date(strptime(current_row$lapse_start_date, format = "%m-%d-%Y"))
+    
+    #Filter gps data down to the current subject, remove gps observations with no tz (no lat/long), and calculate distance between lapse start date and gps (only at the level of the day, not the)
+    gps_sub <- gps_tz %>% 
+      filter(subid == current_row$subid) %>% 
+      mutate(distance = start_date - date_local) %>% 
+      filter(!is.na(lutz_tz)) 
+    
+    #If sub does not have any gps date with timezones, assign NA for tz values
+    if(length(gps_sub$subid)==0){
+        current_row %>% 
+        mutate(tz = NA) %>% 
+        mutate(tz_num =NA) %>% 
+        mutate(tz_distance = NA) %>% 
+        mutate(tz_date = NA) %>% 
+        mutate(tz_offset = NA) %>% 
+        mutate(tz_dst = NA)
+    }else{
+      #For subs with tz values, filter down gps observations with the shortest distance from the lapse date (at the level of the day)
+      gps_sub <- gps_sub %>% 
+        filter(abs(distance) == min(abs(distance)))
+      
+    #make timezone variables
+     current_row <-  current_row %>% 
+      mutate(tz = Reduce(str_c,unique(gps_sub$lutz_tz))) %>% #concat multiple timezones
+      mutate(tz_num = length(unique(gps_sub$lutz_tz))) %>% # num of tz on closest day
+      mutate(tz_distance = min(gps_sub$distance)) %>% # num days closest tz from lapse
+      mutate(tz_date = gps_sub$date_local[1]) #date of closest gps data
+    
+     #If the lapse start date is in a non standard format, the distance is "inf"
+     #We cannot calculate offset, so set to NA
+      if(current_row$tz_distance == "Inf"){
+        current_row %>% 
+          mutate(tz_offset = NA) %>% 
+          mutate(tz_dst = NA)
+      }else{
+        #For correctly formatted dates, calculate the tz offset (the offset of hours from UTC on a given date for the suggested tz)
+        #Note because I am doing this at the level of the day, the tz offset is off by an hour on days where DST switches (tz_offset bases offset on dst status at 00:00)
+        df_tz <- tz_offset(start_date, unique(gps_sub$lutz_tz)[1])
+        current_row %>% 
+          mutate(tz_offset = df_tz$utc_offset_h)%>% 
+          mutate(tz_dst = df_tz$is_dst)
+        if(current_row$tz_num==1){
+           current_row %>% 
+            mutate(lapse_start_dt = as_datetime(paste(lapse_start_date,lapse_start_hour), format = "%m-%d-%Y %H", tz = tz)) %>% 
+    mutate(lapse_end_dt = as_datetime(paste(lapse_end_date,lapse_end_hour), format = "%m-%d-%Y %H", tz = tz))
+        }
+        #tz_offset returns a full dataframe, index into just the variables we want to retain
+      }
+    }
+    }
+  })
+future:::ClusterRegistry("stop") #close parallel backends
+```
+## Examine the timezones of lapses--------------------------
+Lets take a look at the lapses with timezones added in
+```{r}
+glimpse(lapses)
+
+table(lapses$tz_offset)
+```
+Most lapses appear to be in -6/-5 offsets
+
+##Add lapses with multiple timezones to log
+If a lapse occurred on a day with multiple gps identified timezones, we will visually inspect  the expected time of the lapse report and determine the most likely tz
+```{r}
+lapses %>% 
+  filter(tz_num>1) %>% 
+  View()
+#There are 18 lapses that occurred on days with more than 1 tz recorded
+
+#Set up log file and add multiple timezone cases
+log <- lapses %>% 
+  filter(tz_num>1) %>% 
+  arrange(subid) %>% 
+  mutate(log_reason = "multiple timezones") %>% 
+  mutate(new_tz = NA) %>% 
+  mutate(new_lapse_start_date = NA) %>% 
+  mutate(new_lapse_start_hour = NA) %>% 
+  mutate(new_lapse_end_date = NA) %>% 
+  mutate(new_lapse_end_hour = NA) %>% 
+  mutate(notes = NA) %>% 
+  mutate(log_action = NA) %>% 
+  select(c("response_id","subid","new_lapse_start_date","new_lapse_start_hour","new_lapse_end_date","new_lapse_end_hour","new_tz","log_reason","log_action","notes", everything()))
+
+#Save out (do not run again)
+#write_csv(log, file.path(path_out, "log_lapses_empty.csv"))
+#Saved with empty, empty deleted when file is hand edited
+
+#Read in corrected log file to fix these timezones
+#Needs to be done at this step to get proper UTCs below
+#MEGAN to review these cases
+log <- read_csv(file.path(path_out,"log_lapses.csv"))
+
+#Think of a better way than a for loop
+#Update the lapses file tz to tzs determined in log
+for(response_id in log$response_id){
+  lapses$tz[lapses$response_id == response_id] = log$new_tz[log$response_id ==response_id]
+}
+
+```
+
+##Review lapses with new timezones
+
+Lets look at lapses in America/Chicago offsets (-6 and -5) and see if we believe anything strange is happening, or if we are comfortable not reviewing these
+```{r}
+#Offset = -6
+lapses_6 <- lapses %>% 
+  filter(tz_offset == -6)
+
+table(lapses_6$tz)
+#So most of these look to be right, one we will need to confirm the timezone with where they were traveling, 6 in denver time which may be right depending on DST
+table(lapses_6$tz_dst)
+
+lapses_6 %>% 
+  filter(tz=="America/Denver")
+#These make sense, but a couple appear to be on the cusp of daylight savings time changes (e.g. 3/24 and 11/2 so would be worth checking)
+```
+There were no America/Chicago lapses that appeared to have the wrong offset relative to dst. So I think we are fine trusting those. All lapses in a new tz will get reviewed in the log (which captures our denver dst ones)
+
+```{r}
+#looking at offset -5
+lapses_5 <- lapses %>% 
+  filter(tz_offset == -5) %>% 
+  glimpse()
+
+table(lapses_5$tz)
+#Multiple timezones, most still am chicago which should be -5 only during dst
+
+lapses_5 %>% filter(tz_dst == FALSE) 
+#looks good -- the only 10 cases where dst is false are tzs that should be -5 during this time (e.g. new york, detroit)
+```
+
+##Add lapses with new timezones to log
+In general, these look trustworthy and do not need review. They will still be added to the log to document the change
+```{r}
+new_tz <- lapses %>% 
+  filter(!is.na(tz)) %>% 
+  filter(!tz=="America/Chicago") %>% 
+  arrange(subid) %>% 
+  mutate(log_reason = "New timezone") %>% 
+  mutate(new_tz = tz)
+
+log <- full_join(log, new_tz)
+
+#save new log file - DO NOT REDO
+#write_csv(log, file.path(path_out, "log_lapses.csv"))
+
+#No need to update lapses since tz was created in there
+glimpse(lapses)
+
+```
+
+## Examining Distance Between Lapses and GPS-------------------------
+
+Now looking at the distance between gps days and lapse days. There are a few lapses that do not have values for distance
+```{r}
+#converting tz distance to numeric so I can graph
+class(lapses$tz_distance)
+lapses<- lapses %>% 
+  mutate(tz_distance = as.numeric(lapses$tz_distance, unit = 'days'))
+
+#lapses that do not have a tz distance values
+lapses %>% 
+  filter(is.na(tz_distance)) %>% 
+  glimpse()
+
+```
+
+##Look up reasons why distance is missing
+76 observations are missing gps on the same day because the subject does not have any gps data. These are all incomplete surveys that reported a lapse, but no start or end dates. These incompletes will be added to the log and investigated by staff
+
+##Add incomplete surveys to log
+```{r}
+incomplete_lapses <- lapses %>% 
+  filter(is.na(tz_distance)) %>% 
+  arrange(subid) %>% 
+  mutate(log_reason = "Survey incomplete")
+
+log <- rbind(log, incomplete_lapses)
+```
+
+
+Now look at lapses where distance is INF
+```{r}
+lapses %>% 
+  filter(tz_distance=="Inf") %>% 
+  glimpse()
+
+```
+There are 10 lapses where the tz_distance = "Inf" because the input dates were not formatted properly. These cases will be investigated by staff and reformatted.
+
+##Add badly formatted date lapses to the log
+```{r}
+
+bad_date_lapses <- lapses %>% 
+  filter(tz_distance=="Inf") %>% 
+  arrange(subid) %>% 
+  mutate(log_reason = "Bad formatted date")
+
+log <- rbind(log, bad_date_lapses)
+
+```
+
+
+Now I filter out NA and Inf distances so I can look at the gps/lapse distance distribtuion
+```{r}
+#Get the absolute value of the distance between lapse start and gps signal
+lapses <- lapses %>% 
+  filter(!is.na(tz_distance)) %>% 
+  filter(!tz_distance=="Inf") %>% 
+  mutate(abs_distance = abs(tz_distance))
+
+range(lapses$abs_distance)
+
+hist(lapses$abs_distance)
+```
+Most of our lapses look like they have same day gps, but lets look closer
+
+
+```{r}
+lapses %>% filter(abs_distance == 0) %>%
+  glimpse()
+```
+Most people 1214 have gps same day of reported lapse
+
+```{r}
+lapses %>% filter(abs_distance > 0)%>% 
+  glimpse()
+```
+Only 115 lapses do not have gps on same day of reported lapse
+
+```{r}
+lapses %>% filter(abs_distance > 5) %>% dim()
+```
+59 do not have gps within 5 days of lapses
+
+```{r}
+lapses %>% filter(abs_distance > 50) %>% dim()
+```
+17 do not have gps within 50 days of lapse
+
+```{r}
+under_5 <- lapses %>% filter(abs_distance < 5)
+hist(under_5$abs_distance)
+```
+It looks like the most logical cut for us is to examine anyone who did not have gps data that day
+
+##Add lapses with no same day gps to log
+```{r}
+no_day_gps <- lapses %>% 
+  filter(abs_distance > 0) %>% 
+  arrange(subid) %>% 
+  mutate(log_reason = "No same day gps")
+
+log <- rbind(log, bad_date_lapses)
+
+#Add to log
+#UTC timestamps for lapse start and end
+#blank varibales at the of csv (notes column, tz, lapse start end date and hours)
+
+#
+
+
+```
+
+Checking gps stuff
+```{r}
+#Filter down to full 12 hours on either side of suspected lapse (akwnoleding tz might be wrong)
+    gps_sub <- gps_tz %>% 
+      filter(subid == "016") %>% 
+      filter(!is.na(lutz_tz)) %>% 
+  View()
+    
+#add in all lapses for gps point closest to lapse end
+
+write_csv(log, file.path(out_path, "sample.csv"))
+```
+
+Potential reasons why people would not have gps close to a lapse:
+  *they had bad or no gps data (10 subjects gps for less 50% of days)
+  *No cell phone data on vacation.
+  *If they listed a time outside of the study
+  *If they haven't moved in a long time (if they were at home OR left their phone at home)
+
+We will use these sources to check changes to lapse timezones:
+  *vacation file if they have it
+  *Audio on/around lapse days
+  *Qualtrics gps from ema survey
+  *Closest gps places so see if they moved or likely stayed in one place
+  
+
+
+
+
+
+
+<!-- **** SARAH WILL ADD IN  report length from survye start and END of lapse -->
+<!-- * Lapses without a label (NA) -->
+<!-- #create variables for lapse length and length since report -->
+
+<!-- lapses <- lapses %>%  -->
+<!--   mutate(lapse_length = lapse_end - lapse_start) %>%  -->
+<!--   mutate(lapse_length = lapse_length/3600) %>%  -->
+<!--   mutate(lapse_length = as.numeric(lapse_length)) -->
+
+<!-- lapses <- lapses %>%  -->
+<!--   mutate(report_length_from_start = start_date - lapse_start) %>%  -->
+<!--   mutate(report_length_from_start = report_length_from_start/3600) %>% -->
+<!--   mutate(report_length_from_start =as.numeric(report_length_from_start)) -->
+
+
+<!-- #Identify lapses to examine ---------------------------------- -->
+<!-- This is how to original examine_lapses file was saved. I am keeping this here to reference the original file. We had decided to look at lapses that had a negative length (impossible), a length greater than 12 hours, had a negative report length (i.e. lapses were reported before they happened), or were reported more than 72 hours after they occurred -->
+
+<!-- ##Saving of original examine_lapses file -->
+<!-- ```{r} -->
+<!-- examine_lapses <- lapses %>%  -->
+<!--    filter(lapse_length < 0 | report_length_from_start < 0 | lapse_length >12 | report_length_from_start > 72) %>%  -->
+<!--    arrange(subid) -->
+<!-- ``` -->
+
+<!-- After meeting with John on 5/19/2020 we decided to add in lapses that were missing start/end dates, lower our lapse_length threshold to 10 hrs, and lower our report_length threshold to lapses that were reported more than 30 hrs after the lapse -->
+
+<!-- Here are some histograms to show why we picked these cut offs. Note we filtered out extreme values to get a better picture of the proposed cut points -->
+
+
+<!-- ##New cut for lapse_length -->
+<!-- ```{r} -->
+<!-- lapses %>%  -->
+<!--   filter(lapse_length < 40 & lapse_length >=0) %>%  -->
+<!--   pull(lapse_length) %>%  -->
+<!--   hist() -->
+<!-- ``` -->
+
+<!-- ##New cut for report_length -->
+<!-- ```{r} -->
+<!-- lapses %>%  -->
+<!--   filter(report_length_from_start < 72 & report_length_from_start >=0) %>%  -->
+<!--   pull(report_length_from_start) %>%  -->
+<!--   hist() -->
+
+<!-- ``` -->
+
+<!-- ##Add new lapse cases to the examine_lapses file -->
+<!-- ```{r} -->
+<!-- #missing -->
+<!-- missing_dates <- lapses %>% filter(is.na(lapse_length)|is.na(report_length_from_start)) -->
+<!-- examine_lapses <- rbind(examine_lapses,missing_dates) -->
+
+<!-- #over 10 hr lapse -->
+<!-- over_10 <- lapses %>% filter(lapse_length>=10 & lapse_length<=12 & report_length_from_start >= 0 & report_length_from_start <= 72) -->
+<!-- examine_lapses <- rbind(examine_lapses,over_10) -->
+
+<!-- #reported over 30 hrs after lapse occurred -->
+<!-- over_30 <- lapses %>% filter(report_length_from_start >= 30 & report_length_from_start <= 72 & lapse_length >= 0 & lapse_length < 10) -->
+<!-- examine_lapses <- rbind(examine_lapses,over_40) -->
+
+<!-- ``` -->
+
+<!-- ##Save examine_lapses -->
+<!-- ```{r} -->
+<!-- #Convert dates to character so they import more nicely into excel -->
+<!-- examine_lapses <- examine_lapses %>%  -->
+<!--   mutate(start_date = as.character(start_date))%>%  -->
+<!--   mutate(end_date = as.character(end_date))%>%  -->
+<!--   mutate(lapse_start = as.character(lapse_start))%>%  -->
+<!--   mutate(lapse_end = as.character(lapse_end)) -->
+
+<!-- #Saving three copies so sarah and megan can work at the same time, one original to remain untouched -->
+<!--  write_csv(examine_lapses, file.path(out_path, "examine_lapses_orig.csv")) -->
+<!--  write_csv(examine_lapses, file.path(out_path, "examine_lapses_megan.csv")) -->
+<!--  write_csv(examine_lapses, file.path(out_path, "examine_lapses_sarah.csv")) -->
+<!-- ``` -->
+
+<!-- #Adding in data log notes that were in *black* meaning not handled by John------------ -->
+<!-- ```{r} -->
+<!-- # – 5/22/2019: Participant 188’s EMAL response with UTC 1557713610 is a false “Yes” response. The participant reported that they did not have a lapse and forgot that they could go back and change the “Yes” response to a “No” response. The participant did not have any lapses while on study.  -->
+
+
+<!-- ``` -->
+<!-- #Saving additional lapses to examine----------------------------- -->
+<!-- After meeting on 5/18/2020 with John, we decided to also examine cases where one of the lapse times was missing and bring our long lapses examinations down to 10 instead of 12 hours -->
+
+<!-- MEGAN you do not need to run this chunk -->
+<!-- ```{r} -->
+<!-- View(lapses[is.na(lapses$report_length_from_start),]) -->
+
+<!-- #Found this in data log -->
+<!-- # -->
+
+<!-- ``` -->

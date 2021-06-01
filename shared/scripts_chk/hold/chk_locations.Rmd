@@ -1,0 +1,309 @@
+---
+title: "Checking Locations Report"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+ 
+This script checks data from RISK participants' locations reports by computing descriptives and 
+checking for missingness and potential errors.  
+
+Thoughts for discussion:  
+1. Time of visit refers to study visit when location was identified. How can we link to gps data
+with time of location visit?  
+2. Location_type "other" was 2nd most common choice. Locate paper files to analyze what these 
+locations are.  
+3. Not much variability in yes and no questions. Ex: Less than 4% answered "yes" to vacationing 
+at location question.
+  
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+  
+Paths 
+```{r}
+getwd()
+path_data <- "./analysis/shared/data"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+```
+
+
+### Import Data and glimpse 
+
+Locations data
+```{r}
+locations <- read_rds(file.path(path_data, "ds_locations_report.rds")) 
+
+locations <- locations %>%
+  mutate(time_central = as_datetime(utc, tz = 'America/Chicago')) %>%
+  select(-utc) %>%
+  glimpse() 
+```
+
+`r length(unique(locations$subid))` participants contribute to a total of `r nrow(locations)` locations.    
+The earliest recorded location is from `r min(date(locations$time_central))` and the last is from `r max(date(locations$time_central))`. 
+
+Check for being at different locations at the same time
+```{r}
+locations %>% 
+  select(subid, street_address, type, time_central) %>% 
+  head(n = 20) %>% 
+  kable(caption = "Sample of locations and corresponding times", table.attr = "style='width:80%;'") %>% 
+  kable_styling(position = "left", bootstrap_options = "condensed")
+```
+
+UTCs appear to not be accurate as to time sub visited the location but instead of when they reported 
+the location to research staff (confirmed by checking with notes log/visit dates).
+
+Check for missing values
+```{r}
+if(any(is.na(locations))){
+  missing <- locations %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values", table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+There are `r sum(is.na(locations))` missing values (NA) from `r length(missing$var)` unique 
+variables in the entire dataset.
+
+View location with missing city
+```{r}
+locations %>% 
+  filter(is.na(city)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "condensed")
+```
+
+A google map search of 1222 East Washington Avenue, WI confirms city should be Madison. Will add city.  
+
+Add city to city variable and full_address variable
+```{r}
+locations_137 <- locations %>% 
+  filter(subid == 137 & street_address == "1222 East Washington Avenue") %>% 
+  mutate(city = "Madison",
+         full_address = str_glue("{street_address}, {city}, {state}"))
+locations <- locations %>%
+  filter(!(subid == 137 & street_address == "1222 East Washington Avenue"))
+locations <- locations %>% 
+  rbind(locations_137)
+# check  
+locations %>%
+  filter(subid == 137 & street_address == "1222 East Washington Avenue") %>%
+  kable() %>% 
+  kable_styling(bootstrap_options = "condensed")
+```
+
+Check missing values again
+```{r}
+if(any(is.na(locations))){
+  missing <- locations %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values", table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+There are now `r sum(is.na(locations))` missing values (NA) from `r length(missing$var)` unique 
+variables in the entire dataset.
+
+### Descriptives
+
+Locations outside Madison (city)
+```{r}
+locations %>% 
+  select(city) %>%
+  mutate(city = case_when(
+    city == "Madison" ~ "Madison",
+    TRUE ~ "Outside Madison")) %>% 
+  tabyl(city, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Average number of places participants reported each visit
+```{r}
+mean_avg_location_per_day <- locations %>%                                                          
+  group_by(subid, date(time_central)) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(avg_locations_per_day = mean(n_obs)) %>% 
+  .$avg_locations_per_day %>% 
+  mean()
+
+max_location_per_day <- locations %>% 
+  group_by(subid, date(time_central)) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(max = max(n_obs)) %>% 
+  .$max %>% max()
+
+locations %>% 
+  group_by(subid, date(time_central)) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_locations_per_day = mean(n_obs)) %>% 
+  ggplot(aes(x = avg_locations_per_day)) +
+  geom_histogram(bins = 12) +
+  xlab("avg locations participants reported per visit") +
+  ggtitle("Histogram of average locations reported per day (visit)") +
+  theme_classic()
+```
+
+On average, participants reported an average of `r round(mean_avg_location_per_day, 2)` places visisted at their 
+intake/followup visits (max = `r max_location_per_day`).
+
+
+COMMENT KW 2020-08-11: The goal would be to use the above script to report the places participants visited each 
+day if we can combine these locations with GPS data. Currently it probably does not tell us much because we would 
+expect participants reported more locations at intake and fewer at followups.
+
+
+Type of location (type)
+```{r}
+locations %>%
+  mutate(type = tolower(type),
+         type = fct_infreq(factor(type))) %>% 
+  tabyl(type, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Type of location", table.attr = "style='width:60%;'") %>%
+  kable_styling(position = "left")
+
+locations %>%
+  mutate(type = tolower(type),
+         type = fct_infreq(factor(type))) %>%
+  ggplot(aes (x = type)) +
+  geom_bar() +
+  xlab("location type") +
+  ggtitle("Frequency plot of types of locations visited") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Location as a function of risk level
+```{r}
+locations %>%
+  mutate(type = tolower(type),
+         type = fct_infreq(factor(type))) %>%
+  mutate(risk = tolower(risk),
+         risk = fct_relevel(factor(risk, c("high", "medium", "low", "no", "NA")))) %>% 
+  ggplot(aes (x = type, fill = risk)) +
+  geom_bar() +
+  xlab("location type") +
+  ggtitle("Frequency plot of types of locations visited by risk level") +
+  theme_classic() +  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "BuPu", direction = -1, na.value = "light grey")
+```
+
+Drank alcohol at location in past (drank)
+```{r}
+locations %>%
+  mutate(drank = tolower(drank),
+         drank = fct_infreq(factor(drank))) %>% 
+  tabyl(drank, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Drank alcohol at location in past", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Alcohol is available at location (alcohol)
+```{r}
+locations %>%
+  mutate(alcohol = tolower(alcohol),
+         alcohol = fct_infreq(factor(alcohol))) %>% 
+  tabyl(alcohol, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Alcohol is available at location", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Emotion associated with location (emotion)
+```{r}
+locations %>%
+  mutate(emotion = tolower(emotion),
+         emotion = fct_relevel(factor(emotion, c("pleasant", "unpleasant", "mixed", "neutral")))) %>% 
+  tabyl(emotion, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Emotion associated with location", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+
+locations %>%
+  mutate(emotion = tolower(emotion),
+         emotion = fct_relevel(factor(emotion, c("pleasant", "unpleasant", "mixed", "neutral", "NA")))) %>% 
+  ggplot(aes (x = emotion)) +
+  geom_bar() +
+  xlab("emotion from location") +
+  ggtitle("Frequency plot of type of emotion from location") +
+  theme_classic()
+```
+
+Risk level for drinking (risk)
+```{r}
+locations %>%
+  mutate(risk = tolower(risk),
+         risk = fct_relevel(factor(risk, c("high", "medium", "low", "no")))) %>% 
+  tabyl(risk, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Risk level for drinking at location", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+
+locations %>%
+  mutate(risk = tolower(risk),
+         risk = fct_relevel(factor(risk, c("high", "medium", "low", "no", "NA")))) %>% 
+  ggplot(aes (x = risk)) +
+  geom_bar() +
+  xlab("risk level") +
+  ggtitle("Frequency plot of risk level for drinking at location") +
+  theme_classic()
+```
+
+Avoiding location (avoid)
+```{r}
+locations %>%
+  mutate(avoid = tolower(avoid)) %>% 
+  tabyl(avoid, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Location participant avoids", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Vacation location (vacation)
+```{r}
+locations %>%
+  mutate(vacation = tolower(vacation)) %>% 
+  tabyl(vacation, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Location participant vacations at", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+

@@ -1,0 +1,541 @@
+---
+title: "Andriod/SMS Logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+
+**Note: Emojis are accidently stripped in the aggregated csv file, still working on how to extract them from the xml files and will update.**    
+
+
+Inputs:   
+[subid]_SMS_1.xml  
+[subid]_SMS_2.xml   
+[subid]_SMS_3.xml  
+etc. for as many sms xml logs in the subid's folder  
+
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "Z:/StudyData/RISK/raw_data"
+path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(XML)
+library(xml2)
+```
+
+
+### Android SMS Logs (XML) 
+
+#### Create function to read in subid logs
+
+```{r}
+read_xml <- function(subid) {
+    logs <- tibble(subid = character(),
+                   message = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'.xml')) {
+          path <- file.path(path_raw, subid, file)
+          
+          # xml code adapted from Susan's fun_database script
+          # use read_html instead of read_xml to avoid problem with emojis in contacts
+          xml <- xml_children(read_html(file.path(path)))
+ 
+          # fix for problem with nested list after switching to read_html()
+          while (length(xml) == 1) {
+            xml <- xml_children(xml) #loop to find lower level of xml children 
+          }    
+
+          log <- data.frame(
+           protocol = xml_attr(xml,'protocol'),
+           address = xml_attr(xml,'address'),
+           date = xml_attr(xml,'date'),
+           type = xml_attr(xml,'type'),
+           subject = xml_attr(xml,'subject'),
+           body = xml_attr(xml,'body'),
+           toa = xml_attr(xml,'toa'),
+           sc_toa = xml_attr(xml,'sc_toa'),
+           service_center = xml_attr(xml,'service_center'),
+           read = xml_attr(xml,'read'),
+           status = xml_attr(xml,'status'),
+           locked = xml_attr(xml,'locked'),
+           date_sent = xml_attr(xml,'date_sent'),
+           readable_date = xml_attr(xml,'readable_date'),
+           contact_name = xml_attr(xml,'contact_name'),
+           stringsAsFactors = FALSE)
+          
+          # Add subid and log information to dataframe
+          log <- log %>% 
+            mutate(subid = subid,
+                   log_file = file,
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime)
+          
+          # Join log files
+          logs <- logs %>% 
+            full_join(log)
+        }
+      }
+      return(logs)
+    } 
+}
+```
+
+```{r}
+get_xml_ids <- function(subid) {
+    log <- tibble(subid = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'xml')) {
+         log <- log %>% 
+            add_row(subid = subid)
+          return(log) }
+      }   
+      
+    }
+}
+```
+
+#### get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+
+# subids with xml files
+xml_subids <- tibble(subid = character())
+xml_subids <- map_df(subids$subid, ~get_xml_ids(.)) %>% 
+  glimpse()
+```
+
+
+#### read in all XML logs
+```{r message = FALSE}
+all_logs <- tibble(subid = character())
+all_logs <- map_df(xml_subids$subid, ~read_xml(.)) %>% 
+  glimpse()
+```
+
+#### Remove duplicates
+Inspect duplicates    
+*Only showing preview in knitted file because pandoc crashes with full table*
+```{r}
+dups <- all_logs %>% 
+  add_count(subid, date, address, body, contact_name) %>% 
+  filter(n > 1) %>% 
+  select(-c(log_file, created, modified, n))
+
+all_logs %>% 
+  semi_join(dups, by = c("subid", "date", "address", "body", "contact_name")) %>% 
+  arrange(subid, date, address, body, contact_name) %>%
+  head(n = 500) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  distinct(across(c(subid, date, address, body, contact_name)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
+
+#### Convert utc to date time 
+Check all dates encoded as 13 digit utc in milliseconds    
+```{r}
+all_logs %>% 
+  filter(!nchar(date) == 13)
+```
+
+FIX: One date appears to have been parsed or read incorrectly - should be in 13 digit UTC
+```{r}
+all_logs %>% 
+  filter(log_file == "128_SMS_1.xml") %>% 
+  arrange(date) %>%  
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  row_spec(1, color = "red") %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Read in same way in all subsequent logs
+```{r}
+all_logs %>% 
+  filter(subid == "128" & body == "Well if u can gwt for a good price but why wouldnt marty just do that himself then? If u can get car and engine for 500 good deal. What year is it")
+```
+
+
+* Date was incorrect in log:   
+sms protocol="0" address="+16087127555" date="-1" type="2" subject="null" body="Well if u can gwt for a good price but why wouldnt marty just do that himself then? If u can get car and engine for 500 good deal. What year is it" toa="null" sc_toa="null" service_center="+12063130004" read="1" status="-1" locked="0" date_sent="0" readable_date="Dec 31, 1969 5:59:59 PM" contact_name="Al"   
+
+* NOTE: Place in log shows that this message likely occurred in July which is prior to the subids start date of 9/08 - will be filtered out later.   
+ 
+* FIX: I noticed some messages in 128's log were read in blank, because of emojis? Working on a solution for correctly parsing emojis from xml files    
+
+example message that was read in as blank: sms protocol="0" address="+16083203603" date="1530892964248" type="1" subject="null" body="&#55357;&#56469; Hi Tai,&#13;Is there anyway you or Al could water today and/or tomorrow?&#55357;&#56842; " toa="null" sc_toa="null" service_center="+14054720056" read="1" status="-1" locked="0" date_sent="1530892961000" readable_date="Jul 6, 2018 11:02:44 AM" contact_name="Jeanette Cell"
+
+Check no missing date values
+```{r}
+all_logs %>% 
+  filter(is.na(date))
+```
+
+Convert dates to date time object
+```{r}
+all_logs <- all_logs %>% 
+  mutate(date = round(as.numeric(date)/1000, 0), 
+         date = as_datetime(date, tz = "utc"))
+```
+
+#### Date sent
+Check encoded as 13 digit utc   
+FIX: Date sent not all 13 digit utcs - need to look into this before converting to date time
+```{r}
+all_logs %>% 
+  filter(!nchar(date_sent) == 13) %>% 
+  count(date_sent) %>% 
+  arrange(desc(n)) 
+```
+
+
+#### Other data updates for eda
+
+Check classes
+```{r}
+all_logs %>% 
+  glimpse()
+```
+
+Convert int columns to numeric
+```{r}
+# check variables contain only integers
+all_logs %>% 
+  count(protocol) 
+all_logs %>% 
+  count(type)
+all_logs %>% 
+  count(read)
+all_logs %>% 
+  count(status)
+all_logs %>% 
+  count(locked)
+
+# convert to int class
+all_logs <- all_logs %>% 
+  mutate(protocol = as.numeric(protocol),
+         type = as.numeric(type),
+         read = as.numeric(read),
+         status = as.numeric(status),
+         locked = as.numeric(locked)) 
+```
+
+Replace empty character strings with NA
+```{r}
+all_logs <- all_logs %>% 
+  mutate(across(where(is.character), ~na_if(., "")))
+```
+
+Final glimpse
+```{r}
+all_logs %>% 
+  glimpse()
+```
+
+<br>
+
+### EDA
+
+`r length(unique(all_logs$subid))` subids had xml sms data logs read in.    
+
+
+#### Missing data
+```{r}
+all_logs %>% 
+  naniar::miss_var_summary()
+```
+
+100% of texts missing message (note text message content is in body variable)       
+
+Quick check of other variables that may not be needed (mostly null)
+```{r}
+all_logs %>% 
+  count(subject == "null")
+
+all_logs %>% 
+  filter(subject != "null") %>% 
+  select(subject) %>% 
+  print(n = Inf)
+```
+
+toa and sc_toa are 0, null, or NA for all log entries   
+```{r}
+all_logs %>% 
+  janitor::tabyl(toa)
+
+all_logs %>% 
+  janitor::tabyl(sc_toa)
+```
+
+service_center = "The service center (SC) through which to send the message, if present."    
+https://developer.android.com/reference/android/provider/Telephony.TextBasedSmsColumns#SERVICE_CENTER
+```{r}
+all_logs %>% 
+  janitor::tabyl(service_center)
+```
+
+FIX: may want to remove these variables - seems to not contain much info
+```{r}
+# all_logs <- all_logs %>% 
+#   select(-c(message, subject, toa, sc_toa, service_center))
+```
+
+<br>
+
+#### Dates
+Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`   
+
+Min date is off because of observation above that seems to not be read in correctly. Date was originally -1.        
+
+Next min value is in 2013
+```{r}
+all_logs %>% 
+  filter(date > "1970-01-01") %>% 
+  arrange(date) %>% 
+  slice(1)
+```
+
+No other dates less than 2013
+```{r}
+all_logs %>% 
+  filter(date < "2013-11-27")
+```
+
+
+Check dates against readable_date variable   
+```{r}
+all_logs %>% 
+  # convert readable date to date time object
+  mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
+                                                   format = "%b %e, %Y %I:%M:%S %p")) %>% 
+  # convert utc date to central time
+  mutate(date = with_tz(date, tzone = "America/Chicago")) %>% 
+  select(date, date_str)
+```
+
+Compare two date entries for discrepancies    
+Readable date for 3 entries are 1 hour off. May be due to traveling?
+```{r}
+all_logs %>% 
+  mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
+                                                   format = "%b %e, %Y %I:%M:%S %p"),
+         date = with_tz(date, tzone = "America/Chicago"),
+         diff = round(difftime(date, date_str, units = "mins"), 0)) %>%
+  filter(diff != 0) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Removing readable date - will be using unix time stamp from here on out
+```{r}
+all_logs <- all_logs %>% 
+  select(-readable_date)
+```
+
+<br>
+
+#### phone numbers
+1 Missing number
+```{r}
+all_logs %>% 
+  filter(is.na(address)) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+Raw number format   
+Note: email address is possible phone number
+```{r}
+all_logs %>% 
+  filter(!is.na(address)) %>% 
+  select(address) %>% 
+  head(n = 1000) %>% 
+  print(n = Inf)
+```
+
+numbers with @ sign    
+Note: some emails have - so need to preserve if removing - from numbers
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "@")) %>% 
+  count(address) %>% 
+  print(n = Inf)
+```
+
+Some numbers are formatted with parenthesis, spaces, and dashes
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "\\(")) %>% 
+  count(address)
+```
+
+Pound signs
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "#")) %>% 
+  count(address) 
+```
+
+Asterisks  
+* 67 before dialing a number hides the number from showing on caller id - I didnt know this worked for SMS though
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "\\*")) %>% 
+  count(address)
+```
+
+
+#### text content
+
+FIX: Not seeing many emojis - may have accidently been stripped, working on solution.
+```{r}
+all_logs %>% 
+  select(body) %>% 
+  head(n = 200) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+#### type
+```{r}
+all_logs %>% 
+  count(type)
+```
+
+#### read
+```{r}
+all_logs %>% 
+  count(read)
+```
+
+#### status
+```{r}
+all_logs %>% 
+  count(status)
+```
+
+#### protocol
+```{r}
+all_logs %>% 
+  count(protocol)
+```
+
+#### locked
+```{r}
+all_logs %>% 
+  count(locked)
+```
+
+#### date sent
+
+About half have a date of 0. Not sure what 0 is yet, doesn't seem to be related to type of call.
+```{r}
+all_logs %>% 
+  count(date_sent == 0)
+
+all_logs %>% 
+  filter(date_sent == 0) %>% 
+  janitor::tabyl(type)
+```
+
+#### contact name
+```{r}
+all_logs %>% 
+  group_by(contact_name) %>% 
+  slice(1) %>% 
+  select(contact_name) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "50%", height = "500px")
+```
+
+#### log files
+more than 3 logs
+```{r}
+all_logs %>% 
+  group_by(subid) %>% 
+  summarise(n_logs = length(unique(log_file))) %>% 
+  filter(n_logs > 3)
+
+all_logs %>% 
+  filter(subid == "032") %>% 
+  janitor::tabyl(log_file)
+
+all_logs %>% 
+  filter(subid == "052") %>% 
+  janitor::tabyl(log_file)
+
+all_logs %>% 
+  filter(subid == "223") %>% 
+  janitor::tabyl(log_file)
+```
+
+32 and 52 also have 4 voice call logs:  
+subid 32 bought a new phone in the first month of the study and so we collected call/sms logs from both phones at Follow Up 1.  
+subid 52 got a new phone while on study - likely explains extra log.   
+subid 223 got a new phone and phone number so they came in on 5/20/2019 to get apps put on their phone and to register for surveys. Participant brought their deactivated phone with to delete apps and to transfer calls and SMS files (labeled SMS_1 and Calls_1); Participant did not have a Voice_4 file at their Final Visit they had no phone calls in their phone call log
+
+<br>
+
+log creation dates range from `r min(all_logs$created)` to `r max(all_logs$created)`.      
+log modification dates range from `r min(all_logs$modified)` to `r max(all_logs$modified)`.   
+
+Note: almost all (but not all) of the logs have modification dates that precede the creation date. Not sure why this is.
+```{r}
+all_logs %>% 
+  filter(modified < created)
+```
+
+
+### Write csv
+```{r}
+write_csv(all_logs, file.path(path_out, "sms_android.csv")) %>% glimpse()
+```
+
+**Note: date saved as UTC**
+
+<br>

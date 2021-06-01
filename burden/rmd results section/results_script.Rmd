@@ -1,0 +1,196 @@
+---
+title: "Results"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, results ='markup', warning = TRUE, echo = FALSE)
+options(digits = 1, 'ReporteRs-fontsize'=11, 'ReporteRs-default-font'='Arial', width = 99)
+```
+
+
+```{r}
+# function for sourcing Rmd
+options(knitr.duplicate.label = 'allow')
+
+source_rmd <- function(file, local = FALSE, ...){
+  options(knitr.duplicate.label = 'allow')
+
+  tempR <- tempfile(tmpdir = ".", fileext = ".R")
+  on.exit(unlink(tempR))
+  knitr::purl(file, output=tempR, quiet = TRUE)
+
+  envir <- globalenv()
+  source(tempR, local = envir, ...)
+}
+```
+
+```{r}
+library(knitr)
+library(tidyverse)
+library(kableExtra)
+library(ggtext)
+library(cowplot)
+library(qwraps2)
+
+source_rmd("results_full_code.Rmd")
+options(knitr.kable.NA = '')
+# options(qwraps2_markup = "markdown")
+```
+
+
+# Participant Characteristics
+
+```{r, results = 'asis'}
+age %>%
+  full_join(sex) %>%
+  full_join(race) %>%
+  full_join(ethnicity) %>%
+  full_join(education) %>%
+  full_join(employment) %>%
+  full_join(income) %>%
+  full_join(marital) %>%
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 2</b><br><br><i>Demographics for all enrolled participants (N = 170)</i>",
+      table.attr = "style='width:60%;'",
+      escape = FALSE) %>%
+  row_spec(row = 0, align = "c") %>%
+  kable_classic(html_font = "Arial", position = "left") %>%
+  pack_rows("Sex", 2, 3, bold = FALSE) %>%
+  pack_rows("Race", 4, 8, bold = FALSE) %>%
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>%
+  pack_rows("Education", 11, 16, bold = FALSE) %>%
+  pack_rows("Employment", 17, 25, bold = FALSE) %>%
+  pack_rows("Marital Status", 27, 31, bold = FALSE)
+```
+
+<br>
+
+```{r}
+first_drink %>%
+  full_join(reg_drink) %>%
+  full_join(prob_drink) %>%
+  full_join(quit_drink) %>%
+  full_join(num_quit) %>%
+  full_join(tx_1) %>%
+  full_join(tx_2) %>%
+  full_join(tx_3) %>%
+  full_join(tx_4) %>%
+  full_join(tx_5) %>%
+  full_join(tx_6) %>%
+  full_join(tx_7) %>%
+  full_join(med) %>%
+  full_join(dsm) %>%
+  full_join(life_d1) %>%
+  full_join(life_d2) %>%
+  full_join(life_d3) %>%
+  full_join(life_d4) %>%
+  full_join(life_d5) %>%
+  full_join(life_d6) %>%
+  full_join(life_d7) %>%
+  full_join(life_d8) %>%
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 3</b><br><br><i>Alcohol-related charicterizations for all enrolled participants (N = 170)</i>",
+      table.attr = "style='width:70%;'",
+      escape = FALSE) %>%
+  row_spec(row = 0, align = "c") %>%
+  kable_classic(html_font = "Arial", position = "left") %>%
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>%
+  pack_rows("Types of Treatment", 6, 12, bold = FALSE) %>%
+  pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>%
+  footnote("*AUD DSM-5 symptom count was documented through self-report and not a clinical interview.")
+```
+
+<br>
+
+## Willingness to Participate
+
+```{r}
+knitr::include_graphics("/Volumes/private/StudyData/RISK/analysis/burden/figures/fig_disposition.png")
+```
+
+
+<br>
+
+# Burden
+
+## Interference
+
+```{r}
+p_int %>%
+  add_global_label(Ylab = "                   proportion",
+                   Ygap = 0.02
+)
+```
+
+<br>
+
+## Dislike
+
+```{r}
+p_dis +
+ plot_annotation(
+  title = "<b>Figure 3</b><br>",
+  subtitle =  "<i>I disliked this measure<i>",
+  caption =  "<i>Note:</i> <br>Active measures require substantial partipant involvement, passive measures run in the background and collect data <br>automatically, mixed measures require some participant involvement but measure is mostly passive. All groups have a <br>sample size of 154, except for the sleep monitor (<i>n</i> = 78). Dashed line represents within-group mean scores."
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(family = "Times New Roman"),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
+<br>
+
+## Willingness to Continue
+```{r}
+p_1yr +
+ plot_annotation(
+  title = "<b>Figure 4</b><br>",
+  subtitle =  "<i>I would be willing to use this measure for one year to help with my recovery*<i>",
+  caption =  "<i>Note:</i> <br>Active measures require substantial partipant involvement, passive measures run in the background and collect data <br>automatically, mixed measures require some participant involvement but measure is mostly passive. All groups have a <br>sample size of 154, except for the sleep monitor (<i>n</i> = 78). Dashed line represents within-group mean scores.<br>*<i>Burden scores for this item were reverse coded.</i><br><i><sup>a</sup> This measure was hypothetical in that although participants were asked about a one-time daily survey, they were <br>expected to complete the survey four times each day.</i>") &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        strip.text = element_markdown(),
+        text = element_text(family = "Times New Roman"),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
+<br>
+
+## Analysis
+
+```{r}
+interfere_tbl %>%
+  full_join(dislike_tbl, by = "measure") %>%
+  full_join(one_year_tbl, by = "measure") %>%
+  mutate(measure = factor(measure, levels = c("Audio Check-in", "Daily Survey (4 times daily)",
+                                              "Daily Survey (1 time daily)$^a$", "Sleep Monitor",
+                                              "Carrying Phone", "Location", "Logs (SMS/call)", "SMS Content"))) %>%
+  arrange(measure) %>%
+  kbl(col.names = c("Personal Sensing Measure", "$\\beta_0$", "<i>SE</i>", "$\\eta_p^2$", "<i>p</i>",
+                    "$\\beta_0$", "<i>SE</i>", "$\\eta_p^2$", "<i>p</i>",
+                    "$\\beta_0$", "<i>SE</i>", "$\\eta_p^2$", "<i>p</i>"),
+      align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "<b>Table 4</b><br><br><i>Regression Coefficient Estimates ($\\beta_0$), Standard Errors (SE), Effect Sizes ($\\eta_p^2$) and p Values (p) for Each Personal Sensing Measure Regressed against a Neutral/Ambivalent Burden Score of 0</i>",
+      digits = 2,
+      escape = FALSE) %>%
+  row_spec(row = 0, align = "c") %>%
+  kable_classic(html_font = "Times New Roman") %>%
+  add_header_above(c(" " = 1, "Interference" = 4, "Dislike" = 4, "Willingness to continue*" = 4)) %>%
+  pack_rows("Active", 1, 3, bold = FALSE) %>%
+  pack_rows("Mixed", 4, 5, bold = FALSE) %>%
+  pack_rows("Passive", 6, 8, bold = FALSE) %>%
+  footnote("Burden measures are on a 5-point scale centered around a neutral/ambivalent score of 0 (i.e., undecided) and with 2 being most burdensome (i.e., strongly agree) and -2 being least burdensome (i.e., strongly disagree). Sample size for all personal sensing measures is 154 except for the sleep monitor which had a sample size of 78. Model intercepts ($\\beta_0$) are equivalent to mean values.<br>*<i>This item was reverse coded.</i><br>$^a$<i>This measure was hypothetical in that although participants were asked about a one-time daily survey, they were expected to complete the survey four times each day.</i>", escape = FALSE)
+```
+
+<br>
+
+# Compliance

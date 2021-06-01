@@ -1,0 +1,361 @@
+---
+title: "Make GPS Dataset"
+author: "Hannah Moshontz"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script creates the analysis gps dataset and conducts eda.
+
+Inputs:
+
+* participants' raw gps data files
+
+Outputs
+
+* gps.csv
+
+### Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(purrr)
+library(readxl)
+library(janitor)
+library(geosphere)
+library(lubridate)
+library(plotKML)
+library(janitor)
+library(psych)
+library(kableExtra)
+library(readxl)
+library(data.table)
+library(ggplot2)
+```
+
+Paths
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+### Functions
+
+Function to import and standardize moves data
+```{r}
+convert_moves <- function(file_name){
+  
+  message('......loading: ', file_name)
+  
+  d_moves <- readGPX(file_name,
+                     metadata = FALSE, bounds = FALSE, 
+                     waypoints = TRUE, tracks = TRUE, routes = FALSE) %>%
+    .$tracks %>% 
+    purrr::flatten(.) %>% # as a list of dfs
+    enframe(.) %>% # as a nested df
+    unnest(keep_empty = TRUE) %>% # as one tibble
+    rename(long = lon) #renaming for coherence
+  
+  
+  if (
+    any(is.na(d_moves$time) & !(is.na(d_moves$lat) & is.na(d_moves$long)))
+  ) stop("Missing value detected for time on non-missing day") 
+  
+  # drop initial missing obs and impute time for missing obs and 
+  # fill in the last second of the next day;  Retain time zone from previous observation
+  d_moves <- d_moves %>% 
+    fill(time) %>% 
+    mutate(time = if_else(is.na(long), 
+                          str_c(lubridate::mdy(name), 
+                                "T23:59:59.000-", 
+                                str_extract(time, "\\d{2}:\\d{2}$")),
+                          time)) %>% 
+    select(-name) %>% 
+    mutate(time = as_datetime(time, tz = 'America/Chicago')) %>% 
+    arrange(time) %>% #sort on time
+    mutate(
+      data_type = 'gps',
+      speed_kmh = NA,
+      altitude_meters = NA,
+      direction = NA,
+      accuracy = NA,
+      app_source = 'moves',
+      count = NA
+    ) %>% 
+    select(lat, long, time, accuracy, sgmnt_type, trckpnt_type, 
+           app_source, data_type, speed_kmh, altitude_meters,
+           direction, count)
+  
+  return(d_moves)
+}
+```
+
+Function to import and standardize followmee data
+```{r}
+convert_followmee <- function(file_name){
+  
+  #multiple GPX exist for 52 58 59 63 64 65 66 76 77 78 79 80 81 82
+  message('......Loading: ', file_name)
+  
+  d_followmee <- read_rds(file_name) %>% 
+    clean_names("snake") %>% 
+    mutate(
+      raw_orig_time = date,
+      time = as_datetime(date, tz = 'America/Chicago')
+    ) %>%  # convert time to dttm
+    arrange(time) %>% 
+    mutate(
+      lat = latitude,
+      long = longitude,
+      data_type = str_to_lower(type),
+      speed_kmh = speed_km_h,
+      altitude_meters = altitude_m,
+      app_source = 'followmee',
+      count = NA,
+      sgmnt_type = NA,
+      trckpnt_type = NA
+    ) %>% 
+    select(lat, long, time, accuracy, sgmnt_type, trckpnt_type, 
+           app_source, data_type, speed_kmh, altitude_meters,
+           direction, count)
+  
+  return(d_followmee)
+  
+}
+```
+
+Function to make the final gps rds (calls previous functions)
+```{r}
+make_gps <- function(subid) {
+  
+  raw_file <- str_c("./raw_data/", subid)
+  location_file <- str_c("./raw_data/", subid, "/", subid, "_Locations.xlsx")
+  subid_numeric <- as.numeric(subid)
+  
+  message('...importing gps for subject ', subid)
+  
+  # list gpx files
+  gpx_files <- list.files(
+    path = raw_file, 
+    pattern = '.gpx', 
+    full.names = TRUE, 
+    recursive = FALSE, 
+    include.dirs = FALSE
+  )
+  
+  # list followmee files
+  followmee_files <- list.files(
+    path = raw_file,
+    pattern = '\\d{3}_GPSFollowRaw.rds',
+    full.names = TRUE,
+    recursive = FALSE,
+    include.dirs = FALSE
+  )
+  
+  #store type of gps data source
+  only_gpx <- ifelse(length(gpx_files) >= 1 & 
+                       length(followmee_files) == 0, 
+                     TRUE, FALSE)
+  
+  only_followmee <- ifelse(length(gpx_files) == 0 & 
+                             length(followmee_files) == 1, 
+                           TRUE, FALSE)
+  
+  both <- ifelse(length(gpx_files) >= 1 & 
+                   length(followmee_files) == 1, 
+                 TRUE, FALSE)
+  
+  gps_absent <- !xor(xor(only_gpx, only_followmee), both)
+  
+  #create empty dfs
+  d_moves <- NULL
+  d_follow <- NULL
+  
+  #process and save gpx (accommodates multiple)
+  if (length(gpx_files) != 0) {
+    
+    d_moves <- map_df(gpx_files, ~convert_moves(.x)) %>% #import, convert, bind each file
+      filter(!is.na(long), !is.na(lat)) %>% #drop obs without lat and long
+      distinct() #eliminate fully duplicated rows
+  }
+  
+  
+  #process and save followmee file
+  if (length(followmee_files) == 1) {
+    
+    d_follow <- convert_followmee(followmee_files[1])
+  }
+  
+  if (!gps_absent) { #if subject has gps data, create the dataset and return
+    #create database rds
+    database <- bind_rows(d_moves, d_follow) %>% 
+      arrange(time) %>% 
+      select(-count) %>% #this is NA for all
+      filter(!is.na(lat) && !is.na(long)) %>% 
+      mutate(subid = subid_numeric)
+    
+    return(database)
+  }
+}
+```
+
+### Creating the gps data
+
+Store subids
+```{r}
+subid_all <- list.dirs("./raw_data", recursive = FALSE) %>% 
+  str_extract("\\d{3}$") %>% 
+  na.exclude()
+```
+
+Create and save the gps data
+```{r}
+map_dfr(subid_all, ~make_gps(.x)) %>% 
+  write_csv(., file = file.path(path_data, "gps.csv"))
+```
+
+## EDA
+
+### Import Data and glimpse()
+
+GPS data
+```{r}
+gps <- fread(file.path(path_data, "gps.csv"), #need fread because data is huge, crashes r otherwise
+             stringsAsFactors = TRUE) %>%  
+  mutate(raw_orig_time = as.character(time)) %>% 
+  glimpse()
+
+notes <- read_csv("./raw_data/raw_notes.csv") 
+
+visit_dates <- read_csv(file.path(path_data, "visit_dates.csv"))
+
+```
+
+There are `r length(unique(gps$subid))` subjects contributing `r nrow(gps)` gps observations. 
+
+We have gps-specific notes from staff on `r length(na.omit(notes$notes_gps))` subjects.
+
+### Checking each data source
+
+#### Lat and long
+```{r}
+gps %>% 
+  filter(is.na(lat) | is.na(long))
+```
+
+This is not surprising. We filtered on NA lat / long (one of the apps would create a missing point if no signals were detected in a day).
+
+```{r}
+gps %>% 
+  filter(lat <= 1 & long <= 1, lat >= -1 & long >= -1)
+```
+
+There are no "Null Island" points at 0,0.
+
+#### Time
+
+```{r}
+gps %>% 
+  filter(is.na(time))
+```
+
+**Potential errors**
+
+There are three observations where there is a location but no time. Consider removing these.
+
+#### Accuracy, speed, altitude, direction
+```{r}
+gps %>% 
+  select(accuracy, speed_kmh, altitude_meters, direction) %>% 
+  describe()
+```
+
+
+#### Data type
+```{r}
+gps %>% 
+  tabyl(data_type, app_source, show_na = TRUE) %>% 
+  adorn_totals(c("row", "col")) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+```
+
+The vast majority of gps observations were labeled as gps as opposed to network-type observations. Only followmee produced network-type observations.
+
+#### App source
+```{r}
+gps %>% 
+  tabyl(app_source, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+```
+
+About half of observations came from each app.
+
+### Number of Observations per Person
+
+```{r}
+gps %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  ggplot(aes(x = n_obs)) +
+  geom_histogram(bins = 10) +
+  xlab("number of gps observations") +
+  ggtitle("Histogram of gps observations per subject") +
+  theme_classic()
+```
+
+
+### Number of Observations per Non-Missing Day
+
+```{r}
+mean_avg_obs_per_day <- gps %>%    
+  mutate(date_central = date(time)) %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(avg_obs_per_day = mean(n_obs)) %>% 
+  .$avg_obs_per_day %>% 
+  mean()
+
+max_obs_per_day <- gps %>% 
+  mutate(date_central = date(time)) %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(avg_obs_per_day = mean(n_obs),
+            sd = sd(n_obs),
+            min = min(n_obs),
+            max = max(n_obs)) %>% 
+  .$max %>% max()
+```
+
+On average, participants provided an average of `r mean_avg_obs_per_day` observations per non-missing day (max = `r max_obs_per_day`).
+
+```{r}
+gps %>% 
+  mutate(date_central = date(time)) %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_obs_per_day = mean(n_obs),
+            min = min(n_obs),
+            max = max(n_obs)) %>% 
+  ggplot(aes(x = avg_obs_per_day)) +
+  geom_histogram(bins = 10) +
+  xlab("avg number of gps observations") +
+  ggtitle("Histogram of average observations per non-missing day") +
+  theme_classic()
+```

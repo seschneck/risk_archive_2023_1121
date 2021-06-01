@@ -1,0 +1,387 @@
+---
+title: "gps_tz_problems"
+author: "Sarah"
+date: "6/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Description
+
+The purpose of this rmd is to clarify the reported timezones of gps data. This is important because gps data will be used to provide timestamps to participant reported lapses (which are in their local time, but do not have a timestamp). It is also important for gps variables/features that will take into account local time of day (e.g. being in a bar at 2 pm vs 6 pm), but doesnt matter much if we are only concerned with relative time.
+
+To examine this, I used the package lutz (look up time zones of point coordinates) which uses the lat long in the gps file to approximate the timezone of that location (and the appropriate offset for that timezone relative to utc based on the date)
+
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(janitor)
+library(lutz) #for look up timezones
+library(lubridate) #as_datetime
+library(furrr) #tried to use future_pmap_dfr ..it didnt work great
+
+
+path_shared_data <- "P:/StudyData/RISK/analysis/shared/data" 
+path_out<- "P:/StudyData/RISK/analysis/shared/scripts_chk/dev/chk_lapses" 
+
+```
+
+## Open the most recent aggregated gps file
+
+*Raw gps data includes timezone data as an offset amount at the end of the variable (e.g. -06:00)
+*I am going to use the lutz package to generate tzs from lat/long and compare to these tz offsets to see if we trust them
+
+
+```{r}
+#open the newest gps file
+#create offset from the raw original time. tz is the last 6 digits of ISO8601 format. Exctract only the parts we need to get a numeric offset
+#use lutz to get the estimated tz based on lat/long
+#Note: we are not using method=accurate due to consideration of overlapping time points causing incorrect labels
+gps <- read_rds(file.path(path_shared_data, "ds_gps.rds")) %>% 
+  mutate(offset = as.numeric(str_sub(raw_orig_time, -6, -4))) %>% 
+  mutate(lutz_tz = tz_lookup_coords(lat, long, method = "fast"))
+
+## HM - warning from lutz "Using 'fast' method. This can cause inaccuracies in time zones
+#  near boundaries away from populated ares. Use the 'accurate'
+#  method if accuracy is more important than speed."
+# It seems like we value accuracy over speed, here, so we should use 'accurate'
+
+```
+
+Just some quick checks for missing vars that would prevent me from having tz info:
+
+Observations without gps data (cant compute lutz tz)
+```{r}
+no_gps <- gps %>% 
+  filter(is.na(lat)) %>%
+  select(c(subid, time, lat, long, raw_orig_time, lutz_tz, everything())) %>% 
+  glimpse()
+
+unique(no_gps$subid)
+remove(no_gps)
+```
+There are 1057 observations in gps that do not have lat, long -- they just have time. There are 79 subids who have no gps at some point
+
+Observations without raw_orig_time (no tz info)
+```{r}
+no_orig_time <- gps %>% 
+  filter(is.na(raw_orig_time)) %>%
+  select(c(subid, time, lat, long, raw_orig_time, lutz_tz, everything())) %>% 
+  glimpse()
+
+unique(no_orig_time$subid)
+remove(no_orig_time)
+```
+There are 506 observations that don't have a raw orig time (all of these also dont have gps) -- just have time and subid. There are 53 unique subids. I thought time was created from raw_orig_time in processing so not sure what these obs are?
+
+
+If I trust the offsets from raw_orig_time, I could use these observations to inform lapses if needed (to clarify tz of lapse report). If raw_orig_time doesn't exist, I can't use the observation because time does not give me any indication of relative tz
+
+## Calculate the offset from UTC for each observation
+
+Using the timezones generated from lutz, I can use the tz_offset function to determine the tz offset from UTC for that tz. I need date to take into account daylight savings time.
+
+Then I will look at instances where the lutz generated offsets and the raw_orig_time offsets do not match
+
+```{r}
+
+#For each row, use the date and timezone from lutz to calculate the offset
+#There is probably a tidier way to do this
+#It got tricky because tz_offset does not accept vectorized inputs and tz_offset returns a df, and tz_offset needs two values from each row of the current df to compute the value
+
+#There is likely another way to do this, but i chose to do parallel purrr
+#pmap functions in purr and furr go by row instead of columns
+#The ... stop you from having to specify and write all inputs
+#Current is essentially a 1 row df for each row in gps, so then I can index into the vars i need (tz and date). For each row it calculates the offset from the lutz tz and date (taken as a partial string from orig_time), and then extracts the offset and is_dst (true false of if lutz thinks it was daylight savings time) and mutates them into the original gps df
+
+#Ok well this wasn't fast at all awkward
+t <- Sys.time()
+
+plan(multisession)
+gps <- gps %>%
+  future_pmap_dfr(function(...) {
+    current <- tibble(...)
+    # return
+    if(is.na(current$lutz_tz)){
+      current %>% 
+        mutate(lutz_offset = NA) %>% 
+        mutate(lutz_dst = NA)
+    }else{
+    current %>% 
+      mutate(lutz_offset = tz_offset(as_date(str_sub(.$raw_orig_time, 1, 10)), .$lutz_tz)[["utc_offset_h"]]) %>% 
+        mutate(lutz_dst = tz_offset(as_date(str_sub(.$raw_orig_time, 1, 10)), .$lutz_tz)[["is_dst"]])}
+  })
+
+future:::ClusterRegistry("stop") #close parallel backends
+
+Sys.time() - t
+
+```
+## Examine differences between offset values
+
+Lets look at differences between the offsets from the raw gps orig time versus offsets calculated by lutz
+```{r}
+table(gps$offset)
+table(gps$lutz_offset)
+```
+Definitnely a wider spread of offsets with lutz. Lets filter down to just observations where these numbers do not agree
+
+```{r}
+diff_offsets <- gps %>% 
+  filter(offset!=lutz_offset)
+
+glimpse(diff_offsets)
+
+unique(diff_offsets$subid)
+
+
+```
+There are many (82,375) observations across 83 subjects where lutz suggests a different offset than the raw orig time offset
+
+Lets get more info about observations where offsets dont match
+```{r}
+table(diff_offsets$app_source)
+```
+Slightly more likely with moves than followmee
+
+
+```{r}
+table(diff_offsets$lutz_tz)
+```
+Mostly extreme timezones have a mismatch, but still 37k america/chicago as well
+
+
+```{r}
+table(diff_offsets$lutz_dst)
+```
+Ratio of not dst:dst is .31 in the full gps data, and .44 in the mismatched data
+
+
+
+So which one should we trust? Lets start looking at specific examples of where mismatch occurs and try to figure out what is going on
+
+
+## Case 1: Raw_orig offset is -8, lutz does not match
+
+```{r}
+#raw offset = -8, pacific time
+os8 <- diff_offsets %>% 
+  filter(offset==-8) %>% 
+  glimpse()
+
+unique(os8$subid)
+table(os8$lutz_offset)
+table(os8$app_source)
+```
+So lutz thinks all of these people were in america/chicago, but their raw_orig_time specifies west coast. More moves than followmee at this point. Lets check a few gps points
+
+First, its weird that despite the timestamp, some of the points are labeled as home. E.g.:
+```{r}
+os8 %>% filter(known_place_type=="HOME") %>% select(c(subid, time, lat, long, known_place_type, lutz_tz, raw_orig_time, everything()))
+```
+
+Typing a few of these lat/longs into google maps shows they are in madison
+madison is at 89 longitude
+```{r}
+range(os8$long)
+```
+
+The owest long here is -87; checked a few points in google maps, this is MKE
+highest long here is -90..near fergusion MO which is also CST so it looks like these TZs are off
+
+Both of these extreme tzs were at airports -- maybe those participants had just flown from somehwere and their phone clock had not changed yet?
+```{r}
+#subid 161 on 1/19
+gps %>% 
+  filter(subid==161) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+Yes so looking at this they did end up in LA after these flights. But why was their raw orig time in -8 before that? Maybe they went to LA earlier in the study and never changed their phone back?
+
+No..no trip detected before this...switch to tz -8 occurs here
+```{r}
+gps %>% 
+  filter(subid==161) %>% 
+  slice(4214:4218) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+Gps confirms still in madison -- maybe they changed a setting on their phone?
+Can look into this issue later, whats important for lapses is that I trust lutz timezones
+
+
+#Case 2: Lutz tz is -8, raw_orig does not match
+
+These are differences where lutz thought it was pacific time and raw orig doesnt aggree
+```{r}
+los8 <- diff_offsets %>% 
+  filter(lutz_offset==-8)
+dim(los8)
+unique(los8$subid)
+table(los8$offset)
+```
+
+Ok so there are 628 observations accross 4 people where lutz thinks they are pacific time, and raw_orig thinks they are all cst
+```{r}
+range(los8$long)
+```
+Just looking at this range of longitudes, they are definitely not cst
+```{r}
+los8 %>% 
+  arrange(long) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything())) %>% 
+  head()
+
+los8 %>% 
+  arrange(desc(long)) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything())) %>% 
+  head
+```
+Maximum long in here was San Diego (pacific time) and min long was on the border of utah and nevada in beaver dam conservation area. Nevada is pacific but utah is mountain time. Lutz might be one hour off here, but its def not central time. I am still feeling good about lutz here
+
+
+## Case 3: raw_orig is -6, lutz does not agree
+
+These are differences when raw_orig things we are central time but lutz thinks wer are somewhere else
+```{r}
+os6 <- diff_offsets %>% 
+  filter(offset==-6)
+dim(os6)
+unique(os6$subid)
+table(os6$lutz_offset)
+range(os6$long)
+```
+Wide range of longs here -- lets looks at ranges separated by lutz tz
+We already looked at -8 above
+
+```{r}
+os6_l7 <- os6 %>% filter(lutz_offset==-7)
+range(os6_l7$long)
+
+os6_l7 %>% 
+  arrange(long) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything())) %>% 
+  head()
+
+os6_l7 %>% 
+  arrange(desc(long)) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything())) %>% 
+  head
+```
+The lowest long  here is in Elsie, NE (which is in mountain timezone, -7 in january) They were also going 874 km per hour so they were on an airplane!
+
+## Case 4: Differences in offsets while traveling (phone off)
+
+This first example shows offset differences during a trip where the participant had their phone off during flight
+
+
+Subid 161 on utc 1/24 at 1 am (or raw_orig_time 1/23 around 11pm)
+```{r}
+gps %>% filter(subid==161) %>% 
+  slice(4827:4831) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+
+```
+
+Ok it looks like they flew to LA on 1/19. 
+Their follow me offset changed back to -6 when they were still in LA on 1/23
+
+Their lutz tz changes from pacific time (gps is san diego airport) to mountain time (gps is denver airport). So no gps on this flight
+```{r}
+gps %>% filter(subid==161) %>% slice(4828:4829) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+## Case 5: Differences in offsets while traveling (phone on during flight)
+
+This example allows us to see how tz offsets change with continuous sampling while in flight. While the participant had their phone off for their first flight from LA > Denver, it looks like they left it on for Denver > MKE
+
+After arriving in Denver, the next offset change we see is from the last mountain time point (around elsie, NE) to chigaco tz (which is around wallace NE) which is right around where the tz changes in nebraska!
+
+It looks like this person left their phone on during a flight from denver to mke. We can see the high speed in km per hour and the lat/long changing over time. We see the lutz tz change exactly where we would expect it to in NE
+```{r}
+gps %>% 
+  filter(subid==161) %>%
+  slice(4842:4894) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+I could go further, but I think this is enough to convince me that the lutz timezones are accurate enough for me to be using. 
+
+## Offset differences during daylight savings time
+
+
+Another thing I want to check is if there are dst differences when lutz says -5 due to dst but gps says -6
+```{r}
+os6_l5 <- os6 %>% 
+  filter(lutz_offset==-5) %>% 
+  glimpse()
+
+unique(os6_l5$subid)
+range(os6_l5$long)
+```
+
+Ok so it looks like a lot of these are problems around the DST switch
+some of them are my fault (i just used date instead of date with time to calculate tz_offset, so intead of changing at 2 am I had the tz change at the level of the day)
+
+For example, in 2017 DST ended at 2 am on november 5th (should change back to -6). My lutz tz only had the date, so all of nov 5 is still 05
+```{r}
+os6 %>% 
+  filter(lutz_offset==-5) %>% 
+  slice(1:5) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+But in 2018 dst was supposed to end at 2 am on 11/4, but on 11/1 the gps offset was already switched back early
+```{r}
+os6 %>% 
+  filter(lutz_offset==-5) %>%
+  slice(12275:12278) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+
+#For some reason, that particular subs timezone switched on halloween:
+gps %>% 
+  filter(subid==139) %>% 
+  slice(1279:1283) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+Again, I conclude that I trust lutz here. I will try to recompute the lutz_offset using date and time instead of date. If i cannot, at least this error is systematic and I can flag lapses that occured on dst switch days and correct timezone stamps if needed.
+
+I can explore more, but for me this is enough to conclude I will be using lutz timezones for lapses.
+
+
+## Can we trust the converted UTC times?
+
+The last thing I need to check is if I trust the converted UTC to be representative of the actual time people were in the gps location. There are two options: 1) gps orig_time is taken based off of the phones time, and if the phone hasnt switched timezones, neither does the measurement. If this is the case, we can trust the utcs. 2) Something went wrong either in processing or internally on the phone which caused a mismatch between the reported time and the offfset at the end of the string. Then we wouldnt know what to do with the timestamp
+
+Lets look at how time changed when our in flight subject crossed timezones and when their raw_orig time reflected tz changes
+```{r}
+gps %>% 
+  filter(subid==161) %>% 
+  slice(4214:4219) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+So the point before followmee changed their offset  was was at their home in janesville wi at 5:25 pm (local)/11:25 pm utc
+#The next gps point is almost the exact same location, but the offset changed to -8. The reported timestamp is the next day at 9:05 am (-8 local) / 5:05 pm utc
+
+So maybe they just didnt touch their phone for 16 hours after getting home. hard to see if there is a problem from this example. Lets find one where gps_orig tz changes while moving/sampling closer in time
+
+While in NY, sub 058s offset kept flipping between 4 and 5
+```{r}
+gps %>% 
+  filter(subid=="058") %>% 
+  slice(23516:23526) %>% 
+  select(c(subid, lat, long, raw_orig_time, lutz_tz, lutz_offset, everything()))
+```
+
+Ok so it looks like there are two entries (one for each tz) with matching points and utcs -- maybe they had their phone clock set to both central and NY time?
+
+Seeing that the UTCs still go in logical order, I think we can trust that the utcs do index the true time that individuals were in the location
+
+If there were something bad going on with tzs affecting the time, I would have expected to see jumps or negative gaps in UTCs
+

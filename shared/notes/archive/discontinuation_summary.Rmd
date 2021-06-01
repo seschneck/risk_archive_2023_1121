@@ -1,0 +1,136 @@
+---
+title: "discontinuation_summary"
+author: "Hannah"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This document summarizes reasons for discontinuation in RISK1.
+
+Inputs:
+
+* Notes (notes.csv)
+* Compliance information for discontinued people (OffStudyParticipantCompliance.xlsx)
+
+
+### Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, results = "hold")
+```
+
+Paths 
+```{r}
+path_compliance <- "administration/Participants/Compliance"
+path_notes <- "analysis/notes"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(readxl)
+library(purrr)
+library(kableExtra)
+```
+
+### Import
+
+```{r notes}
+
+notes <- read_csv(file.path(path_notes, "notes.csv")) %>% 
+  slice(-1)
+
+```
+
+
+```{r compliance}
+
+read_compliance_excel <- function(subid_sheet, xlsx) {
+  read_excel(file.path(path_compliance, xlsx),
+           sheet = subid_sheet)
+}
+
+off_study_sheets <- excel_sheets(file.path(path_compliance, "OffStudyParticipantCompliance.xlsx"))
+
+discontinue_ids <- notes %>% filter(disposition == "discontinue") %>% 
+  pull(subid)
+
+discontinue_ids_with_compliance_info <- intersect(off_study_sheets, discontinue_ids)
+
+discontinue_ids_wo_compliance_info <- setdiff(discontinue_ids, off_study_sheets)
+
+discontinue_compliance <- map(discontinue_ids_with_compliance_info, ~read_compliance_excel(.x, "OffStudyParticipantCompliance.xlsx"))
+```
+
+### Coding reasons
+
+```{r}
+#disposition == "discontinue"
+#manually categorized reasons from notes_general
+deliberate_discontinue <- c("041", "022", "182", "024")
+no_show <- c("036", "008", "017", "062", "173")
+discontinued_by_staff <- c("177", "267", "105", "087")
+other <- c("055", "061")
+no_reason_listed <- notes %>% 
+  filter(disposition == "discontinue") %>% 
+  filter(is.na(notes_general)) %>% 
+  pull(subid)
+
+#disposition == "complete_partial"
+#manually categorized reasons from notes_general
+deliberate_discontinue <- append(deliberate_discontinue, c("232", "093", "059"))
+no_show <-  append(no_show, c("265", "221", "218", "092", "029"))
+discontinued_by_staff <- append(discontinued_by_staff, c("209", "205", "200", "172", "116", "082", "047"))
+no_reason_listed <- notes %>% 
+  filter(disposition == "complete_partial") %>% 
+  filter(is.na(notes_general)) %>% 
+  pull(subid) %>% append(no_reason_listed)
+
+#dispostion == "withdrawn"
+discontinued_by_staff <- append(discontinued_by_staff, "237")
+notes <- notes %>% 
+  mutate(discontinue_reason = case_when(
+    subid %in% deliberate_discontinue ~ "asked to discontinue",
+    subid %in% no_show ~ "no show",
+    subid %in% discontinued_by_staff ~ "discontinued by staff",
+    subid %in% other ~ "other",
+    subid %in% no_reason_listed ~ "reason not known"
+  ))
+```
+
+### Frequency of dispositions
+
+```{r}
+notes %>% 
+  tabyl(disposition) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+
+### Summary of discontinued participants
+
+```{r}
+
+notes %>% 
+  select(subid, disposition, discontinue_reason, starts_with("notes")) %>% 
+  tabyl(discontinue_reason, show_na = TRUE) %>% 
+  mutate(notes = 
+           c("", 
+             "didn't show up, was out of contact", 
+             "details not always given, but often was related to compliance", "one participant was discontinued twice under two subids (005 and 061)", "no notes or information", "not discontinued")) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+## Compliance information 
+
+The compliance information is not consistent and not consistently formatted. It might not be worth the necessary labor to programatically summarize.

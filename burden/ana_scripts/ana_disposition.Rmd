@@ -1,0 +1,159 @@
+---
+title: "Disposition Analysis Script"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+ 
+This script examines disposition status throughout the study by creating a flowchart. The purpose of this script is to create branches for retention flow chart for burden project.  
+
+Inputs:   
+disposition.csv
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = FALSE, error = TRUE)
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths
+```{r}
+path_in <- "./analysis/burden/data"
+```
+
+Packages
+```{r warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(psych)
+library(kableExtra)
+```
+
+
+
+### Read in disposition file
+
+```{r}
+disposition <- read_csv(file.path(path_in, "disposition.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+```{r}
+tabyl(disposition$last_visit)
+
+disposition %>% 
+  filter(last_visit == "screen" | is.na(last_visit)) %>% 
+  tabyl(reason_no_intake)
+```
+
+### Create summary of disposition
+
+```{r}
+disposition_summary <- disposition %>% 
+  group_by(last_visit, reason_no_intake) %>% 
+  summarise(n = n()) %>% 
+  mutate(group = case_when(reason_no_intake == "ineligible" ~ "ineligible",
+                           reason_no_intake == "no_consent" ~ "no_consent",
+                           reason_no_intake == "not_interested" ~ "discontinued",
+                           TRUE ~ last_visit)) %>% 
+  group_by(group) %>% 
+  summarise(n = sum(n))
+
+disposition_summary
+```
+
+Remove ineligible participants since not including in flow chart
+```{r}
+disposition <- disposition %>% 
+  filter(reason_no_intake != "ineligible" | is.na(reason_no_intake))
+```
+
+One participant discontinued same day as starting study - moving participant to not enrolled since no data collected
+```{r}
+not_enrolled <- disposition_summary %>% filter(group == "discontinued") %>% select(n) %>% unlist(use.names = FALSE) + 1
+```
+
+calculate other flowchart branches
+```{r}
+starting_sample <- nrow(disposition)
+no_consent <- disposition_summary %>% filter(group == "no_consent") %>% select(n) %>% unlist(use.names = FALSE)
+consented <- starting_sample - no_consent 
+enrolled <- consented - not_enrolled
+followup_3 <- disposition_summary %>% filter(group == "followup_3") %>% select(n) %>% unlist(use.names = FALSE)
+followup_2 <- disposition_summary %>% filter(group == "followup_2") %>% select(n) %>% unlist(use.names = FALSE) + followup_3
+followup_1 <- disposition_summary %>% filter(group == "followup_1") %>% select(n) %>% unlist(use.names = FALSE) + followup_2
+discontinued <- enrolled - followup_1
+```
+
+
+### Create flowchart
+
+```{r}
+DiagrammeR::grViz("
+  digraph {
+  
+  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6]
+  a [label = '@@1']
+  b1 [label = '@@2']
+  b2 [label = '@@3', color = crimson]
+  c1 [label = '@@4']
+  c2 [label = '@@5', color = crimson]
+  
+  node [fontname = 'Times New Roman', shape = circle, style = dotted]
+  d1 [label = '@@6']
+
+  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6, style = solid]
+  d2 [label = '@@7', color = crimson]
+  
+  a -> b1
+  a -> b2
+  b1 -> c1
+  b1 -> c2
+  c1 -> d1
+  c1 -> d2
+  }
+  
+  [1]: str_c('Eligible Sample\\n', 'N = ', starting_sample)
+  [2]: str_c('Consented\\n', 'n = ', consented) 
+  [3]: str_c('Not Consented\\n', 'n = ', no_consent)
+  [4]: str_c('Enrolled\\n', 'n = ', enrolled)
+  [5]: str_c('Not Enrolled\\n', 'n = ', not_enrolled)
+  [6]: str_c('n = 154')
+  [7]: str_c('Discontinued\\n', 'n = ', discontinued)
+  ", width = "600px") 
+```
+
+Piechart
+```{r}
+month_3 <- followup_3
+month_2 <- followup_2 - followup_3
+month_1 <- followup_1 - followup_2
+
+lbls <- c("3 mos data", "2 mos data", "1 mo data")
+
+slices <- c(month_3, month_2, month_1)
+pct <- round(slices/sum(slices)*100)
+n <- slices
+lbls <- str_c(lbls, '\n', pct, '% (n = ', n, ')')
+pie(slices, lbls, col = c("lavender", "lightgrey", "lightblue"),
+   main="Participants with at least 1 month of data (N = 154)") 
+```
+
+<br>

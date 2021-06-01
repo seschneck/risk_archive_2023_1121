@@ -1,0 +1,156 @@
+---
+title: "chk_dates"
+author: "Ali Colmenares and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+### Notes
+This script checks data from RISK participants' meaningful dates by computing descriptives and checking for missingness and potential errors
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+
+Paths
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+Packages
+```{r}
+library(janitor)
+library(lubridate)
+library(kableExtra)
+library(tidyverse)
+library(psych)
+```
+
+
+### Import Data and Glimpse
+
+Dates report data
+```{r}
+dates <- read_rds(file.path(path_data, "ds_dates_report.rds")) %>% 
+  glimpse()
+```
+
+Check for missing values
+```{r}
+if(any(is.na(dates))){
+  missing <- dates %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values", table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+There are `r nrow(dates)` date observations with no missing values.  
+Dates are from `r length(unique(dates$subid))` uniques participants.  
+KW: I thought sample size was about 154. Did we gather dates on all subids?  
+
+### Overall Descriptives
+
+Type of date
+```{r}
+dates %>%
+  mutate(type = fct_infreq(factor(type))) %>% 
+  tabyl(type, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(table.attr = "style='width:60%;'") %>%
+  kable_styling(position = "left") %>% 
+  add_header_above(c("Type of meaningful dates" = 3))
+
+dates %>%
+  mutate(type = fct_infreq(factor(type))) %>%
+  ggplot(aes (x = type)) +
+  geom_bar() +
+  xlab("date type") +
+  ggtitle("Frequency plot of type of meaningful dates") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+KW: Do we have written responses for other? 
+
+Most meaningful month
+```{r}
+dates %>% 
+  mutate(month = month(date)) %>% 
+  group_by(month) %>% 
+  summarise(n_dates = n()) %>% 
+  ggplot(aes(x = as.factor(month), y = n_dates)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(x = "month",
+       y = "frequency",
+       title = "Bar plot of most meaningful dates by month")
+```
+
+December is the most meaningful month. Most likely due to holidays (see breakdown by type below).  
+
+Types of dates in December
+```{r}
+dates %>% 
+  mutate(month = month(date)) %>% 
+  filter(month == 12) %>% 
+  group_by(type) %>% 
+  summarise(n_dates = n()) %>% 
+  arrange(desc(n_dates)) %>% 
+  kable(table.attr = "style='width:60%;'") %>% 
+  kable_styling(position = "left") %>% 
+  add_header_above(c("December date types" = 2))
+```
+
+
+### Participant Averages
+
+Dates per participant
+```{r}
+dates_per_par <- dates %>% 
+  group_by(subid) %>% 
+  summarise(n_dates = n())
+
+describe(dates_per_par$n_dates) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  add_header_above(c("Dates per participant statistics" = 14))
+
+dates_per_par %>% 
+  ggplot(aes(x = n_dates)) +
+  geom_histogram() +
+  theme_classic() +
+  labs(x = "number of dates per participant",
+       title = "Histogram of number of meaningful dates per participant")
+```
+
+Participants with over 20 meaningful dates
+```{r}
+subs_over20 <- dates_per_par %>% 
+  filter(n_dates > 20)
+
+dates %>% 
+  filter(subid %in% subs_over20$subid) %>% 
+  group_by(subid, type) %>% 
+  summarise(n_dates = n()) %>% 
+  kable(table.attr = "style='width:60%;'", align = "l") %>% 
+  kable_styling(position = "left") %>% 
+  add_header_above(c("Participants with over 20 dates" = 3))
+
+```
+
+One participant (subid 18) has `r max(subs_over20$n_dates)` dates. 12 of these are labeled "Other".  
+One participant (subid 243) has `r min(subs_over20$n_dates)` dates. 8 of which are labeled "Other".
+

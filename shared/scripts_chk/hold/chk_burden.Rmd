@@ -1,0 +1,1494 @@
+---
+title: "Checking Burden Measures"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+ 
+This script checks data from RISK participants' burden reports by computing 
+descriptives and checking for missingness and potential errors. 
+
+9/05/20 - updates to this check script include:  
+  - more descriptive variable names and removal of wristband/carrying phone data  
+  - recoding of one of the measures so that all scales are in same direction  
+  - numerous checks into missing data and number of participants and subsequent 
+  corrections/edits (see new Data Validity Checks section).  
+  
+9/06/20 - updates to script include:  
+  - final time point descriptives section - histograms (final appraisal for each 
+  signal) and table of comments for dislike measures (why did they dislike it).  
+  - table with mean response for each signal.      
+  - plot mean response at each time point for each item.  
+  - table of mean response for each item at all 3 time points.  
+  
+9/11/20 - updates to script include:  
+  - confirmed missing dates are start time from qualtrics.  
+  - renamed text vars to sms.  
+  - confirmed 139 UTCs and found extra UTC was for subid 138 (FU3), updated data
+  log - more details in script.  
+  - final sample of participants who completed study = 132.  
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+  
+Paths 
+```{r}
+path_data <- "./database"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lmSupport)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+library(psych)
+library(rtf)
+```
+
+
+### Import Data and glimpse 
+
+Burden data
+```{r}
+burden <- read_rds(file.path(path_data, "burden.rds"))  
+
+burden <- burden %>%
+  mutate(date_central = as_datetime(as.integer(utc), 
+                                    tz = 'America/Chicago')) %>%
+  mutate(date_central = date(date_central)) %>% 
+  select(subid,
+         utc,
+         date_central,
+         sleep_interfere = rbm_5,
+         sleep_dislike = rbm_6,
+         sleep_use_1year = rbm_7,
+         sleep_text = rbm_8,
+         daily_survey_interfere = rbm_9,
+         daily_survey_dislike = rbm_10,
+         daily_survey_complete4 = rbm_11,
+         daily_survey_complete1 = rbm_12,
+         daily_survey_text = rbm_13,
+         voice_note_interfere = rbm_14,
+         voice_note_dislike = rbm_15,
+         voice_note_1year = rbm_16,
+         voice_note_text = rbm_17,
+         location_dislike = rbm_22,
+         location_1year = rbm_23,
+         location_text = rbm_24,
+         sms_logs_dislike = rbm_25,
+         sms_logs_1year = rbm_26,
+         sms_content_dislike = rbm_27,
+         sms_content_1year = rbm_28,
+         phone_logs_dislike = rbm_29,
+         phone_logs_1year = rbm_30,
+         phone_text = rbm_31) %>%
+  # recode scale to be consistent with other questions (dislike, interference)
+  # All scales will now be measuring a negative attribute of the measure with 5
+  # being the strongest negative view (strongly agree)
+  mutate(across(c(sleep_use_1year, 
+                daily_survey_complete4,
+                daily_survey_complete1,
+                voice_note_1year,
+                location_1year,
+                sms_logs_1year,
+                sms_content_1year,
+                phone_logs_1year),
+                ~recode(., "5" = "1", "4" = "2", "3" = "3", "2" = "4", "1" = "5"))) %>%
+  glimpse()
+```
+
+`r length(unique(burden$subid))` participants contribute to a total of `r nrow(burden)` 
+reports. The earliest recorded report is from `r min(burden$date_central, na.rm = TRUE)` 
+and the most recent is from `r max(burden$date_central, na.rm = TRUE)`. 
+
+
+### Data Validity Checks
+
+Missing (NA) values
+```{r}
+if(any(is.na(burden))){
+  missing <- burden %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values", 
+          table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", 
+                  bootstrap_options = c("striped", "condensed"))
+}else {
+  paste("No missing values")
+}
+```
+
+There are `r sum(is.na(burden))` missing values (NA) from `r length(missing$var)` 
+unique variables in the entire dataset.  
+  
+Not all participants were given sleep monitors which explains why there are so many 
+missing values (n_NA = `r nrow(subset(burden, is.na(sleep_interfere)))`).  
+  
+Three surveys are blank and appear to be in error.  
+
+```{r}
+burden %>% 
+  filter_at(vars(daily_survey_interfere:daily_survey_text), any_vars(is.na(.))) %>% 
+  kable(caption = "Missing values (blank surveys)") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  scroll_box(width = "100%", height = "170px") 
+```
+
+subid 007
+```{r}
+burden %>% 
+  filter(subid == "007") %>% 
+  kable(caption = "subid 007") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(3, color = "red") %>% 
+  scroll_box(width = "100%", height = "450px") 
+```
+  
+Study dates from visits file confirm surveys completed on 07-17, 08-18, and 10-11
+are accurate. Will remove survey from 9-15.
+
+subid 042
+```{r}
+burden %>% 
+  filter(subid == "042") %>% 
+  kable(caption = "subid 042") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(1, color = "red") %>% 
+  scroll_box(width = "100%", height = "400px") 
+```
+
+According to notes file, participant was incorrectly given intake at followup 1
+so is missing burden measure for followup 1. 
+
+KW: Will NOT remove per discussion with John. Reasoning = they completed the study.
+
+  
+subid 237
+```{r}
+burden %>%
+  filter(subid == "237")  %>% 
+  kable(caption = "subid 237") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(1, color = "red") %>% 
+  scroll_box(width = "100%", height = "150px") 
+```
+
+According to notes file, participant withdrew from study at followup1 before data
+was collected. Will remove survey from dataframe.
+
+
+Missing dates
+```{r}
+burden %>%
+  filter(is.na(date_central)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>%
+  column_spec(2, color = "red") %>% 
+  scroll_box(width = "100%", height = "400px") 
+```
+
+subid 033
+```{r}
+burden %>% 
+  filter(subid == "033") %>% 
+  kable(caption = "subid 033") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(2, color = "red") %>% 
+  scroll_box(width = "100%", height = "600px") 
+```
+
+Missing date for followup 2 - should be 2018-02-20 according to visit dates. Will
+correct. (From notes -> FU2 is missing UTC. Calculated from start time as 1519142940)
+
+subid 208
+```{r}
+burden %>% 
+  filter(subid == "208") %>% 
+  kable(caption = "subid 208") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(2, color = "red") %>% 
+  scroll_box(width = "100%", height = "250px") 
+```
+
+Missing date for followup 2 - should be 2019-05-23 according to visit dates. Will
+correct. (From notes -> missing UTC, correct value = 1558648860).
+
+Updated dataframe
+```{r}
+burden <- burden %>%
+  # filter out 2 blank/false surveys
+  filter(subid != "237") %>% 
+  filter(!(subid == "007" & date_central == "2017-09-15")) %>% 
+  # add dates to 2 missing followup2 visits
+  mutate(date_central = case_when(subid == "033" & is.na(date_central) ~ "2018-02-20",
+                                  subid == "208" & is.na(date_central) ~ "2019-05-23",
+                                  TRUE ~ as.character(date_central))) %>% 
+  mutate(date_central = as_date(date_central)) %>% 
+  glimpse()
+```
+
+Now there is a total of `r length(unique(burden$subid))` participants contributing
+to a total of `r nrow(burden)` observations.
+
+Read in subids from rawdata folder to confirm correct number of participants
+```{r}
+# df of subids from raw_data folder
+subids_rawdata <- enframe(list.files(file.path("./raw_data"))) %>%   
+  mutate(subid = as.numeric(value)) %>%
+  filter(!is.na(subid)) %>%
+  mutate(subid = str_pad(value, 3, "left", "0")) %>%
+  select(subid) %>% 
+  mutate(subid = as.character(subid)) %>% 
+  arrange(subid)
+
+# df of subids from burden survey
+subids_burden <- enframe(burden$subid) %>% 
+  select(subid = value) %>% 
+  distinct(subid, .keep_all = FALSE) %>% 
+  arrange(subid)
+
+# compare dfs
+if (identical(subids_rawdata, subids_burden)) {
+  paste("Both dataframes are identical")
+}else {
+  paste("The dataframes do not match")
+}
+```
+
+
+There are `r nrow(subids_rawdata)` subids listed in the raw data folder.  
+There are `r length(unique(burden$subid))` unique subids in the burden data.  
+A close inspection of the two lists confirm these lists of subids are identical.  
+  
+
+Num surveys per subid
+```{r}
+burden_4 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 3)
+
+burden_4 %>% 
+  kable(caption = "Subids with more than 3 observations", 
+          table.attr = "style='width:40%;'") %>% 
+  kable_styling(position = "left", 
+                  bootstrap_options = c("striped", "condensed"))
+```
+
+`r nrow(burden_4)` participant took the burden survey four times.  
+  
+subid 139
+```{r}
+burden %>%
+  filter(subid == "139") %>%
+  kable(caption = "subid 139") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(2:3, color = "red") %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+subid has two completed surveys on 01-08 with different answers. Cannot find notes
+on why this is. Will not affect analyses on most recent time point, but will not
+be able to use in analyses across time.
+
+KW: 9/11/20 Closer inspection of visit_dates rds and other original sources reveal 
+that utc 1546974043 for subid 139 should be changed to subid 138. This was subid 
+138's final visit so it was the only data collected which may be why this error 
+has not yet been caught.  
+
+correct subid on utc 1546974043
+```{r}
+burden <- burden %>% 
+  mutate(subid = case_when(subid == "139" & utc == "1546974043" ~ "138",
+                           TRUE ~ subid)) 
+
+# check
+burden %>% 
+  filter(subid == "139") %>% 
+  select(1:3) %>% 
+  kable() %>% 
+  kable_styling(position = "left", full_width = FALSE, bootstrap_options = c("striped"))
+burden %>%
+  filter(subid == "138") %>% 
+  select(1:3)  %>% 
+  kable() %>% 
+  kable_styling(position = "left", full_width = FALSE, bootstrap_options = c("striped"))
+```
+
+
+```{r}
+burden_3 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 3)
+
+burden_2 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 2)
+
+burden_2 %>% 
+  kable(caption = "Subids with 2 observations", 
+          table.attr = "style='width:40%;'") %>% 
+  kable_styling(position = "left", 
+                  bootstrap_options = c("striped", "condensed"))
+
+burden_1 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 1)
+
+burden_1 %>% 
+  kable(caption = "Subids with 1 observation", 
+          table.attr = "style='width:40%;'") %>% 
+  kable_styling(position = "left", 
+                  bootstrap_options = c("striped", "condensed"))
+```
+
+
+`r nrow(burden_3)` participants took the burden survey three times.  
+`r nrow(burden_2)` participants took the burden survey two times.  
+`r nrow(burden_1)` participants took the burden survey one time.  
+
+
+### Final Time Point Descriptives
+
+Create df of final time points
+```{r}
+# pull out most recent survey for each subid
+burden_final <- burden %>% 
+  group_by(subid) %>% 
+  arrange(desc(date_central)) %>% 
+  slice(1) %>% 
+  glimpse()
+```
+
+
+#### Sleep Monitor 
+
+Sleep monitor burden measures (rbm_5 - rbm_7)
+```{r}
+burden_final %>%
+  mutate(interference = recode(sleep_interfere, 
+                               "1" = "strongly disagree",
+                               "2" = "disagree",
+                               "3" = "undecided",
+                               "4" = "agree",
+                               "5" = "strongly agree")) %>% 
+  mutate(interference = fct_relevel(factor(interference, 
+                                           c("strongly disagree",
+                                             "disagree",
+                                             "undecided",
+                                             "agree",
+                                             "strongly agree")))) %>% 
+  drop_na(interference) %>% 
+  ggplot(aes (x = interference)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("The sleep monitor interfered with my sleep") +
+  theme_classic()
+
+burden_final %>%
+  mutate(dislike = recode(sleep_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>% 
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked using the sleep monitor") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(sleep_use_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>% 
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't use the monitor for 1 year even if it helped with my recovery") +
+  theme_classic()
+```
+
+Text comments on why people dislike the sleep monitor
+```{r}
+burden_final %>% 
+  filter(sleep_dislike >= 4) %>% 
+  select(subid, sleep_text) %>% 
+  kable(caption = 
+        "Comments from participants who disliked the sleep monitor (agree/strongly agree)") %>% 
+  kable_styling() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"))
+```
+
+Re: whether participants disliked the sleep monitor -  
+`r nrow(subset(burden_final, sleep_dislike == "5"))` participants said they strongly
+agree.  
+`r nrow(subset(burden_final, sleep_dislike == "4"))` participants said they agree.  
+  
+From examining the text comments on the sleep monitor it seems people have an overall 
+positive view of the monitor and many people enjoy being able to see their sleep data.  
+
+
+#### Daily Surveys
+
+Daily survey burden measures (rbm_9 - rbm_12)
+```{r}
+burden_final %>%
+  mutate(interference = recode(daily_survey_interfere, 
+                               "1" = "strongly disagree",
+                               "2" = "disagree",
+                               "3" = "undecided",
+                               "4" = "agree",
+                               "5" = "strongly agree")) %>% 
+  mutate(interference = fct_relevel(factor(interference, 
+                                           c("strongly disagree",
+                                             "disagree",
+                                             "undecided",
+                                             "agree",
+                                             "strongly agree")))) %>%
+  drop_na(interference) %>% 
+  ggplot(aes (x = interference)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("Completing the daily surveys interfered with my daily activities") +
+  theme_classic()
+
+burden_final %>%
+  mutate(dislike = recode(daily_survey_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked completing the daily surveys") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(daily_survey_complete4, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't do 4 daily surveys for 1 year even if it helped my recovery") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(daily_survey_complete1, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing,
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't do 1 daily survey for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+
+Text comments on why people dislike the daily surveys
+```{r}
+burden_final %>% 
+  filter(daily_survey_dislike >= 4) %>% 
+  select(subid, daily_survey_text) %>% 
+  kable(caption = 
+        "Comments from participants who disliked the daily surveys (agree/strongly agree)") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"))
+```
+  
+Re: whether participants disliked the daily surveys -  
+`r nrow(subset(burden_final, daily_survey_dislike == "5"))` participants said they 
+strongly agree.  
+`r nrow(subset(burden_final, daily_survey_dislike == "4"))` participants said they 
+agree. 
+  
+
+Themes from text comments:  
+  
+1. 3 surveys a day should be max - 4 is too many.  
+- A large proportion of texts mentioned 4 daily surveys as being too many - words 
+used include: hassle, burdensome, irritating, annoying, overwhelming, pain, hate.  
+- Still, the surveys in isolation do not appear to be a problem (straight forward, 
+simple, easy) and some even seem to enjoy them. It is the multiple surveys a day 
+that begin to be a burden.  
+  
+2. The daily surveys are a good length (short).  
+
+3. Other smaller issues include tech issues, expiring links, and being disrupted 
+while at work.  
+  
+
+#### Voice Note Messaging
+
+Daily voice note check-in burden measures (rbm_14 - rbm_16)
+```{r}
+burden_final %>%
+  mutate(interference = recode(voice_note_interfere, 
+                               "1" = "strongly disagree",
+                               "2" = "disagree",
+                               "3" = "undecided",
+                               "4" = "agree",
+                               "5" = "strongly agree")) %>% 
+  mutate(interference = fct_relevel(factor(interference, 
+                                           c("strongly disagree",
+                                             "disagree",
+                                             "undecided",
+                                             "agree",
+                                             "strongly agree")))) %>%
+  drop_na(interference) %>% 
+  ggplot(aes (x = interference)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("Responding to the daily check-in interfered with my daily activities") +
+  theme_classic()
+
+burden_final %>%
+  mutate(dislike = recode(voice_note_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked responding to the daily recovery check-in question") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(voice_note_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't respond to a daily check-in for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+
+Text comments on why people dislike the voice note check ins
+```{r}
+burden_final %>% 
+  filter(voice_note_dislike >= 4) %>% 
+  select(subid, voice_note_text) %>% 
+  kable(caption = 
+        "Comments from participants who disliked the voice check ins (agree/strongly agree)") %>% 
+  kable_styling(bootstrap_options = "striped", "condensed") %>% 
+  scroll_box(width = "100%", height = "600px")
+```
+  
+Re: whether participants disliked the voice notes -  
+`r nrow(subset(burden_final, voice_note_dislike == "5"))` participants said they 
+strongly agree.  
+`r nrow(subset(burden_final, voice_note_dislike == "4"))` participants said they 
+agree.  
+  
+
+Text comments about daily voice message were more positive than negative. Many people
+found the prompt helpful, interesting, and useful. Some people report that they do
+not like being reminded of it in the morning, they found it annoying or embarrassing, 
+or they never could think of new things to say.
+
+
+#### Phone Saving Location Information (GPS)
+
+Location tracking burden measures (rbm_22 - rbm_23)
+```{r}
+burden_final %>%
+  mutate(dislike = recode(location_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked having my location tracked by study staff") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(location_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't have my location tracked for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+
+Text comments on why people dislike the location tracking
+```{r}
+burden_final %>% 
+  filter(location_dislike >= 4) %>% 
+  select(subid, location_text) %>% 
+  kable(caption = 
+        "Comments from participants who disliked location tracking (agree/strongly agree)") %>% 
+  kable_styling(bootstrap_options = "striped", "condensed")
+```
+  
+Re: whether participants disliked their location being tracked -  
+`r nrow(subset(burden_final, location_dislike == "5"))` participant said they 
+strongly agree.  
+`r nrow(subset(burden_final, location_dislike == "4"))` participants said they 
+agree.  
+
+The majority of participants do not mind their location being tracked. Often people 
+forget it is being recorded or never think about it. A few people did mention that 
+they did not like it - creepy, invasion of privacy, would not allow in "real life", etc.
+
+
+#### Phone Saving SMS and Call Log Information
+
+##### SMS logs
+
+sms logs burden measures (rbm_25 - rbm_26)
+```{r}
+burden_final %>%
+  mutate(dislike = recode(sms_logs_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked having my text message logs tracked by study staff") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(sms_logs_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't have my text logs tracked for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+
+Re: dislike of sms logs being collected  
+`r nrow(subset(burden_final, sms_logs_dislike == "5"))` participants said they 
+strongly agree.  
+`r nrow(subset(burden_final, sms_logs_dislike == "4"))` participants said they 
+agree.  
+  
+  
+##### SMS content
+
+sms content burden measures (rbm_27 - rbm_28)
+```{r}
+burden_final %>%
+  mutate(dislike = recode(sms_content_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>% 
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked having my text message content tracked by study staff") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(sms_content_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't have my text content tracked for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+  
+Re: dislike of sms content being collected  
+`r nrow(subset(burden_final, sms_content_dislike == "5"))` participants said they 
+strongly agree.  
+`r nrow(subset(burden_final, sms_content_dislike == "4"))` participants said they 
+agree.  
+  
+  
+##### Call logs
+
+Call logs burden measures (rbm_29 - rbm_30)
+```{r}
+burden_final %>%
+  mutate(dislike = recode(phone_logs_dislike, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(dislike = fct_relevel(factor(dislike, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(dislike) %>% 
+  ggplot(aes (x = dislike)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I disliked having my call logs tracked by study staff") +
+  theme_classic()
+
+burden_final %>%
+  mutate(willing = recode(phone_logs_1year, 
+                          "1" = "strongly disagree",
+                          "2" = "disagree",
+                          "3" = "undecided",
+                          "4" = "agree",
+                          "5" = "strongly agree")) %>% 
+  mutate(willing = fct_relevel(factor(willing, 
+                                      c("strongly disagree",
+                                        "disagree",
+                                        "undecided",
+                                        "agree",
+                                        "strongly agree")))) %>%
+  drop_na(willing) %>% 
+  ggplot(aes (x = willing)) +
+  geom_bar() +
+  scale_x_discrete(drop = FALSE) +
+  xlab(NULL) +
+  ggtitle("I wouldn't have my call logs tracked for 1 year even if it helped my recovery") +
+  theme_classic()
+```
+  
+Re: dislike of phone logs being collected  
+`r nrow(subset(burden_final, phone_logs_dislike == "5"))` participants said they 
+strongly agree.  
+`r nrow(subset(burden_final, phone_logs_dislike == "4"))` participants said they 
+agree.
+  
+  
+Text comments on why people dislike the sms/phone logs or content monitored
+```{r}
+phone_dislike <- burden_final %>% 
+  filter_at(vars(sms_logs_dislike, sms_content_dislike, phone_logs_dislike), 
+            any_vars(. >=4)) %>% 
+  select(subid, phone_text)
+
+phone_dislike %>% 
+  kable(caption = 
+        "Comments from participants who disliked phone info collected (strongly agree/agree)") %>% 
+  kable_styling(bootstrap_options = "striped", "condensed")  %>% 
+  scroll_box(width = "100%", height = "600px")
+```
+  
+There were `r nrow(phone_dislike)` unique participants that agreed or strongly agreed
+with the fact that they disliked some element of the text/call data collected.  
+  
+Some of the comments suggest they did not mind the data being collected, yet they
+answered as disliking it on the scaled question.  
+  
+People seem to be mostly concerned with the content of their text messages. 
+Participants express confidence in the study, but curiosity of what exactly we are 
+doing with the data. The majority of comments are neutral about study staff tracking 
+phone/text data.  
+
+### Summary of All Measures (based on final time point)
+
+```{r}
+burden_final %>% 
+  ungroup() %>% 
+  select(-(contains("_text"))) %>% 
+  select(-c(subid, date_central)) %>% 
+  varDescribe(Detail = 1) %>% 
+  kable(caption = 
+        "Summary stats for each measure (1 = strongly disagree, 5 = strongly agree)") %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"))
+```
+
+
+### Descriptives Across Time
+
+Create data frame of participants with 3 time points
+```{r}
+burden_time <- burden %>% 
+  group_by(subid) %>% 
+  mutate(n_obs = n()) %>% 
+  filter(n_obs == 3) %>% 
+  # create time variable
+  arrange(date_central) %>%
+  mutate(time = row_number()) %>% 
+  glimpse()
+```
+
+`r length(unique(burden_time$subid))` participants had 3 burden survey time points,
+making up a total of `r nrow(burden_time)` data points.
+
+
+#### Sleep Monitor
+
+Interference (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sleep_interfere), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "The sleep monitor interfered with my sleep",
+       subtitle = "N = 72, 70, 64 (time 1, 2, 3)") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sleep_interfere), as.numeric(burden_time$time)) 
+```
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sleep_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked using the sleep monitor",
+       subtitle = "N = 72, 70, 64 (time 1, 2, 3)") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sleep_dislike), as.numeric(burden_time$time))
+```
+
+Would not use for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sleep_use_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I would not use the monitor for 1 year even if it helped my recovery",
+       subtitle = "N = 72, 70, 64 (time 1, 2, 3)") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sleep_use_1year), as.numeric(burden_time$time))
+```
+
+#### Daily Surveys
+
+Interference (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(daily_survey_interfere))) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Completing the daily surveys interfered with my daily activities",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$daily_survey_interfere), as.numeric(burden_time$time))
+```
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(daily_survey_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked completing the daily surveys",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$daily_survey_dislike), as.numeric(burden_time$time))
+```
+
+Would not complete 4 daily for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(daily_survey_complete4), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't complete 4 daily surveys for a year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$daily_survey_complete4), as.numeric(burden_time$time))
+```
+
+Would not complete 1 daily for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(daily_survey_complete1), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't complete 1 daily survey for a year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$daily_survey_complete1), as.numeric(burden_time$time))
+```
+
+
+#### Voice Note Check-in
+
+Interference (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(voice_note_interfere))) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Responding to the daily check-in interfered with my daily activities",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$voice_note_interfere), as.numeric(burden_time$time))
+```
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(voice_note_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked responding to the daily recovery check-in question",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$voice_note_dislike), as.numeric(burden_time$time))
+```
+
+Would not answer voice question for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(voice_note_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't answer a daily check-in for 1 year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$voice_note_1year), as.numeric(burden_time$time))
+```
+
+
+#### Location Tracking (GPS)
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(location_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked having my location tracked by study staff",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$location_dislike), as.numeric(burden_time$time))
+```
+
+Would not allow gps tracking for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(location_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't have my location tracked for 1 year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$location_1year), as.numeric(burden_time$time))
+```
+
+#### Phone Saving SMS and Call Log Information
+
+##### SMS logs
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sms_logs_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked having my text logs collected by study staff",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sms_logs_dislike), as.numeric(burden_time$time))
+```
+
+Would not allow text logs for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sms_logs_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't have my text logs tracked for 1 year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sms_logs_1year), as.numeric(burden_time$time))
+```
+
+
+##### SMS content
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sms_content_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked having my text content collected by study staff",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sms_content_dislike), as.numeric(burden_time$time))
+```
+
+Would not allow text content for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(sms_content_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't have my text content tracked for 1 year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$sms_content_1year), as.numeric(burden_time$time))
+```
+
+
+##### Phone logs
+
+Dislike (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(phone_logs_dislike), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "I disliked having my phone logs collected by study staff",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$phone_logs_dislike), as.numeric(burden_time$time))
+```
+
+Would not allow phone logs for 1 year to help recovery (1 = strongly disagree)
+```{r}
+burden_time %>%  
+  group_by(time) %>% 
+  summarise(mean_score = mean(as.numeric(phone_logs_1year), na.rm = TRUE)) %>%
+  ggplot(aes(x = time, y = mean_score)) +
+  geom_point() +
+  geom_line() +
+  labs(title = 
+         "I wouldn't have my call logs tracked for 1 year even if it helped my recovery",
+       subtitle = "N = 129") +
+  scale_x_discrete(name = "time point", 
+                   limits = c(1, 2, 3)) +
+  scale_y_continuous(name = "mean score (1 = strongly disagree)", 
+                     limits = c(0, 5)) +
+  theme_classic()
+
+varDescribeBy(as.numeric(burden_time$phone_logs_1year), as.numeric(burden_time$time))
+```
+
+
+### Measures Summary Table as a Function of Time
+
+```{r, echo=FALSE}
+burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_i = round(mean(as.numeric(sleep_interfere), na.rm = TRUE), 2),
+            SD_i = round(sd(as.numeric(sleep_interfere), na.rm = TRUE), 2),
+            mean_d = round(mean(as.numeric(sleep_dislike), na.rm = TRUE), 2),
+            SD_d = round(sd(as.numeric(sleep_dislike), na.rm = TRUE), 2),
+            mean_u = round(mean(as.numeric(sleep_use_1year), na.rm = TRUE), 2),
+            SD_u = round(sd(as.numeric(sleep_use_1year), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped")  %>% 
+  add_header_above(c(" " = 1, 
+                     "interference" = 2, 
+                     "dislike" = 2,
+                     "use 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Sleep" = 6)) %>% 
+  column_spec(1, bold = TRUE)
+
+burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_i = round(mean(as.numeric(daily_survey_interfere), na.rm = TRUE), 2),
+            SD_i = round(sd(as.numeric(daily_survey_interfere), na.rm = TRUE), 2),
+            mean_d = round(mean(as.numeric(daily_survey_dislike), na.rm = TRUE), 2),
+            SD_d = round(sd(as.numeric(daily_survey_dislike), na.rm = TRUE), 2),
+            mean_4 = round(mean(as.numeric(daily_survey_complete4), na.rm = TRUE), 2),
+            SD_4 = round(sd(as.numeric(daily_survey_complete4), na.rm = TRUE), 2),
+            mean_1 = round(mean(as.numeric(daily_survey_complete1), na.rm = TRUE), 2),
+            SD_1 = round(sd(as.numeric(daily_survey_complete1), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped") %>%
+  add_header_above(c(" " = 1, 
+                     "interference" = 2, 
+                     "dislike" = 2,
+                     "4/day for 1 year" = 2,
+                     "1/day for 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Daily Surveys" = 8)) %>% 
+  column_spec(1, bold = TRUE)
+
+burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_i = round(mean(as.numeric(voice_note_interfere), na.rm = TRUE), 2),
+            SD_i = round(sd(as.numeric(voice_note_interfere), na.rm = TRUE), 2),
+            mean_d = round(mean(as.numeric(voice_note_dislike), na.rm = TRUE), 2),
+            SD_d = round(sd(as.numeric(voice_note_dislike), na.rm = TRUE), 2),
+            mean_u = round(mean(as.numeric(voice_note_1year), na.rm = TRUE), 2),
+            SD_u = round(sd(as.numeric(voice_note_1year), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped")  %>% 
+  add_header_above(c(" " = 1, 
+                     "interference" = 2, 
+                     "dislike" = 2,
+                     "for 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Voice Notes" = 6)) %>% 
+  column_spec(1, bold = TRUE)
+
+burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_d = round(mean(as.numeric(location_dislike), na.rm = TRUE), 2),
+            SD_d = round(sd(as.numeric(location_dislike), na.rm = TRUE), 2),
+            mean_u = round(mean(as.numeric(location_1year), na.rm = TRUE), 2),
+            SD_u = round(sd(as.numeric(location_1year), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped")  %>% 
+  add_header_above(c(" " = 1, 
+                     "dislike" = 2,
+                     "tracked for 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Location (GPS)" = 4)) %>% 
+  column_spec(1, bold = TRUE)
+
+burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_ld = round(mean(as.numeric(sms_logs_dislike), na.rm = TRUE), 2),
+            SD_ld = round(sd(as.numeric(sms_logs_dislike), na.rm = TRUE), 2),
+            mean_lu = round(mean(as.numeric(sms_logs_1year), na.rm = TRUE), 2),
+            SD_lu = round(sd(as.numeric(sms_logs_1year), na.rm = TRUE), 2),
+            mean_cd = round(mean(as.numeric(sms_content_dislike), na.rm = TRUE), 2),
+            SD_cd = round(sd(as.numeric(sms_content_dislike), na.rm = TRUE), 2),
+            mean_cu = round(mean(as.numeric(sms_content_1year), na.rm = TRUE), 2),
+            SD_cu = round(sd(as.numeric(sms_content_1year), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped")  %>% 
+  add_header_above(c(" " = 1, 
+                     "dislike" = 2,
+                     "tracked for 1 year" = 2,
+                     "dislike" = 2,
+                     "tracked for 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "SMS Logs" = 4,
+                     "SMS Content" = 4)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Text Messages (SMS)" = 8)) %>% 
+  column_spec(1, bold = TRUE)
+  
+  burden_time %>% 
+  group_by(time) %>% 
+  summarise(mean_d = round(mean(as.numeric(phone_logs_dislike), na.rm = TRUE), 2),
+            SD_d = round(sd(as.numeric(phone_logs_dislike), na.rm = TRUE), 2),
+            mean_u = round(mean(as.numeric(phone_logs_1year), na.rm = TRUE), 2),
+            SD_u = round(sd(as.numeric(phone_logs_1year), na.rm = TRUE), 2)) %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = "striped")  %>% 
+  add_header_above(c(" " = 1, 
+                     "dislike" = 2,
+                     "tracked for 1 year" = 2)) %>% 
+  add_header_above(c(" " = 1, 
+                     "Phone Logs" = 4)) %>% 
+  column_spec(1, bold = TRUE)
+```
+
+RTF - in progress
+```{r}
+table_vars <- burden_time %>% 
+  ungroup() %>% 
+  select(-contains("_text")) %>% 
+  select(-c(subid, date_central, n_obs))
+
+table_1 <- table_vars %>% 
+  group_by(time) %>% 
+  summarise(across(.cols = everything(), ~mean(as.numeric(.), na.rm = TRUE))) 
+
+table_1 %>%
+  ungroup() %>% 
+  pivot_longer(!time, names_to = "Measure", values_to = "Mean") %>% 
+  group_by(Measure) %>% 
+  arrange(time, .by_group = TRUE) %>% 
+  kable() %>% 
+  kable_styling(position = "left", bootstrap_options = "striped", "condensed") %>% 
+  scroll_box(width = "80%", height = "800px")
+
+
+table_1 %>% 
+  kable(caption = 
+        "Mean values for each measure by time") %>% 
+  kable_styling(bootstrap_options = "striped", "condensed")  %>% 
+  scroll_box(width = "100%", height = "200px")
+```
+
+
+```{r}
+table_vars <- burden_time %>% 
+  ungroup() %>% 
+  select(-contains("_text")) %>% 
+  select(-c(subid, date_central, n_obs))
+varDescribeBy(table_vars, table_vars$time) 
+```
+
+

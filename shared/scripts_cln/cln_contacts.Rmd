@@ -1,0 +1,467 @@
+---
+title: "Contacts"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+
+### Notes
+Purpose: This file reads in all individual excel contact files from participants' raw data folders and creates an aggregate data file. Light EDA is also included as part of this cleaning script.   
+
+Inputs:   
+[subid]_Contacts.xlsx   
+
+Output:   
+contacts.csv  
+
+### Setup
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "./raw_data"
+path_log <- "./analysis/shared/notes"
+path_out <- "./analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(readxl)
+library(lubridate)
+library(janitor)
+
+theme_set(theme_classic())
+```
+
+### Create function
+```{r}
+read_contacts <- function(subid) {
+    file <- list.files(file.path(path_raw, subid), pattern = "Contacts", include.dirs = FALSE)
+    if(length(file) > 0) {
+      path <- file.path(path_raw, subid, file)
+      log <- read_excel(file.path(path)) %>% 
+             mutate(across(everything(), as.character), # for merging
+                    subid = as.numeric(subid)) 
+      return(log)
+    }
+}
+```
+
+### Get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+```
+
+### Read in data and glimpse
+```{r}
+contacts <- map_df(subids$subid, ~read_contacts(.)) %>% 
+  glimpse()
+```
+
+
+<br>
+
+
+### Clean data from log
+cleaning function   
+(function written by Hannah)
+```{r}
+clean_contacts <- function(..., log){
+  data_row <- tibble(...) # (the tibble is turned into a list by pmap)
+  # convert list element to a tibble of one row
+  log_subid <- log %>% #filter to just the log entries for that subject
+    # filter out note entries
+    filter(log_action != "note") %>% 
+    filter(subid == data_row$subid) 
+  
+  if (nrow(log_subid) >= 1) {
+    
+    for (i in 1:nrow(log_subid)) {
+       data_row[[pluck(log_subid, "var_name", i)]] <- pluck(log_subid, "new_value", i) 
+       }
+  }
+  return(data_row)
+}
+```
+
+read in log and summarize
+```{r}
+log <- read_csv(file.path(path_log, "log_contacts.csv"), col_types = cols()) %>% 
+  glimpse()
+
+# view log actions
+table(log$log_action)
+
+# print notes
+log %>% 
+  filter(log_action == "note") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed"))
+```
+
+clean data
+```{r}
+contacts <- contacts %>% 
+  pmap_dfr(clean_contacts, log = log) %>% 
+  glimpse()
+```
+
+
+### tidy data    
+Tidy variable names
+```{r}
+contacts <- contacts %>% 
+  clean_names() %>% 
+  glimpse()
+```
+
+Create date variable    
+First check no missing UTCs
+```{r}
+contacts %>% 
+  filter(is.na(utc))
+```
+
+Convert UTC to datetime
+```{r}
+contacts <- contacts %>% 
+  mutate(utc = as.numeric(utc),
+         date = as_datetime(utc, tz = "utc")) %>% 
+  glimpse()
+```
+
+Check for any legitimate missing phone numbers before transforming dataframe to long
+```{r}
+contacts %>% 
+  filter(is.na(home_phone) & is.na(cell_phone) & is.na(other_phone1) & is.na(other_phone2)) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+# Temporarily turn NA into character to preserve
+contacts <- contacts %>% 
+  mutate(cell_phone = case_when(subid == 41 & is.na(cell_phone) & is.na(other_phone1) ~ "NA",
+                                TRUE ~ cell_phone))
+```
+
+
+pivot longer and reorder variables
+```{r}
+contacts <- contacts %>% 
+  pivot_longer(home_phone:other_phone2, names_to = "phone_type", values_to = "phone_number") %>% 
+  filter(!is.na(phone_number)) %>% 
+  # remove time from datetime 
+  mutate(date = date(date)) %>% 
+  select(subid, date, contact_type = type, phone_type, phone_number, contact_drank_past:state, utc) %>% 
+  glimpse()
+```
+
+replace all string NAs to actual missing value NAs
+```{r}
+contacts <- contacts %>% 
+  naniar::replace_with_na_if(.predicate = is.character, condition = ~.x == "NA")
+```
+
+
+<br>
+
+
+### EDA
+
+`r length(unique(contacts$subid))` subids have contact information. 
+
+Check to see who completed intake that don't have contacts  
+NOTE: Subids 8 and 235 do not have a contacts file
+```{r}
+visit_dates <- read_csv(file.path(path_out, "visit_dates.csv"), col_types = cols())
+notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>% 
+  select(subid, notes_general) 
+
+visit_dates %>% 
+  filter(!is.na(intake)) %>% 
+  filter(!subid %in% as.numeric(contacts$subid))
+
+notes %>% 
+  filter(subid %in% c(8, 235)) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+NOTE: subid 67 has contacts but never completed intake/started study - leaving contacts in because they will be filtered out at the project-level depending on final sample
+```{r}
+intake <- visit_dates %>% 
+  filter(!is.na(intake))
+contacts %>% 
+  filter(!as.numeric(subid) %in% intake$subid)
+
+visit_dates %>% 
+  filter(subid == 67)
+
+notes %>% 
+  filter(subid == 67) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+Check for duplicate entries    
+FIX: Some duplicates are errors (2 entries on same date with discrepant answers) and some are not (updating address, home phone number belongs to 2 parents, etc.)    
+NOTE: leaving as project-level pre-processing decision of how to handle error and non-error duplicates
+```{r}
+duplicates <- contacts %>% 
+  group_by(subid, phone_number) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1)
+
+contacts %>% 
+  filter(subid %in% duplicates$subid & phone_number %in% duplicates$phone_number) %>% 
+  arrange(subid, phone_number) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+
+<br>
+
+#### Missing data
+```{r}
+naniar::miss_var_summary(contacts)
+```
+
+2 Missing phone numbers   
+```{r}
+contacts %>% 
+  filter(is.na(phone_number))
+```
+
+<br>
+
+* subid 81: from data log - "Participant’s partner is incarcerated. She reported that all of the phone calls that come up as restricted or unknown are incoming calls from her partner. She reported that she speaks to him frequently." Also, note the state is Illinois which might give some clues as to which unknown/restricted numbers are him  
+* subid 41: No info as to why this number is blank   
+
+<br>
+
+```{r}
+contacts %>% 
+  filter(subid == 41) %>% 
+  filter(is.na(phone_number)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  column_spec(5, color = "red") %>% 
+  scroll_box(width = "100%")
+```
+
+Missing contact type values have an actual NA in the excel file - what could this mean?
+```{r}
+contacts %>% 
+  filter(is.na(contact_type)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  column_spec(3, color = "red") %>% 
+  scroll_box(width = "100%")
+```
+
+Missing context variables   
+Most missing context variables are self or spam entries - still a considerable amount of missing values for co-workers and family-other
+```{r}
+contacts %>% 
+  filter(is.na(recovery)) %>% 
+  filter(contact_type != "Self" & contact_type != "Irrelevant/Spam" & contact_type != "Other") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+1 entry is also in the duplicate list and was previously entered as irrelevant/spam
+```{r}
+contacts %>% 
+  filter(subid == 33 & phone_number == "6088735039") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+
+<br>
+
+#### contact type
+
+```{r}
+contacts %>% 
+  tabyl(contact_type)
+```
+
+<br>
+
+#### Phone numbers
+
+Raw number format
+```{r}
+contacts %>% 
+  filter(!is.na(phone_number)) %>% 
+  select(phone_number) %>% 
+  print(n = Inf)
+```
+
+Numbers greater than 10 characters        
+```{r}
+contacts %>% 
+  select(phone_number, contact_type) %>% 
+  filter(str_length(phone_number) > 10)
+```
+
+Numbers less than 7 digits in length   
+Note: all numbers less than 7 digits are marked as Irrelevant/Spam or Other
+```{r}
+contacts %>% 
+  select(phone_number, contact_type) %>% 
+  filter(str_length(phone_number) < 7)
+```
+
+Check for other characters    
+```{r}
+contacts %>% 
+  filter(str_detect(phone_number, "[[:space:][:punct:]]")) %>% 
+  select(phone_number)
+```
+
+<br>
+
+#### Monthly visit
+NOTE: monthly visit means participant visits home of contact at least monthly
+```{r}
+contacts %>% 
+  tabyl(monthly_visit)
+```
+
+Should have been gathering addresses when monthly_visit = yes   
+We have addresses for all but 11 of the contacts who participants visited monthly
+```{r}
+contacts %>% 
+  filter(monthly_visit == "Yes") %>% 
+  count(!is.na(street_address))
+  
+contacts %>% 
+  filter(monthly_visit == "Yes") %>% 
+  filter(!is.na(street_address)) %>% 
+  select(subid, contact_type, street_address, city, state) %>% 
+  print(n = Inf)
+```
+
+Locations for other contacts   
+We only have 6 address for contacts that don't have monthly_visit as yes
+```{r}
+contacts %>% 
+  filter(monthly_visit == "No" | is.na(monthly_visit)) %>% 
+  count(!is.na(street_address))
+```
+ 
+<br>
+
+#### Context variables
+
+```{r}
+contacts %>% 
+  tabyl(contact_drank_past)
+
+contacts %>% 
+  tabyl(drink_status)
+
+contacts %>% 
+  tabyl(contact_drink_future)
+
+contacts %>% 
+  tabyl(recovery)
+
+contacts %>% 
+  tabyl(support_status)
+```
+
+FIX: No is not a valid response - error, but not enough info to resolve (note entry in log)
+```{r}
+contacts %>% 
+  filter(support_status == "No") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  column_spec(10, color = "red") %>% 
+  scroll_box(width = "100%")
+```
+
+```{r}
+contacts %>% 
+  tabyl(contact_experience)
+```
+
+FIX: unpleasant/mixed is not a valid response option - error, but not enough info to resolve (note entry in log)
+```{r}
+contacts %>% 
+  filter(contact_experience == "Unpleasant/mixed") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  column_spec(11, color = "red") %>% 
+  scroll_box(width = "100%")
+```
+
+<br>
+
+#### Other Distributions
+
+Number of contacts per subid   
+NOTE: this should be interpreted as number of unique phone numbers per participant since this plot is not accounting for the fact that contacts could have more than one number (e.g., home, cell, work)    
+```{r message = FALSE}
+contacts %>% 
+  group_by(subid) %>%
+  summarise(n_contacts = length(unique(phone_number))) %>% 
+  ggplot(aes(x = n_contacts)) +
+  geom_histogram(color = "black", fill = "light grey") +
+  labs(title = "Number of contacts per participant") +
+  geom_vline(aes(xintercept = mean(n_contacts)), contacts %>% 
+               group_by(subid) %>%
+               summarise(n_contacts = length(unique(phone_number))), linetype = "dashed")
+```
+
+Number of contacts per subid faceted by spam vs not spam   
+```{r message = FALSE}
+contacts %>% 
+  mutate(spam = case_when(contact_type == "Irrelevant/Spam" ~ "spam",
+                          TRUE ~ "contact")) %>% 
+  group_by(subid, spam) %>%
+  summarise(n_contacts = length(unique(phone_number))) %>% 
+  ggplot(aes(x = n_contacts)) +
+  geom_histogram(color = "black", fill = "light grey") +
+  facet_wrap(~ spam) +
+  labs(title = "Number of contacts per participant") +
+  geom_vline(aes(xintercept = mean(n_contacts)), contacts %>% 
+               mutate(spam = case_when(contact_type == "Irrelevant/Spam" ~ "spam",
+                          TRUE ~ "contact")) %>% 
+               group_by(subid, spam) %>%
+               summarise(n_contacts = length(unique(phone_number))), linetype = "dashed")
+```
+
+
+<br>
+
+### Write CSV
+```{r}
+write_csv(contacts, file.path(path_out, "contacts.csv")) %>% 
+  glimpse()
+```
+
+<br>

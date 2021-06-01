@@ -1,0 +1,598 @@
+---
+title: "Clean and process the raw qualtrics follow-up 12"
+author: "John Curtin and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+Purpose: This file does cleaning and basic processing of the qualtrics follow-up 12 survey.
+
+Inputs:  
+
+Opens data file in path_in  
+
+* followup_12.csv
+
+Opens log file in path_log  
+
+* log_followup_12.csv
+
+Opens notes in path_raw  
+
+* raw_notes.csv  
+
+Output:  
+
+Creates file in path_out  
+
+* followup_12.csv
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(results = "hold",  message = FALSE)
+```
+
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Paths 
+```{r}
+path_in <- "raw_data/qualtrics"
+path_out <- "analysis/shared/data"
+path_log <- "analysis/shared/notes" 
+path_raw <- "raw_data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+library(psych)
+
+
+source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+
+### Followup 12 survey
+
+#### Clean it
+Load surveys, join, and remove unused variables
+
+Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
+```{r}
+main12 <- read_csv(file.path(path_in, 'followup_12.csv'), col_types = cols())  
+burden_sleep <- read_csv(file.path(path_in, 'followup_12_beddit_burden.csv'), col_types = cols())  %>% 
+  select(ResponseID, RBM_5, RBM_6, RBM_7, RBM_8) 
+burden_empatica <- read_csv(file.path(path_in, 'followup_12_empatica_burden.csv'), col_types = cols()) %>% 
+  select(ResponseID, RBM_1, RBM_2, RBM_3, RBM_4) 
+
+fu12 <- left_join(main12,burden_empatica, by = "ResponseID") %>% 
+  left_join(burden_sleep, by = "ResponseID") %>% 
+  select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
+            RecipientEmail, ExternalDataReference, Status, 
+            LocationLatitude, LocationLongitude, LocationAccuracy,
+            DataType, StudyName, PACS_Inst, AASE_Inst, MAM_Inst, ASSIST_Inst,
+            DASS21_Inst, PSS_Inst, QOL_Inst, DAS_Inst, MSPSS_Inst, RBM_Inst)) %>% 
+  rename(subid = SubID, response_id = ResponseID)  %>%  #update to tidy case for use in clean_qualtrics_by_log()
+  relocate(subid) %>% 
+  relocate(any_of(str_c("RBM_", 1:8)), .before = "RBM_9")
+```
+
+Open and summarize log
+```{r}
+log_fu12 <- read_csv(file.path(path_log, "log_followup_12.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>%
+  glimpse()
+```
+
+```{r}
+tabyl(log_fu12$log_action)
+```
+
+remove log entries:  
+No removed entries  
+
+recode_one log entries:
+```{r}
+log_fu12 %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to UTC variable  
+2 UTC entries are replacing missing values and 2 appear to be correcting UTC after staff went back into the survey to make a change/update.
+```{r}
+log_fu12 %>% 
+  filter(var_name == "UTC") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+Changes to start and end date
+```{r}
+log_fu12 %>% 
+  filter(var_name == "StartDate" | var_name == "EndDate") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+
+Other recode_one entries seem fine. Most are due to adding new questions and getting participant responses at next visit or John recoding "other" assist responses to the proper drug category (see below).
+
+```{r}
+log_fu12 %>% 
+  filter(subid %in% c(19, 39, 92, 143, 149, 175, 179, 270, 269, 39, 92, 143, 158, 175,
+                         179, 245, 269)) %>% 
+  select(-index) %>% 
+  arrange(subid) %>% 
+  kbl %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "600px")
+```
+
+note log entries:  
+```{r}
+log_fu12 %>% 
+  filter(log_action == "note") %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+Clean raw data using log
+```{r}
+fu12 <- fu12 %>% 
+  # temporarily change start and end date to character string for cleaning function to work
+  mutate(StartDate = as.character(StartDate),
+         EndDate = as.character(EndDate)) %>% 
+  clean_qualtrics_by_log(., log_fu12) %>% 
+  # change start and end date back to date time
+   mutate(StartDate = as_datetime(StartDate),
+         EndDate = as_datetime(EndDate)) 
+```
+
+Tidy variable names
+```{r}
+fu12 <- clean_names(fu12, "snake") 
+```
+
+Tidy response options 
+Some text response options became slightly distorted, fixing for consistency
+```{r}
+fu12 <- fu12 %>% 
+  mutate(across(where(is.character), str_replace_all, pattern = "&mdash;", replacement = " - "),
+         across(where(is.character), str_replace_all, pattern = '<span style=;white-space:nowrap;">', replacement = ""),
+         across(where(is.character), str_replace_all, pattern = "â€™", replacement = "'"),
+         across(where(is.character), str_replace_all, pattern = "\\\\", replacement = " "))
+```
+
+
+
+#### EDA and Save
+
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = fu12)
+)
+```
+
+```{r}
+fu12 %>% 
+  glimpse()
+```
+
+`r length(unique(fu12$subid))` participants contribute to a total of `r nrow(fu12)` reports.  
+
+- According to log note, subid 237 has a survey but did not complete followup1 (survey is incomplete).  
+- This leaves 154 uniques subids which is the expected number of participants who completed the entire followup 1 visit.   
+- Note: subid 182 showed up for their followup 1 visit but did not stay and did not start a survey so they are not included in these counts.  
+
+<br>
+
+##### Dates and Times
+
+The earliest recorded report is from `r min(fu12$start_date, na.rm = TRUE)` and the most recent is from `r max(fu12$start_date, na.rm = TRUE)`.   
+
+All timezones in UTC
+```{r}
+fu12 %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+```
+
+
+**Time difference in start_date and utc**
+```{r}
+options(tibble.print_max = Inf)
+fu12 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  tabyl(diff)
+```
+
+- Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).   
+- Check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.)  
+- See below for why some differences are quite large  
+
+
+UTCs with different dates then start_date
+```{r}
+fu12 %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(date(utc) != date(start_date))
+```
+
+**4 subids UTC date does not match start date**  
+
+FIX: start and end date are correct but time is not correct.  
+* 11 UTC = 2017-09-29 00:06:56; start_date = 2017-09-28 23:06:16; end_date = 2017-09-28 23:18:13  
+According to visit dates followup 2 visit was on 9-28-2017. Start and end time are 12 minutes apart and at 11:00 pm. UTC follows same pattern (almost 1 hour exactly after start time) but pushes it past midnight so day is different.   
+
+*These 3 below will be fine since we will likely use end time for predictors*   
+
+* 27 UTC = 2018-01-22 17:44:48; start_date = 2018-01-19 17:01:08; end_date = 2018-01-22 18:05:28  
+UTC is correct - Participant completed the Followup 1& 2 ID battery on 1/22/2018 via the link at home as she was unable to make it into the lab for her second follow-up due to car issues. UTC is likely start time and end_date is likely end time.    
+* 34 UTC = 2018-02-23 01:06:10; start_date = 2018-02-22 21:43:11; end_date = 2018-02-23 01:18:11  
+According to notes, participant missed Follow Up 2 appointment. Filled out the Follow Up 2 ID Battery via email on 2/22/18. UTC is likely start time and end_date is likely end time.   
+
+* 201 UTC = 2019-06-07 03:41:56; start_date = 2019-06-05 16:16:29; end_date = 2019-06-07 03:01:27  
+The participant was sent a survey link to complete the ID F1&F2 Battery. She was unable to come in for her F2 appointment. She completed the F1&F2 ID battery on 6/7/19. UTC is likely start time (plus 1 hour for BST tz) and end_date is likely end time.    
+
+4 subids with different day for UTC and start time
+```{r}
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+  select(subid, notes_general)
+subs_diff_day <- c(11, 27, 34, 201)
+notes %>% 
+  filter(subid %in% subs_diff_day) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Other subids with over 2 hour time gap between UTC and start time
+```{r}
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+  select(subid, notes_general)
+subs_2_hrs <- fu12 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  filter(diff > 120) %>% 
+  filter(!subid %in% subs_diff_day)
+notes %>% 
+  filter(subid %in% subs_2_hrs$subid) %>% 
+  kbl() %>% 
+  kable_styling()  
+```
+
+
+
+**Time difference in start and end date**  
+```{r}
+fu12 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")), 0) %>% 
+  tabyl(diff)
+```
+
+- The 2 start and end dates that are 0 min (subids 42 and 54) apart are due to changing start and end date in log to match UTC (the correct start time).  
+
+```{r}
+subs_2_hrs_end <- fu12 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")), 0) %>% 
+  filter(diff > 120) 
+notes %>% 
+  filter(subid %in% subs_2_hrs_end$subid) %>% 
+  kbl() %>% 
+  kable_styling() 
+```
+
+
+<br>
+
+
+##### Missing values
+
+```{r}
+fu12 %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing values all seem to be appropriate:  
+missing das values are because it was only given to individuals in a relationship  
+missing mam values are also conditional  
+missing rbm_1 through rbm_4 (wristband burden data) are due to most participants not getting wristband  
+**Subid 237 did not complete the followup survey which explains why there is missing values for mspss, pss, qol, etc**  
+**Subid 42 is missing burden and WHO-ASSIST measures from their FU 1 visit**  
+
+```{r}
+notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>% 
+  select(subid, notes_general)
+notes %>% 
+  filter(subid == 42) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+##### Finished
+```{r}
+kabyl(finished)
+
+fu12 %>% 
+  filter(finished == 0)
+```
+
+Subid 237 is only person who did not complete the survey. Finished is correctly marked unfinished for only this individual.  
+
+
+##### RA
+
+```{r}
+kabyl(ra)
+```
+`r nrow(subset(fu12, ra == "None" | ra == "NONE" | ra == "RISK"))` subids are missing RA names. These have all been confirmed to be due to the participant taking the survey remotely. raw_notes.csv contains more information on each of these individual cases
+
+
+##### PACS
+```{r}
+fu12 %>% 
+  select(contains("pacs")) %>% 
+  map(., table)
+```
+
+##### AASE
+```{r}
+fu12 %>% 
+  select(contains("aase")) %>% 
+  map(., table)
+```
+
+##### MAM
+living arrangement
+```{r}
+kabyl(mam_1)
+kabyl(mam_1_1)
+```
+
+live alone
+```{r}
+kabyl(mam_1_2)
+```
+
+Who do you live with
+```{r}
+kabyl(mam_1_3_1)
+kabyl(mam_1_3_2)
+kabyl(mam_1_3_3)
+kabyl(mam_1_3_4)
+kabyl(mam_1_3_5)
+```
+
+How many children in household?
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_1_4), na.rm = TRUE),
+            max = max(as.numeric(mam_1_4), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_4), na.rm = TRUE))
+```
+
+How many parents?
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_1_5), na.rm = TRUE),
+            max = max(as.numeric(mam_1_5), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_5), na.rm = TRUE))
+```
+
+How many relatives?
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_1_6), na.rm = TRUE),
+            max = max(as.numeric(mam_1_6), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_6), na.rm = TRUE))
+```
+
+How many non-relatives?
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_1_7), na.rm = TRUE),
+            max = max(as.numeric(mam_1_7), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_7), na.rm = TRUE))
+```
+
+Yes/no questions about past 30 days
+```{r}
+fu12 %>% 
+  select(c(mam_2:mam_7, mam_11, mam_17, mam_19)) %>% 
+  map(., table)
+```
+
+individual counseling sessions past 30 days
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_8), na.rm = TRUE),
+            max = max(as.numeric(mam_8), na.rm = TRUE),
+            mean = mean(as.numeric(mam_8), na.rm = TRUE))
+```
+
+group counseling sessions
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_9), na.rm = TRUE),
+            max = max(as.numeric(mam_9), na.rm = TRUE),
+            mean = mean(as.numeric(mam_9), na.rm = TRUE))
+```
+
+self-help meetings
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_10), na.rm = TRUE),
+            max = max(as.numeric(mam_10), na.rm = TRUE),
+            mean = mean(as.numeric(mam_10), na.rm = TRUE))
+```
+
+other counseling
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_12), na.rm = TRUE),
+            max = max(as.numeric(mam_12), na.rm = TRUE),
+            mean = mean(as.numeric(mam_12), na.rm = TRUE))
+```
+
+days with supportive friends/family
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_13), na.rm = TRUE),
+            max = max(as.numeric(mam_13), na.rm = TRUE),
+            mean = mean(as.numeric(mam_13), na.rm = TRUE))
+```
+
+days with unsupportive friends/family
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_14), na.rm = TRUE),
+            max = max(as.numeric(mam_14), na.rm = TRUE),
+            mean = mean(as.numeric(mam_14), na.rm = TRUE))
+```
+
+days at work, school, volunteering
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_15), na.rm = TRUE),
+            max = max(as.numeric(mam_15), na.rm = TRUE),
+            mean = mean(as.numeric(mam_15), na.rm = TRUE))
+```
+
+```{r}
+fu12 %>% 
+  filter(as.numeric(mam_15) > 30) %>% 
+  select(subid, mam_15)
+```
+
+FIX: 2 people put over 30 days for how many days they spent at work, school, or volunteering in the last 30 days. Both participants completed the study.  
+
+Has your religion or spirituality helped support your recovery within the past 30 days
+```{r}
+kabyl(mam_16)
+```
+
+Days taken alcohol medication as prescribed
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_18), na.rm = TRUE),
+            max = max(as.numeric(mam_18), na.rm = TRUE),
+            mean = mean(as.numeric(mam_18), na.rm = TRUE))
+```
+
+Days taken other medication as prescribed
+```{r}
+fu12 %>% 
+  summarise(min = min(as.numeric(mam_20), na.rm = TRUE),
+            max = max(as.numeric(mam_20), na.rm = TRUE),
+            mean = mean(as.numeric(mam_20), na.rm = TRUE))
+```
+
+How satisfied are you with your progress toward achieving your recovery goals in the past 30 days?
+```{r}
+kabyl(mam_21)
+```
+
+Is your goal still to remain abstinent in the future?
+```{r}
+kabyl(mam_22)
+```
+
+In the next 30 days, how confident are you in your ability to be completely abstinent from alcohol?
+```{r}
+kabyl(mam_23)
+```
+
+##### DASS
+```{r}
+fu12 %>% 
+  select(contains("dass")) %>% 
+  map(., table)
+```
+
+##### PSS
+```{r}
+fu12 %>% 
+  select(contains("pss")) %>% 
+  map(., table)
+```
+
+##### QOL
+```{r}
+fu12 %>% 
+  select(contains("qol")) %>% 
+  map(., table)
+```
+
+##### DAS
+```{r}
+fu12 %>% 
+  select(das_0:das_32) %>% 
+  map(., table)
+```
+
+##### MSPSS
+```{r}
+fu12 %>% 
+  select(contains("mspss")) %>% 
+  map(., table)
+```
+
+##### Who-Assist monthly
+```{r}
+fu12 %>% 
+  select(contains("assist")) %>% 
+  map(., table)
+```
+
+
+##### Burden Survey (rbm)
+```{r}
+fu12 %>% 
+  select(contains("rbm")) %>% 
+  select(-c(rbm_4, rbm_8, rbm_13, rbm_17, rbm_21, rbm_24, rbm_31)) %>% 
+  map(., table)
+```
+
+
+Save final clean data.  Variables will open with proper class on next load of data
+```{r}
+fu12 %>% 
+  select(-utc) %>% 
+  glimpse() %>% 
+  write_csv(file.path(path_out, "followup_12.csv")) 
+```

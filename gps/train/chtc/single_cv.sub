@@ -1,0 +1,26 @@
+#single_cv.sub
+universe = vanilla
+requirements = (OpSysMajorVer == 7)
+
+executable = single_cv.sh
+arguments = $(Process)
+
+log = log$(Cluster).log
+error = error$(Cluster)_$(Process).err
+output = output$(Cluster)_$(Process).out
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = http://proxy.chtc.wisc.edu/SQUID/SLIBS.tar.gz, http://proxy.chtc.wisc.edu/SQUID/chtc/R361.tar.gz, risk_packages.tar.gz, single_cv.R, functions_chtc.R, data.rds, jobs.rds, iters.rds
+on_exit_hold = exitcode != 0  
+
+materialize_max_idle = 2000
+
+#Need to set these to specific training situation
+request_cpus = 1
+request_memory = 4GB
+request_disk = 2GB
+#+wantFlocking = true
+#+wantGlideIn = true
+
+queue 20

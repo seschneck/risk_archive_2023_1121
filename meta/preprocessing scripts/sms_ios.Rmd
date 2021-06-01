@@ -1,0 +1,265 @@
+---
+title: "IOS/SMS Logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script contains code to open all sms log files in sql format from participants raw data folders.  
+
+Inputs:   
+[subid]_SMS_1.sql  
+[subid]_SMS_2.sql  
+[subid]_SMS_3.sql  
+etc. for as many sms sql logs in the subid's folder  
+
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "Z:/StudyData/RISK/raw_data"
+path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(RSQLite)
+library(lubridate)
+library(janitor)
+```
+
+
+### IOS SMS Logs (SQL) 
+
+#### Create function to read in subid logs
+
+```{r}
+read_sql <- function(subid) {
+    logs <- tibble(subid = character(),
+                   message = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'.sql')) {
+          path <- file.path(path_raw, subid, file)
+          log_db <- dbConnect(RSQLite::SQLite(), path)
+          # attachments <- dbGetQuery(log_db,'select * from attachment')
+          # chat <- dbGetQuery(log_db,'select * from chat')
+          # deleted <- dbGetQuery(log_db,'select * from deleted_messages')
+          log <- dbGetQuery(log_db,'select * from message')
+
+          # Add subid and log information to dataframe
+          log <- log %>% 
+            mutate(subid = subid,
+                   log_file = file,
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime)
+          
+         # Update attributedBody to text instead of blob SQL object - not sure what this is
+          body <-  dbGetQuery(log_db,'select cast(attributedBody as text) from message')
+          payload <-  dbGetQuery(log_db,'select cast(payload_data as text) from message')
+          summary <-  dbGetQuery(log_db,'select cast(message_summary_info as text) from message')
+          log <- log %>%
+            mutate(attributedBody = unlist(body),
+                   attributedBody = as.character(attributedBody),
+                   payload_data = unlist(payload),
+                   payload_data = as.character(payload_data),
+                   message_summary_info = unlist(summary),
+                   message_summary_info = as.character(message_summary_info)) %>% 
+            mutate(across(where(is.numeric), as.character))
+          
+          #close the db connection
+          dbDisconnect(log_db)
+    
+                  
+           # Join log files
+          logs <- logs %>% 
+            full_join(log)
+          
+        }
+         
+      }
+      return(logs)
+    } 
+}
+```
+
+```{r}
+get_sql_ids <- function(subid) {
+    log <- tibble(subid = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'sql')) {
+         log <- log %>% 
+            add_row(subid = subid)
+          return(log) }
+      }   
+      
+    }
+}
+```
+
+
+#### get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+
+# subids with sql files
+sql_subids <- tibble(subid = character())
+sql_subids <- map_df(subids$subid, ~get_sql_ids(.)) %>% 
+  glimpse()
+```
+
+
+#### read in all logs
+```{r message = FALSE}
+all_logs <- tibble(subid = character())
+all_logs <- map_df(sql_subids$subid, ~read_sql(.)) %>% 
+  glimpse()
+```
+
+
+#### Remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  distinct(across(c(subid, date, account, account_guid)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
+#### Remove survey signal messages from study staff
+```{r}
+(test_messages <- str_subset(all_logs$text, "SurveySignal"))
+all_logs <- all_logs %>% 
+  filter(!text %in% test_messages)
+```
+
+#### Format date (UTC)
+
+18 digit date format on newer subids need to convert
+```{r}
+all_logs <- all_logs %>% 
+  mutate(date = case_when(nchar(date) == 18 ~ as.numeric(date)/1000000000 + 978307200, # convert from nanoseconds first
+                          TRUE ~ as.numeric(date) + 978307200),
+         date = as_datetime(date, tz = "utc"))
+```
+
+
+
+<br>
+
+
+
+### EDA
+
+`r length(unique(all_logs$subid))` subids had SQL sms data logs read in.   
+
+
+Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
+
+Max date looks good - min date must be due to someone having old messages.   
+
+
+#### missing data
+```{r}
+naniar::miss_var_summary(all_logs) %>% 
+  print(n = Inf)
+```
+
+
+Remove variables with no data
+```{r}
+all_logs <- all_logs %>% 
+  select(-c(message, service_center, sr_ck_record_id, sr_ck_record_change_tag))
+```
+
+Variables with 99% missing data   
+
+group title for group messages
+```{r}
+tabyl(all_logs$group_title) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+message effects
+```{r}
+tabyl(all_logs$expressive_send_style_id) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+subject line
+```{r}
+tabyl(all_logs$subject) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+balloon bundle id - some type of extension
+```{r}
+tabyl(all_logs$balloon_bundle_id ) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+all_logs %>% 
+  filter(!is.na(balloon_bundle_id))
+```
+
+payload data - not readable?
+```{r}
+all_logs %>% 
+  filter(!is.na(payload_data)) %>% 
+  select(payload_data) 
+```
+
+spam - not sure what this is, everything is NA or 0. Messages with 0 are not spam
+```{r}
+tabyl(all_logs$is_spam) %>% 
+  kbl() %>% 
+  kable_styling() 
+
+all_logs %>% 
+  filter(is_spam == 0) %>% 
+  select(text) %>% 
+  head(n = 20) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+
+
+
+### Write CSV
+```{r}
+write_csv(all_logs, file.path(path_out, "sms_ios.csv")) %>% 
+  glimpse()
+```
+
+Note: all dates exported as UTC
+

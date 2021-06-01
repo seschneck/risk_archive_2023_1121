@@ -1,0 +1,53 @@
+---
+title: "Make lapses tibble"
+author: "John Curtin"
+date: "3/28/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+### Notes
+
+* This script uses data from ema.rds and final_sample.rds to create lapse.rds
+* lapse.rds is a number of subjects x number of days data file with columns for subid, utc, and lapse (0 = no, 1 = yes)
+* lapse is currently based on a one day window from midnight to midnight.
+
+```{r}
+Sys.time()
+library(tidyverse)
+library(janitor)
+
+source(file.path("./shared/scripts_make", "fun_data.R"))  #make_lapses()
+data_path <- "./shared/data"
+```
+
+### Get final sample
+```{r}
+
+final_sample <- read_rds(file.path(data_path, "final_sample.rds")) %>% 
+  glimpse()
+
+subids <- final_sample %>% 
+  pull(subid) %>% 
+  print() 
+
+print(length(subids))
+```
+
+### Make lapses tibble
+```{r}
+ema <- read_rds(file.path(data_path, "ema.rds")) %>% 
+  glimpse()
+
+lapses <- make_lapses(ema,"Day", "P:/StudyData/RISK/database") %>% 
+  filter(SubID %in% subids) %>% 
+  clean_names("snake") %>%
+  rename(subid = sub_id) %>%  
+  glimpse() %>% 
+  write_rds(file.path(data_path,"ds_lapses.rds")) 
+```

@@ -1,0 +1,1165 @@
+---
+title: "Cleaning Script for Study Visit Dates"
+author: "John Curtin with updates by Hannah Moshontz (Updated by Kendra Wyant 3-10-21)"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: aggregates, cleans, and tidys visit date files   
+
+Guidelines for visit dates:  
+
+* Visit dates will only include completed visits. Participants who left before completing their visit (i.e., no longer eligible or discontinued) have a visit marked as NA.     
+* Followup visits completed at home have a visit date if they completed the survey - at home visits are documented in this script and in the raw_notes file.    
+* The number of subids in the cleaned visit dates file is equal to the number of participants who completed the screen visit (n = 207). As such not everyone will have a study start and end date.  
+* Study start dates are the day after intake, unless otherwise noted.  
+* End study dates are roughly 90 days after study start. For participants who discontinue the study with a clear date noted, end date will be discontinuation date. For participants who passively discontinue, end study date will be amended to their last EMA or last completed study visit (whichever is later). An exception to this rule will be if it appears that the last EMA was sporadic and not indicative that they were consistently providing data up until this EMA. In these situations we will evaluate on a case to case basis what the correct end date should be.   
+**Note: Last EMA is determined by cleaned EMA file - due to how critical it is that the end date is correct we decided to use clean data instead of our usual restriction to raw data for cleaning**       
+* All imputed end dates are documented in end date EDA.  
+
+
+<br>
+
+
+Inputs:
+
+Path raw  
+
+* [subid]_VisitDates.xlsx    
+* screen.csv    
+* intake.csv    
+* followup_12.csv      
+* followup_3.csv        
+* raw_notes.csv    
+
+Path log  
+
+* log_visit_dates.csv    
+
+Path data   
+
+* session_screen.csv   
+* session_intake.csv   
+* session_followup12.csv   
+* session_followup3.csv  
+* ema_later.csv      
+* ema_morning.csv   
+
+Outputs:
+
+Path data   
+
+* visit_dates.csv   
+
+
+### Setup
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(readxl)  # read excel file
+library(naniar) # missing data
+library(lubridate)
+library(kableExtra)
+```
+
+Paths 
+```{r}
+path_raw <- "raw_data"
+path_log <- "analysis/shared/notes"
+path_data <- "analysis/shared/data"
+```
+
+### Open and merge files
+```{r}
+read_file <- function(filepath) {
+  
+  subid <- str_extract(filepath, "\\d\\d\\d")
+  
+  data <- read_excel(filepath, 
+                     na = c('NA', '', NULL),
+                     col_types = "date") %>% 
+    mutate(subid = as.numeric(subid)) %>% 
+    relocate(subid)
+  
+  return(data)
+}
+
+visit_dates <- list.files(file.path(path_raw), 
+           pattern = "VisitDates.xlsx", #this accommodates folders without visit dates
+           recursive = TRUE, 
+           full.names = TRUE) %>% 
+  
+  map_df(read_file) %>% 
+  mutate(across((-subid), date)) #dropping the time component
+```
+
+
+### Clean by log
+
+Functions
+```{r}
+# function to add any subids in log not already in visit dates
+add_subs <- function(dates, log){
+  log_subids <- tibble(subid = unique(log$subid))
+  new_subids <- log_subids %>% filter(!subid %in% dates$subid) %>% unlist(use.names = FALSE)
+  
+  for (i in 1:length(new_subids)) {
+     dates <- dates %>%
+        add_row(subid = new_subids[i])
+  }
+  return(dates)
+}
+
+# function to clean log
+clean_log <- function(..., log){
+  data_row <- tibble(...) # (the tibble is turned into a list by pmap)
+  # convert list element to a tibble of one row
+  log_subid <- log %>% #filter to just the log entries for that subject
+    filter(subid == data_row$subid) 
+  
+  if (nrow(log_subid) >= 1) {
+     
+    for (i in 1:nrow(log_subid)) {
+      
+     data_row[[pluck(log_subid, "var_name", i)]] <- pluck(log_subid, "new_value", i) 
+    }
+  }
+  return(data_row)
+}
+```
+
+
+Clean visit dates
+```{r}
+log <- read_csv(file.path(path_log, "log_visit_dates.csv"), col_types = cols())
+
+visit_dates <- add_subs(visit_dates, log)
+
+visit_dates <- visit_dates %>%
+  pmap_dfr(clean_log, log = log) %>% 
+  clean_names("snake") %>% 
+  rename(followup_1 = followup1, followup_2 = followup2) %>% 
+  glimpse() 
+```
+
+
+## EDA for cleaned visit dates
+
+The original visit date will be compared to the raw uncleaned survey end date. Where there are discrepancies we will look at the cleaned session form dates and notes for a resolution.  
+
+Note KW: not using raw session form dates since these files are not in a single aggregate file. Due to the data having already been cleaned, the session forms will be used as a note file to help us resolve discrepancies whereas the raw survey dates will be used directly in the EDA to locate errors and discrepancies.  
+
+Note KW: EMA data will also be brought in later to perform EDA on start and end study dates.  
+
+### Import supporting data
+
+Will compare visit dates against raw uncleaned survey end dates
+```{r}
+screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+intake <- read_csv(file.path(path_raw, 'qualtrics/intake.csv'), col_types = cols())
+screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+followup_12 <- read_csv(file.path(path_raw, 'qualtrics/followup_12.csv'), col_types = cols())
+followup_3 <- read_csv(file.path(path_raw, 'qualtrics/followup_3.csv'), col_types = cols())
+```
+
+cleaned session form end dates, raw_notes, survey logs, and google calendar will provide info to resolve discrepancies
+```{r}
+session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
+session_intake <- read_csv(file.path(path_data, 'session_intake.csv'), col_types = cols())
+session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
+session_followup_12 <- read_csv(file.path(path_data, 'session_followup_12.csv'), col_types = cols())
+session_followup_3 <- read_csv(file.path(path_data, 'session_followup_3.csv'), col_types = cols())
+
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols())
+cal <- ical::ical_parse_df(file.path(path_raw, "gcal_risk.ics"))
+
+log_screen <- read_csv(file.path(path_log, "log_screen.csv"), col_types = cols())
+log_intake <- read_csv(file.path(path_log, "log_intake.csv"), col_types = cols())
+log_followup_12 <- read_csv(file.path(path_log, "log_followup_12.csv"), col_types = cols())
+log_followup_3 <- read_csv(file.path(path_log, "log_followup_3.csv"), col_types = cols())
+```
+
+load google calendar function
+```{r}
+show_calendar_events <- function(focal_date){
+  cal %>% 
+  arrange(start) %>% 
+  filter(month(start) == month(focal_date),
+         year(start) == year(focal_date),
+         day(start) == day(focal_date)) %>% 
+  select(-uid, -status) %>% 
+  kable(caption = "All calendar events on the day of the session") %>% 
+  kable_styling()
+}
+```
+
+
+### Glimpse subids and missing data
+```{r}
+dup_subs <- visit_dates %>% 
+  count(subid) %>% 
+  filter(n > 1)
+```
+
+`r length(unique(visit_dates$subid))` subids with visit dates.   
+`r nrow(dup_subs)` subids with more than one visit dates row.  
+
+```{r}
+naniar::miss_var_summary(visit_dates)
+```
+
+Note KW: 37 missing start, end, and intake dates are all confirmed to be subids who completed screen but did not complete intake - this could be due to screening ineligible, not showing up to intake, or leaving intake before completing visit.  
+
+Check date ranges for each variable  
+No odd dates stand out
+```{r}
+visit_dates %>% 
+  summarise(across(screen:final_visit, min, na.rm = TRUE)) %>% 
+            pivot_longer(cols = everything(), names_to = "visit", values_to = "min") %>% 
+  left_join(visit_dates %>% 
+            summarise(across(screen:final_visit, max, na.rm = TRUE)) %>% 
+            pivot_longer(cols = everything(), names_to = "visit", values_to = "max"), by = "visit")
+```
+
+Note: For some participants, the latest final visit happened after the latest end study, which is not an error. People sometimes came in for their final session after they were off study. We use observations within the on-study period.  
+
+
+<br>
+
+### Screen
+
+#### Check subids with screen visit
+
+Using completed screen surveys as starting sample for who should be included in visit_dates  
+```{r}
+screen <- screen %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         survey_date = EndDate,
+         response_id = ResponseID, 
+         finished = Finished) %>% 
+  glimpse()
+```
+
+`r nrow(screen)` subids with screen surveys.   
+`r nrow(subset(screen, finished != 1))` incomplete surveys.  
+
+incomplete surveys
+```{r}
+(screen_incomp <- screen %>% 
+  filter(finished != 1)) 
+```
+
+subid 155 did not complete screen  
+subid 66 DID complete screen
+```{r}
+notes %>% 
+  select(subid, notes_general) %>% 
+  filter(subid %in% screen_incomp$subid) %>% 
+  kbl() %>% 
+  kable_styling() 
+
+log_screen %>% 
+  filter(subid == 66) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Visit dates should have 207 subids  
+subids in visit dates but not in screen
+```{r}
+screen_subs <- screen %>% 
+  filter(subid != 155) %>% 
+  select(subid) %>% 
+  unlist(use.names = FALSE)
+
+visit_dates %>% 
+  filter(!subid %in% screen_subs)
+```
+
+Check for subid errors in log
+```{r}
+log_screen %>% 
+  filter(var_name == "subid") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Log explains all discrepancies  
+Temp recode subids survey tibble for date comparison
+```{r}
+screen <- screen %>% 
+  mutate(subid = case_when(response_id == "R_3qIO5N1X1tyCWeN" ~ 10,
+                           response_id == "R_3p4naYVKxD8b31H" ~ 23,
+                           response_id == "R_3mkH0rLyisMbJVT" ~ 150,
+                           response_id == "R_2xzxfV4i1kyOqaU" ~ 61,
+                           response_id == "R_RCtBJYBoTE7vD2h" ~ 78,
+                           TRUE ~ subid))
+
+screen_subs <- screen %>% 
+  filter(subid != 155) %>% 
+  select(subid) %>% 
+  unlist(use.names = FALSE)
+
+visit_dates %>% 
+  filter(!subid %in% screen_subs)
+```
+
+
+subids in screen but not in visit dates
+```{r}
+screen %>%
+  filter(subid != 155) %>% 
+  filter(!subid %in% visit_dates$subid)
+```
+
+All subids accounted for in visit dates
+
+
+#### Check visit dates
+
+Compare visit date and survey date   
+Check for date discrepancies between visit and survey date
+```{r}
+(screen_discrep <- visit_dates %>% 
+  select(subid, visit_date = screen) %>% 
+  left_join(screen %>% select(subid, survey_date, response_id), by = "subid") %>% 
+  filter(visit_date != survey_date))
+```
+
+`r nrow(screen_discrep)` date discrepancies for screen   
+
+Other sources of date info:   
+Notes on subids
+```{r}
+notes %>% 
+  filter(subid %in% screen_discrep$subid) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Log entries show survey date was changed to match screen visit date.    
+```{r}
+log_screen %>% 
+  filter(var_name == "StartDate" | var_name == "EndDate") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Log entries explain survey date was incorrect for subids 9 and 187 and that they have correct visit dates.    
+
+Session form dates confirm visit date as well  
+```{r}
+session_screen %>% 
+  filter(subid %in% screen_discrep$subid) %>% 
+  mutate(session_date = as_date(end_date, tz = "America/Chicago")) %>% 
+  select(subid, session_date) %>% 
+  left_join(screen_discrep, by = "subid")
+```
+
+
+<br>
+
+
+### Intake
+
+#### Check subids with intake visit
+
+```{r}
+intake <- intake %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         survey_date = EndDate,
+         response_id = ResponseID,
+         finished = Finished) %>% 
+  glimpse()
+```
+
+`r nrow(intake)` subids with intake surveys.   
+`r nrow(subset(intake, finished != 1))` incomplete surveys.  
+`r nrow(subset(visit_dates, !is.na(intake)))` subids in visit dates have intake visit.  
+
+Qualtrics surveys with no visit date
+```{r}
+intake_visits <- visit_dates %>% 
+  filter(!is.na(intake))
+intake %>% 
+  filter(!subid %in% intake_visits$subid)
+intake %>% 
+  count(subid) %>% 
+  filter(n > 1)
+```
+
+There are `r nrow(intake)` intake surveys and `r nrow(subset(visit_dates, !is.na(intake)))` intake visits documented in visit dates. This discrepancy is explained in notes below where 2 intake surveys are removed during cleaning.  
+
+```{r}
+log_intake %>% 
+  filter(log_action == "remove") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Intake visits without a Qualtrics survey
+```{r}
+subs <- intake$subid
+visit_dates %>% 
+  filter(!is.na(intake)) %>% 
+  filter(!subid %in% subs)
+```
+
+Check there were no subid changes in intake log
+```{r}
+log_intake %>% 
+  filter(var_name == "subid") 
+```
+
+
+#### Check visit dates
+
+Compare visit date and survey date   
+Check for date discrepancies between visit and survey date
+```{r}
+(intake_discrep <- visit_dates %>% 
+  select(subid, visit_date = intake) %>% 
+  left_join(intake %>% select(subid, survey_date, response_id), by = "subid") %>% 
+  filter(visit_date != survey_date))
+```
+
+`r nrow(intake_discrep)` date discrepancies for intake
+  
+
+Other sources of date info:   
+Notes on subids
+```{r}
+notes %>% 
+  filter(subid %in% intake_discrep$subid) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Three subids completed the intake in 2 parts which explains the date discrepancy:  
+* Subid 1 had their intake run in 2 parts - survey taken on 2/23/17 and finished tech education on 3/01/17. No correction needed.  
+* Subid 33 had their intake run in 2 parts - survey taken on 12/05/17 and finished intake on 12/14/17. No correction needed.  
+* Subid 259 had their intake run in 2 parts - survey was taken on 8/06/19 and intake interview occurred on 8/08/19. No correction needed.  
+
+Subid 42 - has two intake visits the intake with an incorrect matching date is removed during cleaning.  
+```{r}
+log_intake %>% 
+  filter(subid == 42) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+<br>
+
+
+### Followup 1
+
+#### Check subids with followup 1 visit
+
+```{r}
+followup_1 <- followup_12 %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         survey_date = EndDate,
+         response_id = ResponseID,
+         finished = Finished) %>% 
+  group_by(subid) %>% 
+  slice_min(survey_date) %>% 
+  ungroup() %>% 
+  glimpse()
+```
+
+`r nrow(followup_1)` subids with followup 1 surveys.   
+`r nrow(subset(followup_1, finished != 1))` incomplete survey.  
+`r nrow(subset(visit_dates, !is.na(followup_1)))` subids in visit dates have followup 1 visit.  
+
+Incomplete survey  
+Subid 237 did not complete their followup 1 visit - see notes below
+```{r}
+followup_1 %>% 
+  filter(finished != 1) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+```{r}
+notes %>% 
+  filter(subid == 237) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+followup 1 for subid 237 is correctly marked as NA in visit dates
+```{r}
+visit_dates %>% 
+  filter(subid == 237)
+```
+
+Number of followup 1 visits matches number of completed qualtrics surveys  
+Quick check for qualtrics surveys with no visit date and visit dates with no qualtrics survey
+```{r}
+followup_1_visits <- visit_dates %>% 
+  filter(!is.na(followup_1))
+followup_1 %>% 
+  filter(finished == 1) %>% 
+  filter(!subid %in% followup_1_visits$subid)
+
+fu_1_subs <- followup_1 %>% 
+  filter(finished == 1) %>% 
+  unlist(use.names = FALSE)
+followup_1_visits %>% 
+  filter(!subid %in% fu_1_subs)
+```
+
+Check for any subid changes in log
+```{r}
+log_followup_12 %>% 
+  filter(var_name == "subid") 
+```
+
+
+#### Check visit dates
+
+Compare visit date and survey date   
+Check for date discrepancies between visit and survey date
+```{r}
+(followup_1_discrep <- visit_dates %>% 
+  select(subid, visit_date = followup_1) %>% 
+  left_join(followup_1 %>% select(subid, survey_date, response_id), by = "subid") %>% 
+  filter(visit_date != survey_date))
+```
+
+`r nrow(followup_1_discrep)` date discrepancies for followup 1
+  
+
+Other sources of date info:   
+compare with session form dates
+```{r}
+session_dates <- session_followup_12 %>%
+  filter(ssfu_2 == "Followup #1") %>% 
+  mutate(session_date = as_date(end_date, tz = "America/Chicago")) %>%
+  filter(subid %in% followup_1_discrep$subid) %>%
+  select(subid, session_date)
+
+followup_1 %>%
+  filter(subid %in% followup_1_discrep$subid) %>%
+  select(-response_id) %>%
+  full_join(session_dates, by = "subid") %>%
+  full_join(visit_dates %>% filter(subid %in% followup_1_discrep$subid) %>% 
+              select(visit_date = followup_1, subid))
+```
+
+Notes on subids
+```{r}
+notes %>% 
+  filter(subid %in% followup_1_discrep$subid) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+* subid 167 came in for followup 1 on 2-06-2019 but had to come back on 2-20-2019 because they completed intake instead of followup 1 survey. This explains discrepancy with survey date. No correction needed.  
+* subid 42 completed intake instead of followup 1 survey. Staff replicated responses in a followup 1 survey. This explains discrepancy between survey and visit date but does not explain why session form is missing (unless intake session form was filled out). Concluded that visit date is correct and no correction needed - see note below.    
+
+Check google calendar for subid 42 - entry for subid 42 on 2018-04-16     
+I also checked enrollment database and that too shows followup 1 on 2018-04-16
+```{r}
+show_calendar_events("2018-04-16")
+```
+
+* subid 54 - survey dated 2018-05-31 is actually followup 2, survey dated 2018-07-17 is the followup 1 survey that occurred on 2018-04-26. Date was changed when staff re-entered survey to correct use of an emoji. Survey date gets corrected during cleaning. No changes needed. See notes below.  
+
+Google calendar for subid 54 shows followup 1 was on 2018-04-26 (same as visit date and session date). Survey date is 2018-05-31 which was the date of their followup 2 visit.
+```{r}
+show_calendar_events("2018-04-26")
+show_calendar_events("2018-05-31")
+```
+
+followup survey dates
+```{r}
+followup_12 %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         survey_date = EndDate,
+         response_id = ResponseID,
+         finished = Finished) %>% 
+  filter(subid == 54)
+```
+
+Log entry shows date was changed when RA re-entered survey so 2018-07-17 survey is followup 1 visit and 2018-05-31 is correctly followup 2 visit. 
+```{r}
+log_followup_12 %>% 
+  filter(subid == 54) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+No additional notes regarding followup 1
+```{r}
+notes %>% 
+  filter(subid == 54) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+<br>
+
+### Followup 2
+
+#### Check subids with followup 2 visit
+
+```{r}
+followup_2 <- followup_12 %>% 
+  filter(!ResponseID %in% followup_1$response_id) %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         response_id = ResponseID,
+         survey_date = EndDate,
+         finished = Finished)
+```
+
+`r nrow(followup_2)` subids with followup 1 surveys.   
+`r nrow(subset(followup_2, finished != 1))` incomplete surveys.  
+`r nrow(subset(visit_dates, !is.na(followup_2)))` subids in visit dates have followup 2 visit.  
+
+Check for subids with Qualtrics survey but no visit date
+```{r}
+fu_2_visits <- visit_dates %>% 
+  filter(!is.na(followup_2))
+followup_2 %>% 
+  filter(!subid %in% fu_2_visits$subid)
+```
+
+Check for subids with visit date but no qualtrics survey
+```{r}
+fu_2_subs <- followup_2$subid %>% 
+  unlist(use.names = FALSE)
+visit_dates %>% 
+  filter(!is.na(followup_2)) %>% 
+  filter(!subid %in% fu_2_subs)
+```
+
+
+3 subids completed followup 2 survey from home. Per discussion with John these visits are marked complete.  
+Subids who completed followup 2 from home
+```{r}
+notes %>% 
+  filter(subid %in% c(27, 34, 201)) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+These are survey end dates for 3 at home surveys.  
+FIX: Note survey end date for subid 201 is 6/6/2019 and not 6/7/2019 - updated visits date to 6/6 from 6/7 in log but may want to discuss
+```{r}
+followup_2 %>% 
+  filter(subid %in% c(27, 34, 201)) %>% 
+  select(subid, survey_date)
+```
+
+
+#### Check visit dates
+
+Compare visit date and survey date   
+Check for date discrepancies between visit and survey date
+```{r}
+(followup_2_discrep <- visit_dates %>% 
+  select(subid, visit_date = followup_2) %>% 
+  left_join(followup_2 %>% select(subid, survey_date, response_id), by = "subid") %>% 
+  filter(visit_date != survey_date))
+```
+
+`r nrow(followup_2_discrep)` date discrepancies for followup 2
+
+
+Other sources of date info:  
+
+subid 54 is resolved - see documentation in followup 1. followup 2 visit is correct.  
+
+```{r}
+unresolved_subs <- followup_2_discrep %>% 
+  filter(subid != 54)
+notes %>% 
+  filter(subid %in% unresolved_subs$subid) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+* subid 131 completed their followup 2 visit in 2 parts (survey at home and interview in person). This accounts for different dates - no correction needed.   
+
+* subid 185 completed their followup 2 visit in 2 parts (survey at home and updated contacts in person). This accounts for the different dates - no correction needed.  
+
+Double check session forms - all looks good
+```{r}
+session_dates <- session_followup_12 %>%
+  filter(ssfu_2 == "Followup #2") %>% 
+  mutate(session_date = as_date(end_date, tz = "America/Chicago")) %>%
+  filter(subid %in% unresolved_subs$subid) %>%
+  select(subid, session_date)
+
+followup_2 %>%
+  filter(subid %in% unresolved_subs$subid) %>%
+  select(-response_id) %>%
+  full_join(session_dates, by = "subid") %>%
+  full_join(visit_dates %>% filter(subid %in% unresolved_subs$subid) %>% 
+              select(visit_date = followup_2, subid))
+```
+
+<br>
+
+### followup 3/final visit
+
+#### Check subids with followup 3 visit
+
+```{r}
+followup_3 <- followup_3 %>% 
+  mutate(EndDate = as_date(EndDate, tz = "America/Chicago")) %>% 
+  select(subid = SubID,
+         survey_date = EndDate,
+         response_id = ResponseID,
+         finished = Finished)
+```
+
+`r nrow(followup_3)` subids with followup 3 surveys.   
+`r nrow(subset(followup_3, finished != 1))` incomplete surveys.  
+`r nrow(subset(visit_dates, !is.na(final_visit)))` subids in visit dates have followup 2 visit.  
+
+
+Check log for subid errors 
+```{r}
+log_followup_3 %>% 
+  filter(var_name == "subid") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+temp fix subids in followup_3 survey for subid/date comparison
+```{r}
+followup_3 <- followup_3 %>% 
+  mutate(subid = case_when(response_id == "R_2YzIprHKwFZTFaH" ~ "138",
+                           response_id == "R_vwqOOjZPqfSLHMd" ~ "81",
+                           TRUE ~ subid),
+         subid = as.numeric(subid))
+```
+
+Check for subids with Qualtrics survey but no visit date
+```{r}
+fu_3_visits <- visit_dates %>% 
+  filter(!is.na(final_visit))
+followup_3 %>% 
+  filter(!subid %in% fu_3_visits$subid)
+```
+
+Check for subids with visit date but no qualtrics survey
+```{r}
+fu_3_subs <- followup_3$subid %>% 
+  unlist(use.names = FALSE)
+visit_dates %>% 
+  filter(!is.na(final_visit)) %>% 
+  filter(!subid %in% fu_3_subs)
+```
+
+
+### Check visit dates
+
+Compare visit date and survey date   
+Check for date discrepancies between visit and survey date
+```{r}
+(followup_3_discrep <- visit_dates %>% 
+  select(subid, visit_date = final_visit) %>% 
+  left_join(followup_3 %>% select(subid, survey_date, response_id), by = "subid") %>% 
+  filter(visit_date != survey_date))
+```
+
+`r nrow(followup_3_discrep)` date discrepancy for followup 3
+
+
+Other sources of date info:  
+Add session forms
+```{r}
+session_dates <- session_followup_3 %>%
+  mutate(session_date = as_date(end_date, tz = "America/Chicago")) %>%
+  filter(subid %in% followup_3_discrep$subid) %>%
+  select(subid, session_date)
+
+followup_3 %>%
+  filter(subid %in% followup_3_discrep$subid) %>%
+  select(-c(response_id, finished)) %>%
+  full_join(session_dates, by = "subid") %>%
+  full_join(visit_dates %>% filter(subid %in% followup_3_discrep$subid) %>% select(visit_date = final_visit, subid))
+```
+
+notes
+```{r}
+notes %>% 
+  filter(subid %in% followup_3_discrep$subid) %>% 
+  select(subid, notes_general) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Google calendar  
+subid 7    
+According to google calendar 9-15-2017 is correct date also see log entry in next section with note explaining how date became incorrect    
+NOTE: I noticed enrollment db is incorrect and has final visit as 10-11-2017 (no evidence in google calendar of multiple visits)
+```{r}
+show_calendar_events("2017-09-15")
+show_calendar_events("2017-10-11")
+```
+
+Check log for any date corrections
+```{r}
+log_followup_3 %>% 
+  filter(var_name == "StartDate" | var_name == "EndDate") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+<br>
+
+## EDA for cleaned start and end study dates
+
+Read in EMA data
+```{r}
+ema_morning <- read_csv(file.path(path_data, "ema_morning.csv"), col_types = cols()) 
+ema_later <- read_csv(file.path(path_data, "ema_later.csv"), col_types = cols()) 
+```
+
+Create df of days with at least one ema for each subid
+```{r message = FALSE}
+ema_daily <- ema_morning %>% 
+  full_join(ema_later) %>% 
+  mutate(subid = as.numeric(subid),
+         date = as.Date(start_date, tz = "America/Chicago")) %>% 
+  select(subid, date, response_id, finished) %>% 
+  group_by(subid, date) %>% 
+  slice(1) %>% 
+  glimpse()
+```
+
+
+### Start study
+
+Everyone who was enrolled (e.g., completed the intake session) has a start date
+```{r}
+visit_dates %>% 
+  filter(!is.na(intake)) %>% 
+  filter(is.na(start_study))
+```
+
+
+The start date should be one day after the intake session unless otherwise noted  
+Subid 48 began study 2 days after intake (in order to reach 1 week of sobriety)
+```{r}
+visit_dates %>% 
+  filter(!is.na(start_study)) %>% 
+  mutate(start_study_timing = start_study - intake) %>% 
+  filter(start_study_timing != 1) %>% 
+  left_join(
+    select(notes, subid, notes_general), 
+    by = "subid") %>% 
+  select(subid, notes_general, everything()) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+
+Check EMA activity began day after intake  
+```{r}
+ema_daily %>% 
+  group_by(subid) %>% 
+  arrange(date) %>% 
+  slice(1) %>% 
+  select(first_ema = date, subid) %>% 
+  right_join(visit_dates, by = "subid") %>% 
+  mutate(diff = first_ema - start_study) %>% 
+  filter(diff != 0) %>% 
+  select(subid, intake, start_study, first_ema, diff)
+```
+
+* subid 48 was supposed to start study two days after intake, but they started EMA day after intake  
+* subid 62 - due to an error they didn't start receiving surveys until 5/19/2018 when they were supposed to start receiving them on 5/18/2018.  
+* subid 185 - As of 02/21/2019 the participant was still not registered for the Randomized surveys. As of 02/22/2019 the participant was registered and began responding to Randomized surveys.  
+
+FIX: Not sure why subid 2 started surveys on intake date
+
+
+
+Notes on discrepancies of first EMA and start study date
+```{r}
+ema_daily %>% 
+  group_by(subid) %>% 
+  arrange(date) %>% 
+  slice(1) %>% 
+  select(first_ema = date, subid) %>% 
+  right_join(visit_dates, by = "subid") %>% 
+  mutate(diff = first_ema - start_study) %>% 
+  filter(diff != 0) %>% 
+  left_join(notes, by = "subid") %>% 
+  select(subid, diff, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+<br>
+
+
+### End study
+
+Everyone who was enrolled (e.g., completed the intake session) has an end date
+```{r}
+visit_dates %>% 
+  filter(!is.na(start_study)) %>% 
+  filter(is.na(end_study))
+```
+
+
+#### EMA activity after study end date
+
+Check if EMA's completed after end study date
+```{r}
+last_ema <- ema_daily %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  select(last_ema = date, subid)
+
+(ema_more_than_1 <- visit_dates %>% 
+  left_join(last_ema, by = "subid") %>% 
+  mutate(diff = last_ema - end_study) %>% 
+  filter(diff > 1) %>% 
+  select(subid, start_study, followup_1, followup_2, final_visit, end_study, last_ema, diff))
+```
+
+`r nrow(ema_more_than_1)` subids have a difference of more than one day between last EMA and end study.  
+All but 2 can be explained by subids likely continuing due to having a final visit date after study end date (i.e., they don't have an EMAs after final visit). Other 2 are not problematic in that they spontaneously completed a survey long after being off study (in 2020!). Likely by clicking on an old link.    
+
+
+subids in visit dates with no EMAs
+```{r}
+subs_no_ema <- visit_dates %>% 
+  filter(!subid %in% ema_daily$subid) 
+
+subs_no_ema %>% 
+  print(n = Inf)
+```
+
+`r nrow(subs_no_ema)` participants have no EMA.  
+This is expected (37 did not complete intake and 1 discontinued first day on study)  
+
+
+#### EMA activity stopping before study end date
+
+A stop in EMA activity 20 days or more prior to study end date  
+Will explore below
+```{r}
+visit_dates %>% 
+  filter(!is.na(start_study)) %>% 
+  left_join(last_ema, by = "subid") %>% 
+  mutate(diff = end_study - last_ema) %>% 
+  filter(diff > 20) %>% 
+  select(subid, start_study, followup_1, followup_2, final_visit, end_study, last_ema, diff)
+```
+
+subid 204 - Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them. RA collected lapse information.   
+
+
+
+#### Participants with no followup 1
+
+All participants who discontinued prior to followup 1 should have their last EMA as their end date if no recorded discontinuation date.   
+
+```{r}
+visit_dates %>% 
+  filter(!is.na(start_study) & is.na(followup_1)) %>% 
+  mutate(diff_start_end = end_study - start_study) %>% 
+  left_join(last_ema, by = "subid") %>% 
+  mutate(diff_ema_end = end_study - last_ema) %>% 
+  select(subid, start_study, followup_1, end_study, last_ema, diff_ema_end, diff_start_end)
+```
+
+Imputed end dates (via log):  
+
+* subid 24 - Participant canceled her FU #1 appointment and then shared she was no longer able to continue her participation in the study. Scheduled visit was on 12-08-2017 (from google calendar) but EMA continued through 12-12. End date changed to 12-12-2017.  
+* subid 17 - No-Show for FU#1 and FU #2 (Spouse called to report that participant entered an in-patient treatment program). Scheduled FU1 visit was on 2017-11-13 (from google calendar). Last EMA received on 11-23-2017. Changing end study date to 11-23-2017.  
+* subid 41 - Participant called on 2/28/2018 to report that they wanted to drop out of the study. Last EMA provided on 2/27/2018. End date should be discontinuation date (2/28/2018).
+* subid 50 - Passively discontinued. No notes. Started study on 3-22-2018, last EMA on 4-06-2018. Never completed followup 1. According to google calendar it looks like followup 1 was scheduled for 2018-04-20 but participant cancelled. Changing end date to last EMA 4-06-2018.    
+* subid 61 - Participant no showed to followup 1 on 2018-06-01 (confirmed with google calendar). Last EMA received on 2018-06-04. Imputing end date to 2018-06-04.  
+* subid 62 - Participant no showed to followup 1 visit. According to google calendar followup 1 was scheduled for 2018-06-19. Last EMA was received on 2018-05-29. End date imputed to last EMA 2018-05-29.  
+* subid 87 - Notes say discontinued before follow-up #1 but I cannot locate exact date they discontinued. According to google calendar their visit was scheduled for 2018-08-23 before being cancelled by participant. Last EMA was received on 2018-08-22. Imputing end date to last EMA.  
+* subid 105 - Notes say Discontinued before follow-up #1. Last EMA received on 2018-10-05. Followup 1 visit scheduled for 2018-09-13 - according to google calendar participant cancelled with intent to reschedule. End date will be imputed to last day of EMA (2018-10-05).  
+* subid 151 - Participant cancelled their followup 1 visit scheduled for 2018-11-16 (from google calendar). Last EMA received on 2018-11-06. End date imputed to last EMA.  
+* subid 173 - From notes - Discontinued before follow-up #1; Participant no-called/no-showed to their Follow Up 1 appointment and is being discontinued from study participation. End study date changed to date of scheduled followup 1 visit since this was date of discontinuation - confirmed to be 2019-03-08 with google calendar. Last EMA was received on 2019-02-27.  
+* subid 177 - According to notes participant discontinued before followup 1 (no date for when this happened). Followup 1 was scheduled for 2019-03-21 but participant cancelled (from google calendar). Last EMA received on 2019-03-19. End date imputed to last EMA.    
+* subid 182 - Participant arrived to Follow-up 1 on 2019-03-27 (date confirmed with google calendar) but asked to be discontinued before data was collected. Last EMA received on 2019-03-21. End date imputed to match discontinue date (2019-03-27).  
+* subid 237 - Participant was withdrawn by study staff prior to completing followup 1 visit on 2019-07-25. Last EMA completed on 2019-07-25. End date should be date subid was withdrawn. No imputation needed - end date accurate in subids visit dates file.     
+* subid 267 -  According to notes participant discontinued before followup 1 but no specific date listed. FOllowup 1 was scheduled for 2019-10-08 before participant cancelled (confirmed with google calendar). Last EMA was received on 2019-10-01. Imputing end date to last EMA.  
+* subid 8 - From notes - "No show for FU #1 - Unable to continue participation due to family crisis". Followup 1 visit was scheduled for (pulled from google calendar). EMA had stopped 14 days prior to this date. No clear discontinuation date so defferring to last day of EMA (2017-07-13).    
+* subid 235 - discontinued first day on study. End date is thus equivalent to start date. Participant completed no EMAs.    
+
+
+#### Participants with no followup-2
+
+If no discontinuation date, end date should be last ema or last completed visit (followup 1) - whichever is later    
+
+Negative values due to a single sporadic EMA after already considered discontinued
+```{r}
+visit_dates %>% 
+  filter(!is.na(followup_1) & is.na(followup_2)) %>% 
+  mutate(diff_start_end = end_study - start_study) %>% 
+  left_join(last_ema, by = "subid") %>% 
+  mutate(diff_ema_end = end_study - last_ema) %>% 
+  select(subid, start_study, followup_2, end_study, last_ema, diff_ema_end, diff_start_end)
+```
+
+Imputed end dates:  
+
+* 232 - According to notes participant discontinued (before FU2) because they didn't like the study demands of GPS tracking collecting call info and getting 4 surveys a day. Their last EMA was on 2019-06-14. No followup 2 in google calendar. End date set to last EMA.  
+* 265 - From notes "End Study date was marked as the date that participant's GPS stopped tracking; Participant rescheduled FU2 three times and no showed to the third appointment. Staff tried to get in touch with her for over a week but were unsuccessful. Staff contacted participant and informed her that if we did not hear from her in the next week we would consider her discontinued. Staff discontinued sub on 10/30/19". Last EMA also on 2019-10-30. Set end study date to 2019-10-30.  
+* 116 - From notes - "participant ended participation after their follow-up 1 on 09/24/2018. RA Kerry consistently tried getting in contact with participant but they did not respond." Confirmed 2018-09-24 to be followup 1 visit date with google calendar. However last EMA was on 2018-11-23 (4 days before their 90 day end study date). Seems they regularly did EMA through 10-26-2018 and then have 3 sporadic EMA's in November. Setting end date to 10-26-2018.  
+
+
+
+Other notes on how end dates calculated for subids who missed followup 2 - no imputation needed:  
+
+* 82 - Participant was discontinued because cell service was shut off. Followup 2 visit was scheduled for 2018-08-20. According to google calendar they cancelled this visit. However, a note in raw_notes says "Participant reported that their phone was stolen when they arrived at their Follow up 2" - we have no survey data for them so regardless if they showed up they appear to have not completed the visit. Last EMA received for this subid was on 2018-08-02. Visit dates shows day of last EMA to be end date. Retaining this end date without any changes.      
+* 172 - No showed to followup 2. When called for their follow up appointment their phone was disconnected. We considered them discontinued. Followup 2 was scheduled for 2019-03-25 (confirmed with google calendar). Last EMA was received on 2019-03-08. Visit dates shows day of last EMA to be end date. Retaining this end date without any changes.  
+* 221 - From notes - "Participant no showed to FU2 which was scheduled for 07/11/19. Participant had also stopped completing her daily surveys (last survey that was completed was on 06/27/19). Because of this it was determined by Candace that the participant should be considered discontinued as of 06/27/19." Confirmed these dates to be accurate. Retaining end date as date of last EMA.  
+* 205 - From notes "Participant cancelled FU2 and staff was never able to get a hold of participant to reschedule. Participant's compliance also started to drop and ceased to complete surveys regularly on 6/7/19. After conferring with John it was decided that the participant should be discontinued." One sporadic EMA on 2019-06-14. End date is correctly 2019-06-07, no changes needed.  
+* 92 - Participant did not come in for a follow-up2 visit and did not complete the ID Follow-up 2 Battery that was sent by the staff, but came in for final visit. Completed EMA through 2018-10-26. Retained end study date (2018-10-27) as 90 days from start_study.   
+* 93 - Completed through follow-up #1; This participant discontinued at their Follow-up 1 (08/22/2018) due to moving out of the country for work. Confirmed followup 1 date with google calendar. Last EMA was on 2018-08-21. No imputation needed, visit dates accurately reflects discontinuation.  
+* 29 - Participant no showed to follow-up #2 appointment, didn't respond to staff calls and never contacted study staff to officially report study termination. Followup 2 was scheduled for 2018-01-19 (confirmed with google calendar). Last EMA received on 2018-01-22. No imputation needed, end study already listed as last day of EMA.   
+* 47 - Participant was withdrawn at his follow-up #1 visit (after visit was completed) due to EMA issues that could not be resolved. FOllowup 1 was on 2018-04-27 (confirmed with google calendar). Last EMA was on 2018-04-26. No imputation needed, end date was correctly marked as followup 1 visit date (discontinuation date) in visits file.  
+* 59 - According to notes participant discontinued after Follow-up 1 due to entering an inpatient treatment program. Confirmed followup 1 date with google calendar to be 2018-06-04. EMA continued to be completed daily until 2018-07-12 with one sporadic EMA five days later (2018-07-17). Currently end date is set to 2018-07-12 which is correct.    
+* 200 - Participant's phone was shut off and they did not contact us to continue study participation. They discontinued before Follow up 2 (no date that suggests when discontinuation happened). Last EMA received on 2019-04-23. No followup 2 scheduled in google calendar. End date set to last day EMA was received.   
+* 209 - Notes only say participant discontinued before completing Follow up 2. According to google calendar followup 2 was scheduled for 2019-05-09 but participant cancelled. Last EMA was on 2019-05-09. End study already set to 2019-05-09.  
+* 218 - According to notes "Follow-up 2 was originally scheduled for 6/20 but participant no showed. Visit was rescheduled for 6/25 and participant no showed again. After 2 days of no response Jill determined that subject should be discontinued. End of study date was determined as 06/25/2019 because it was the last date that participant had been consistently responding to surveys." It appears 2019-06-20 was last day EMA was received but Will retain 6/25 as end study date since this is their recorded discontinuation date.     
+
+
+#### No final visit
+
+If no discontinuation date, end date should be last EMA or last completed visit (followup 2) - whichever is later
+
+```{r}
+visit_dates %>% 
+  filter(!is.na(followup_2) & is.na(final_visit)) %>% 
+  mutate(diff_start_end = end_study - start_study) %>% 
+  left_join(last_ema, by = "subid") %>% 
+  mutate(diff_ema_end = end_study - last_ema) %>% 
+  select(subid, start_study, final_visit, end_study, last_ema, diff_ema_end, diff_start_end)
+```
+
+Notes on how end date calculated for participants who missed final visits - no log changes needed:  
+
+* 53 - Participant called research staff on day of appointment (final visit) in distress - resulted in police being dispatched to participant's home. Participant was discontinued on 2018-07-11 (day of scheduled final visit - confirmed with google calendar). Last EMA was received on 2018-06-25. This is also their end study date (90 days). 
+* 76 - Participant requested to discontinue with study participation after completing followup 2 visit (at study visit?). Followup 2 visit was on 2018-08-29 (confirmed with google calendar). Last EMA on 2018-08-23. End date already set to date of followup 2 visit. Retaining as discontinuation date.    
+* 78 - According to a session form note participant discontinued after completing followup 2. Followup 2 visit was on 2018-09-05 (confirmed with google calendar). Last EMA also on 2018-09-05. End study date already listed as 2018-09-05.   
+* 85 - Notes say participant discontinued their participation at their followup 2 visit. Confirmed (with google calendar) followup 2 visit was on 2018-09-20. Last EMA was also on 2018-09-20. End date already documented as 2018-09-20 in visit dates.  
+* 104 - Participant decided to discontinue at Follow up 2 as they were struggling to gain sobriety. Their followup 2 visit was on 2018-10-24 (confirmed with google calendar). Last EMA received on 2018-10-24. End date correctly marked as 2018-10-24.  
+* 212 - From notes "Participant was called on Friday 5/31/2019 because they had not done any surveys in 2 weeks. Participant did not answer so we left a message with them stating that if they were having technical issues or if they were interested in continuing their study participation to give us a call back OR start doing surveys again and if they didn't call us by Monday morning we would consider them discontinued and send their final payment." Appears participant passively discontinued - using last ema as end study date (2019-05-17). This is already their end date - no changes needed.  
+* 243 - Participant no-showed to their final study visit. Staff tried reaching out several times with no success. Last EMA on 2019-09-20. Final visit was scheduled for 2019-10-07 (confirmed with google calendar). End date is last EMA.   
+
+
+#### End dates for participants who completed the study 
+
+End dates should be 90 days after start study (give or take a few days)   
+Those who end early have explanation in notes  
+```{r}
+visit_dates %>% 
+  filter(!is.na(final_visit)) %>% 
+  mutate(end_study_timing = end_study - start_study) %>% 
+  filter(end_study_timing > 92 | end_study_timing < 88) %>% 
+  left_join(
+    select(notes, subid, notes_general), 
+    by = "subid") %>% 
+  select(subid, notes_general, everything()) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+
+<br>
+
+
+### Order of timing of visits within participants
+
+No visits out of order.  
+
+```{r}
+#for people with complete data
+visit_dates %>% 
+  filter(!is.na(followup_2), !is.na(final_visit)) %>% 
+  mutate(visits_in_order = ifelse(screen < intake & 
+                                    intake < start_study & 
+                                    start_study < followup_1 & 
+                                    followup_1 < followup_2 & 
+                                    followup_2 < final_visit, TRUE, FALSE)) %>% 
+  select(visits_in_order, everything()) %>% 
+  filter(visits_in_order != TRUE) 
+
+#for people missing followup 2
+visit_dates %>% 
+  filter(is.na(followup_2)) %>% 
+  mutate(visits_in_order = ifelse(screen < intake & 
+                                    intake < start_study & 
+                                    start_study < followup_1, TRUE, FALSE)) %>% 
+  select(visits_in_order, everything()) %>% 
+  filter(visits_in_order != TRUE) 
+
+#for people missing the final visit
+visit_dates %>% 
+  filter(is.na(final_visit)) %>% 
+  mutate(visits_in_order = ifelse(screen < intake & 
+                                    intake < start_study & 
+                                    start_study < followup_1 & 
+                                    followup_1 < followup_2, TRUE, FALSE)) %>% 
+  select(visits_in_order, everything()) %>% 
+  filter(visits_in_order != TRUE)
+```
+
+<br>
+
+### Missing data visualizations
+
+```{r}
+vis_miss(visit_dates)
+
+gg_miss_upset(visit_dates)
+```
+
+
+<br>
+
+## Write CSV
+```{r}
+write_csv(visit_dates, file.path(path_data, "visit_dates.csv")) %>% 
+  glimpse()
+```
+

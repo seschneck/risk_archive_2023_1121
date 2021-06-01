@@ -1,0 +1,26 @@
+# R build file for RISK PACKAGES
+
+universe = vanilla
+log = interactive.log
+
+# Choose a version of R from the table above
+transfer_input_files = http://proxy.chtc.wisc.edu/SQUID/chtc/R361.tar.gz
+
++IsBuildJob = true
+requirements = (OpSysMajorVer =?= 7)
+request_cpus = 1
+request_memory = 4GB
+request_disk = 2GB
+
+queue
+
+#Documentation on this process:
+# http://chtc.cs.wisc.edu/r-jobs.shtml
+# Installed the following packages:
+#  caret
+#  readr
+#  glmnet
+#  kernlab
+#  ranger
+#  e1071
+install.packages(c("caret", "readr", "glmnet", "kernlab", "ranger", "e1071"))

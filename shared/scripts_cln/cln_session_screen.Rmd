@@ -1,0 +1,646 @@
+---
+title: "Session Screen Clean File"
+author: "Kendra Wyant w/ updates by John"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+This script creates a single csv file from the three raw data session screen files. Uses cleaning function to clean according to data log. Includes file merging and minimal variable renaming (only to merge files with inconsistent names).    
+
+Inputs:   
+
+* session_screen_v1.csv  
+* session_screen_v2.csv  
+* session_screen_v3.csv  
+* log_session_screen_v1.csv  
+* log_session_screen_v2.csv  
+* log_session_screen_v3.csv  
+
+Output:  
+
+* session_screen.csv  
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths
+```{r}
+path_in <- "./raw_data/qualtrics"
+path_out <- "./analysis/shared/data"
+path_log <- "./analysis/shared/notes"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+
+source('/Volumes/private/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+
+
+### Read in session screen csvs
+
+```{r}
+session_1 <- read_csv(file.path(path_in, "session_screen_v1.csv"), col_types = cols()) %>% 
+  rename(subid = SFSR_3, response_id = ResponseID) %>% 
+  glimpse()
+session_2 <- read_csv(file.path(path_in, "session_screen_v2.csv"), col_types = cols()) %>% 
+  rename(subid = SFSR_3, response_id = ResponseID) %>% 
+  glimpse() 
+session_3 <- read_csv(file.path(path_in, "session_screen_v3.csv"), col_types = cols()) %>% 
+  rename(subid = Q89, response_id = ResponseID) %>% 
+  glimpse()
+```
+
+
+### Clean session forms from logs
+
+Open data logs
+
+```{r}
+log_1 <- read_csv(file.path(path_log, "log_session_screen_v1.csv"), col_types = cols())  %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+
+log_2 <- read_csv(file.path(path_log, "log_session_screen_v2.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+
+log_3 <- read_csv(file.path(path_log, "log_session_screen_v3.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+```
+
+Review data logs
+
+```{r}
+tabyl(log_1$log_action) 
+tabyl(log_2$log_action) 
+tabyl(log_3$log_action) 
+```
+
+Variables with recode_one edits
+```{r}
+log_1 %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+log_3 %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to subid variable
+```{r}
+log_3 %>% 
+  filter(var_name == "subid") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Entry removed
+```{r}
+log_3 %>% 
+  filter(log_action == "remove") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Clean session data
+
+```{r}
+session_1 <- clean_qualtrics_by_log(session_1, log_1) 
+session_2 <- clean_qualtrics_by_log(session_2, log_2)
+session_3 <- clean_qualtrics_by_log(session_3, log_3)
+```
+
+
+### Tidy data
+
+```{r}
+session_1 <- session_1 %>% 
+  rename("real_data" = SFSR_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFSR_15 = as.character(SFSR_15),
+         SFSR_23 = as.character(SFSR_23),
+         SFSR_25 = as.character(SFSR_25),
+         SFSR_27 = as.character(SFSR_27),
+         SFSR_29 = as.character(SFSR_29)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         SFSR_4,
+         Finished,
+         SFSR_5,
+         SFSR_6,
+         SFSR_7,
+         SFSR_8,   
+         SFSR_9,
+         SFSR_34,
+         SFSR_35, 
+         SFSR_36,
+         SFSR_38,
+         SFSR_39,
+         SFSR_40,
+         SFSR_41,
+         SFSR_10.1_1,
+         SFSR_10.2_1,
+         SFSR_10.3_1,
+         SFSR_11,
+         SFSR_12,
+         SFSR_13, 
+         SFSR_14,
+         SFSR_15,
+         SFSR_16,
+         SFSR_17,
+         SFSR_18,
+         SFSR_19,
+         SFSR_20,  
+         SFSR_21,
+         SFSR_22,
+         SFSR_23,
+         SFSR_24,
+         SFSR_25,
+         SFSR_26,
+         SFSR_27,  
+         SFSR_28,
+         SFSR_28_TEXT,
+         SFSR_29,
+         SFSR_30) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_2 <- session_2 %>% 
+  rename("real_data" = SFSR_1) %>% 
+  filter(real_data == "Real data") %>% 
+  mutate(SFSR_4 = as.character(SFSR_4),
+         SFSR_15 = as.character(SFSR_15),
+         SFSR_27 = as.character(SFSR_27),
+         SFSR_29 = as.character(SFSR_29)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         UTC,
+         SFSR_4,
+         Finished,
+         SFSR_5,
+         SFSR_6,
+         SFSR_7,
+         SFSR_8,   
+         SFSR_9,
+         SFSR_34,
+         SFSR_35, 
+         SFSR_36,
+         SFSR_38,
+         SFSR_39,
+         SFSR_40,
+         SFSR_41,
+         SFSR_10.1_1,
+         SFSR_10.2_1,
+         SFSR_10.3_1,
+         SFSR_11,
+         SFSR_12,
+         SFSR_13, 
+         SFSR_14,
+         SFSR_15,
+         SFSR_16,
+         SFSR_17,
+         SFSR_18,
+         SFSR_19,
+         SFSR_26,
+         SFSR_27,  
+         SFSR_28,
+         SFSR_28_TEXT,
+         SFSR_29,
+         SFSR_30) %>% 
+  clean_names() %>% 
+  glimpse()
+
+session_3 <- session_3 %>% 
+  rename("real_data" = Q97) %>% 
+  filter(real_data == "Real") %>% 
+  mutate(subid = as.numeric(subid),
+         SFSR_4 = as.character(Q74_TEXT),
+         SFSR_38 = as.character(Q72),
+         SFSR_41 = as.character(Q78)) %>% 
+  select(response_id,
+         subid,
+         StartDate,
+         EndDate,
+         SFSR_4,
+         Finished,
+         Referral.Source,
+         Referral.Source_TEXT,
+         SFSR_5 = Q35,
+         SFSR_6 = Q37,
+         SFSR_6_text = Q101,  
+         SFSR_7 = Q39,
+         SFSR_8 = Q41,
+         SFSR_8_text = Q100, 
+         SFSR_9 = Q43,
+         Q103,
+         Q105,
+         Q91,
+         Q93,
+         SFSR_34 = Q64,
+         SFSR_35 = Q66,
+         SFSR_36 = Q68,
+         SFSR_38,
+         SFSR_39 = Q74.1,
+         SFSR_40 = Q76,
+         SFSR_10_1_1 = Q40.1_1,
+         SFSR_10_2_1 = Q40.2_1,
+         SFSR_10_3_1 = Q40.3_1,
+         SFSR_11 = Q42,
+         SFSR_12 = Q44,
+         SFSR_13 = Q46,
+         Sobr.Check,
+         SFSR_14 = Q52,
+         SFSR_15 = Q54,
+         SFSR_16 = Q56,
+         SFSR_17 = Q58,
+         Q58_TEXT,
+         SFSR_18 = Q73,
+         Q60,
+         SFSR_19 = Q62,
+         Q62_TEXT,
+         SFSR_26 = Q54.1,
+         SFSR_27 = Q56.1,
+         SFSR_28 = Q58.1,
+         SFSR_28_text = Q58_TEXT.1,
+         SFSR_29 = Q60.1,
+         SFSR_30 = Q62.1,
+         SFSR_41,
+         Q108,
+         Q109,
+         Q110,
+         Q76.1,
+         Q99) %>% 
+  clean_names() %>% 
+  glimpse()
+```
+
+
+### Recoding and merging
+
+remove repetitive/unnecessary columns from session form 3
+
+```{r}
+session_3 <- session_3 %>% 
+  mutate(sfsr_34 = coalesce(sfsr_34, q91),
+         sfsr_35 = coalesce(sfsr_35, q93)) %>% 
+  mutate(sfsr_16 = case_when(sfsr_16 == 3 ~ q60,
+                                 TRUE ~ sfsr_16)) %>% 
+  select(-c(q91, q93, q60))
+```
+
+
+
+```{r}
+screen_session <- session_1 %>% 
+  full_join(session_2) %>% 
+  full_join(session_3) %>% 
+  glimpse()
+
+rm(session_1, session_2, session_3)
+```
+
+### Tidy response options
+
+Survey response options slightly differred on one version - changing "Yes, Insert Date (mm/dd/yyyy):" to "Yes, Insert Date (mm/dd/yyyy)" for consistency.  
+```{r}
+screen_session <- screen_session %>% 
+  mutate(sfsr_28 = case_when(sfsr_28 == "Yes, Insert Date (mm/dd/yyyy):" ~ "Yes, Insert Date (mm/dd/yyyy)",
+                             TRUE ~ sfsr_28))
+```
+
+
+### EDA and Save
+
+The earliest recorded report is from `r min(screen_session$start_date, na.rm = TRUE)` 
+and the most recent is from `r max(screen_session$start_date, na.rm = TRUE)`. 
+
+All timezones in UTC
+```{r}
+screen_session %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+
+print(screen_session$start_date)
+print(screen_session$end_date)
+```
+
+UTC values that do not fall within range of start_date to end_date
+```{r}
+options(tibble.print_max = Inf)
+
+screen_session %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(!(utc >= start_date & utc <= end_date))
+
+screen_session %>% 
+  mutate(utc = as_datetime(utc, tz = "UTC")) %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  filter(date(utc) != date(start_date))
+```
+
+**Screen session form V3 does not have UTC variable (N = 202)**
+
+Available UTCs all match start date (1 hour ahead for some in months June - October).  
+Subid 23 has UTC that follows same pattern (1 hour ahead of start date), however, start_date time listed as 11:20 pm so UTC crosses over into next day. Time likely incorrect, but according to enrollment db the date is correct (20-17-2017).    
+
+
+#### Duplicate subids
+
+`r length(unique(screen_session$subid))` participants contribute to a total of `r nrow(screen_session)` 
+reports.  
+
+Duplicate subids due to no shows.   
+
+
+#### Missing values
+
+Missing (NA) values
+```{r}
+screen_session %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing subids
+```{r}
+screen_session %>% 
+  filter(is.na(subid)) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+FIX: 7 entirely blank surveys - only have start and end time and response_id  
+Filter out until instructed to handle differently 
+```{r}
+screen_session <- screen_session %>% 
+  filter(!is.na(subid))
+```
+
+Recheck missing (NA) values
+```{r}
+screen_session %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+
+Nothing else appears problematic in missing data.     
+* Missing sfsr_5 (time arrived) values indicate no-shows   
+* Missing 202 utc variables because session form version 3 did not have it as a variable.  
+
+Reasons for missing data include:  
+* participants discontinuing or being withdrawn due to eligibility reasons before completing session  
+* questions changed across 3 versions so some were only asked on a single survey version  
+* questions were conditional (e.g., sfsr_40 = "Why was the session incomplete?")  
+
+All participants are missing values for sfsr_23 ("Please explain below if participant did not complete a port request form.") and sfsr_25 ("If the phone transfer conditions form wasn't completed please explain reason below.") --> both questions were only on version 1 of survey.  
+
+No missing subids, response ids, dates, or consent (sfsr_5) values.  
+
+#### Descriptives
+
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = screen_session) 
+)
+```
+
+
+
+Before I begin describing the study, can you please tell me how you heard about the study? 
+```{r}
+kabyl(referral_source) %>% 
+  add_header_above(c("Before I begin describing the study, can you please tell me how you heard about the study?" = 4),
+                   align = "l")
+```
+
+FIX: Not sure what response option "1" is, it is not on the qualtrics survey and all response options are accounted for  
+
+Name of clinic or other text response for referral
+```{r}
+kabyl(referral_source_text) %>% 
+  add_header_above(c("Name of clinic for referral" = 4),
+                   align = "l")
+```
+
+Did participant sign study consent form?
+```{r}
+kabyl(sfsr_5) %>% 
+  add_header_above(c("Did participant sign study consent form?" = 4),
+                   align = "l")
+```
+
+Why did the participant not sign the consent form?
+```{r}
+kabyl(sfsr_6) %>% 
+  add_header_above(c("Why did the participant not sign the consent form?" = 4),
+                   align = "l")
+```
+
+Please explain why the participant did not sign the consent form.
+```{r}
+kabyl(sfsr_6_text) %>% 
+  add_header_above(c("Please explain why the participant did not sign the consent form" = 4),
+                   align = "l")
+```
+
+Will participant continue with study today? 
+```{r}
+kabyl(sfsr_9) %>% 
+  add_header_above(c("Will participant continue with study today?" = 4),
+                   align = "l")
+```
+The three No's were discontinued due to major concerns during screening.  
+
+<br>
+
+Did participant complete the screening session?
+```{r}
+kabyl(sfsr_39) %>% 
+  add_header_above(c("Did participant complete the screening session?" = 4),
+                   align = "l")
+```
+
+Why was the session incomplete?
+```{r}
+kabyl(sfsr_40) %>% 
+  add_header_above(c("Why was the session incomplete?" = 4),
+                   align = "l")
+```
+
+Please note any additional issues or concerns below. 
+```{r}
+screen_session %>% 
+  select(subid, sfsr_41) %>% 
+  filter(!is.na(sfsr_41) & sfsr_41 != "None" & sfsr_41 != "none" & sfsr_41 != "N/a" & sfsr_41 != "Na" & sfsr_41 != "n/a") %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please note any additional issues or concerns below" = 2),
+                   align = "l")
+```
+
+How many weeks has the participant gone without alcohol?
+```{r}
+kabyl(sfsr_11) %>% 
+  add_header_above(c("How many weeks has the participant gone without alcohol?" = 4),
+                   align = "l")
+```
+
+Did participant complete the ID Screen Battery?
+```{r}
+kabyl(sfsr_14) %>% 
+  add_header_above(c("Did participant complete the ID Screen Battery?" = 4),
+                   align = "l")
+```
+
+Please explain below if the ID screen battery was not completed.
+```{r}
+screen_session %>% 
+  select(subid, sfsr_15) %>% 
+  filter(!is.na(sfsr_15)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please explain below if the ID screen battery was not completed" = 2),
+                   align = "l")
+```
+
+Is participant eligible to continue study participation?
+```{r}
+kabyl(sfsr_16) %>% 
+  add_header_above(c("Is participant eligible to continue study participation?" = 4),
+                   align = "l")
+```
+
+Check participant's ineligibility reason below.
+```{r}
+kabyl(sfsr_19) %>% 
+  add_header_above(c("Check participant's ineligibility reason below" = 4),
+                   align = "l")
+```
+
+
+Please specify:
+```{r}
+screen_session %>% 
+  select(subid, q62_text) %>% 
+  filter(!is.na(q62_text)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please specify ineligibility reason" = 2),
+                   align = "l")
+```
+
+Did participant complete feedback form?
+```{r}
+kabyl(sfsr_34) %>% 
+  add_header_above(c("Did participant complete feedback form?" = 4),
+                   align = "l")
+```
+
+Please explain below why feedback from was not completed. 
+```{r}
+screen_session %>% 
+  select(subid, sfsr_35) %>% 
+  filter(!is.na(sfsr_35) & sfsr_35 != "N/A" & sfsr_35 != "N/a") %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please explain below why feedback from was not completed" = 2),
+                   align = "l")
+```
+
+
+Was an intake appointment scheduled with the participant?  
+```{r}
+kabyl(sfsr_28) %>% 
+  add_header_above(c("Was an intake appointment scheduled with the participant?" = 4),
+                   align = "l")
+```
+
+Please explain below why intake visit was not scheduled.
+```{r}
+screen_session %>% 
+  select(subid, sfsr_30) %>% 
+  filter(!is.na(sfsr_30)) %>% 
+  kbl() %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped")) %>% 
+  add_header_above(c("Please explain below why intake visit was not scheduled" = 2),
+                   align = "l")
+```
+
+Participant Phone Model
+```{r}
+kabyl(q108) %>% 
+  add_header_above(c("Participant Phone Model" = 4),
+                   align = "l")
+```
+
+WiFi at Home?  
+Only asked on version 3 of survey
+```{r}
+kabyl(q110) %>% 
+  add_header_above(c("WiFi at Home?" = 4),
+                   align = "l")
+```
+
+Feasibility assessment
+```{r}
+kabyl(q76_1) %>% 
+  add_header_above(c("Feasibility assessment" = 4),
+                   align = "l")
+```
+
+
+#### write csv
+```{r}
+write_csv(screen_session, file.path(path_out, "session_screen.csv"))
+```
+
+
+
+
+

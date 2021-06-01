@@ -1,0 +1,153 @@
+---
+title: "Helper file for examining lapses"
+author: "SS"
+date: "5/20/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Setup-----------------------------------------
+This file helps to open up relevant data sources while going over cases in the examine_lapses file
+You will still need to manually check the master datalog to see if anything was recorded there
+
+```{r}
+library(tidyverse)
+library(lmSupport)
+library(knitr)
+library(xlsx) #install.packages("xlsx")
+data_path <- "P:/StudyData/RISK/analysis/shared/data"
+raw_data <- "P:/StudyData/RISK/raw_data"
+```
+
+#Opening main files-------------------------------------------
+You only need to run this code chunk once to get the main ema and lapses files, you will subset down to individual subjects later
+
+```{r}
+ema <- read_rds(file.path(data_path,"ds_ema.rds"))
+
+ema$date <- ema$utc %>% #converting into human readable form
+  as.numeric %>% 
+  as.POSIXct(tz='America/Chicago', origin="1970-01-01")
+
+#Set timezones for time vars
+attributes(ema$start_date)$tzone <- "America/Chicago"
+attributes(ema$end_date)$tzone <- "America/Chicago"
+attributes(ema$ema_1_1)$tzone <- "America/Chicago"
+attributes(ema$ema_1_3)$tzone <- "America/Chicago"
+
+#Now filter down to just the lapses for the lapse tibble
+lapses <- ema %>% 
+  filter(ema_1==2) %>%
+  mutate(lapse_start = ema_1_1) %>% 
+  mutate(lapse_end = ema_1_3)
+
+#create variables for lapse length and length since report
+lapses <- lapses %>% 
+ mutate(lapse_length = lapse_end - lapse_start) %>% 
+  mutate(lapse_length = lapse_length/3600) %>% 
+  mutate(lapse_length = as.numeric(lapse_length)) %>% 
+  select(-c(ema_1_1, ema_1_3))
+
+lapses <- lapses %>% 
+ mutate(report_length_from_start = start_date - lapse_start) %>% 
+  mutate(report_length_from_start = report_length_from_start/3600) %>%
+  mutate(report_length_from_start =as.numeric(report_length_from_start))
+
+lapses <- lapses %>% 
+  select(c(response_id,utc,subid, start_date, end_date, lapse_start, lapse_end,lapse_length, report_length_from_start))
+
+#Open big audio file
+audio <- read.xlsx(file.path(raw_data, "audio.xlsx"),sheetName = "Sheet1") %>% 
+  select(c(MessageName,Text)) %>% 
+  mutate(MessageName = as.character(MessageName)) %>% 
+  mutate(Text = as.character(Text))
+  
+
+audio <- audio %>% 
+  separate(MessageName, into = c("sub_id", "year","date","time"), sep = "_") 
+
+audio <- audio %>% 
+  separate(date, into = c("month","day"), sep = 2)
+
+audio <- audio %>% 
+  mutate(date = str_c(audio$month,"/",audio$day,"/",audio$year)) %>% 
+  select(c(sub_id,date,Text))
+
+## Open list of subs wiht vacation files
+vacation_subs <- read_rds("P:/StudyData/RISK/analysis/shared/scripts_chk/dev/chk_lapses/vacation_subs.rds")
+
+vacation_subs
+
+##open gps
+path_shared_data <- "P:/StudyData/RISK/analysis/shared/data" 
+library(lutz)
+gps <- read_rds(file.path(path_shared_data, "ds_gps.rds"))
+tz <- read_rds("P:/StudyData/RISK/analysis/shared/scripts_chk/dev/chk_lapses/gps_tz.rds")
+tz = as_tibble(tz)
+gps$lutz_tz = tz$value
+
+#ROUGH UTC OFFSETS
+#When its summer, you can add one (e.g. -5 becomes -4)
+EST -5
+CST -6
+Mountain -7
+Pacific -8
+```
+
+## Open full ema, lapse, and audio for subject---------------------------------------------------
+To run quickly, just enter the subid and then click the green play arrow in the right --->
+```{r}
+# Enter subid here
+sub <- 37
+
+
+#Subjects full audio Messages
+#Note -- if you hover over the message in View, it will display the whole text
+View(audio[audio$sub_id==varPadString(sub,3),])
+
+#Subjects full lapse file
+View(lapses[lapses$subid==sub,])
+
+#Subjects full ema file
+View(ema[ema$subid==sub,])
+
+#Subjects vacation file if they have it
+if (varPadString(sub,3) %in% vacation_subs){
+  vacations <- read.xlsx(file.path("P:/StudyData/RISK/raw_data",varPadString(sub,3),str_c(varPadString(sub,3),"_Vacations.xlsx")),sheetIndex = "Vacations") #Megan change sheetIndex if you get an error
+View(vacations)
+}
+
+#gps
+gps_tz %>% filter(subid == varPadString(sub,3)) %>% View()
+
+
+```
+
+If you want to zoom into emas based on response dates, or print individual voice messages, use this box------------------------------------
+Make sure to enter resp_id for ema and date for audio check ins.
+```{r}
+## EMA around response -----------------------------------
+
+#Enter response ID here
+resp_id <-"R_3h9jBssRo3T7q1I"
+
+#Subjects EMA narrowed to 3 before and  after the current response
+#I change the response ID of the lapse in question to "Focal lapse" to make it easier to see
+position <- which(str_detect(ema$response_id, resp_id))
+ema %>% mutate(response_id = ifelse(str_detect(response_id, resp_id), "Focal lapse", response_id)) %>% 
+  slice((position-3):(position+3)) %>% 
+  View()
+
+## Print just one message by date-------------------------------------
+#(enter date as mm/dd/yyyy)
+audio %>% 
+  filter(sub_id==varPadString(sub,3)) %>% 
+  filter(date=="09/22/2017") %>% 
+  pull(Text) %>% 
+  print()
+
+```
+

@@ -1,0 +1,1082 @@
+---
+title: "Risk subid change review"
+author: "Susan with additions by Hannah" 
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+```{css, include = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+  # all codeblocks bigger than 500 px will be scrollable - can adjust as needed 
+  # all codeblocks wider then 100% will be scollable - can make narrower with max-width: 50% or similar 
+}
+```
+
+### Notes
+Purpose: The purpose of this script is to review all changes made to manually entered subIDs.
+
+Inputs:
+
+* all log files.
+
+Outputs
+
+* N/A
+
+### Setup
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE)
+# You might set message, warning, results or other global parameters to something
+# other than their default here.
+
+
+# results = "hold" if you want all results from a code chunk to display together 
+# without interleaving of code.  default = "asis"
+```
+
+Paths 
+```{r}
+path_logs <- "analysis/shared/notes"
+path_raw <- "raw_data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(janitor)
+library(kableExtra)
+library(ggthemes)
+library(rlang)
+library(ical)
+library(readxl)
+library(lubridate)
+library(DT)
+```
+
+Functions
+```{r}
+get_focal_response_id <- function(original_value){
+  subid_logs %>% 
+    filter(old_value == original_value) %>% 
+    select(log_name, response_id)
+} 
+
+show_calendar_events <- function(focal_date){
+  cal %>% 
+  arrange(start) %>% 
+  filter(month(start) == month(focal_date),
+         year(start) == year(focal_date),
+         day(start) == day(focal_date)) %>% 
+  select(-uid, -status) %>% 
+  kable(caption = "All calendar events on the day of the session") %>% 
+  kable_styling()
+}
+```
+
+
+Import supporting data sets
+```{r}
+cal <- ical_parse_df(file.path(path_raw, "gcal_risk.ics"))
+```
+
+
+### Open all log files and join, with a column added indicating what log it's from
+```{r}
+#create structure to which all logs will conform
+all_logs <- tibble(index = character(),
+  subid = character(),
+  response_id = character(),
+  var_name = character(),
+  new_value = character(),
+  old_value = character(),
+  log_action = character(),
+  source = character(),
+  notes = character(),
+  flag = character(),
+  ema_type = character(),
+  log_reason = character(),
+  log_name = character()
+)
+
+all_logs <- list.files(path = path_logs, pattern = "^log_", full.names = TRUE) %>% 
+  map_dfr(~read_csv(.x) %>% 
+            mutate(log_name = str_remove(.x, "analysis/shared/notes/"),
+                   index= as.character(index),
+                   across(c(subid, new_value, old_value), as.character)) %>% 
+            full_join(all_logs, .)) 
+
+subid_logs <- all_logs %>% 
+  filter(var_name == "subid") %>% 
+  glimpse() 
+```
+
+Note that the ema log has many more variables than the others.
+
+### Characterizing patterns in the changes 
+
+#### Changes to response id
+
+```{r}
+changes_to_response_id <- all_logs %>% 
+  filter(str_detect(var_name, regex("response", ignore_case = TRUE)))
+```
+
+There are `r nrow(changes_to_response_id)` changes to response id in the logs so we `r ifelse(nrow(changes_to_response_id) == 0, "can", "cannot")` use response id to identify the observation in both cleaned and raw data.
+
+#### Changes to times
+
+```{r}
+changes_to_times <- all_logs %>%
+filter(str_detect(var_name, (regex("utc", ignore_case = TRUE))) | str_detect(var_name, (regex("date", ignore_case = TRUE))))
+```
+
+There are `r nrow(changes_to_times)` changes to response id in the logs so we `r ifelse(nrow(changes_to_times) == 0, "can", "cannot")` use times to identify the observation in both cleaned and raw data.
+
+```{r}
+changes_to_times %>% 
+  select(log_name, log_action, var_name, old_value, notes) %>% 
+  kable(caption = "Reasons for changing times in logs") %>% 
+  kable_styling()
+```
+
+Sometimes when subid was not entered correctly or when there were other errors with session forms or surveys, staff retook the survey and documented it.
+
+#### Total count subid changes
+
+```{r}
+subid_logs %>% 
+  group_by(log_name, new_value) %>% 
+  count() %>% 
+  kable(caption = "Number of subid changes per subject per data set") %>% 
+  kable_styling()
+```
+
+### Changes to correct invalid entries (not numbers)
+
+```{r}
+subid_logs %>% 
+  filter(!str_detect(old_value, "^\\d{1,}$")) %>% 
+  select(log_name, var_name, old_value, new_value, notes) %>% 
+  kable(caption = "Log changes to subid to correct invalid entry") %>% 
+  kable_styling()
+```
+
+##### Test was changed to 31
+
+* Subject 031 consistently used the original EMA test link.
+
+##### 136?SSID=091918134537 was changed to 136
+
+* Qualtrics sometimes pulled in an extra string from the url "?SSID=..."; should update each row of the log to indicate this more clearly. _Note updated._ 
+
+```{r}
+read_csv(file.path(path_raw, "qualtrics/ema_later.csv"))  %>% 
+  filter(ResponseID == get_focal_response_id("136?SSID=091918134537")[["response_id"]]) %>% 
+  mutate(time_central = as_datetime(UTC, tz = "America/Chicago")) %>% 
+  pull(time_central) 
+
+#the signal survey link doesn't have a typo, unclear what caused this
+```
+
+
+##### 066?SSID=051418134217 was changed to 066
+
+* Qualtrics sometimes pulled in an extra string from the url "?SSID=..."; should update each row of the log to indicate this more clearly. _Note updated._ 
+
+```{r}
+read_csv(file.path(path_raw, "qualtrics/ema_later.csv"))  %>% 
+  filter(ResponseID == get_focal_response_id("066?SSID=051418134217")[["response_id"]]) %>% 
+  mutate(time_central = as_datetime(UTC, tz = "America/Chicago")) %>% 
+  pull(time_central) 
+
+#the signal survey link doesn't have a typo, unclear what caused this
+```
+
+##### RISK was changed to 81
+
+* There was one final visit on 10/31/2018 in the calendar for 81, which matches 81's visit dates. There is one session form for FU3 on that day with the subid 81. In the FU survey, the column "study name" says 81. There are no other FU3 surveys or sessions for sub 81. The timing for this FU3 lines up with 81's FU1 and FU2. _Note updated._ 
+
+```{r}
+
+focal_date <- read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("RISK")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SSFU3_3, SFFU3_2_2)  %>% 
+  kable(caption = "Followup session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c("RISK", "081")) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups for Risk or 81") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q4 %in% c("RISK", "81")) %>% 
+  select(IPAddress, StartDate, EndDate, Q2, Q3_3, Q4, Q51_TEXT) %>% 
+  kable(caption = "Session forms for earlier follow ups for subid RISK or 81") %>% 
+  kable_styling() 
+```
+
+##### 2:30PM was changed to 256
+
+* Subject 256 was missing a screening session form. And there was a session form for the scheduled time with a subid "2:30pm". Subject 256 had a session scheduled for 2:30pm, so it is possible that the RA entered the time of the session instead of the subid. Confusingly, there is a session form for subject 265 on the focal day, who had a screen the previous day per the screen survey and their visit dates. The reason we have matched subject 256 to the session form labeled 2:30pm is that the session form indicates the subject is not elligible, and 265 continued through the study while subject 256 did not. _Note updated._ 
+
+8/8/2019
+* 263 - Candace scheduled, has a screen, has a session form, visit date matches.
+* 256 - Jill scheduled, has a screen, missing a session form, is missing a folder / visit dates. The session form in question indicates that the person was not eligible.
+* 265 - Candace scheduled, has a screen from the previous day, but has a session form (perhaps submitted late) because  was scheduled for a screen the previous day. This person continued for the study, so it's not likely that the session form in question belongs to them.
+
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("2:30 PM")[["response_id"]]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_1, Q100_2, Q89) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c("2:30 PM", "256", "265")) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens for2:30pm, 256, and 265") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date - days(1)),
+         year(StartDate) == year(focal_date - days(1)),
+         day(StartDate) == day(focal_date - days(1))) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day before the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q89 %in% c("2:30 pm", "256", "265")) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_1, Q100_2, Q89) %>% 
+  kable(caption = "Session forms  for 2:30PM, 256, and 265") %>% 
+  kable_styling()
+```
+
+
+### Changes to entered subids
+
+```{r}
+subid_logs %>% 
+  filter(str_detect(old_value, "^\\d{1,}$")) %>% 
+  select(log_name, var_name, old_value, new_value, notes) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+##### Subject 55 was changes to 61
+
+* A participant was enrolled at two different times with different subids (first 55, then 61). The second time they were enrolled,  they participated as usual except that they did not complete a new screen. So, their original screen and session was reassigned to their new subid. This way, all the data for this person is under subid 61. _Notes updated._
+
+```{r}
+subid_logs %>% 
+  filter(str_detect(old_value, "^\\d{1,}$")) %>% 
+  filter(old_value == 55 | old_value == 61) %>% 
+  select(log_name, var_name, old_value, new_value, notes) %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+
+##### Subject 101 was changed to 135
+
+* This error was detected during the study, because the subject reported receiving duplicate notifications. Subject 135 was sent surveys for subject 101 (who did not enroll).  _Notes updated._
+
+
+##### Subject 22 was changed to 23.
+
+Suggested note revision: There is only one session screen form for the focal day, and it's for the person Jill and Sarah ran, who is marked in the screen as subject 23. There is no other screen for subject 23. This seems like a reasonable change to make. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("22")[["response_id"]]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(22, 23)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens for subid 22 or 23") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v2.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SFSR_3, SFSR_2_3, SFSR_2_2) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+```
+
+##### Subject 79 was changed to 78 in screen and session screen.
+
+Suggested note revision: There are two screens for 79 and zero for 78. The only screen on the focal day was for 78. There is no other screen for 78. This was likley a misunderstanding of the RA's because the session form lists a subid of 79, too. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("79")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(79, 78)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens for subid 79 or 78") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+```
+
+##### Subject 32 was changed to 31 in the session form for a follow up.
+
+Suggested note revision: There were several follow up 12s scheduled on the focal day with subjects 31, 18, and 30. There are follow up surveys for 31, 18, and 30. There are session forms for 18, 32, and 30. Jill was scheduled to meet with 31, is the RA listed in 31's survey, and is the RA listed in 32s session form. There are not other session forms or followups for 31. All of this evidence supports this change, which may have been due to a typo where 32 was entered instead of 31. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_followup_12_v2.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("32")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/followup_12.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v2.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q31, Q2, Q4) %>% 
+  kable(caption = "Followup session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/followup_12.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(32, 31)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups for subid 32 or 31") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v2.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q4 %in% c(32, 31)) %>% 
+  select(IPAddress, StartDate, EndDate, Q31, Q2, Q4) %>% 
+  kable(caption = "Session forms for subid 32 or 31") %>% 
+  kable_styling()
+```
+
+
+##### Subject 139 was changed to 138 in the session form and survey for followup 3.
+
+There are two followup 3s for subject 139 and zero for 138. In addition, there is a follow-up 2 for subject 139 on the same day. Calendars, RAs, and other information support this change. Subject 139 came in for a make-up FU2 session on the same day that 138 came in for a scheduled FU3, and RA mistakenly marked the FU3 session form and survey dated 2019/1/08 as being for 139 (when it was really for 138). There were two final visits scheduled for the focal day with subjects 138 and 135 (the visit with 135 is marked as "RESCHEDULE"). Kerry was scheduled to work with 138, although the entry for that visit was modified about a month after the final visit took place. There is one followup survey from the focal day with RA Kerry and subid 139 and one session form for followup 3 with RA Megan and subid 139.The dates for previous follow ups place 139 mid-month and 138 early-month. 
+
+138 had FU1 session form and survey on 2018/11/1, FU2 session form and survey on 2018/12/4, and no FU3 session form or survey.
+139 had FU1 session form and survey on 2018/11/19, FU2 session form on 2018/12/19 with no matching survey (due to a no-show), a second FU2 session form and matching survey on 2019/01/08, a FU3 session form and survey for 2019/1/08, and a second FU3 session form and survey on 2019/1/22.
+
+The session form and matching survey dated to 2019/01/08 for subject 139 should be recoded for 138.
+
+Suggested note revision: Subject 139 came in for a make-up FU2 session on the same day that 138 came in for a scheduled FU3, and RA mistakenly marked the FU3 session form and survey dated 2019/1/08 as being for 139 (when it was really for 138). _Note updated._
+ 
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("139")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SSFU3_3, SFFU3_2_2)  %>% 
+  kable(caption = "Followup session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(139, 138)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups for subid 139 or 138") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SSFU3_3 %in% c(139, 138)) %>% 
+  select(IPAddress, StartDate, EndDate, SSFU3_3, SFFU3_2_2) %>% 
+  kable(caption = "Session forms for subid 139 or 138") %>% 
+  kable_styling() #for some reason Megan is the only RA listed on any fu3 session forms
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q4 %in% c(139, 138)) %>% 
+  select(IPAddress, StartDate, EndDate, Q2, Q3_3, Q4, Q51_TEXT) %>% 
+  kable(caption = "Session forms for earlier follow ups for subid 139 or 138") %>% 
+  kable_styling() 
+
+read_csv(file.path(path_raw, "qualtrics/followup_12.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(139, 138)) %>% 
+  select(IPAddress, StartDate, EndDate, RA, SubID) %>% 
+  kable(caption = "Earlier followups for subid 139 or 138") %>% 
+  kable_styling()
+
+"2018-12-19" %>% 
+  show_calendar_events() #139 no-showed on 2018/12/19 to FU2
+
+cal %>% 
+  filter(str_detect(summary, "139")) %>% 
+  select(-uid, -status) %>% 
+  kable(caption = "All calendar events for 139") %>% 
+  kable_styling()
+
+```
+
+##### Subject 8 was changed to 10. 
+
+Suggested note revision: Subject 10 was missing a screen and subject 8 had two on different dates. On the focal date, there was one scheduled screen for a participant identified as #20312. The screen session form for that day for subject 10, and was administered by RAs that match those scheduled in the calendar. This is likely a typo or miscommunication where 8 was entered instead of 10 on the screen survey only. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("8")[["response_id"]]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(8, 10)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens for subid 8 or 10") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SFSR_2, SFSR_3) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SFSR_3 %in% c(8, 10)) %>% 
+  select(IPAddress, StartDate, EndDate, SFSR_2, SFSR_3) %>% 
+  kable(caption = "Session forms for subid 8 or 10") %>% 
+  kable_styling()
+```
+
+
+##### Subject 128 was changed to 143 in the session form. 'Both participants were seen that day but 143 was the FU1"
+
+Suggested notes revision: Subject 128 has an extra FU1 session form, and subject 143 is missing a FU1 session form. On the focal day, 128 was scheduled for FU2, 143 was scheduled for FU1. The session surveys which are for 128 for FU2 and 143 for FU1 and calendar information support changing this entry to subject 143. There are two FU surveys that day, one for 128 and one for 143. There are two follow-up session forms that day one for 128 for FU2 and one for 128 for FU1. There are four total FU12 surveys between the two participants, with 128's second FU listed on the focal day and 143's first. The session forms show four total entries for FU12 between the two participants, with two labeled for 128 (one for FU2, one for FU1). Subid 128 should be changed to 143 for the session form survey for FU1 on 11/9/2018. _Notes updated._
+
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_followup_12_v1.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("128")[["response_id"]]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/followup_12.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q2, Q4)  %>% 
+  kable(caption = "Followup session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/followup_12.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(128, 143)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups for subid 128 or 143") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_12_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q4 %in% c(128, 143)) %>% 
+  select(IPAddress, StartDate, EndDate, Q2, Q4) %>% 
+  kable(caption = "Session forms for subid 128 or 143") %>% 
+  kable_styling() 
+```
+
+
+##### Subject 149 was changed to 150.
+
+
+There are three screens that were scheduled for the focal date for 153 (cancelled), 150, and 141 (Rescheduled). There is one screening survey on the focal date, for subject 149. There is another screening survey for 149 for the next day, and none for subject 150. There is one screening session form for the focal date, for subject 149. There is another screening session form for 149 the next day. Subject 150 indicated on a subsequent survey that they lived with their child (and not a spouse), the screen labeled 140 on the focal date reports the participant is divorced. The other 149 screen indicates that the person is married, which matches their intake report of living with a spouse. _Notes updated._
+
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("149")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(150, 149)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens for subid 150 or 149") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q89 %in% c(150, 149)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms for subid 150 or 149") %>% 
+  kable_styling()
+
+
+(focal_date + days(1)) %>% #confirming 149's scheduled appointment
+  show_calendar_events()
+
+```
+
+##### Subject 56 was changed to 76.
+
+There are two session forms for 56 - one of the focal date, one for three months earlier - and zero for 76. Visit dates, calendar, and RA support this change. There are two screens scheduled on the focal date  for sub 76 (with Kerry) and sub 79 (with Jill). Subject 56 had a followup scheduled for the previous day (with Kerri). There are two screens for the focal day for sub 76 (with Kerry) and 79 (with Jill). The session form for suid 056 on 2018/6/13 should be changed to subid 76. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("56")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+(focal_date - days(1)) %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q89 %in% c("076", "056")) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms for subid 76 or 56") %>% 
+  kable_styling()
+
+```
+
+##### Subject 74 was changed to 75. 
+
+Suggested notes revision: There are two session forms for participant 74 (on 5/25 and 5/30) and none for participant 75. The screens and calendar support this change. There was one screen scheduled for the focal date for participant 75 (with Jill). There were no screen surveys for that day. There is one screen survey for 74 five days earlier (5/25) and no survey for 75. The person run in this session was inelligible, the person run previously was eligible. Participant 74 has an intake form. The session form for subid 74 on 5/30 should be changed to subid 75. _Notes updated_
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("74")[["response_id"]][1]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Screens from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_screen_v3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(Q89 %in% c("075", "074")) %>% 
+  select(IPAddress, StartDate, EndDate, Q100_2, Q89) %>% 
+  kable(caption = "Session forms for subid 75 or 74") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/screen.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c("075", "074", "74", "75")) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA)  %>% 
+  kable(caption = "Session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/intake.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c("075", "074", "74", "75")) %>% 
+  select(IPAddress, StartDate, EndDate, SubID)
+
+```
+
+##### Subject 193 was changed to 179. 
+
+There were four visits scheduled for the focal date, three were described as FU3 (for 193 - Kerry, 188 - Jill, 179 - Kerry, with Megan as shadow) and one was described as an "additional visit". There are three FU3 surveys, one for 193 (with Kerry), one for 188 (with Jill) and one for 179 (with Kerry). There are four FU3 session forms, one for 193 (with Megan), 188 (Jill), 179 (nobody listed & marked as "fake data"), and 193 again (Megan). It seems that for the scheduled session with 179 at 11, Megan did a trial session and entered the correct subid but the wrong time, and Kerry completed the real form, but entered the incorrect subid of the person she ran earlier in the day. _Notes updated._
+
+```{r}
+focal_date <- read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>% 
+  filter(ResponseID == get_focal_response_id("193")[["response_id"]]) %>%
+  mutate(time_central = as_datetime(StartDate, tz = "America/Chicago")) %>%
+  pull(time_central)
+
+focal_date %>% 
+  show_calendar_events()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(month(StartDate) == month(focal_date),
+         year(StartDate) == year(focal_date),
+         day(StartDate) == day(focal_date)) %>% 
+  select(IPAddress, StartDate, EndDate, SFFU3_1, SFFU3_2_3, SSFU3_3, SFFU3_2_2)  %>% #the var names are killing me
+  kable(caption = "Followup session forms from the day of the session") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/followup_3.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SubID %in% c(193, 179)) %>% 
+  select(IPAddress, StartDate, EndDate, SubID, RA) %>% 
+  kable(caption = "Followups for subid 193 or 179") %>% 
+  kable_styling()
+
+read_csv(file.path(path_raw, "qualtrics/session_followup_3_v1.csv")) %>%
+  #note that there isn't a variable called subid in the raw data
+  mutate(StartDate = as_datetime(StartDate, tz = "America/Chicago")) %>% 
+  filter(SSFU3_3 %in% c(193, 179)) %>% 
+  select(IPAddress, StartDate, EndDate, SSFU3_3, SFFU3_2_2) %>% 
+  kable(caption = "Session forms for subid 193 or 179") %>% 
+  kable_styling() 
+```
+
+
+## Susan's examination
+
+### Manual examination of these rows, will use the flag column to indicate ok for correct or no for concern
+
+These are all correct and clearly documented:
+```{r}
+
+subid_logs %>% filter(new_value == "031")
+#this is correct. Participant repeatedly replied to the original test message rather than replying to every new text.
+subid_logs$flag[subid_logs$new_value == "031"] <- "ok"
+
+subid_logs %>% filter(new_value == "066")
+#this is correct; it was a random error by SurveySignal where the subID parameter included extraneous SS values.
+subid_logs$flag[subid_logs$new_value == "066"] <- "ok"
+
+subid_logs %>% filter(new_value == "135")
+#this is correct. Participant was assigned to the wrong set of surveys for a while before it was caught and corrected.
+subid_logs$flag[subid_logs$new_value == "135"] <- "ok"
+
+subid_logs %>% filter(new_value == "136")
+#this is correct; it was a random error by SurveySignal where the subID parameter included extraneous SS values.
+subid_logs$flag[subid_logs$new_value == "136"] <- "ok"
+
+```
+
+### The rest require more documentation.
+
+Let's try to read the ical file to get the calendar dates more accurately
+```{r}
+#filter  to just notes that contain 2 or more digits (potential subIDs)
+cal <- cal %>% filter(str_detect(summary,"[0-9]{2,}")) %>%
+  mutate(subid = str_extract(summary,"[0-9]{2,}"),
+         visit = str_extract(summary, "screen|Screen|SCREEN|intake|Intake|INTAKE|MET|follow|Follow|FOLLOW|FU|final|Final|FINAL|extra|Extra|EXTRA"))
+
+
+# get the list of those needing documentation
+check_subs <- subid_logs %>% filter(is.na(flag)) %>% distinct(new_value) %>% arrange(as.numeric(new_value)) %>% pull()
+
+#008 -> 010
+subid_logs %>% filter(new_value == check_subs[1]) %>% pull(notes) 
+cal %>% filter(subid == str_pad(check_subs[1],3,pad="0",side="left"))
+cal %>% filter(subid == str_pad("8",3,pad="0",side="left"))
+
+# The note listed here is correct. The screen for 010 was scheduled on 6/29/17. The screen for 008 was sometime before 6/13/17.
+# Coincidentally, 008 had a phone call 6/29 which could explain the mistake.
+subid_logs$flag[subid_logs$new_value == check_subs[1]] <- "ok"
+
+
+#022 -> 023
+subid_logs %>% filter(new_value == check_subs[2]) %>% pull(notes)
+cal %>% filter(str_detect(start, "2017-10-17")==TRUE)
+
+#three screens for that day but all are by MRN so let's check the Oncore MRN file
+mrns <- read_xlsx(file.path(path_raw,"oncore_mrn.xlsx")) %>%
+  clean_names("snake")
+
+mrns %>% filter(mrn %in% c("21293","21248","21245")) %>% 
+  left_join((cal %>% filter(str_detect(start, "2017-10-17")==TRUE) %>% mutate(subid = as.numeric(subid))), by=c("mrn"="subid")) %>%
+  arrange(start)
+
+#Verified that  MRN 21248 in google calendar for the 4pm visit is subid 23 (10:55 GMT is 4:55 which also makes sense for the start of the screen battery)
+subid_logs$flag[subid_logs$new_value == check_subs[2]] <- "ok"
+
+
+#32 -> 31 FU 12 (session)
+subid_logs %>% filter(new_value == check_subs[3]) %>% pull(notes)
+cal %>% filter(subid == str_pad(check_subs[3],3,pad="0",side="left"))
+cal %>% filter(subid == str_pad("32",3,pad="0",side="left"))
+
+# looking at that session form, the date of interest is 2017-12-20 22:15:46. That is indeed FU1 for 31 so this is okay.
+# Verified that  MRN 21248 in google calendar for the 4pm visit is subid 23 (10:55 GMT is 4:55 which also makes sense for the start of the screen battery)
+# We should update the notes to indicate that this error was discovered while checking for visit completeness. 31 did not have a FU1 and 32 had 2.
+subid_logs$flag[subid_logs$new_value == check_subs[3]] <- "ok"
+
+# 55 -> 61
+subid_logs %>% filter(new_value == check_subs[4]) %>% pull(notes)
+
+# As discussed with Hannah the proper way to handle these would be to duplicate these items to the new subid rather than recoding the old subid.
+subid_logs$flag[subid_logs$new_value ==  check_subs[4]] <- "no, discuss"
+
+# 74 -> 75
+subid_logs %>% filter(new_value == check_subs[5]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[5]) %>% pull(response_id)
+# Visit in question was 5/30/18
+cal %>% filter(str_detect(summary,"74"))
+cal %>% filter(str_detect(summary," 75"))
+
+#correct, the screen for 074 was on 5/25
+subid_logs$flag[subid_logs$new_value ==  check_subs[5]] <- "ok"
+
+
+
+# 56 -> 76
+subid_logs %>% filter(new_value == check_subs[6]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[6]) %>% pull(response_id)
+
+cal %>% filter(str_detect(subid,"056"))
+cal %>% filter(str_detect(subid,"76"))
+mrns %>% filter(study_id_no == "056")
+cal %>% filter(str_detect(summary,"22342"))
+
+# visit in question was 6/13/18, and that time does indeed belong to 76 and not 56
+subid_logs$flag[subid_logs$new_value ==  check_subs[6]] <- "ok"
+
+# 79 -> 78
+subid_logs %>% filter(new_value == check_subs[7])
+subid_logs %>% filter(new_value == check_subs[7]) %>% pull(notes)
+
+# 1528920481 is 6/13/18; 1529615510 is 6/21/18
+
+cal %>% filter(str_detect(subid,"79"))
+cal %>% filter(str_detect(subid,"78"))
+
+#those notes match the gcal data, okay
+subid_logs$flag[subid_logs$new_value ==  check_subs[7]] <- "ok"
+
+
+# RISK -> 81
+subid_logs %>% filter(new_value == check_subs[8])
+subid_logs %>% filter(new_value == check_subs[8]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[8]) %>% pull(response_id)
+# visit in question was 2018-10-31
+cal %>% filter(str_detect(start, "2018-10-31") == TRUE)
+#FU3 was indeed on 2018-10-31
+subid_logs$flag[subid_logs$new_value ==  check_subs[8]] <- "ok"
+
+
+# 139 -> 138
+subid_logs %>% filter(new_value == check_subs[9])
+#visit in question is 2019-01-08 
+cal %>% filter(str_detect(start, "2019-01-08")==TRUE)
+#138 had FU2 this day, while 139 was FU3. This is okay
+# recommend consistency in how the subid value is named (error value vs corrected value)
+subid_logs$flag[subid_logs$new_value ==  check_subs[9]] <- "ok"
+
+
+# 128 -> 143
+subid_logs %>% filter(new_value == check_subs[10])
+subid_logs %>% filter(new_value == check_subs[10]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[10]) %>% pull(response_id)
+#date in question is 2018-11-09 was was a FU1
+cal %>% filter(str_detect(start, "2018-11-09")==TRUE)
+#Correct, both participants were seen that day but 143 was the FU1
+subid_logs$flag[subid_logs$new_value ==  check_subs[10]] <- "ok"
+
+
+# 149 -> 150
+subid_logs %>% filter(new_value == check_subs[11])
+subid_logs %>% filter(new_value == check_subs[11]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[11]) %>% pull(response_id)
+cal %>% filter(str_detect(subid,"149"))
+cal %>% filter(str_detect(subid,"150"))
+# 2018-10-15 is the date in question
+cal %>% filter(str_detect(start, "2018-10-15")==TRUE)
+#correct, this visit was 150; 149 was the next day by the same RA
+subid_logs$flag[subid_logs$new_value ==  check_subs[11]] <- "ok"
+
+# 193 -> 179
+subid_logs %>% filter(new_value == check_subs[12])
+subid_logs %>% filter(new_value == check_subs[12]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[12]) %>% pull(response_id)
+#2019-05-20 is the date in question
+cal %>% filter(str_detect(start, "2019-05-20")==TRUE)
+cal %>% filter(str_detect(subid,"179"))
+cal %>% filter(str_detect(subid,"193"))
+
+
+# This one has something unusual. There was a session form submitted the same time and day for 179 which is marked Fake data. 
+# I think the proposed correction is probably right, but it's unclear why that fake data was submitted correctly at the same time.  Since it's only a session form it's not as critical, might just want to add to notes that it exists and we decided to use this one instead.
+subid_logs$flag[subid_logs$new_value ==  check_subs[12]] <- "probably ok, discuss"
+
+# "230pm" -> 256
+subid_logs %>% filter(new_value == check_subs[13])
+subid_logs %>% filter(new_value == check_subs[13]) %>% pull(notes)
+subid_logs %>% filter(new_value == check_subs[13]) %>% pull(response_id)
+
+#date in question 2019-08-08 19:30:40
+cal %>% filter(str_detect(start, "2019-08-08")==TRUE)
+
+#There are 2 screens that day, 263 and 256, BUT, in the session form there were THREE screens submitted: 263, *265*, and 2:30 pm. Let's see if that 265 is also an error?
+cal %>% filter(str_detect(subid,"265")) #their screen should have been 8/7
+cal %>% filter(str_detect(subid,"256")) #in the questioned session form they were marked inelgibile and as there are no further visits for 256, this is probably correct.
+#however we might want to do a systematic comparison of visit dates and when the session form/battery forms were submitted!
+subid_logs$flag[subid_logs$new_value ==  check_subs[13]] <- "ok"
+#HM -- note that I am seeing five entries on that day using the full calendar: 244 (final session), 263 (screen, rescheduled), 264 (intake), 256 (screen). 
+
+#let's end by printing the check log flag results
+
+subid_logs %>% group_by(flag) %>% tally()
+
+```
+
+
+
+1. Recommend consistency with the subID column - should it reflect the INCORRECT subID or the CORRECT subID?
+2. Recommend visit number and date be included in the notes field; that makes checking against the calendar easier
+3. Recommend more info about how the error was discovered be included in the notes field. Were you running EDA? Were you counting visits per sub? Was
+it an incidental discovery during other analysis?
+4. What's the "log reason" in the EMA log files for? Seems to overlap with source and notes. Consider merging?
+5. Discuss duplicating 55 -> 61 instead of recoding
+6. 193 -> 179 is probably correct but we should discuss why there's a fake session form with the correct ID and make a note of it 
+7. Consider systematic investigation of the known visit dates and the dates qualtrics forms (session and battery) were submitted.

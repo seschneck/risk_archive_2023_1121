@@ -1,0 +1,784 @@
+---
+title: "Clean and process the raw qualtrics screen"
+author: "John Curtin and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+Purpose: This file does cleaning and basic processing of the qualtrics screen survey.
+
+Inputs:  
+
+Opens data file in path_in  
+
+* screen.csv
+
+Opens log file in path_log  
+
+* log_screen.csv
+
+Opens supporting files in path_raw
+
+* raw_notes.csv
+* gcal_risk.ics
+
+
+Output:  
+
+Creates file in path_out  
+
+* screen.csv
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(results = "hold",  message = FALSE)
+```
+
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Paths 
+```{r}
+path_in <- "raw_data/qualtrics"
+path_out <- "analysis/shared/data"
+path_log <- "analysis/shared/notes" 
+path_raw <- "raw_data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+library(psych)
+library(ical)
+
+source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+   
+### Screening survey
+
+#### Load data and glimpse
+Load survey and remove unused variables
+
+Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
+```{r message = FALSE}
+screen <- read_csv(file.path(path_in, 'screen.csv'), col_types = cols())  %>% 
+  select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
+            RecipientEmail, ExternalDataReference, Status,
+            LocationLatitude, LocationLongitude, LocationAccuracy, DataType,
+            DSM5_score, paranoia, psychosis, Psychosis_Final, Paranoia_Final, 
+            StudyName, DEM_Inst, DEM2_Inst, AUH_Inst, DSM5_Inst, DSM5_Inst2, 
+            YAP_Inst, ASSIST_Inst, SCL90_Inst, IUS_Inst, ASI_Inst, DTS_Inst, 
+            FAD_Inst, MPS_Inst, SB_Inst, SB_Inst2, EB_1, EB_2, EB_3, EB_4, Q140)) %>% 
+  rename(subid = SubID, response_id = ResponseID)  %>%  #update to tidy case for use in clean_qualtrics_by_log()
+  relocate(subid) %>% 
+  glimpse()
+```
+
+Open and summarize data log
+```{r}
+log_screen <- read_csv(file.path(path_log, "log_screen.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+```
+
+```{r}
+tabyl(log_screen$log_action)
+```
+
+remove log entries:  
+No removed entries 
+
+recode_all log entries:  
+```{r}
+log_screen %>% 
+  filter(log_action == "recode_all") %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+recode_one log entries:    
+Variables with recode_one edits
+```{r}
+log_screen %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to subid variable
+```{r}
+log_screen %>% 
+  filter(var_name == "subid") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+Changes to UTC variable
+```{r}
+log_screen %>% 
+  filter(var_name == "UTC") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+Changes to start or end date variable
+```{r}
+log_screen %>% 
+  filter(var_name == "StartDate" | var_name == "EndDate") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+Other recode-one changes to note
+```{r}
+log_screen %>% 
+  filter(old_value == 40 | old_value == 270 | old_value == 11) %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+
+note log entries:  
+```{r}
+log_screen %>% 
+  filter(log_action == "note") %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+
+Clean raw data using log
+```{r}
+screen <- screen %>% 
+  # temporarily change start and end date to character string for cleaning function to work
+  mutate(StartDate = as.character(StartDate),
+         EndDate = as.character(EndDate)) %>% 
+  clean_qualtrics_by_log(., log_screen) %>% 
+  # change start and end date back to date time
+   mutate(StartDate = as_datetime(StartDate),
+         EndDate = as_datetime(EndDate)) 
+```
+
+Tidy variable names
+```{r}
+screen <- clean_names(screen, "snake") %>% 
+  rename(auh_8_month = auh_8_1_auh_8_month, auh_8_day = auh_8_2_auh_8_day,
+         auh_8_year = auh_8_3_auh_8_year, auh_7_med1 = auh_7_1_1_text,
+         auh_7_med2 = auh_7_1_2_text, auh_7_med3 = auh_7_1_3_text, 
+         auh_7_med4 = auh_7_1_4_text,
+         auh_6_7_text = auh_6_1_2)
+```
+
+Tidy response options 
+Some response options contain two back slashes or &nbsp; - will remove for consistency
+```{r}
+screen <- screen %>% 
+  mutate(across(where(is.character), str_replace_all, pattern = "\\\\", replacement = " "),
+         across(where(is.character), str_replace_all, pattern = "&nbsp;", replacement = ""))
+```
+
+
+
+#### EDA and Save
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = screen)
+)
+```
+
+```{r}
+screen %>% 
+  glimpse()
+```
+
+`r length(unique(screen$subid))` participants contribute to a total of `r nrow(screen)` reports.  
+
+216 participants were screened - we have session form screen data but no participant survey screen data for 8 withdrawn/discontinued subids:  
+4 - discontinued (did not enroll) but no notes why   
+68 - Deemed ineligible during screen visit - Ineligible phone  
+70 - ineligible due to phone (Samsung Galaxy 4)  
+75 - Ineligible due to phone (Samsung Galaxy S7)  
+133 - did not sign study consent form  
+142 - Participant was ineligible because she had a temporary goal of abstinence until 12/20    
+144 - The participant will need to complete a screening session again if he wants to re-enroll in the project. He did sign a consent form. However, he did not reach seven days without drinking at the time of the screening session. He is interested in the study and will call back when he has a more concrete goal of sobriety.    
+148 - Does not meet criteria for moderate-severe alcohol use disorder (not sure why screen data is not showing up in data file)  
+
+<br>
+
+##### Dates and Times 
+The earliest recorded report is from `r min(screen$start_date, na.rm = TRUE)` and the most recent is from `r max(screen$start_date, na.rm = TRUE)`.   
+
+All timezones in UTC
+```{r}
+screen %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+```
+
+**Time difference in start_date and utc**
+```{r}
+options(tibble.print_max = Inf)
+screen %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  tabyl(diff)
+```
+
+- Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).  
+- A check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.) 
+- 11 subids with a time difference of more than 70 minutes between start date and utc.  
+- 7 subids look particularly problematic with more than a 2 hour time difference.  
+
+No info from notes on subids with a 2 hour difference  
+```{r}
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+  select(subid, notes_general)
+subs_2hrs <- screen %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = difftime(utc, start_date, units = "mins")) %>% 
+  filter(diff > 120)
+notes %>% 
+  filter(subid %in% subs_2hrs$subid) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+
+<br>
+
+**Time difference in start and end date**  
+```{r}
+screen_diff <- screen %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")),
+         diff_mins = as.numeric(str_replace(diff, " mins", "")))
+
+freq <- hist(screen_diff$diff_mins, breaks = c(seq(0, 320, 10)), include.lowest=TRUE, plot=FALSE)
+tibble(mins = freq$breaks[-1], frequency = freq$counts)
+```
+
+25 subids have start and end time difference of more than 2 hours apart. 
+
+
+Start and end dates less than 15 minutes apart (9 and 187 - these are expected as their start and end date were corrected to match utc via log)
+```{r}
+screen %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = difftime(end_date, start_date, units = "secs")) %>% 
+  filter(diff < 900)
+```
+
+5 subids have start and end time difference of more than 3 hours apart.   
+Notes for subids with more than a 3 hour time difference - only subid 155 has notes explaining long screen session.
+```{r}
+subs_3hrs <- screen %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = difftime(end_date, start_date, units = "mins")) %>% 
+  filter(diff > 180)
+notes %>% 
+  filter(subid %in% subs_3hrs$subid) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+<br>
+
+
+##### Missing values
+
+```{r}
+screen %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing values all seem to be appropriate (i.e., conditional questions that did not apply to everyone)   
+Missing mps variables is due to subid 155 not completing survey and failing screen due to questionable/dishonest behavior:  
+"The participant took approximately 2.5 hours to complete 78% of the survey before research staff ended the session."
+
+##### Finished
+
+```{r}
+kabyl(finished)
+
+screen %>% 
+  filter(finished == 0) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+Subid 155 is correctly marked as incorrect. See note above.  
+
+
+##### RA
+
+```{r}
+kabyl(ra)
+```
+
+##### Demographics
+
+Age
+```{r}
+screen %>% 
+  summarise(min = min(dem_1, na.rm = TRUE),
+            max = max(dem_1, na.rm = TRUE),
+            mean = mean(dem_1, na.rm = TRUE))
+
+screen %>%
+  ggplot(aes(x = dem_1)) +
+  geom_histogram(bins = 25) +
+  xlab("age of participant") +
+  ggtitle("Histogram of participants' age") +
+  theme_classic()
+```
+
+Sex
+```{r}
+kabyl(dem_2)
+```
+
+Race
+```{r}
+kabyl(dem_3)
+```
+
+Other race specified
+```{r}
+kabyl(dem_3_1)
+```
+
+Ethnicity
+```{r}
+kabyl(dem_4)
+```
+
+Ethnicity other
+```{r}
+kabyl(dem_4_1)
+```
+
+Education
+```{r}
+kabyl(dem_5)
+```
+
+Work
+```{r}
+kabyl(dem_6)
+```
+
+Work - part or full time
+```{r}
+kabyl(dem_6_1)
+```
+
+Income
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(dem_7), na.rm = TRUE),
+            max = max(as.numeric(dem_7), na.rm = TRUE),
+            mean = mean(as.numeric(dem_7), na.rm = TRUE))
+```
+
+Marital status
+```{r}
+kabyl(dem_8)
+```
+
+living parents
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(dem2_2), na.rm = TRUE),
+            max = max(as.numeric(dem2_2), na.rm = TRUE),
+            mean = mean(as.numeric(dem2_2), na.rm = TRUE))
+```
+
+deceased parents
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(dem2_4), na.rm = TRUE),
+            max = max(as.numeric(dem2_4), na.rm = TRUE),
+            mean = mean(as.numeric(dem2_4), na.rm = TRUE))
+```
+
+living children 
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(dem2_6), na.rm = TRUE),
+            max = max(as.numeric(dem2_6), na.rm = TRUE),
+            mean = mean(as.numeric(dem2_6), na.rm = TRUE))
+```
+
+deceased children
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(dem2_8), na.rm = TRUE),
+            max = max(as.numeric(dem2_8), na.rm = TRUE),
+            mean = mean(as.numeric(dem2_8), na.rm = TRUE))
+```
+
+
+##### Alcohol use history
+
+age of first drink
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_1), na.rm = TRUE),
+            max = max(as.numeric(auh_1), na.rm = TRUE),
+            mean = mean(as.numeric(auh_1), na.rm = TRUE))
+```
+
+
+`r nrow(subset(screen, as.numeric(auh_1) > as.numeric(dem_1)))` participants reported age of first drink as higher than current age.  
+
+age of regular drinking
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_2), na.rm = TRUE),
+            max = max(as.numeric(auh_2), na.rm = TRUE),
+            mean = mean(as.numeric(auh_2), na.rm = TRUE))
+```
+
+
+age at which thought drinking was a problem
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_3), na.rm = TRUE),
+            max = max(as.numeric(auh_3), na.rm = TRUE),
+            mean = mean(as.numeric(auh_3), na.rm = TRUE))
+```
+
+`r nrow(subset(screen, as.numeric(auh_3) > as.numeric(dem_1)))` participants reported age of problem drinking as higher than current age.  
+
+age at first quit
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_4), na.rm = TRUE),
+            max = max(as.numeric(auh_4), na.rm = TRUE),
+            mean = mean(as.numeric(auh_4), na.rm = TRUE))
+```
+
+`r nrow(subset(screen, as.numeric(auh_4) > as.numeric(dem_1)))` participants reported age of first quit as higher than current age.  
+
+
+Number of quit attempts
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_5), na.rm = TRUE),
+            max = max(as.numeric(auh_5), na.rm = TRUE),
+            mean = mean(as.numeric(auh_5), na.rm = TRUE))
+```
+
+Participants with 0 quit attempts
+```{r}
+screen %>% 
+  select(subid, auh_5) %>% 
+  filter(auh_5 == 0)
+```
+
+`r nrow(subset(screen, auh_5 == 0))` participants report 0 quit attempts. Subids 59, 86, and 264 enrolled in the study.   
+
+Participants with more than 100 quit attempts
+```{r}
+screen %>% 
+  select(subid, 
+         quit_attempts = auh_5) %>% 
+  filter(quit_attempts > 100) 
+```
+
+
+Types of treatments  
+```{r}
+kabyl(auh_6_1)
+kabyl(auh_6_2)
+kabyl(auh_6_3)
+kabyl(auh_6_4)
+kabyl(auh_6_5)
+kabyl(auh_6_6)
+kabyl(auh_6_7)
+kabyl(auh_6_7_text) %>% 
+  scroll_box(height = "500px")
+```
+
+
+Taken prescription medication for alcohol treatment
+```{r}
+kabyl(auh_7)
+```
+
+Types of medication
+```{r}
+screen %>% 
+  select(contains("med")) %>% 
+  gather(med_var, medication, auh_7_med1:auh_7_med4) %>% 
+  filter(!is.na(medication)) %>%
+  group_by(medication) %>% 
+  summarise(n = n()) %>% 
+  kbl(table.attr = "style='width:50%;'") %>% 
+  kable_classic(position = "l") %>% 
+  scroll_box(height = "400px")
+```
+
+
+Most recent quit date - month
+```{r}
+kabyl(auh_8_month)
+```
+
+Most recent quit date - day
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_8_day), na.rm = TRUE),
+            max = max(as.numeric(auh_8_day), na.rm = TRUE),
+            mean = mean(as.numeric(auh_8_day), na.rm = TRUE))
+```
+
+Most recent quit date - year
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_8_year), na.rm = TRUE),
+            max = max(as.numeric(auh_8_year), na.rm = TRUE),
+            mean = mean(as.numeric(auh_8_year), na.rm = TRUE))
+```
+
+
+Check most recent quit dates against screening visit date
+```{r}
+screen %>% 
+  mutate(auh_8_month = case_when(auh_8_month == "January" ~ 1,
+                                 auh_8_month == "February" ~ 2,
+                                 auh_8_month == "March" ~ 3,
+                                 auh_8_month == "April" ~ 4,
+                                 auh_8_month == "May" ~ 5,
+                                 auh_8_month == "June" ~ 6,
+                                 auh_8_month == "July" ~ 7,
+                                 auh_8_month == "August" ~ 8,
+                                 auh_8_month == "September" ~ 9,
+                                 auh_8_month == "October" ~ 10,
+                                 auh_8_month == "November" ~ 11,
+                                 auh_8_month == "December" ~ 12)) %>% 
+  mutate(quit_date = make_date(auh_8_year, auh_8_month, auh_8_day)) %>% 
+  mutate(screen_date = as_date(start_date)) %>% 
+  filter(quit_date > screen_date) %>% 
+  select(subid, screen_date, quit_date) %>% 
+  kable(table.attr = "style='width:60%;'", align = c("l", "c", "r")) %>% 
+  kable_classic(position = "left") %>% 
+  add_header_above(c("quit dates that are greater than screening visit" = 3))
+```
+
+
+Days per week drinking - 6 months prior to quitting
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_9), na.rm = TRUE),
+            max = max(as.numeric(auh_9), na.rm = TRUE),
+            mean = mean(as.numeric(auh_9), na.rm = TRUE))
+```
+
+Days per week drinking 6 or more drinks - 6 months prior to quitting
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_10), na.rm = TRUE),
+            max = max(as.numeric(auh_10), na.rm = TRUE),
+            mean = mean(as.numeric(auh_10), na.rm = TRUE))
+```
+
+
+Average drinks per drinking day - 6 months prior to quitting
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_11), na.rm = TRUE),
+            max = max(as.numeric(auh_11), na.rm = TRUE),
+            mean = mean(as.numeric(auh_11), na.rm = TRUE))
+```
+
+participants with average of 0 drinks per day - 6 months prior to quitting
+```{r}
+screen %>% 
+  filter(auh_11 == 0) %>% 
+  select(subid, auh_11)
+```
+
+Subid 256 reported 0 drinks per day on average but screened ineligible for study and was not enrolled.  
+
+more than 20 drinks per drinking day - 6 months prior to quitting
+```{r}
+screen %>% 
+  filter(auh_11 > 20) %>% 
+  select(subid, drinks = auh_11) %>% 
+  arrange(desc(drinks))
+```
+
+Two people reported an average of more than 20 drinks per day:  
+Subid 260 was never enrolled in study.  
+Subid 230 completed study.  
+
+
+Days per week drinking - over 6 months of heaviest lifetime drinking
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_12), na.rm = TRUE),
+            max = max(as.numeric(auh_12), na.rm = TRUE),
+            mean = mean(as.numeric(auh_12), na.rm = TRUE))
+```
+
+
+Days per week drinking 6 or more drinks - over 6 months of heaviest lifetime drinking
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_13), na.rm = TRUE),
+            max = max(as.numeric(auh_13), na.rm = TRUE),
+            mean = mean(as.numeric(auh_13), na.rm = TRUE))
+```
+
+
+Average drinks per drinking day - over 6 months of heaviest lifetime drinking
+```{r}
+screen %>% 
+  summarise(min = min(as.numeric(auh_14), na.rm = TRUE),
+            max = max(as.numeric(auh_14), na.rm = TRUE),
+            mean = mean(as.numeric(auh_14), na.rm = TRUE))
+```
+
+Subid 260 reported 60 drinks per day (never enrolled in the study).  
+
+##### DSM
+
+```{r}
+screen %>% 
+  select(contains("dsm")) %>% 
+  map(., table)
+```
+
+Total DSM score
+```{r}
+screen %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  rowwise() %>% 
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
+  ungroup() %>% 
+  summarise(min = min(dsm5_total),
+            max = max(dsm5_total),
+            mean = mean(dsm5_total))
+```
+
+Participants with less than 4 (moderate AUD)
+```{r}
+screen %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  rowwise() %>% 
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
+  ungroup() %>% 
+  filter(dsm5_total < 4)
+```
+
+Four participants did not meet criteria for moderate AUD - they all screened ineligible and were not enrolled in the study.  
+
+##### YAP
+
+```{r}
+screen %>% 
+  select(contains("yap")) %>% 
+  map(., table)
+```
+
+##### Who-Assist
+
+```{r}
+screen %>% 
+  select(contains("assist")) %>% 
+  map(., table)
+```
+
+
+##### SCL 90
+
+```{r}
+screen %>% 
+  select(contains("scl90")) %>% 
+  map(., table)
+```
+
+##### IUS
+
+```{r}
+screen %>% 
+  select(contains("ius")) %>% 
+  map(., table)
+```
+
+##### ASI-3
+```{r}
+screen %>% 
+  select(contains("asi3")) %>% 
+  map(., table)
+```
+
+##### DTS
+```{r}
+screen %>% 
+  select(contains("dts")) %>% 
+  map(., table)
+```
+
+##### FAD
+```{r}
+screen %>% 
+  select(contains("fad")) %>% 
+  map(., table)
+```
+
+##### MPS
+```{r}
+screen %>% 
+  select(contains("mps")) %>% 
+  map(., table)
+```
+
+
+##### Write csv
+Save final clean data.  Variables will open with proper class on next load of data
+```{r}
+screen %>%
+  select(-utc) %>% 
+  glimpse() %>% 
+  write_csv(file.path(path_out, "screen.csv")) 
+```
+
+
+<br>
+

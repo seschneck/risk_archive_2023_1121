@@ -1,0 +1,131 @@
+---
+title: "Creating datasets to share with the Huang lab"
+author: "Hannah Moshontz"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script creates and describes the datasets we are sharing with Dr. Huang's lab.
+
+Inputs:
+
+* analysis/shared/data/ds_gps.rds
+* analysis/shared/data/ds_locations_report.rds
+* raw_data/locations/locations_abby REAL.csv
+* raw_data/locations/locations_connie.csv
+* analysis/shared/data/ds_intake.csv
+
+Outputs
+
+* analysis/gps/data/to_share/gps.csv
+* analysis/gps/data/to_share/locations_report.csv
+* analysis/gps/data/to_share/other_locations_report_a.csv
+* analysis/gps/data/to_share/other_locations_report_c.csv
+* analysis/gps/data/to_share/demographics.csv
+* analysis/gps/data/to_share/codebook_demographics.csv
+
+### Setup
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = TRUE, warning = TRUE)
+# You want to set each of these to TRUE OR FALSE in the above setting for the entire script
+# depending on the nature of the code in the script.  Default is TRUE so you can 
+# delete this code chunk if you dont plan to suppress messages or warnings for
+# the entire Rmd.
+
+# You can also add results = "hold" if you want all results from a code chunk to
+# display together without interleaving 
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+  # all codeblocks bigger than 500 px will be scrollable - can adjust as needed
+  # all codeblocks wider then 100% will be scollable - can make narrower with max-width: 50% or similar
+}
+```
+
+Paths 
+```{r}
+path_data <- "analysis/shared/data"
+path_other_codes <- "raw_data/locations"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(tidymodels)
+library(janitor)
+library(gt)
+```
+
+### analysis/gps/data/to_share/gps.csv
+
+```{r}
+gps <- read_rds(file.path(path_data, "ds_gps.rds")) %>% 
+  select(subid, time_central, lat, long, app_source, data_type) %>% 
+  glimpse()
+
+write_csv(gps, "analysis/gps/data/to_share/gps.csv")
+```
+
+### analysis/gps/data/to_share/locations_report.csv
+
+```{r}
+locations_report <- read_rds(file.path(path_data, "ds_locations_report.rds")) %>% 
+  glimpse()
+
+write_csv(locations_report, "analysis/gps/data/to_share/locations_report.csv")
+```
+
+### analysis/gps/data/to_share/other_locations_report_a.csv
+
+A's codes
+```{r}
+other_locations_a <- read_csv(file.path(path_other_codes, "locations_abby REAL.csv")) %>% 
+  mutate(coder = "a") %>% 
+  glimpse()
+
+write_csv(other_locations_a, "analysis/gps/data/to_share/other_locations_report_a.csv")
+```
+
+### analysis/gps/data/to_share/other_locations_report_c.csv
+
+C's codes
+```{r}
+other_locations_c <- read_csv(file.path(path_other_codes, "locations_connie.csv")) %>% 
+  mutate(coder = "c") %>% 
+  glimpse()
+
+write_csv(other_locations_c, "analysis/gps/data/to_share/other_locations_report_c.csv")
+```
+
+
+### analysis/gps/data/to_share/demographics.csv
+
+```{r}
+demographics <- read_csv(file.path(path_data, "ds_screen.csv")) %>% 
+  select(subid, starts_with("dem")) %>% 
+  glimpse()
+
+demographic_variables <- names(demographics)
+
+write_csv(demographics, "analysis/gps/data/to_share/demographics.csv")
+```
+
+create the codebook for the demographics
+
+```{r}
+read_csv("./analysis/shared/codebooks/codebook_ds_id.csv") %>% 
+  filter(name %in% demographic_variables) %>% 
+  write_csv("analysis/gps/data/to_share/codebook_demographics.csv")
+```
+

@@ -1,0 +1,60 @@
+---
+title: "Process qualtrics EMA surveys (morning and later)"
+author: "Sarah Sant'Ana"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+
+### Notes
+Purpose: Process cleaned qualtrics surveys (from cln_ema.rmd)
+* removing unneeded variables
+* combining to one EMA file
+* create ema survey identifier variable
+* function to be used by both process_ema and process_lapses (ex, function to remove unneeded variables)? I don't think so
+
+EMA:
+* EMA length
+* EMA completeness/repeats
+* Abstinence reports
+* Time between EMAs/ EMAs per week
+
+Inputs:  Opens two files in raw_data/qualtrics
+
+* ema_morning.csv
+* ema_later.csv
+
+Outputs: Creates two cleaned ema files in analysis/shared/data/clean
+
+* ema_morning.csv
+* ema_later.csv
+
+
+### Setup
+
+FIX: consider setting warnings to false when script is clean and complete
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = TRUE, warning = TRUE, results = "hold")
+
+
+```
+
+
+#Notes from previous mak_ema
+#Remove EMA records with long delay between start and end
+# TD = (dE1$EndDate-dE1$UTC)/60
+# if(any(dE1$EMA_1[TD>15]==2)) warning('EMA lapse reported on record with TD >15 mins')
+# dE1= subset(dE1,TD<=15)
+# rm(TD)
+    
+
+#DISCUSS WITH HANNAH.  ANY REASON TO KEEP STRING VS NUMERIC
+#Format SubID to fixed length with leading 0s
+#dE1$SubID = varPadString(dE1$SubID,3,'0')
+
+#FILTER FINAL CLEAN FILE DOWN BY STUDY START AND END DATES?

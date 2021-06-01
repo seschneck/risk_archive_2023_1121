@@ -1,0 +1,733 @@
+---
+title: "Andriod/Voice Logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    pandoc_args: [
+      "+RTS", "-K1000m",
+      "-RTS"
+      ]
+    toc: yes
+    toc_depth: 3
+---
+
+### Notes
+Purpose: This script does further cleaning and pre-processing on the android voice logs specifically for meta study.    
+
+Preprocessing steps:   
+
+1. Use cleaning log to correct identified errors in clean script    
+
+* remove numbers after semicolon for US number   
+* change duration -4 to NA   
+* change type variable for 8 subids that have invalid entries   
+* change presentation to NA for blocked numbers that have presentation = 1  
+* recode blocked numbers (-1, -2) as NA   
+
+2. Format numbers to match contacts   
+
+* Contact numbers only have country codes if they non-US numbers   
+* No + signs before non-US country codes and no punctuation or spaces in numbers (don't delete * from numbers that use it for blocking numbers)   
+
+Inputs:  
+- voice_android.csv (path_in)    
+
+Output:   
+- meta_voice_android.csv (path_out)  
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_in <- "/Volumes/private/studydata/risk/analysis/shared/data"
+path_out <- "/Volumes/private/studydata/risk/analysis/meta/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+```
+
+
+### Read in logs
+```{r}
+logs <- read_csv(file.path(path_in, "voice_android.csv"), col_types = cols()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  glimpse()
+```
+
+### Clean errors identified in clean script EDA
+
+Fix presentation value for blocked and unknown numbers    
+11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
+```{r}
+logs <- logs %>% 
+  mutate(presentation = case_when(number == "-1" & presentation == 1 ~ 3,
+                                  number == "-2" & presentation == 1 ~ 2,
+                                  TRUE ~ presentation))
+```
+
+Fix invalid number +1-385-262-3849;418173518#    
+Unclear what number after semicolon is. Keeping US number before semicolon as number.
+```{r}
+logs <- logs %>% 
+  mutate(number = case_when(number == "+1-385-262-3849;418173518#" ~ "3852623849",
+                            TRUE ~ number))
+```
+
+Fix invalid duration value of -4   
+Duration cannot be negative; changing to NA since no way of knowing actual duration
+```{r}
+logs <- logs %>% 
+  mutate(duration = case_when(duration == -4 ~ as.numeric(NA),
+                              TRUE ~ duration))
+```
+
+Fix invalid type values   
+8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
+```{r}
+logs <- logs %>% 
+  mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.numeric(NA),
+                          TRUE ~ type))
+```
+
+Recode all blocked (-2) and unknown (-1) numbers to NA  
+-1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown number; presentation variable provides this information as to whether call was blocked or unknown.
+```{r}
+logs <- logs %>% 
+  mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
+                            TRUE ~ number))
+```
+
+
+<br>
+
+### Format numbers
+
+Create formatted number variable
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = as.character(NA))
+
+logs %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+<br>
+
+Spaces and punctuation
+```{r}
+logs %>% 
+  filter(str_detect(number, "[[:space:][:punct:]]")) %>% 
+  count(number) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+Remove spaces and dashes
+```{r}
+# numbers affected by edits
+logs %>% 
+  filter(str_detect(number, "[[:space:]-]")) %>%
+  select(number, number_formatted)
+
+# make edits
+logs <- logs %>% 
+  mutate(number_formatted = case_when(str_detect(number, "[[:space:]-]") ~ str_replace_all(number, "[[:space:]-]", ""),
+         TRUE ~ number_formatted))
+
+# check edits
+logs %>% 
+  filter(str_detect(number, "[[:space:]-]")) %>%
+  select(number, number_formatted)
+```
+
+Need to remove +1 so numbers are in final format
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(number_formatted == "+16088291800" ~ "6088291800",
+                                      number_formatted == "+16084441933" ~ "6084441933",
+                                      TRUE ~ number_formatted))
+
+logs %>% 
+  filter(str_detect(number, "[[:space:]-]")) %>%
+  select(number, number_formatted)
+```
+
+
+<br>
+
+##### Country codes   
+*US numbers either have no country code, a +1, a 1 or a +. Some also have no area code.*   
+
+**US country codes that start with +1**
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1")) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Numbers already formatted
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1")) %>% 
+  filter(!is.na(number_formatted)) %>%
+  select(number, number_formatted)
+```
+
+Should only remove +1 from US numbers (12 characters long)   
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1") & nchar(number) == 12) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Check numbers haven't been formatted
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1") & nchar(number) == 12) %>%
+  filter(!is.na(number_formatted)) 
+```
+
+Pull out area codes to look for any possible exceptions   
+```{r}
+logs %>% 
+  # filter to numbers of interest
+  filter(str_detect(number, "^\\+1") & nchar(number) == 12) %>%
+  # convert to numbers to vector
+  select(number) %>% 
+  unlist() %>% 
+  # extract first 3 digits after +1 and count
+  str_sub(3, 5) %>% 
+  janitor::tabyl() %>% 
+  arrange(desc(n))
+```
+
+One number has area code as 000
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1000")) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Updated search criteria to not include +1000000000
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+1[1-9]") & nchar(number) == 12) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Make edits and check
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(str_detect(number, "\\+1[1-9]") & nchar(number) == 12 
+         ~ str_replace(number, "\\+1", ""),
+         TRUE ~ number_formatted))
+
+logs %>% 
+  filter(str_detect(number, "\\+1") & nchar(number) == 12) %>%
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
++1 not eliminated on following numbers
+```{r}
+logs %>% 
+  filter(str_detect(number, "\\+1") & is.na(number_formatted)) %>% 
+  filter(is.na(number_formatted)) %>% 
+  select(number, number_formatted) 
+```
+
+<br>
+
+**US country codes that start with 1**    
+Numbers that start with 1
+```{r}
+logs %>% 
+  filter(str_detect(number, "^1")) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+No numbers already formatted
+```{r}
+logs %>% 
+  filter(str_detect(number, "^1")) %>% 
+  filter(!is.na(number_formatted))
+```
+
+Should only remove 1 from US numbers (11 characters long)   
+```{r}
+logs %>% 
+  filter(str_detect(number, "^1") & nchar(number) == 11) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Pull out area codes to look for any possible exceptions   
+```{r}
+logs %>% 
+  # filter to numbers of interest
+  filter(str_detect(number, "^1") & nchar(number) == 11) %>%
+  # convert to numbers to vector
+  select(number) %>% 
+  unlist() %>% 
+  # extract first 3 digits after 1 and count
+  str_sub(2, 4) %>% 
+  janitor::tabyl() %>% 
+  arrange(desc(n))
+```
+
+Make edits and check
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(str_detect(number, "^1") & nchar(number) == 11 
+         ~ str_replace(number, "^1", ""),
+         TRUE ~ number_formatted))
+
+logs %>% 
+  filter(str_detect(number, "^1") & nchar(number) == 11) %>%
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+1 not eliminated on following numbers
+```{r}
+logs %>% 
+  filter(str_detect(number, "^1") & is.na(number_formatted)) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+<br>
+
+**US numbers that start with +**    
+Numbers that start with +
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+")) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Should only remove + from US numbers with no country code (11 characters long)    
+No numbers formatted    
+Don't remove + from +0000000000
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+") & nchar(number) == 11) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Updated search criteria to not include +0000000000
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+[2-9]") & nchar(number) == 11) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Make edits and check
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(str_detect(number, "^\\+[2-9]") & nchar(number) == 11 
+         ~ str_replace(number, "^\\+", ""),
+         TRUE ~ number_formatted))
+
+logs %>% 
+  filter(str_detect(number, "^\\+") & nchar(number) == 11) %>%
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Plus sign not eliminated on following numbers
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+") & is.na(number_formatted)) %>% 
+  count(number) %>% 
+  print(n = Inf)
+```
+
+<br>
+
+**7 digit US numbers (no area code)**    
+```{r}
+logs %>% 
+  filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+Match numbers to contacts and extract area code. 
+```{r}
+numbers_7_digits <- logs %>% 
+  filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
+  select(number) %>% 
+  unlist(use.names = FALSE)
+```
+
+Contact matches to 7 digit numbers
+```{r message = FALSE}
+contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols())
+
+contacts_7_digits <- tibble(subid = as.numeric())
+
+for (i in seq_along(numbers_7_digits)) {
+  match <- contacts %>% 
+    filter(str_detect(phone_number, numbers_7_digits[i])) %>% 
+    mutate(pattern = numbers_7_digits[i])
+  if(nrow(match) != 0) {  
+    contacts_7_digits <- contacts_7_digits %>% full_join(match)
+  }
+}
+
+contacts_7_digits %>% 
+  select(subid, phone_number, pattern, contact_type) %>% 
+  print(n = Inf) 
+```
+
+Remove duplicate contacts   
+NOTE: just doing a quick filter because I am only interested in the number, not the context variables right now
+```{r}
+contacts_7_digits <- contacts_7_digits %>% 
+  group_by(subid, phone_number, pattern) %>% 
+  slice(1)
+```
+
+Join numbers with log entries and replace formatted number with contact number      
+FIX: Looks like we picked up 6 rows from the join. I cannot figure out where these are coming from
+```{r}
+logs <- logs %>% 
+  left_join(contacts_7_digits %>% 
+              select(subid, contact_number = phone_number, number = pattern), 
+            by = c("subid", "number")) %>% 
+  glimpse()
+```
+
+```{r}
+# log entries with contact numbers
+logs %>% 
+  filter(!is.na(contact_number)) %>% 
+  select(subid, number, contact_number, date, contact_name) %>% 
+  print(n = Inf)
+
+logs <- logs %>% 
+  mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
+                                      TRUE ~ number_formatted)) 
+
+# check
+logs %>% 
+  filter(!is.na(contact_number)) %>% 
+  select(subid, number, contact_number, number_formatted) %>% 
+  print(n = Inf)
+
+# remove contact number
+logs <- logs %>% 
+  select(-contact_number)
+```
+
+
+<br>
+
+**Non-US country codes**   
+A lot of the frequent out of country numbers are not known contacts (see below)
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+") & nchar(number) > 7) %>% 
+  filter(is.na(number_formatted)) %>% 
+  count(number) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+Meaningful out of country numbers from contacts   
+*Not sure what 114 or 80/8000 is - cant locate information on it yet.*
+```{r}
+contacts %>% 
+  filter(nchar(phone_number) > 10) %>% 
+  select(subid, phone_number)
+```
+
+https://countrycode.org/    
+91 = India    
+57 = Colombia    
+
+
+Most out of country calls are from subid 117
+```{r}
+logs %>% 
+  filter(str_detect(number, "^\\+") & nchar(number) > 7) %>% 
+  filter(is.na(number_formatted)) %>% 
+  count(subid) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+
+<br>
+
+##### Other processing edits
+
+All known contact numbers are 10 characters in length except for the following
+```{r}
+contacts %>% 
+  filter(nchar(phone_number) != 10) %>% 
+  select(subid, phone_number) %>% 
+  print(n = Inf)
+```
+
+**numbers with less than 7 characters**     
+* 86 - calls voicemail for verizon phones   
+```{r}
+logs %>% 
+  filter(str_length(number) < 7) %>% 
+  count(number) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+All contact numbers with less than seven characters are Irrelevant/spam or Other
+```{r}
+contacts %>% 
+  filter(nchar(phone_number) < 7) %>% 
+  select(subid, phone_number, contact_type) %>% 
+  print(n = Inf)
+```
+
+
+**numbers with more than 10 characters and no country + sign**   
+May want to create new variable for calls blocked with * 67
+```{r}
+logs %>% 
+  filter(str_length(number) > 10 & !str_detect(number, "^\\+")) %>% 
+  filter(is.na(number_formatted)) %>% 
+  count(number) %>% 
+  print(n = Inf)
+```
+
+NOTE: 12 numbers have number listed as unavailable - presentation type is 1 suggesting the number was not blocked, but contact name is unknown and all calls are incoming or missed. Will correct this by changing to NA.   
+11/12 of these came from subid 204 so maybe this is specific to a certain android OS or model phone
+```{r}
+logs %>% 
+  filter(number == "unavailable") %>% 
+  select(-c(log_file, created, modified))
+```
+
+Change numbers to NA and presentation to NA    
+```{r}
+logs <- logs %>% 
+  mutate(number = case_when(number == "unavailable" ~ as.character(NA),
+                            TRUE ~ number),
+         presentation = case_when(number == "unavailable" ~ as.numeric(NA),
+                                  TRUE ~ presentation))
+```
+
+
+**Numbers in correct format**   
+10 digit numbers 
+```{r}
+logs %>% 
+  filter(nchar(number) == 10) %>% 
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+Check for numbers already formatted
+```{r}
+logs %>% 
+  filter(nchar(number) == 10) %>% 
+  filter(!is.na(number_formatted))
+```
+
+Pull out area codes to look for any possible exceptions   
+```{r}
+logs %>% 
+  # filter to numbers of interest
+  filter(nchar(number) == 10) %>%
+  # convert to numbers to vector
+  select(number) %>% 
+  unlist() %>% 
+  # extract first 3 digits and count
+  str_sub(1, 3) %>% 
+  janitor::tabyl()
+```
+
+Some numbers start with a 0 - do not move to formatted column
+```{r}
+logs %>% 
+  filter(str_detect(number, "^0") & nchar(number) == 10) %>% 
+  select(number)
+```
+
+Some numbers have area code that start with a 1 - US area codes dont start with 1    
+```{r}
+logs %>% 
+  filter(str_detect(number, "^1") & nchar(number) == 10) %>% 
+  count(number)
+```
+
+Check contacts for numbers that start with 1 - none match numbers in log
+```{r}
+contacts %>% 
+  filter(str_detect(phone_number, "^1")) %>% 
+  select(phone_number, contact_type)
+```
+
+Update search criteria - no numbers start with 0 or 1
+```{r}
+logs %>% 
+  filter(str_detect(number, "^[2-9]") & nchar(number) == 10) %>% 
+  select(number) %>% 
+  unlist() %>% 
+  str_sub(1, 3) %>% 
+  janitor::tabyl()
+```
+
+Move numbers to formatted column
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(str_detect(number, "^[2-9]") & nchar(number) == 10 
+         ~ number,
+         TRUE ~ number_formatted))
+
+logs %>% 
+  filter(str_detect(number, "^[2-9]") & nchar(number) == 10) %>%
+  select(number, number_formatted) %>% 
+  print(n = Inf)
+```
+
+
+
+**Final numbers**   
+formatted numbers
+```{r}
+logs %>% 
+  filter(!is.na(number_formatted)) %>% 
+  select(number_formatted) %>% 
+  print(n = Inf)
+```
+
+All numbers are 10 digits
+```{r}
+logs %>% 
+  filter(!is.na(number_formatted)) %>% 
+  filter(nchar(number_formatted) != 10)
+```
+
+Unformatted numbers
+```{r}
+logs %>% 
+  filter(is.na(number_formatted)) %>% 
+  count(number) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf) 
+```
+
+<br>
+
+*Currently have + still on out of country phone numbers - this is to retain info for feature engineering. Will need to remove when matching to contacts or add + to out of country contact numbers.*     
+
+<br>
+
+### Additional EDA
+
+Missing data
+```{r}
+logs %>% 
+  naniar::miss_var_summary()
+
+logs %>% 
+  naniar::vis_miss()
+```
+
+Duration
+```{r}
+psych::describe(logs$duration)
+```
+
+Type
+```{r}
+janitor::tabyl(logs$type)
+```
+https://developer.android.com/reference/android/provider/CallLog.Calls#TYPE   
+1 = incoming   
+2 = outgoing   
+3 = missed   
+4 = voicemail    
+5 = rejected   
+6 = blocked (automatically - block list)     
+7 = answered externally (different device)   
+
+
+#### presentation
+```{r}
+janitor::tabyl(logs$presentation)
+```
+https://developer.android.com/reference/android/provider/CallLog.Calls#PRESENTATION_ALLOWED  
+1 = number displayed (presentation allowed)  
+2 = number is blocked by user   
+3 = number is not specified or unknown by network   
+4 = payphone  
+
+blocked and unknown numbers are NA and have presentation 2 or 3
+```{r}
+logs %>% 
+  filter(presentation == 2 | presentation == 3) %>% 
+  janitor::tabyl(number)
+
+logs %>% 
+  filter(is.na(number)) %>% 
+  janitor::tabyl(presentation)
+```
+
+No blocked calls are outgoing (type = 2)
+```{r}
+logs %>% 
+  filter(presentation == 2 | presentation == 3) %>% 
+  janitor::tabyl(type)
+
+logs %>% 
+  filter(is.na(number)) %>% 
+  janitor::tabyl(type)
+```
+
+
+#### contact name
+```{r}
+logs %>% 
+  group_by(contact_name) %>% 
+  slice(1) %>% 
+  select(contact_name) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "50%", height = "500px")
+```
+
+<br>
+
+
+### Write csv
+```{r}
+write_csv(logs, file.path(path_out, "meta_voice_android.csv")) %>% glimpse()
+```
+
+**Dates saved as UTC**
+
+<br>

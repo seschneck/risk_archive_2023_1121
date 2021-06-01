@@ -1,0 +1,140 @@
+---
+title: "Clean and process raw data from interviews"
+author: "Hannah Moshontz"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+  toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+IMPORTANT:  THIS FILE WILL BE PARSED INTO SEPARARE FILES FOR EACH DATA SOURCE WITH 
+EDA ADDED FOR EACH FILE.  JJC HAS BEGUN TO DO THIS WITH THE LOCATIONS DATA SOURCE.
+
+
+Purpose: This file does cleaning and basic processing of interview data.
+
+Inputs:  Opens data files in path_raw
+
+* subid_Vacations.xlsx
+* subid_Times.xlsx
+* subid_Dates.xlsx
+* subid_Locations.xlsx
+* subid_Contacts.xlsx
+
+Also opens log files in path_log
+
+* log_vacations.csv
+* log_times.csv
+* log_dates.csv
+* log_locations.csv
+* log_contacts.csv
+
+Outputs: 
+
+Next steps:
+- need to apply any existing log files / corrections
+- eda 
+- update logs
+- eda
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(results = "hold",  message = FALSE)
+```
+
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+  # all codeblocks bigger than 500 px will be scrollable - can adjust as needed
+  # all codeblocks wider then 100% will be scollable - can make narrower with max-width: 50% or similar
+}
+```
+
+Functions
+```{r}
+import_w_subid <- function(xlsxfile){
+  read_excel(xlsxfile) %>% 
+    mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
+}
+
+merge_raw_files <- function(file_suffix) {
+  list.files(file.path(path_raw), 
+           recursive = TRUE,
+           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
+           full.names = TRUE) %>% 
+  as.list() %>% 
+  set_names(str_extract(., "\\d\\d\\d")) %>% 
+  map_df(~import_w_subid(.x) %>% 
+           clean_names() %>% 
+           mutate(across(everything(), as.character)))
+}
+```
+
+
+Paths 
+```{r}
+path_raw <- "./raw_data"
+path_log <- "./analysis/shared/notes"
+path_shared <- "./analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(purrr)
+library(readxl)
+```
+
+### Reported Vacations
+
+Import
+```{r}
+vacations <- merge_raw_files("Vacations") %>% 
+  glimpse()
+```
+
+### Risky and protective times
+Import
+```{r}
+times <- merge_raw_files("Times") %>% 
+  glimpse()
+```
+
+Clearly an issue with the way that times were recorded. Will need to convert these to dttm.
+
+### Risky and protective dates
+Import
+```{r}
+dates <- merge_raw_files("Dates") %>% 
+  glimpse()
+```
+
+### Known locations
+Import
+```{r}
+known_locations <- merge_raw_files("Locations") %>% 
+  glimpse()
+
+
+# FIX: This is a temp save b/c JJC needs this file.   We still need to do EDA before trusting these data!
+known_locations %>% 
+  select(subid, utc, street_address, city, state, type, drank, alcohol, emotion, risk, avoid, vacation, lat, long) %>%   #added by JJC b.c of prob with extra columns
+  write_csv(file.path(path_shared, "locations.csv"))
+```
+
+### Known contacts 
+Import
+```{r}
+known_contacts <- merge_raw_files("Contacts") %>% 
+  glimpse()
+```

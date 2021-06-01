@@ -1,0 +1,54 @@
+---
+title: "Make Enrollment Tibbles"
+author: "John Curtin"
+date: "3/28/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+### Setup
+```{r include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+Sys.time()
+library("tidyverse")
+library("StudySupport")
+
+raw_path <- "P:/StudyData/Risk/raw_data/qualtrics"
+data_path <- "./shared/data"
+```
+
+### Make clean enrollment tibble (deidentified)
+```{r}
+enrollment <- read_csv(file.path(raw_path, "enrollment_database_clean.csv")) %>%
+  select(subid = SubID, status = Status, visit_type = Visit.Type, visit_date = Visit.Date, visit_outcome = Visit.Outcome) %>%
+  group_by(subid) %>%
+  fill(status) %>%
+  ungroup() %>%
+  filter(!is.na(visit_type)) %>%
+  write_rds(file.path(data_path,"enrollment.rds"))  
+  
+```
+
+
+### Make final sample tibble
+```{r}
+final_sample <- enrollment %>% 
+  filter(status == "COMPLETED") %>%
+  filter(visit_outcome == "COMPLETED") %>%
+  pivot_wider(names_from = visit_type, values_from = visit_date) %>%
+  select(-visit_outcome, -status) %>%
+  write_rds(file.path(data_path,"final_sample.rds"))  
+
+
+final_sample %>% 
+  pull(subid) %>% 
+  print()
+
+final_sample %>% 
+  select(-subid) %>% 
+  summarize_all(~sum(!is.na(.)))
+```

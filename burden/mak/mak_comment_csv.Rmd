@@ -1,0 +1,177 @@
+---
+title: "Make comment csv files"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+ 
+This script makes the csv files of the participants comments on each measure. Does not include wristband comments.  
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+  
+Paths 
+```{r}
+path_data <- "./database"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(lubridate)
+library(textclean)
+```
+
+
+### Import Data and glimpse 
+All updates to data frame are documented in eda_burden.rmd
+
+Burden data
+```{r}
+burden <- read_rds(file.path(path_data, "burden.rds")) 
+
+burden <- burden %>%
+  mutate(date_central = as_datetime(as.integer(utc), 
+                                    tz = 'America/Chicago')) %>%
+  mutate(date_central = date(date_central)) %>% 
+  select(subid,
+         utc,
+         date_central,
+         sleep_interfere = rbm_5,
+         sleep_dislike = rbm_6,
+         sleep_1year = rbm_7,
+         sleep_text = rbm_8,
+         daily_survey_interfere = rbm_9,
+         daily_survey_dislike = rbm_10,
+         daily_survey_4_1year = rbm_11,
+         daily_survey_1_1year = rbm_12,
+         daily_survey_text = rbm_13,
+         audio_checkin_interfere = rbm_14,
+         audio_checkin_dislike = rbm_15,
+         audio_checkin_1year = rbm_16,
+         audio_checkin_text = rbm_17,
+         location_dislike = rbm_22,
+         location_1year = rbm_23,
+         location_text = rbm_24,
+         sms_logs_dislike = rbm_25,
+         sms_logs_1year = rbm_26,
+         sms_content_dislike = rbm_27,
+         sms_content_1year = rbm_28,
+         phone_logs_dislike = rbm_29,
+         phone_logs_1year = rbm_30,
+         phone_text = rbm_31) %>%
+  mutate(across(-c(contains("_text"),
+                  subid,
+                  utc,
+                  date_central),
+                ~as.numeric(.))) %>%
+  mutate(across(c(contains("_1year")),
+                ~recode(., "5" = 1, "4" = 2, "3" = 3, "2" = 4, "1" = 5))) %>% 
+  glimpse()
+```
+
+text encoding corrections
+```{r}
+burden <- burden %>% 
+  mutate_if(is.character, iconv, from = "UTF-8", to = "Windows-1252") %>% 
+  mutate_if(is.character, str_replace_all, pattern = "\\\\", replacement = "") %>% 
+  mutate_if(is.character, str_replace_all, pattern = '\\"', replacement = "") %>% 
+  mutate_if(is.character, replace_symbol)
+```
+
+Create df of last observation
+```{r}
+# pull out most recent survey for each subid
+burden_last <- burden %>% 
+  group_by(subid) %>% 
+  arrange(desc(date_central)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  glimpse()
+```
+
+
+### Extract Text Comments on Measures
+
+```{r}
+comments_sleep <- burden_last %>% 
+  select(subid,
+         text = sleep_text) %>% 
+  mutate("+ inform" = "",
+         "+ uninform" = "",
+         "- inform" = "",
+         "- uninform" = "",
+         "exclude" = "") %>%  
+  na.omit()
+
+comments_survey <- burden_last %>% 
+  select(subid, 
+         text = daily_survey_text) %>% 
+  mutate("+ inform" = "",
+         "+ uninform" = "",
+         "- inform" = "",
+         "- uninform" = "",
+         "exclude" = "") %>% 
+  na.omit()
+
+comments_audio <- burden_last %>% 
+  select(subid,
+         text = audio_checkin_text) %>% 
+  mutate("+ inform" = "",
+         "+ uninform" = "",
+         "- inform" = "",
+         "- uninform" = "",
+         "exclude" = "") %>% 
+  na.omit()
+
+comments_location <- burden_last %>% 
+  select(subid,
+         text = location_text) %>% 
+  mutate("+ inform" = "",
+         "+ uninform" = "",
+         "- inform" = "",
+         "- uninform" = "",
+         "exclude" = "") %>% 
+  na.omit()
+
+comments_phone <- burden_last %>% 
+  select(subid,
+         text = phone_text) %>% 
+  mutate("+ inform" = "",
+         "+ uninform" = "",
+         "- inform" = "",
+         "- uninform" = "",
+         "exclude" = "") %>% 
+  na.omit()
+```
+
+Save as csv files
+```{r}
+write_csv(comments_sleep, "./analysis/burden/data/comments_sleep.csv")
+write_csv(comments_survey, "./analysis/burden/data/comments_survey.csv")
+write_csv(comments_audio, "./analysis/burden/data/comments_audio.csv")
+write_csv(comments_location, "./analysis/burden/data/comments_location.csv")
+write_csv(comments_phone, "./analysis/burden/data/comments_phone.csv")
+```
+
+
+Check all comments from an individual subid
+```{r}
+burden %>% 
+  filter(subid == "079") %>% 
+  select(subid, contains("text")) %>% 
+  kable() %>% 
+  kable_styling()
+```
+

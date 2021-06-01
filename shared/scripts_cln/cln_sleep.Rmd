@@ -1,0 +1,232 @@
+---
+title: "Clean Sleep Data"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script aggregates the sleep monitor data from the raw JSON files and does light EDA.    
+
+Inputs:  
+* [subid]_.json  
+
+
+### Setup
+```{css, include = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "raw_data"
+path_out <- "analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(tidyjson)
+library(lubridate)
+```
+
+
+### Read in sleep JSON files
+
+#### Function
+```{r}
+read_sleep <- function(subid) {
+    # message(str_c("reading sleep file for subid ", subid))
+    sleep_log <- tibble(subid = character(),
+                   message = character())
+    sleep_files <- list.files(file.path(path_raw, subid), pattern = "_Sleep|_sleep", include.dirs = FALSE)
+    if(length(sleep_files) > 0) {
+      for(file in sleep_files) {
+        if(str_detect(file, ".json") | str_detect(file, ".JSON")) {
+          # convert file name to lower case .json 
+          if(str_detect(file, ".JSON")) {
+            file <- str_replace(file, ".JSON", ".json")
+          }
+          # read in JSON file and flatten
+          sleep <- read_json(file.path(path_raw, subid, file))
+          sleep <- sleep %>% gather_array %>% spread_all
+          # Add subid and file name to tibble
+          sleep <- sleep %>% 
+            mutate(subid = subid,
+                   file_name = file) %>% 
+            as_tibble()
+          # Join log files
+          sleep_log <- sleep_log %>%
+            full_join(sleep) %>%
+            suppressMessages()
+        }
+      }
+      return(sleep_log)
+    } else if(length(sleep_files) == 0){
+        sleep_log <- sleep_log %>% add_row(subid = subid, message = "No sleep file found")
+        return(sleep_log)
+    }
+}
+```
+
+#### Get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+```
+
+FIX: temp filtering out subids with errors until I can troubleshoot why their files are read in with an error.
+```{r}
+subids <- subids %>% 
+  filter(!subid %in% c("007", "048", "067", "076", "077", "109", "136"))
+```
+
+#### Read in all sleep files
+```{r}
+all_sleep <- tibble(subid = character())
+all_sleep <- map_df(subids$subid, ~read_sleep(.)) %>% 
+  full_join(all_sleep, by = "subid") %>% 
+  glimpse()
+```
+
+<br>
+
+### Trouble shooting  
+
+FIX: 7 subids not in file (7, 48, 67, 76, 77, 109, 136)  
+
+parse error with subid 7's sleep file - premature EOF
+```{r eval = FALSE}
+# with tidyjson package
+sleep <- read_json(file.path(path_raw, "007/007_Sleep.json"))
+
+# with jsonlite package
+sleep <- readLines(file.path(path_raw, "007/007_Sleep.json"), warn=FALSE)
+df <- jsonlite::fromJSON(sleep, flatten = TRUE)
+# listcols <- colnames(df[lapply(colnames(df), function(x) class(df[,x])) == "list"])
+# for (col in listcols) df[col] = data.frame(unlist(lapply(df[,col], function(x) toString(unlist(x)))))
+# 
+
+sleep <- jsonlite::fromJSON(paste(readLines(file.path(path_raw, "007/007_Sleep.json"), warn=FALSE),
+                             collapse=""))
+
+```
+
+48, 67, 76, and 77 have html in their JSON sleep files 
+```{r eval = FALSE}
+sleep <- read_json(file.path(path_raw, "048/048_Sleep.json"))
+sleep <- read_json(file.path(path_raw, "067/067_Sleep.json"))
+```
+
+109 and 136 have nothing in sleep file and throwing an error
+```{r eval = FALSE}
+read_json(file.path(path_raw, "109/109_sleep.json")) %>%
+  kbl() %>%
+  kable_styling()
+
+read_json(file.path(path_raw, "136/136_sleep.json")) %>%
+  kbl() %>%
+  kable_styling()
+```
+
+<br>
+
+### EDA 
+
+```{r}
+table(all_sleep$message)
+
+sleep <- all_sleep %>% 
+  filter(is.na(message)) %>% 
+  select(-c(message, document.id, array.index)) %>% 
+  mutate(date = date(date)) %>% 
+  glimpse()
+
+no_sleep <- all_sleep %>% 
+  filter(message == "No sleep file found") %>% 
+  select(subid, message) %>% 
+  glimpse()
+```
+
+`r nrow(sleep)` sleep observations from `r length(unique(sleep$subid))` subids.  
+`r length(unique(no_sleep$subid))` subids have no sleep file.   
+
+Sleep data ranges from `r min(sleep$date)` to `r max(sleep$date)`  
+
+*FIX: 7 subids have sleep files that need to be troubleshooted*  
+*FIX: In burden analysis we may lose sleep monitor burden data by using last survey*  
+
+#### Check subids
+
+2 subids have 2 sleep files
+```{r}
+sleep %>% 
+  group_by(subid, file_name) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  count(subid) %>% 
+  filter(n > 1)
+```
+
+```{r}
+sleep %>% 
+  group_by(subid, file_name) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  filter(subid %in% c("043", "052")) %>% 
+  select(subid, file_name)
+```
+
+Compare start and end dates and number of observations
+```{r}
+# subid 43
+sleep %>% 
+  filter(subid == "043") %>% 
+  group_by(file_name) %>% 
+  summarise(min_date = min(date),
+            max_date = max(date),
+            n = n())
+
+sleep %>% 
+  filter(subid == "043") %>% 
+  filter(file_name == "043_Sleep.json")
+
+# subid 52
+sleep %>% 
+  filter(subid == "052") %>% 
+  group_by(file_name) %>% 
+  summarise(min_date = min(date),
+            max_date = max(date),
+            n = n())
+```
+
+Note: for subid 52 there is no overlap between these two files.  
+FIX: check to see if 2 entries in subid's 43 file are in the other file. Doesn't appear to be any duplicates in file.    
+
+No duplicates
+```{r}
+sleep <- sleep %>% 
+  distinct() %>% 
+  glimpse()
+```
+
+
+
+### Write csv
+```{r}
+write_csv(sleep, file.path(path_out, "sleep.csv")) %>% 
+  glimpse()
+```
+

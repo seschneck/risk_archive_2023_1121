@@ -1,0 +1,1257 @@
+---
+title: "Acceptability Results"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: html_document
+---
+
+Purpose: These are the primary analyses for the acceptability of personal sensing measures paper. 
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE)
+options(knitr.kable.NA = '')
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+```{r}
+path_burden <- "/Volumes/private/StudyData/RISK/analysis/burden/data"
+path_data <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+```
+
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+library(ggtext)
+library(cowplot)
+library(ggstatsplot)
+library(patchwork)
+library(knitr)
+```
+
+
+```{r}
+# function for adding Y label - code from Stack overflow
+add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap = 0.03, ...) {
+  ylabgrob <- patchwork::plot_spacer()
+  if (!is.null(Ylab)) {
+    ylabgrob <- ggplot() +
+      geom_text(aes(x = 1, y = 1), label = Ylab, angle = 90, family = "Times New Roman", size = 4.5) +
+      theme_void() 
+  }
+  if (!is.null(Xlab)) {
+    xlabgrob <- ggplot() +
+      geom_text(aes(x = .5, y = .5), label = Xlab) +
+      theme_void() 
+  }
+  if (!is.null(Ylab) & is.null(Xlab)) {
+    return((ylabgrob + patchworkGrob(pwobj)) + 
+             patchwork::plot_layout(widths = 100 * c(Ygap, 1 - Ygap)))
+  }
+  if (is.null(Ylab) & !is.null(Xlab)) {
+    return((ylabgrob + pwobj) + 
+             (xlabgrob) +
+             patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                    widths = c(0, 100),
+                                    design = "
+                                   AB
+                                   CC
+                                   "
+             ))
+  }
+  if (!is.null(Ylab) & !is.null(Xlab)) {
+    return((ylabgrob + pwobj) + 
+             (xlabgrob) +
+             patchwork::plot_layout(heights = 100 * c(1 - Xgap, Xgap),
+                                    widths = 100 * c(Ygap, 1 - Ygap),
+                                    design = "
+                                   AB
+                                   CC
+                                   "
+             ))
+  }
+  return(pwobj)
+}
+```
+
+<br>
+
+
+##### Participant characteristics
+
+```{r}
+screen <- read_csv(file.path(path_data, "screen.csv"), col_types = cols()) 
+visit_dates <- read_csv(file.path(path_data,"visit_dates.csv"), col_types = cols())
+
+# include only enrolled participants (n = 169) - use visit dates
+sample_intake <- visit_dates %>% 
+  filter(!(is.na(start_study))) %>% 
+  filter(start_study != end_study) 
+screen <- screen %>% 
+  filter(subid %in% sample_intake$subid)
+```
+
+```{r}
+# create demographic tibble for table
+dem <- screen %>% 
+  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  select(var = dem_2) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = dem_3) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = dem_4) %>% 
+  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = dem_5) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = dem_6, dem_6_1) %>% 
+  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
+                         dem_6_1 == "Part-time" ~ "Employed part-time",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Employed full-time", "Employed part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  summarise(mean = as.character(round(mean(dem_7, na.rm = TRUE), 0)),
+            SD = as.character(round(sd(dem_7, na.rm = TRUE), 0))) %>% 
+  mutate(var = "Income",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  select(var = dem_8) %>% 
+  mutate(var = case_when(var == "Never Married" ~ "Never married",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100))
+```
+
+```{r}
+# display and format table
+dem %>% 
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 2</b><br><br><i>Demographics for all enrolled participants (N = 169)</i>",
+      table.attr = "style='width:60%;'",
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>% 
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>% 
+  pack_rows("Education", 11, 16, bold = FALSE) %>% 
+  pack_rows("Employment", 17, 25, bold = FALSE) %>% 
+  pack_rows("Marital Status", 27, 31, bold = FALSE)
+```
+
+```{r}
+# create alcohol use history tibble for table
+auh <- screen %>% 
+  summarise(mean = mean(auh_1, na.rm = TRUE),
+            SD = sd(auh_1, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_2, na.rm = TRUE),
+            SD = sd(auh_2, na.rm = TRUE)) %>% 
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_3, na.rm = TRUE),
+            SD = sd(auh_3, na.rm = TRUE)) %>% 
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_4, na.rm = TRUE),
+            SD = sd(auh_4, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_5, na.rm = TRUE),
+            SD = sd(auh_5, na.rm = TRUE)) %>% 
+  mutate(var = "Number of Quit Attempts",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_1) %>%
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ mos.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_2) %>%
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 mos.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_3) %>%
+  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_4) %>%
+  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_5) %>%
+  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_6) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_7) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = auh_7) %>% 
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100)) %>% 
+  full_join(screen %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  rowwise() %>% 
+  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
+  ungroup() %>% 
+  summarise(mean = mean(dsm5_total),
+            SD = sd(dsm5_total)) %>% 
+  mutate(var = "AUD DSM-5 Symptom Count*",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything())) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_1) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_2) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_3) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_4) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_5) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_6) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_7) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_8) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100)) 
+```
+
+<br>
+
+```{r}
+# display and format table
+auh %>%
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 3</b><br><br><i>Alcohol-related charicterizations for all enrolled participants (N = 169)</i>",
+      table.attr = "style='width:70%;'",
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>% 
+  pack_rows("Types of Treatment", 6, 12, bold = FALSE) %>% 
+  pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>% 
+  pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>% 
+  footnote("*AUD DSM-5 symptom count was documented through self-report and not a clinical interview.")
+```
+
+<br>
+
+
+##### Self-report measures of acceptability
+
+```{r}
+burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
+  # wristband will be analyzed in supplemental - not enough observations
+  select(-contains("wristband"))
+
+# pull out last available sleep monitor data since this date will be earlier than last survey date for some
+burden_sleep <- burden %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+  
+# pull out most recent survey for each subid
+burden_last <- burden %>% 
+  select(-c(starts_with("sleep_"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # join with sleep data
+  full_join(burden_sleep, by = c("subid"))
+```
+
+
+###### Interference
+
+###### Active
+```{r fig.height = 6, warning = FALSE}
+# Audio
+audio_int <- burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Willingness to Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_dis <-  burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Willingness to Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_1yr <-  burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Willingness to Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         audio = "Audio Check-in") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(audio~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_plot <- wrap_plots(audio_int, audio_dis, audio_1yr) 
+
+# Daily survey 4 x's
+survey_4_int <- burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_4_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = "proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+survey_4_dis <-  burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_4_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+survey_4_1yr <-  burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_4_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         survey = "Daily Survey (x4)") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(survey~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+survey_4_plot <- wrap_plots(survey_4_int, survey_4_dis, survey_4_1yr) 
+
+# Daily Survey 1 x
+survey_1_int <- burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_1_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree")),
+         survey = "Daily Survey (x1)<i><sup>a</sup></i>") %>% 
+  group_by(value) %>% 
+  slice(1) %>% 
+  ggplot(aes(x = value, group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  theme_classic() +
+  ylim(0, .6) +
+  scale_x_discrete(drop = FALSE) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text.y = element_markdown())
+    
+  
+  
+survey_1_dis <- burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_1_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree")),
+         survey = "Daily Survey (x1)<i><sup>a</sup></i>") %>% 
+  group_by(value) %>% 
+  slice(1) %>% 
+  ggplot(aes(x = value, group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  theme_classic() +
+  ylim(0, .6) +
+  scale_x_discrete(drop = FALSE) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text.y = element_markdown())
+  
+  
+survey_1_1yr <-  burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_1_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         survey = "Daily Survey (x1)<i><sup>a</sup></i>") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(survey~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        strip.text.y = element_markdown()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+survey_1_plot <- wrap_plots(survey_1_int, survey_1_dis, survey_1_1yr) 
+
+# Final figure
+active_plot <- wrap_plots(audio_plot, survey_4_plot, survey_1_plot, ncol = 1) 
+
+active_plot  
+```
+
+
+###### Mixed
+
+```{r}
+# Sleep Monitor
+sleep_int <- burden_last %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Willingness to Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_dis <-  burden_last %>% 
+  filter(!is.na(sleep_dislike)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Willingness to Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  scale_x_discrete(drop = FALSE) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_1yr <-  burden_last %>% 
+  filter(!is.na(sleep_1year)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Willingness to Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         sleep = "Sleep Monitor") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(sleep~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_plot <- wrap_plots(sleep_int, sleep_dis, sleep_1yr) 
+
+# carrying phone
+phone_int <- burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Willingness to Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+phone_dis <-  burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Willingness to Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+phone_1yr <-  burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Willingness to Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         phone = "Carrying Phone") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(phone~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+phone_plot <- wrap_plots(phone_int, phone_dis, phone_1yr) 
+
+# Final figure
+mixed_plot <- wrap_plots(sleep_plot, phone_plot, ncol = 1) 
+
+mixed_plot  %>% 
+  add_global_label(Ylab = "                   proportion",
+                   Ygap = .02
+)
+```
+
+
+###### Passive
+
+```{r fig.height = 6}
+# Location
+location_dis <-  burden_last %>% 
+  select("Dislike" = location_dislike, 
+         "Willingness to Continue" = location_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank(),
+        strip.text.y = element_markdown()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+  
+  
+location_1yr <- burden_last %>% 
+  select("Dislike" = location_dislike, 
+         "Willingness to Continue" = location_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         location = "Location") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(location~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank(),
+        strip.text.y = element_markdown()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+location_plot <- wrap_plots(location_dis, location_1yr, plot_spacer()) 
+
+# Logs
+logs_dis <-  burden_last %>% 
+  select("Dislike" = all_logs_dislike, 
+         "Willingness to Continue" = all_logs_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = "proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+logs_1yr <-  burden_last %>% 
+  select("Dislike" = all_logs_dislike, 
+         "Willingness to Continue" = all_logs_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         logs = "Logs (SMS/Voice)") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(logs~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+logs_plot <- wrap_plots(logs_dis, logs_1yr, plot_spacer()) 
+
+# sms
+sms_dis <-  burden_last %>% 
+  select("Dislike" = sms_content_dislike, 
+         "Willingness to Continue" = sms_content_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sms_1yr <-  burden_last %>% 
+  select("Dislike" = sms_content_dislike, 
+         "Willingness to Continue" = sms_content_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         sms = "SMS Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(sms~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman"),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "dodgerblue4") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+sms_plot <- wrap_plots(sms_dis, sms_1yr, plot_spacer()) 
+
+# Final figure
+passive_plot <- wrap_plots(location_plot, logs_plot, sms_plot, ncol = 1) 
+
+passive_plot  
+```
+
+
+<br>
+
+<br>
+
+###### Regression Analyses
+
+
+```{r}
+# run regressions (one sample t-tests) for each measure and item
+int_sl <- broom::tidy(lm(sleep_interfere ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$sleep_interfere, na.rm = TRUE),
+         d = mean(burden_last$sleep_interfere, na.rm = TRUE)/sd)
+int_a <-  broom::tidy(lm(audio_checkin_interfere ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$audio_checkin_interfere, na.rm = TRUE),
+         d = mean(burden_last$audio_checkin_interfere, na.rm = TRUE)/sd)
+int_s4 <-  broom::tidy(lm(daily_survey_interfere ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$daily_survey_interfere, na.rm = TRUE),
+         d = mean(burden_last$daily_survey_interfere, na.rm = TRUE)/sd)
+int_phone <-  broom::tidy(lm(carrying_phone_interfere ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$carrying_phone_interfere, na.rm = TRUE),
+         d = mean(burden_last$carrying_phone_interfere, na.rm = TRUE)/sd)
+dis_sl <-  broom::tidy(lm(sleep_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$sleep_dislike, na.rm = TRUE),
+         d = mean(burden_last$sleep_dislike, na.rm = TRUE)/sd)
+dis_a <-  broom::tidy(lm(audio_checkin_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$audio_checkin_dislike, na.rm = TRUE),
+         d = mean(burden_last$audio_checkin_dislike, na.rm = TRUE)/sd)
+dis_s4 <-  broom::tidy(lm(daily_survey_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$daily_survey_dislike, na.rm = TRUE),
+         d = mean(burden_last$daily_survey_dislike, na.rm = TRUE)/sd)
+dis_phone <- broom::tidy(lm(carrying_phone_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$carrying_phone_dislike, na.rm = TRUE),
+         d = mean(burden_last$carrying_phone_dislike, na.rm = TRUE)/sd)
+dis_loc <-  broom::tidy(lm(location_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$location_dislike, na.rm = TRUE),
+         d = mean(burden_last$location_dislike, na.rm = TRUE)/sd)
+dis_log <-  broom::tidy(lm(all_logs_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$all_logs_dislike, na.rm = TRUE),
+         d = mean(burden_last$all_logs_dislike, na.rm = TRUE)/sd)
+dis_sms <-  broom::tidy(lm(sms_content_dislike ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$sms_content_dislike, na.rm = TRUE),
+         d = mean(burden_last$sms_content_dislike, na.rm = TRUE)/sd)
+use_a <-  broom::tidy(lm(audio_checkin_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$audio_checkin_1year, na.rm = TRUE),
+         d = mean(burden_last$audio_checkin_1year, na.rm = TRUE)/sd)
+use_sl <-  broom::tidy(lm(sleep_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$sleep_1year, na.rm = TRUE),
+         d = mean(burden_last$sleep_1year, na.rm = TRUE)/sd)
+use_s4 <-  broom::tidy(lm(daily_survey_4_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$daily_survey_4_1year, na.rm = TRUE),
+         d = mean(burden_last$daily_survey_4_1year, na.rm = TRUE)/sd)
+use_phone <-  broom::tidy(lm(carrying_phone_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$carrying_phone_1year, na.rm = TRUE),
+         d = mean(burden_last$carrying_phone_1year, na.rm = TRUE)/sd)
+use_s1 <-  broom::tidy(lm(daily_survey_1_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$daily_survey_1_1year, na.rm = TRUE),
+         d = mean(burden_last$daily_survey_1_1year, na.rm = TRUE)/sd)
+use_loc <-  broom::tidy(lm(location_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$location_1year, na.rm = TRUE),
+         d = mean(burden_last$location_1year, na.rm = TRUE)/sd)
+use_log <-  broom::tidy(lm(all_logs_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$all_logs_1year, na.rm = TRUE),
+         d = mean(burden_last$all_logs_1year, na.rm = TRUE)/sd)
+use_sms <-  broom::tidy(lm(sms_content_1year ~ 1, data = burden_last)) %>% 
+  mutate(sd = sd(burden_last$sms_content_1year, na.rm = TRUE),
+         d = mean(burden_last$sms_content_1year, na.rm = TRUE)/sd)
+```
+
+
+```{r}
+# create three tibbles for each item to display test statistics
+# interference
+interfere_tbl <- burden_last %>% 
+  select("Audio Check-in" = audio_checkin_interfere,
+         "Daily Survey (4 times daily)" = daily_survey_interfere,
+         "Sleep Monitor" = sleep_interfere,
+         "Carrying Phone" = carrying_phone_interfere) %>% 
+  gather(key = "measure", value) %>%
+  group_by(measure) %>% 
+  select(-value) %>% 
+  drop_na() %>% 
+  slice(1) %>% 
+  mutate(mean = case_when(measure == "Sleep Monitor" ~ int_sl$estimate,
+                         measure == "Audio Check-in" ~ int_a$estimate,
+                         measure == "Daily Survey (4 times daily)" ~ int_s4$estimate,
+                         measure == "Carrying Phone" ~ int_phone$estimate),
+         SD = case_when(measure == "Sleep Monitor" ~ int_sl$sd,
+                        measure == "Audio Check-in" ~ int_a$sd,
+                        measure == "Daily Survey (4 times daily)" ~ int_s4$sd,
+                        measure == "Carrying Phone" ~ int_phone$sd),
+         t = case_when(measure == "Sleep Monitor" ~ int_sl$statistic,
+                       measure == "Audio Check-in" ~ int_a$statistic,
+                       measure == "Daily Survey (4 times daily)" ~ int_s4$statistic,
+                       measure == "Carrying Phone" ~ int_phone$statistic),
+         d = case_when(measure == "Sleep Monitor" ~ int_sl$d,
+                       measure == "Audio Check-in" ~ int_a$d,
+                       measure == "Daily Survey (4 times daily)" ~ int_s4$d,
+                       measure == "Carrying Phone" ~ int_phone$d),
+         sig = case_when(measure == "Sleep Monitor" ~ int_sl$p.value,
+                         measure == "Audio Check-in" ~ int_a$p.value,
+                         measure == "Daily Survey (4 times daily)" ~ int_s4$p.value,
+                         measure == "Carrying Phone" ~ int_phone$p.value),
+         sig = case_when(sig < .001 ~ "< .001***",
+                         TRUE ~ as.character(sig))) 
+# dislike
+dislike_tbl <- burden_last %>% 
+  select("Audio Check-in" = audio_checkin_dislike,
+         "Daily Survey (4 times daily)" = daily_survey_dislike,
+         "Sleep Monitor" = sleep_dislike,
+         "Location" = location_dislike,
+         "Logs (SMS/call)" = all_logs_dislike,
+         "SMS Content" = sms_content_dislike,
+         "Carrying Phone" = carrying_phone_dislike) %>% 
+  gather(key = "measure", value) %>%
+  select(-value) %>% 
+  group_by(measure) %>% 
+  drop_na() %>% 
+  slice(1) %>% 
+  mutate(mean_2 = case_when(measure == "Sleep Monitor" ~ dis_sl$estimate,
+                         measure == "Daily Survey (4 times daily)" ~ dis_s4$estimate,
+                         measure == "Audio Check-in" ~ dis_a$estimate,
+                         measure == "Location" ~ dis_loc$estimate,
+                         measure == "SMS Content" ~ dis_sms$estimate,
+                         measure == "Logs (SMS/call)" ~ dis_log$estimate,
+                         measure == "Carrying Phone" ~ dis_phone$estimate),
+       SD_2 = case_when(measure == "Sleep Monitor" ~ dis_sl$sd,
+                        measure == "Daily Survey (4 times daily)" ~ dis_s4$sd,
+                        measure == "Audio Check-in" ~ dis_a$sd,
+                        measure == "Location" ~ dis_loc$sd,
+                        measure == "SMS Content" ~ dis_sms$sd,
+                        measure == "Logs (SMS/call)" ~ dis_log$sd,
+                        measure == "Carrying Phone" ~ dis_phone$sd),
+        t_2 = case_when(measure == "Sleep Monitor" ~ dis_sl$statistic,
+                        measure == "Daily Survey (4 times daily)" ~ dis_s4$statistic,
+                        measure == "Audio Check-in" ~ dis_a$statistic,
+                        measure == "Location" ~ dis_loc$statistic,
+                        measure == "SMS Content" ~ dis_sms$statistic,
+                        measure == "Logs (SMS/call)" ~ dis_log$statistic,
+                        measure == "Carrying Phone" ~ dis_phone$statistic),
+       d_2 = case_when(measure == "Sleep Monitor" ~ dis_sl$d,
+                        measure == "Daily Survey (4 times daily)" ~ dis_s4$d,
+                        measure == "Audio Check-in" ~ dis_a$d,
+                        measure == "Location" ~ dis_loc$d,
+                        measure == "SMS Content" ~ dis_sms$d,
+                        measure == "Logs (SMS/call)" ~ dis_log$d,
+                        measure == "Carrying Phone" ~ dis_phone$d),
+       sig_2 = case_when(measure == "Sleep Monitor" ~ dis_sl$p.value,
+                         measure == "Daily Survey (4 times daily)" ~ dis_s4$p.value,
+                         measure == "Audio Check-in" ~ dis_a$p.value,
+                         measure == "Location" ~ dis_loc$p.value,
+                         measure == "SMS Content" ~ dis_sms$p.value,
+                         measure == "Logs (SMS/call)" ~ dis_log$p.value,
+                         measure == "Carrying Phone" ~ dis_phone$p.value),
+         sig_2 = case_when(sig_2 < .001 ~ "< .001***",
+                           TRUE ~ as.character(sig_2)))
+# 1 year
+one_year_tbl <- burden_last %>% 
+  select("Sleep Monitor" = sleep_1year,
+         "Daily Survey (4 times daily)" = daily_survey_4_1year,
+         "Daily Survey (1 time daily)$^a$" = daily_survey_1_1year,
+         "Audio Check-in" = audio_checkin_1year,
+         "SMS Content" = sms_content_1year,
+         "Location" = location_1year,
+         "Logs (SMS/call)" = all_logs_1year,
+         "Carrying Phone" = carrying_phone_1year) %>% 
+  gather(key = "measure", value) %>% 
+  select(-value) %>% 
+  group_by(measure) %>% 
+  drop_na() %>% 
+  slice(1) %>% 
+  mutate(mean_3 = case_when(measure == "Daily Survey (4 times daily)" ~ use_s4$estimate,
+                         measure == "Daily Survey (1 time daily)$^a$" ~ use_s1$estimate,
+                         measure == "Sleep Monitor" ~ use_sl$estimate,
+                         measure == "Audio Check-in" ~ use_a$estimate,
+                         measure == "SMS Content" ~ use_sms$estimate,
+                         measure == "Location" ~ use_loc$estimate,
+                         measure == "Logs (SMS/call)" ~ use_log$estimate,
+                         measure == "Carrying Phone" ~ use_phone$estimate),
+         SD_3 = case_when(measure == "Daily Survey (4 times daily)" ~ use_s4$sd,
+                        measure == "Daily Survey (1 time daily)$^a$" ~ use_s1$sd,
+                        measure == "Sleep Monitor" ~ use_s1$sd,
+                        measure == "Audio Check-in" ~ use_a$sd,
+                        measure == "SMS Content" ~ use_sms$sd,
+                        measure == "Location" ~ use_loc$sd,
+                        measure == "Logs (SMS/call)" ~ use_log$sd,
+                        measure == "Carrying Phone" ~ use_phone$sd),
+         t_3 = case_when(measure == "Daily Survey (4 times daily)" ~ use_s4$statistic,
+                       measure == "Daily Survey (1 time daily)$^a$" ~ use_s1$statistic,
+                       measure == "Sleep Monitor" ~ use_sl$statistic,
+                       measure == "Audio Check-in" ~ use_a$statistic,
+                       measure == "SMS Content" ~ use_sms$statistic,
+                       measure == "Location" ~ use_loc$statistic,
+                       measure == "Logs (SMS/call)" ~ use_log$statistic,
+                       measure == "Carrying Phone" ~ use_phone$statistic),
+         d_3 = case_when(measure == "Daily Survey (4 times daily)" ~ use_s4$d,
+                       measure == "Daily Survey (1 time daily)$^a$" ~ use_s1$d,
+                       measure == "Sleep Monitor" ~ use_sl$d,
+                       measure == "Audio Check-in" ~ use_a$d,
+                       measure == "SMS Content" ~ use_sms$d,
+                       measure == "Location" ~ use_loc$d,
+                       measure == "Logs (SMS/call)" ~ use_log$d,
+                       measure == "Carrying Phone" ~ use_phone$d),
+         sig_3 = case_when(measure == "Daily Survey (4 times daily)" ~ use_s4$p.value,
+                         measure == "Daily Survey (1 time daily)$^a$" ~ use_s1$p.value,
+                         measure == "Sleep Monitor" ~ use_sl$p.value,
+                         measure == "Audio Check-in" ~ use_a$p.value,
+                         measure == "SMS Content" ~ use_sms$p.value,
+                         measure == "Location" ~ use_loc$p.value,
+                         measure == "Logs (SMS/call)" ~ use_log$p.value,
+                         measure == "Carrying Phone" ~ use_phone$p.value),
+         sig_3 = case_when(sig_3 < .001 ~ "< .001***",
+                           TRUE ~ as.character(sig_3)))
+
+# display and format table
+interfere_tbl %>% 
+  full_join(dislike_tbl, by = "measure") %>% 
+  full_join(one_year_tbl, by = "measure") %>% 
+  mutate(measure = factor(measure, levels = c("Audio Check-in", "Daily Survey (4 times daily)", 
+                                              "Daily Survey (1 time daily)$^a$", "Sleep Monitor",
+                                              "Carrying Phone", "Location", "Logs (SMS/call)", "SMS Content"))) %>% 
+  arrange(measure) %>% 
+  kbl(col.names = c("Personal Sensing Measure", "<i>M</i>", "<i>SD</i>", "<i>t</i>", "<i>d</i>", "<i>p</i>",
+                    "<i>M</i>", "<i>SD</i>", "<i>t</i>", "<i>d</i>", "<i>p</i>",
+                   "<i>M</i>", "<i>SD</i>", "<i>t</i>", "<i>d</i>", "<i>p</i>"),
+      align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "<b>Table 4</b><br><br><i>Means, Standard Deviations, t-values, effect sizes, and p-values from One Sample t-Tests of Each Personal Sensing Measure against a Neutral/Ambivalent Acceptability Score of 0</i>",
+      digits = 2,
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman") %>% 
+  add_header_above(c(" " = 1, "Interference" = 5, "Dislike" = 5, "Willingness to continue" = 5)) %>% 
+  pack_rows("Active", 1, 3, bold = FALSE) %>% 
+  pack_rows("Mixed", 4, 5, bold = FALSE) %>% 
+  pack_rows("Passive", 6, 8, bold = FALSE) %>% 
+  footnote("Acceptability measures are on a 5-point scale centered around a neutral/ambivalent score of 0 (i.e., undecided) and with 2 being highest on acceptability and -2 being lowest on acceptability. Sample size for all personal sensing measures is 154 except for the sleep monitor which had a sample size of 87.<br>$^a$<i>This measure was hypothetical in that although participants were asked about a one-time daily survey, they were expected to complete the survey four times each day.</i>", escape = FALSE)
+```
+
+<br>
+
+
+

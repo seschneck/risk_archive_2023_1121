@@ -1,0 +1,316 @@
+---
+title: "Make Burden"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: This script makes the data file for the burden analyses from the 3 followup visits and does EDA.   
+
+Inputs:  
+* followup_12.csv  
+* followup_3.csv  
+
+Outputs  
+* burden.csv  
+
+### Setup
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_in <- "/Volumes/private/studydata/risk/analysis/shared/data"
+path_out <- "/Volumes/private/studydata/risk/analysis/burden/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+```
+
+
+### Read in data and glimpse
+
+Read in three cleaned followup 3 batteries that contain burden data and join
+```{r}
+fu12 <- read_csv(file.path(path_in, "followup_12.csv"), col_types = cols()) %>% 
+  select(subid,
+         response_id,
+         start_date,
+         contains("rbm"))
+
+fu3 <- read_csv(file.path(path_in, "followup_3.csv"), col_types = cols()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  select(-c(end_date, ra)) 
+
+burden <- fu12 %>% 
+  full_join(fu3) %>% 
+  glimpse()
+
+rm(fu12, fu3)
+```
+
+
+### Rename variables
+
+```{r}
+burden <- burden %>%
+  mutate(date = date(start_date)) %>% 
+  select(subid,
+         response_id,
+         date,
+         wristband_interfere = rbm_1,
+         wristband_dislike = rbm_2,
+         wristband_1year = rbm_3,
+         wristband_text = rbm_4,
+         sleep_interfere = rbm_5,
+         sleep_dislike = rbm_6,
+         sleep_1year = rbm_7,
+         sleep_text = rbm_8,
+         daily_survey_interfere = rbm_9,
+         daily_survey_dislike = rbm_10,
+         daily_survey_4_1year = rbm_11,
+         daily_survey_1_1year = rbm_12,
+         daily_survey_text = rbm_13,
+         audio_checkin_interfere = rbm_14,
+         audio_checkin_dislike = rbm_15,
+         audio_checkin_1year = rbm_16,
+         audio_checkin_text = rbm_17,
+         carrying_phone_interfere = rbm_18,
+         carrying_phone_dislike = rbm_19,
+         carrying_phone_1year = rbm_20,
+         carrying_phone_text = rbm_21,
+         location_dislike = rbm_22,
+         location_1year = rbm_23,
+         location_text = rbm_24,
+         sms_logs_dislike = rbm_25,
+         sms_logs_1year = rbm_26,
+         sms_content_dislike = rbm_27,
+         sms_content_1year = rbm_28,
+         phone_logs_dislike = rbm_29,
+         phone_logs_1year = rbm_30,
+         phone_text = rbm_31) 
+```
+
+### Create numeric values rangine from -2 to 2 for categorical variables
+```{r}
+burden <- burden %>% 
+  # recode categorical responses to numeric scale values
+  mutate(across(-c(contains("_text"),
+                  subid,
+                  response_id,
+                  date),
+                ~dplyr::recode(., 
+                        "Strongly Agree" = 2,
+                        "Agree" = 1,
+                        "Undecided" = 0,
+                        "Disagree" = -1,
+                        "Strongly Disagree" = -2)))
+```
+
+
+Reverse code scale for **____ interefered with my daily activities** and **I disliked _____** to be consistent with higher scores (i.e., 2) indicating higher acceptability of the measure.       
+
+```{r}
+burden <- burden %>% 
+  mutate(across(c(contains("_dislike"), contains("_interfere")),
+                ~dplyr::recode(., 
+                        "2" = -2, 
+                        "1" = -1, 
+                        "0" = 0, 
+                        "-1" = 1, 
+                        "-2" = 2))) %>% 
+  glimpse()
+```
+
+
+Correct data error   
+- subid answered -2 on acceptability but probably didn't realize the scale was flipped. All of their ratings are 2 and their comments positive
+```{r}
+burden %>% 
+  filter(subid == 200) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Recode -2 as 2 on willingness to continue
+```{r}
+burden <- burden %>% 
+  mutate(daily_survey_4_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ daily_survey_4_1year),
+         daily_survey_1_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ daily_survey_1_1year),
+         audio_checkin_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ audio_checkin_1year),
+         carrying_phone_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ carrying_phone_1year),
+         location_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ location_1year),
+         sms_logs_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ sms_logs_1year),
+         sms_content_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ sms_content_1year),
+         phone_logs_1year = case_when(subid == 200 ~ 2,
+                                          TRUE ~ phone_logs_1year))
+```
+
+
+Burden measures of phone and SMS logs were highly correlated and so to avoid redundancy we created an aggregate measure of phone logs and sms logs combined. To keep analyses consistent we then rounded the average to the nearest whole integer.  
+sms_logs_dislike and phone_logs_dislike correlation: $r$ = `r round(cor(burden$sms_logs_dislike, burden$phone_logs_dislike, use = "pairwise.complete.obs"), 2)`    
+sms_logs_1year and phone_logs_1year correlation: $r$ = `r round(cor(burden$sms_logs_1year, burden$phone_logs_1year, use = "pairwise.complete.obs"), 2)`    
+
+Create aggregate SMS and phone log dislike and use for 1 year score
+```{r}
+burden <- burden %>% 
+  rowwise() %>% 
+  mutate(all_logs_dislike = round(mean(c(sms_logs_dislike, phone_logs_dislike)), 0)) %>% 
+  mutate(all_logs_1year = round(mean(c(sms_logs_1year, phone_logs_1year)), 0)) %>% 
+  ungroup() %>% 
+  # remove individual items
+  select(-c(sms_logs_dislike, phone_logs_dislike, sms_logs_1year, phone_logs_1year))
+```
+
+<br>
+
+### EDA
+
+`r length(unique(burden$subid))` participants contribute to a total of `r nrow(burden)` reports. The earliest recorded report is from `r min(burden$date, na.rm = TRUE)` and the most recent is from `r max(burden$date, na.rm = TRUE)`.  
+
+**According to visit dates, 154 is the number of particpants who completed followup 1** 
+
+Two surveys are blank.  
+```{r}
+burden %>% 
+  filter_at(vars(daily_survey_interfere:daily_survey_1_1year), any_vars(is.na(.))) %>% 
+  kbl(caption = "Missing values (blank surveys)") %>% 
+  kable_classic() %>% 
+  scroll_box(width = "100%", height = "170px") 
+```
+
+According to notes file:  
+
+* subid 42 - They were incorrectly given the RISK Intake ID battery instead of the Follow Up 1&2 ID battery at their Follow Up 1 visit. Their responses were replicated in the Follow Up 1&2 battery (UTC: 1524606662) however we are missing answers for the WHO-ASSIST V3.0 and the RISK Burden Measure (RBM).
+Note KW: Retaining this blank survey. Reasoning = Blank survey gives them 3 time points and shows they completed the study - blank survey not due to incomplete visit.     
+
+* subid 237 - Participant arrived to Follow-up 1 but asked to be discontinued before data was collected. They were withdrawn from study prior to completing visit.  
+Note KW: Removing this blank survey. Reasoning = they never completed the visit resulting in discontinuation, thus we have no burden data for them.  
+
+Remove subid 237
+```{r}
+burden <- burden %>% 
+  filter(subid != 237)
+```
+
+Missing values
+```{r}
+burden %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE)
+```
+
+Most participants were not given wristbands.  
+
+Not all participants were given sleep monitors which explains why there are so many missing values (n_NA = `r nrow(subset(burden, is.na(sleep_interfere)))`).  
+
+Survey counts per subid
+```{r}
+burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs > 3)
+```
+No participant took the burden survey more than 3 times.  
+
+```{r}
+burden_3 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 3)
+
+burden_2 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 2)
+
+burden_1 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 1)
+```
+
+
+`r nrow(burden_3)` participants took the burden survey three times.  
+`r nrow(burden_2)` participants took the burden survey two times.  
+`r nrow(burden_1)` participants took the burden survey one time.  
+
+Subid 92 completed study through followup 3 but is missing followup_2 survey
+```{r}
+burden %>% 
+  filter(subid == 92)
+```
+
+Note KW: Add blank survey with date of cancelled followup 2 (from enrollment database) to preserve that they completed through followup 3 and order of surveys completed.
+
+```{r}
+burden <- burden %>% 
+  add_row(subid = 92,
+          date = as_date("2018-09-28"))
+```
+
+Recount surveys per subid
+```{r}
+burden_3 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 3)
+
+burden_2 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 2)
+
+burden_1 <- burden %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  filter(n_obs == 1)
+```
+
+<br>
+
+**FINAL COUNTS**  
+`r length(unique(burden$subid))` unique subids contribute to data set.  
+`r nrow(burden_3)` participants took the burden survey three times.  
+`r nrow(burden_2)` participants took the burden survey two times.  
+`r nrow(burden_1)` participants took the burden survey one time.  
+
+**These counts now match expected counts**
+
+### Write csv
+
+```{r}
+write_csv(burden, file.path(path_out, "burden.csv"))
+```
+

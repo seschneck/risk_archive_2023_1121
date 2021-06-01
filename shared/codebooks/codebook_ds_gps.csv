@@ -1,0 +1,56 @@
+name,data_type,question,value,notes/questions
+subid,numeric,Subject ID number,Range 1:270,
+utc,numeric,UTC timestamp survey opened,UTC timestamp,
+lat,numeric,latitude,latitude,
+long,numeric,longitude,longitude,
+time,POSIXct,observation time stamp,POSIXct datetime stamp,
+next_time,numeric,"time to next observation in minutes, calculated with difftime()",,possible range error
+next_dist,numeric,"distance to next observation in meters, calculated with geosphere::distGeo()",,
+accuracy,numeric,computed by moves,,
+type,character,type of location,"AIRPLANE
+CYCLING
+MOVEMENT
+OFF
+PLACE
+RUNNING
+TRANSPORT
+WALKING",
+app_source,character,app source,"MOVES
+FOLLOWMEE",
+data_type,character,"a constant, used in processing",GPS,
+speed_kmh,numeric,computed by FollowMee,,
+altitude_meters,numeric,computed by FollowMee,,possible range error
+direction,numeric,"degrees from north, computed by FollowMee",Range 0:358,
+count,numeric,number of observations that contributed to single observations ,,
+raw_orig_time,character,stored original time when making adjustments to match app output,"POSIXct datetime stamp
+",note some observations are empty
+place_type,character,type of place,"Work
+School
+Volunteer
+Health Care
+Home of Friend
+Home of Family Member
+Liquor Store
+Errands (Ex: Grocery Store, Post Office, etc.)
+Coffee Shop/Cafe
+Restaurant
+Park
+Bar
+Gym/Fitness center
+AA/Recovery Meeting
+Church (Any religious location ex: Mosque, Temple, etc.)
+Other",
+drank,character,I've drank alcohol here before.,"NO
+YES",
+alcohol,character,Alcohol is available here.,"NO
+YES",
+emotion,character,Affective experience at this location,"PLEASANT
+UNPLEASANT
+MIXED
+NEUTRAL",
+risk,character,Level of risk at this location,"NO
+LOW
+MEDIUM
+HIGH",
+avoid,character,Level of avoid at this location,"NO
+YES",unsure where this came from

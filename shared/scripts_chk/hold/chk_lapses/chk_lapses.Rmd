@@ -1,0 +1,1063 @@
+---
+title: "Check lapses"
+author: "Sarah, Megan"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+### Description
+The goal of this file is to examine lapses reported by participants, identify cases that require individual review by Sarah and Megan, make appropriate changes to errors in lapses reported in EMA, incorporate lapses reported outside of EMA (e.g. study visits), and examine trends in lapse frequency, distance, and trustworthiness. The output of this file will be ds_lapses.rds, which will contain all lapses, reported in all settings, for all subjects.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+
+### Setup
+
+```{r Packages and paths, message=FALSE}
+# Packages
+library(tidyverse)
+library(knitr)
+library(janitor)
+library(lutz)
+library(furrr)
+library(lubridate)
+library(kableExtra)
+library(psych)
+
+
+# Paths
+path_shared_data <- "Q:/StudyData/RISK/analysis/shared/data" 
+path_out <- "Q:/StudyData/RISK/analysis/shared/scripts_chk/chk_lapses" 
+path_raw <- "Q:/StudyData/RISK/raw_data"
+path_qualtrics <- "Q:/StudyData/RISK/raw_data/qualtrics"
+```
+
+### Data logs
+
+Due to the importance of our lapse labels, we consider many data sources to determine how trustworthy participant lapse reports are. The sources that we consider are: staff data logs (explaining participant corrections, technological issues), gps data, surrounding EMA reports, daily audio check ins, and participant reported vacation periods.
+
+We have two types of data logs to inform lapse checking:
+
+**1) Log_ema:** This is the main file containing all corrections to all EMA variables (e.g. lapse reports, survey UTCs, subid typos). There are two types of entries: changes (detailing corrections to be made to the raw ema files) and notes (containing notes about ema reports that did not result in changes to the raw ema file, but may still be useful for context). EMA reports end up in this file if 1) there was an explicit note in the data log referecing the EMA report or 2) lapse reports were identified as suspicious/problematic by this check script and were added to the log for staff review. This script will generate a running report of these cases (log_lapses_empty) to provide a reproducible record of which cases were selected to add to log_ema.
+
+
+**2) Log_add_lapses:** This file documents lapses that were reported to staff from participants during follow up visits that are not associated with an EMA report.
+
+
+We will use both logs throughout this script to correct the ema files sequentially (because problems with some cases could not be identified until previous corrections were made, e.g. if a lapse date was formatted incorrectly, we cannot determine if the lapse length is negative until the date is corrected). If #JOHN determines this is not necessary to demonstrate, all corrections to the ema can be read from the log file in one command.
+
+
+```{r Open the completed log files}
+## Open completed log files
+
+# Log_ema 
+log_ema <- 
+  read_csv(file.path(path_out,"log_ema.csv"),
+           col_types = cols(.default=col_character()))
+
+
+# Log_add_lapses
+log_add_lapses <-
+  read_csv(file.path(path_out, "log_add_lapses.csv"), 
+           col_types = cols(.default = col_character(),
+                            lapse = col_double(),
+                            lapse_start_hour= col_double(),
+                            lapse_end_hour = col_double()
+                            )) 
+
+# Create empty log file
+empty_log <- tibble() %>% 
+  mutate(response_id = "", subid = "", log_reason="",
+         start_date = "", start_date_local = "", end_date = "",
+         end_date_local="", lapse_start_date = "",
+         lapse_start_hour = "", lapse_end_date = "", 
+         lapse_end_hour = "", tz = "", lapse_length="", ema_type = ""
+         ) 
+
+```
+
+
+Log updating functions (to make data corrections throughout the script)
+```{r Log updating functions, include=FALSE}
+
+## update_from_log
+#Updates the lapses df based on the group of cases you want to update ("reason")
+#Flexible to update raw ema files or lapses file used in this script
+
+
+update_from_log = function(df, reason) {
+  #Make sure user gives valid reason
+  if(! reason %in% log_ema$log_reason & reason != "Lapse/report length"){ 
+    message("Please choose a valid log reason: 
+            \n Data log entry \n Bad date format \n Multiple timezones \n New timezone \n GPS > 1 day \n Lapse/report length \nAll")}
+  
+  #Filter log based on reason and data frame being updated
+  log_c <- log_ema %>%
+    filter(case_when(
+       reason == "Lapse/report length" ~ 
+         str_detect(log_reason, "lapse") | str_detect(log_reason, "report"),
+       reason == "All" ~ log_reason==log_reason,
+       TRUE ~ log_reason == reason)) %>% 
+    filter(ema_type == case_when(
+      "EMAM_1" %in% names(df)   ~ "morning",
+      "EMAL_1" %in% names(df) ~ "later",
+      TRUE ~ ema_type)) %>% 
+        filter(log_action=="change")
+  
+  #If we are updating the lapses file (instead of raw ema), change the names to the ones I like
+  if("lapse_start_date" %in% names(df)){
+   log_c <- log_c %>% 
+     mutate(var_name = case_when(
+      str_detect(var_name,"1.1") ~ "lapse_start_date",
+      str_detect(var_name,"1.2") ~ "lapse_start_hour",
+      str_detect(var_name,"1.3") ~ "lapse_end_date",
+      str_detect(var_name,"1.4") ~ "lapse_end_hour",
+      str_detect(var_name,"1.6") ~ "tz",
+    ))
+  }
+  
+  #Loop through each change, update the specified variable at the correct ema response
+  for(i in 1:nrow(log_c)){
+    id <- log_c$response_id[i]
+    var <- log_c$var_name[i]
+    
+    #if response_id is all, update the value for every observation at that subid
+    if(id=="all"){
+      index <- which(df$SubID == log_c$subid[i])
+      val <- rep(log_c$new_value[i], length(index))
+      
+    }else{
+      val <- log_c$new_value[i]
+    
+      if("ResponseID" %in% names(df)){index = which(df$ResponseID == id)
+     }else{index = which(df$response_id == id)}
+    }
+    class <- df %>% pull({{var}}) %>% class()
+    if(class=="numeric"){
+      val = as.numeric(val)
+    }
+    
+    df[index, {{var}}] = val
+  }
+  return(df)
+}
+  
+    
+
+
+## add_to_log
+#takes in a subset of lapses to be examined by staff. standardizes variable types and saves to the empty log.
+add_to_log <- function(df, log_reason){
+  #prepare df to add to empty log, do not write out date vars
+  empty_log <- df %>% 
+    select(any_of(names(empty_log))) %>% 
+    arrange(subid) %>% 
+    mutate(log_reason = log_reason) %>% 
+    modify(as.character) %>% 
+    bind_rows(empty_log, .)
+  
+#Save the empty log
+write_csv(empty_log, file.path(path_out,"log_lapses_empty.csv"))
+
+return(empty_log)
+
+}
+
+```
+
+### Raw EMA files
+
+Now we will load the raw EMA morning and later qualtrics files.
+
+NOTE: raw qualtrics file times are recorded in UTC 00:00 - Abidjan, Accra...Reykjavik. These DO correct for British Summer time and are accurate relative to as_datetime conversions to UTC (UTC 00:00 London was NOT)
+
+```{r Open raw ema files}
+
+# Open EMA morning
+ema_morning<- read_csv(file.path(path_qualtrics, "ema_morning.csv")) %>% 
+  glimpse()
+
+
+# Open EMA later
+ema_later <- read_csv(file.path(path_qualtrics, "ema_later.csv")) %>% 
+  glimpse()
+```
+Now we update the raw ema logs. By using the log reason "all" we can make all corrections at this step. Since this script is walking through how all changes are selected, I will only make the first level of changes at this step (corrections from the data log)
+
+
+I will also create a variable for lapse timezone that will be needed for all analyses with lapses going forward. We start by assigning all lapses to "America/Chicago" and the log corrects lapses that are in different timezones
+
+
+```{r Update raw ema files from data log}
+## Update raw ema file using the data log
+
+#create timezone variable for lapses
+
+ema_morning <- ema_morning %>% 
+  mutate(EMAM_1.6 = "America/Chicago")
+
+ema_morning <- ema_morning %>% 
+  mutate(EMAL_1.6 = "America/Chicago")
+
+
+
+# Update ema morning
+ema_morning <- update_from_log(ema_morning, "Data log entry")
+
+# Update ema later
+ema_later <- update_from_log(ema_later, "Data log entry")
+
+
+```
+
+
+For the rest of this script, I will be working with a lapses file (the combined ema files filtered down to lapses only). I rename the varibles so they are easier to work with, but changes will still be made to raw ema files with the original names.
+
+Note: the ema utc variable corresponds to the utc of the survey start_date. It is included because the staff data log often identifies cases by sub_id + utc.
+
+```{r Combine ema files, include=TRUE, echo=TRUE, eval=TRUE}
+#Combining EMA files
+
+#Clean up morning ema
+ema_morning <- ema_morning %>% 
+  clean_names(case="snake") %>% 
+  select(c(response_id, sub_id, utc, start_date, end_date, emam_1, 
+           emam_1_1, emam_1_2, emam_1_3, emam_1_4, emam_1_5,
+           finished)) %>%
+  mutate(ema_type = "morning") %>% 
+  rename(lapse = emam_1,
+         lapse_start_date = emam_1_1, 
+         lapse_start_hour = emam_1_2, 
+         lapse_end_date = emam_1_3, 
+         lapse_end_hour = emam_1_4,
+         abstinent = emam_1_5, 
+         subid = sub_id) 
+
+#Clean up later ema
+ema_later<- ema_later %>% 
+  clean_names(case="snake") %>% 
+  select(c(response_id, utc, sub_id, start_date, end_date, emal_1, 
+           emal_1_1, emal_1_2, emal_1_3, emal_1_4, emal_1_5,
+           finished)) %>%
+  mutate(ema_type = "later") %>% 
+  rename(lapse = emal_1,
+         lapse_start_date = emal_1_1, 
+         lapse_start_hour = emal_1_2, 
+         lapse_end_date = emal_1_3, 
+         lapse_end_hour = emal_1_4,
+         abstinent = emal_1_5, 
+         subid = sub_id) 
+
+#Create one ema tibble
+ema <- full_join(ema_morning, ema_later, copy = TRUE)
+
+#Note: The survey start and end dates are in UTC
+#Since GPS does everything in CST, we will too
+ema <- ema %>% 
+  mutate(start_date = as_datetime(
+    start_date, tz = "America/Chicago"),
+    end_date = as_datetime(
+    end_date, tz = "America/Chicago"))
+
+#Some descriptives
+ema_sub <- ema %>% 
+  mutate(sur_time = as.numeric(end_date - start_date),
+         start_date_d = as_date(start_date)) %>% 
+  group_by(subid) %>% 
+  summarise(n = n(), days = length(unique(start_date_d)),sur_time = mean(sur_time)) 
+
+nmorn <- ema %>% 
+  filter(ema_type=="morning") %>% 
+  group_by(subid) %>% 
+  summarise(n = n())
+
+nlat <- ema %>% 
+  filter(ema_type=="later") %>% 
+  group_by(subid) %>% 
+  summarise(n = n())
+```
+A total of **`r nrow(ema)`** EMAs (**`r nrow(ema_morning)`** morning and **`r nrow(ema_later)`** later EMA reports) were submitted by **`r length(unique(ema$subid))`** participants. **`r (nrow(ema) - sum(ema$finished))`** of these surveys are unfinished.
+
+On average, each subject completed **`r round(mean(ema_sub$n))`** EMA surveys (**`r round(mean(nmorn$n))`** morning and **`r round(mean(nlat$n))`** later surveys) across **`r mean(ema_sub$days)`** days. The highest number of surveys completed by a participant was **`r round(max(ema_sub$n))`** and the lowest was **`r round(min(ema_sub$n))`**. Surveys took an average of  **`r round(mean(ema_sub$sur_time))`** seconds to complete. *(We will do more in depth descriptives of ema data once lapses are cleaned)*
+
+### Make lapses file
+
+```{r Create lapses file}
+#Create lapses file
+#We will only look at participants who completed the study
+completed_subs <- list.files(path = path_raw) %>% 
+  str_extract("\\d+") %>% 
+  keep(!is.na(.))
+
+lapses <-  ema %>% 
+  filter(lapse==2) %>% 
+  filter(subid %in% completed_subs) %>% 
+  arrange(subid) 
+
+lapses_sub <- lapses %>% 
+  group_by(subid) %>% 
+  summarise(n=n())
+
+glimpse(lapses)
+```
+There are **`r nrow(lapses)`** lapses reported across **`r length(unique(lapses$subid))`**  in EMA surveys. Participants who lapsed reported an average of **`r round(mean(lapses_sub$n))`** lapses while on study, and the highest reported lapse count for a participant was **`r max(lapses_sub$n).**
+
+
+### Unfinished lapse reports
+
+Previous EMA cleaning removed all unfinished surveys unless the data cleaning log indicated a lapse on an incomplete EMA report was valid. To be more inclusive, we will retain all lapses from incomplete reports if we have lapse date data.
+
+First, we identify incomplete surveys that do not provide any lapse date data.
+```{r Identify incomplete lapses}
+
+#Reports missing lapse date or time
+incomplete_lapses <- lapses %>% 
+  filter(is.na(lapse_start_date)|
+         is.na(lapse_start_hour)|
+         is.na(lapse_end_date)| 
+         is.na(lapse_end_hour)
+  ) %>% 
+  select(c(response_id, subid,lapse_start_date,
+           lapse_start_hour, lapse_end_date,
+           lapse_end_hour, finished, everything())
+  )
+
+glimpse(incomplete_lapses)
+
+```
+
+There are **`r nrow(incomplete_lapses)`** lapse reports missing all lapse time labels across **`r length(unique(incomplete_lapses$subid))`** participants.
+These are all unfinished surveys. Since they do not contain any lapse date information, we will remove them
+
+
+```{r Remove incomplete lapses}
+#Remove incomplete lapse reports
+lapses <- 
+  lapses %>% 
+  filter(!response_id %in% incomplete_lapses$response_id)
+
+#Confirm no more missing lapse reports
+lapses %>% 
+  filter(is.na(lapse_start_date)|
+         is.na(lapse_start_hour)|
+         is.na(lapse_end_date)| 
+         is.na(lapse_end_hour)
+  ) %>% glimpse()
+```
+
+
+Partially finished surveys which have reported lapse dates will be reatined (unless stated not to in the data log). In general, staff checked in with individuals about unfinished surveys, to confirm if the report was valid. Incomplete lapse reports with dates that were invalid were removed by log_ema guided by data log notes from follow up interviews.
+```{r Paritially finisished surveys with lapse dates)}
+lapses %>% 
+  filter(finished == 0) %>% 
+  select(contains("lapse"),
+         everything()) %>% 
+  glimpse()
+
+#T26 partially finished surveys, all have lapse date and hours provided
+```
+
+### Lapse date formatting
+
+Many of our lapse checking procedures will not work if dates are entered in the incorrect format. In the EMA surveys, lapse dates are entered as mm-dd-yyyy and hours are single digit integers. Participants were supposed to select these hours from a calendar/drop down list, but they were also able to manually enter responses (leading to a wide variety of responses).
+
+
+Lapse hour formatting:
+```{r Identify badly formatted lapse hours}
+#Identify badly formatted lapse hours
+
+#Lapse hours should be numeric integers between 0 and 24
+lapses %>% 
+  summarise(across(
+    .cols = c(lapse_start_hour, lapse_end_hour),
+    .fns = list(min, max)
+    )) %>% 
+  kable() %>% 
+   kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+  
+```
+Format looks good, but it looks like we enter 24 for midnight. ##JOHN: do you have a preference?
+
+Doing a quick skim, people were kind of all over the place with whether they used the right date around 24. We will catch these when we look for negative lapses/lapses that are really long.
+```{r Glimpse of lapses with 24 start or end times}
+#Glimpse of lapses with hr 24 start or end times
+
+lapses %>% 
+  filter(lapse_start_hour==24 | lapse_end_hour == 24) %>% 
+  select(c(lapse_start_date,lapse_start_hour, lapse_end_date, 
+           lapse_end_hour, everything())) %>% 
+  glimpse()
+
+```
+For date math to work correctly, hour 24 should be paired with the date leading up to midnight (while using 00:00 would use the new date at midnight.
+
+
+
+Lapse date formatting:
+```{r Identify badly formatted lapse dates}
+#Identify badly formatted lapse dates
+
+bad_dates <- lapses %>% 
+  filter(is.na(parse_date_time(
+               lapses$lapse_start_date, orders="mdy")) |
+         is.na(parse_date_time(
+               lapses$lapse_end_date, orders="mdy")
+               ))
+
+glimpse(bad_dates)
+```
+There are **`r nrow(bad_dates)`** lapse dates across **`r length(unique(bad_dates$subid))`** participants that are not in month day year readable format. This is after the many corrections made in the initial data log.
+
+```{r Add bad dates to log}
+#Add badly formatted lapses to the empty log
+empty_log <- add_to_log(bad_dates, "Bad date format")
+
+```
+
+Correcting badly formatting dates with the log:
+```{r Correct badly formatted dates}
+#Update date formatting from the complete log
+lapses <- update_from_log(lapses, reason = "Bad date format")
+
+#Check that dates were corrected
+lapses %>% 
+  filter(response_id %in% bad_dates$response_id)%>%
+  select(response_id, lapse_start_date,
+         lapse_start_hour, lapse_end_date,
+         lapse_end_hour, everything()) %>% 
+  glimpse()
+ 
+#All dates are now in the expected format
+rm(bad_dates)
+
+```
+
+
+
+### Adding timezones to lapses
+
+Lapse reports do not contain time zones and are in the local time of the participant at the moment of the lapse. Since lapses can be reported on any ema,  we cannot assume that the timezone of the ema report = the timezone of the lapse. 
+
+We will use the participants closest gps point to their reported lapse time to determine the most likely timezone of the lapse.
+
+
+Get timezone of each gps point:
+```{r Open gps and assign tz}
+
+# Open aggregate gps file
+
+gps <- read_rds(file.path(path_shared_data, "ds_gps.rds")) %>% 
+  ungroup() #is gps meant to be saved as a rowwise file?
+
+# Get timezone based on lat/long coordinates (lutz package)
+# Note: 'fast' method preferred, 'accurate' returns overlapping tzs
+gps$lutz_tz <- tz_lookup_coords(gps$lat, gps$long)
+
+# Select only gps vars needed for lapse context
+gps <- gps %>% 
+  select(subid, lat, long, time_central,lutz_tz)
+```
+
+
+Timezones present in GPS data:
+```{r Find local tzs in gps data}
+
+# Check out all local time zones in the gps file
+u_tzs <- gps %>% 
+  filter(!is.na(lutz_tz)) %>% 
+  pull(lutz_tz) %>% 
+  unique(.)
+
+u_tzs
+
+#Getting info about non central tzs
+other_tz <- gps %>% 
+  filter(!is.na(lutz_tz)) %>% 
+  filter(!lutz_tz=="America/Chicago")
+```
+There are **`r length(u_tzs)`** unique timezones in the gps file. **`r length(unique(other_tz$subid))`** participants had a total of **`r nrow(other_tz)`** gps observations in timezones other than America/Chicago.
+
+Fun fact: there are a ton of indiana ones because indiana has tons of small counties who do whatever they want with timezones and daylight savings
+
+
+
+Use timezones to convert GPS central time to local time:
+```{r Convert gps tzs}
+#Get local gps tzs
+
+#Instead of calculating local time for each row (1 million), we group the data by timezone to batch convert all dates for that tz
+
+gps <- gps %>% 
+  filter(!is.na(lutz_tz)) %>% 
+  group_by(lutz_tz) %>% 
+  group_map(function(.x, .y){
+    .x %>% 
+      mutate(time_local = as_datetime(time_central, tz = .y$lutz_tz)
+      )%>% 
+      mutate(date_local = as_date(time_local),
+             time_local=as.character(time_local))
+  }) %>% 
+  reduce(full_join) %>% 
+  left_join(gps, .)
+
+```
+
+
+
+Pair nearest gps timezone with lapses:
+
+For every lapse, we will search for the closest day with gps data and document all time zones on that date. If a lapse date has more than one time zone, we will visually inspect it to determine the most likely tz for the lapse.
+```{r Find gps timezones for each lapse}
+
+# Set up for parallel future_pmap
+plan(multisession)
+
+# Use pmap to iterate over every row of the lapse file
+lapses <- lapses %>% 
+  # Select down to only variables we need to search gps
+  select(subid, lapse_start_date, response_id) %>%
+  future_pmap_dfr(function(...){
+   gps %>% 
+      # filter gps data to current sub, only relevant vars
+      filter(subid==..1 & !is.na(lutz_tz)) %>%
+      select(subid, lutz_tz, date_local) %>% 
+      # calculate distance between lapse start and gps dates
+      mutate(tz_distance = abs(mdy(..2) - date_local)) %>% 
+      # filter down to the closest gps dates
+      filter(tz_distance == min(tz_distance)) %>% 
+      # Create variables
+      mutate(response_id = ..3, #key to join back to lapses
+             tz = Reduce(str_c,unique(lutz_tz)), # all lapse date tzs
+             tz_num = length(unique(lutz_tz)), # num lapse date tzs
+             tz_distance = as.numeric(tz_distance)) %>% 
+      rename(tz_date = date_local) %>% #keep closest tz date
+      select(-lutz_tz) %>% 
+      slice(1) 
+  }) %>%  
+  left_join(lapses, .)
+
+#close parallel backends  
+future:::ClusterRegistry("stop")
+```
+
+### Lapses with multiple timezones
+
+Some participants were in multiple timezones on the day of their lapse
+```{r Identify lapses with multiple timezones}
+#Identify lapses with multiple timezones
+
+mult_tz <- lapses %>% 
+  filter(tz_num>1) %>% 
+  select(c(response_id, tz, tz_num, tz_distance, everything()))
+
+glimpse(mult_tz)
+```
+There are **`r nrow(mult_tz)`** lapses that occurred on days with more than 1 tz recorded. **`r length(unique(mult_tz$subid))`** participants had lapses on days with more than one tz. The average number of tzs for these days was **`r mean(mult_tz$tz_num)`**, with the highest number of tzs on a day being **`r max(mult_tz$tz_num)`** We will visually inspect these lapses in the log to determine the best timezone.
+
+```{r Add multiple tz cases to log}
+#Add multiple tz cases to empty log
+
+empty_log <- add_to_log(mult_tz, "Multiple timezones")
+
+```
+
+
+Correct multiple timezones with the log:
+```{r correct multiple timezones}
+
+#Update multiple time zones from the complete log
+lapses <- update_from_log(lapses, reason = "Multiple timezones")
+
+#Checking to make sure that worked
+lapses %>% 
+  filter(response_id %in% mult_tz$response_id) %>%
+  pull(tz)
+
+#remove uneeded vars
+rm(mult_tz)
+lapses$tz_num = NULL
+```
+Looks good now! All lapses now have one timezone.
+
+### Lapses with non-America/Chicago timezones
+
+In general, these look trustworthy, but we will review any lapse not in the central tz
+```{r Examine non America/Chicago lapses}
+#Examine non-America/Chicago lapses
+new_tz <- lapses %>% 
+  filter(!is.na(tz)) %>% 
+  filter(!tz=="America/Chicago") %>% 
+  arrange(subid)
+
+glimpse(new_tz)
+```
+There are **`r length(unique(lapses$tz))`** unique timezones across our lapse reports. **`r nrow(new_tz)`** lapses across **`r length(unique(new_tz$subid))`** participants were in timezones other than America/Chicago.
+
+
+```{r Add new tz cases to log}
+#Add new tz cases to log
+empty_log <- add_to_log(new_tz, "New timezone")
+
+```
+All new timezones in the log were confirmed - no updates needed to this file (except to be sure to include tz in lapse files).
+
+
+Now that we know the tz of the lapses, we will convert the survey times to local time (for calculation of lapse distance, interpreting data,etc)
+```{r Convert survey times to local time}
+
+#Create local survey start and end times. Group by tz to convert in batches.
+#Be sure to save as character when you have multiple tzones in 1 variable.
+lapses <- lapses %>% 
+  group_by(tz) %>% 
+  group_map(function(.x, .y, ...){
+    .x %>% 
+      mutate(start_date_local = as.character(
+        with_tz(start_date, tz = .y$tz)),
+             end_date_local = as.character(
+               with_tz(end_date, tz = .y$tz)))
+        }) %>% 
+  reduce(full_join) %>% 
+  left_join(lapses, .)
+
+
+#Check that it worked - The only lapses where start date does not equal the local start date  should be lapses in different tzs.
+lapses %>% 
+  filter(as.character(start_date) != start_date_local) %>% 
+  select(response_id, start_date, start_date_local, end_date, end_date_local, tz, everything()) %>% 
+glimpse()
+
+
+```
+Looks good! We have 55 lapses that occurred in separate timezones (the America/Mexico_City tz is the same as Am/Chi for the reported lapse date). It will be important to only look at the local survey start and end times for reference when reviewing lapses
+ 
+ 
+### Distance Between Lapses and GPS
+
+Find the distance between the nearest gps point (from which we inferred lapse timezone) and the lapse
+```{r Examine lapse distance from gps days}
+
+#Examine lapse distance from timezones (abs value)
+  describe(lapses$tz_distance) %>% 
+    kable() %>%
+  kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+
+#NOTE: tz_distance is the number of DAYS in between when someone reported their lapse and their nearest GPS signal
+```
+The average (absolute value) time difference between reported lapses and dates where participants had GPS data is **`r mean(lapses$tz_distance)`** hours. The greatest time difference between a reported lapse and gps data on study was **`r max(lapses$tz_distance)`** hours.
+
+
+```{r GPS distance histogram}
+lapses %>% 
+  filter(tz_distance < 10) %>% 
+  ggplot(aes(x = tz_distance)) +
+  geom_histogram(bins = 10) +
+  xlab("Number of days between lapse and GPS signal") +
+  ggtitle("Time between GPS and lapses
+          (truncated at 10 days)") +
+  theme_classic()
+```
+Most lapses had gps on the same day as the reported lapse. 
+Lets look at those that didn't.
+
+```{r Missing same day GPS}
+no_gps <- lapses %>% 
+  filter(tz_distance > 0)
+
+non_ac <- lapses %>% filter(tz_distance > 0) %>% 
+  filter(tz != "America/Chicago") %>% 
+  glimpse()
+
+```
+There are **`r nrow(no_gps)`** lapses across **`r length(unique(no_gps$subid))`** participants that are missing same day gps. Only **`r nrow(non_ac)`** lapses on days without gps were in a non-Am/Chicago timezone at the time of their lapse, and all of these only had a distance of **`r mean(non_ac$tz_distance)` day.** These were all confirmed to be an accurate guess of their lapse tz in the New tz section of the log. We will examine Am/Chicago no day gps if the participant has multiple timezones in their file:
+
+
+```{r Examining lapses without same day gps}
+#Am/Chi lapses without GPS
+
+#Locate subjects who have a lapse without a timezone who traveled to other tzs while on study
+no_gps <- lapses %>% 
+  filter(tz_distance > 0 & tz == "America/Chicago") %>% 
+  select(subid, response_id) %>% 
+  pmap_dfr(function(...){
+    gps %>%
+      filter(subid == ..1) %>% 
+      rename(tz = lutz_tz) %>% 
+      filter(!is.na(tz)) %>% 
+      distinct(tz, .keep_all=TRUE) %>% 
+      mutate(ntz = nrow(.),
+             response_id = ..2) %>% 
+     select(response_id, ntz)
+    }) %>%
+  filter(ntz>1) %>% 
+  semi_join(lapses, ., by="response_id")
+
+
+```
+There are **`r nrow(no_gps)`** assigned america/chicago lapses (across **`r length(unique(no_gps$subid))`** people who had multiple tzs in their file) that occurred on days with no gps. We will check to make sure we are confident that they were in the am/chicago timezone at these lapse times
+
+
+
+```{r add lapses with no same day gps to log}
+
+#Add cases to log
+empty_log <- add_to_log(no_gps, "No day GPS")
+
+```
+Review of these lapses confirmed all timezones were correctly assigned (notes in data log). No changes/updates needed to the lapse file for these entries.
+
+
+### Non-EMA lapses 
+
+Non-EMA lapses are lapses reported by participants outside of their EMA reports (usually at follow up sessions). These lapses will not have any affiliate EMA data or response ids, which is why they are added at this stage. 
+
+
+Add non-EMA lapses to the lapse file:
+```{r Add non-ema lapses}
+
+#Pull non-ema lapses from log_add_lapses
+#Note: start_date is the date we received the update from the participant for these lapses
+non_ema_lapses <- log_add_lapses %>% 
+  mutate(start_date = mdy(start_date), 
+         ema_type = "non ema") %>% 
+  mutate(report_length = start_date - mdy(lapse_start_date),
+         start_date_local = as.character(start_date))
+
+#add to lapses file
+ lapses <- non_ema_lapses %>% 
+   select(any_of(names(lapses))) %>% 
+   bind_rows(lapses, .) %>% 
+   arrange(subid)
+
+
+```
+
+There are **`r nrow(non_ema_lapses)`** lapses across **`r length(unique(non_ema_lapses$subid))`** participants that are not affiliated with ema reports. On average, these lapses were reported mean **`r (as.numeric(non_ema_lapses$report_length))`** days after the lapse occurred.
+
+
+### Lapse and Report Lengths
+
+Lapse length is the duration of the reported lapse, calculated as the lapse end time minus the lapse start time.
+
+Report length is the duration of time between when a lapse occurred and when it was reported in the EMA survey. Is is calculated as the EMA survey start time minus the start time of the lapse. 
+
+Calcluate length variables:
+
+```{r Make variables for lapse length}
+
+# Create full date time variables for lapses
+
+lapses <- lapses %>% 
+  group_by(tz) %>% 
+  group_map(function(.x, .y, ...){
+    .x %>%  
+      mutate(lapse_start = str_c(mdy(lapse_start_date), " ",
+                                 lapse_start_hour,":00:00"),
+             lapse_end = str_c(mdy(lapse_end_date), " ",
+                               lapse_end_hour, ":00:00")
+      ) %>% 
+      mutate(lapse_start = as_datetime(lapse_start,tz = .y$tz),
+             lapse_end = as_datetime(lapse_end, tz = .y$tz),
+             report_start = as_datetime(start_date_local, tz = .y$tz)
+      ) %>% 
+      mutate(lapse_length = (lapse_end - lapse_start),
+             report_length = (report_start - lapse_start),
+  #remove tz variables  before binding
+             lapse_start = NULL,
+             lapse_end = NULL,
+             report_start = NULL)
+      }) %>% 
+  reduce(full_join) %>% 
+  left_join(lapses, .) %>% 
+  #Convert lapse and report lengths from seconds to hours
+  mutate(lapse_length = as.numeric(lapse_length/3600),
+         report_length = as.numeric(report_length/3600))
+
+```
+
+
+Negative lapse and report lengths:
+
+Negative lengths for these values are impossible  (lapses can not end before they start, lapse reports cannot be made before they occur) and will need to be examined by staff
+```{r Identify negative report lengths}
+
+#Negative lapses
+nl <- lapses %>% 
+  filter(lapse_length<0) %>% 
+  mutate(log_reason = "Neg lapse")
+glimpse(nl)
+
+#Negative report lengths 
+nr <- lapses %>% 
+  filter(report_length < 0) %>% 
+  mutate(lr2 = "Neg report")
+glimpse(nr)
+```
+We have **`r nrow(nl)`** negative lapse lengths across **`r length(unique(nl$subid))`** participants. We have **`r nrow(nr)`** negative lapse report lengths across **`r length(unique(nr$subid))`** participants.
+
+
+```{r Add negative reports to log}
+#Create df for log
+bad_lengths <- full_join(nl, nr) %>% 
+  unite("log_reason", log_reason:lr2, sep = "; ", na.rm = TRUE)
+
+```
+
+
+Now we look at lapse and report lengths that were unusually long in duration. Long durations are not automatically impossible like negative values, but still warrant checking if the duration is serparation from the typical distribution.
+
+
+Long lapses:
+```{Identify long lapses}
+#Identify long lapses
+
+#Descriptives
+describe(lapses$lapse_length) %>% 
+    kable() %>%
+  kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+
+```
+On average, people report lapses lasting **`r round(mean(lapses$lapse_length))`** hours. However, there are a wide range of lengths in the data from **`r min(lapses$lapse_length)`** to **`r max(lapses$lapse_length)`**
+
+```{r Lapse length histograms}
+lapses %>% 
+  filter(abs(lapse_length)< 40) %>% 
+  ggplot(aes(x = abs(lapse_length))) +
+  geom_histogram(bins = 10) +
+  xlab("Absolute value of lapse length (hours)") +
+  ggtitle("Duration of lapses (truncated at 40 hours)") +
+  theme_classic()
+```
+There is a large drop off in lapse cases around 10 hours. We will examine lapses lasting > 10 hours.
+
+
+```{r Add long lapses to log}
+#Get long lapses over 10 hours
+ll <- lapses %>% 
+  filter(abs(lapse_length) > 10) %>% 
+  mutate(lr2 = "Long lapse")
+glimpse(ll)
+#Add to df for log
+bad_lengths <- full_join(bad_lengths, ll) %>% 
+  unite("log_reason", log_reason:lr2, sep = "; ", na.rm = TRUE)
+
+```
+There are **`r nrow(ll)`** lapses across  **`r length(unique(ll$subid))`**  participants that were reported to have lapsed longer than 10 hours. 
+
+
+
+
+Long report lengths (the distance between a lapse and the EMA survey it was reported on):
+```{r Identify long report lengths}
+#Identify long report lengths
+#Remove non ema lapses for these calculations
+ema_rl <- lapses %>% 
+  filter(!ema_type == "non ema") %>% 
+  pull(report_length)
+
+
+describe(c(ema_rl)) %>% 
+    kable() %>%
+  kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+
+#for comparison
+non_ema_rl <- lapses %>% 
+  filter(ema_type == "non ema") %>% 
+  pull(report_length)
+```
+The average length of time between lapses and their EMA report is **`r round(mean(ema_rl))`** hours, but there is a wide window ranging from **`r round(min(ema_rl))`** to **`r round(max(ema_rl))`** hours.
+
+In contrast, for reports made at follow up visits, the average report length is **`r round(mean(non_ema_rl))`** with a range of **`round(min(non_ema_rl))`** to **`round(max(non_ema_rl))`** 
+
+```{r Histogram report length}
+
+lapses %>% 
+  filter(!ema_type=="non ema") %>% 
+  filter(abs(report_length)< 200) %>% 
+  ggplot(aes(x = abs(report_length))) +
+  geom_histogram(bins = 14) +
+  xlab("Abs value report length (hours)") +
+  ggtitle("Time between lapse start and EMA report (truncated at 60 hours)") +
+  xlim(0, 72)+
+  ylim(0,500)+
+  theme_classic()
+```
+Our biggest drop off appears to be after 30 hours. We will examine lapses reported > 30 hours after they occurred. Note: this histogram includes non ema reported lapses, which are usually reported much later.
+
+
+```{r Identify long reports}
+#Identify long reports > 30 hours
+
+lr <- lapses %>% 
+  filter(!ema_type=="non ema") %>% 
+  filter(abs(report_length) > 30) %>% 
+  mutate(lr2 = "Long report") 
+
+```
+There are **`r nrow(lr)`** lapses across **r length(unique(lr$subid))** participants that were reported more than 30 hours away from the start time of the lapse.
+
+```{r Add everything to log}
+#Add to bad lengths tibble
+bad_lengths <- full_join(bad_lengths, lr) %>% 
+  unite("log_reason", log_reason:lr2, sep = "; ", na.rm = TRUE)
+
+#Remove all non ema reports (we already examined these)
+bad_lengths <- bad_lengths %>% 
+  filter(!ema_type =="non ema")
+```
+Overall, we will review **`r nrow(bad_lengths)`** lapses across **`r length(unique(bad_lengths$subid))`** participants due to concerns with the lapse or report length.
+
+```{r Add bad length cases to log}
+
+#Add to empty log
+empty_log <- bad_lengths %>% 
+  group_by(log_reason) %>% 
+  group_map(~add_to_log(.x, .y$log_reason)) %>% 
+    reduce(full_join)
+
+#Additional save with all groups bound together
+write_csv(empty_log, file.path(path_out,"log_lapses_empty.csv"))
+```
+
+
+Read in corrections (pending John's decisions)
+```{r correct bad length cases}
+lapses <- update_from_log(lapses, "Lapse/report length")
+
+#Now lets check report and lapse lengths after corrections
+#recalculating lapse and report lengths
+lapses$lapse_length = NULL
+lapses$report_length = NULL
+lapses <- lapses %>% 
+  group_by(tz) %>% 
+  group_map(function(.x, .y, ...){
+    .x %>%  
+      mutate(lapse_start = str_c(mdy(lapse_start_date), " ",
+                                 lapse_start_hour,":00:00"),
+             lapse_end = str_c(mdy(lapse_end_date), " ",
+                               lapse_end_hour, ":00:00")
+      ) %>% 
+      mutate(lapse_start = as_datetime(lapse_start,tz = .y$tz),
+             lapse_end = as_datetime(lapse_end, tz = .y$tz),
+             report_start = as_datetime(start_date_local, tz = .y$tz)
+      ) %>% 
+      mutate(lapse_length = (lapse_end - lapse_start),
+             report_length = (report_start - lapse_start),
+              lapse_start_local = as.character(lapse_start),
+             lapse_end_local = as.character(lapse_end),
+  #remove tz variables  before binding
+             lapse_start = NULL,
+             lapse_end = NULL,
+             report_start = NULL)
+      }) %>% 
+  reduce(full_join) %>% 
+  left_join(lapses, .) %>% 
+  #Convert lapse and report lengths from seconds to hours
+  mutate(lapse_length = as.numeric(lapse_length/3600),
+         report_length = as.numeric(report_length/3600))
+
+#Negative lapse or report lengths?
+lapses %>% filter(lapse_length < 0) %>% glimpse()
+
+lapses %>% filter(report_length<0) %>% View()
+#All of these cases were rounded up to the next hour or were before the survey end time, so they are good!
+
+
+```
+Tentative stats for updated lapses:
+
+```{r new lapse stats}
+#long lapses
+describe(lapses$lapse_length) %>% 
+    kable() %>%
+  kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+
+lapses %>% 
+  filter(lapse_length<40) %>% 
+  ggplot(aes(x = abs(lapse_length))) +
+  geom_histogram(bins = 10) +
+  xlab("lapse length (hours)") +
+  ggtitle("Duration of lapses (truncated at 40 hours)") +
+  theme_classic()
+
+
+
+#long reports
+describe(lapses$report_length) %>% 
+    kable() %>%
+  kable_styling(
+    bootstrap_options = "condensed", 
+    full_width = FALSE, 
+    position = "left")
+
+lapses %>% 
+  filter(report_length<40) %>% 
+  ggplot(aes(x = report_length)) +
+  geom_histogram(bins = 10) +
+  xlab("Report length (hours)") +
+  ggtitle("Time between lapse start and ema report (truncated at 40 hours)") +
+  theme_classic()
+
+
+```
+
+
+
+
+
+
+
+
+
+Distance between lapses
+In progress
+Consider combining overlapping/close reports
+```{r lapse graphs, eval=FALSE, include=FALSE}
+lapses %>% 
+  group_by(subid) %>%
+  select(response_id, lapse_start_local, lapse_length, subid) %>% 
+  group_map(function(.x, .y){
+    sub <- tibble(response_id=character())
+    for (i in nrow(.x)){
+      if(.x$lapse_length[i]==0){
+        if(is.na(.x$response_id[i])){exp = tibble(response_id = .x$lapse_start_local[i], hrs = as_datetime(.x$lapse_start_local[i]), subid=.y)
+        }else{exp = tibble(response_id = .x$response_id[i], hrs = as_datetime(.x$lapse_start_local[i]), subid=.y)}
+      }else{
+      exp <- tibble(response_id = rep(.x$response_id[i], .x$lapse_length[i]+1), hrs = as_datetime(.x$lapse_start_local[i]),
+                    subid=.y)
+         if(is.na(.x$response_id[i])){exp$response_id= rep(.x$lapse_start_local[i], .x$lapse_length[i]+1)}
+    for (j in 1:.x$lapse_length[i]+1){
+      if (j>1){
+      exp$hrs[j] <- exp$hrs[j-1] + hours(x=1)}
+    }
+      }
+    exp}
+  })
+
+
+
+
+```
+
+
+

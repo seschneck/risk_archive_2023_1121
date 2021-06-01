@@ -1,0 +1,294 @@
+---
+title: "Make disposition file"
+author: "John Curtin and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: The output of this file will be used to inform flowchart for burden project and start/end dates for compliance measures.     
+
+Inputs:  
+
+* visit_dates.csv  
+* raw_notes.csv  
+* screen.csv  
+* session_screen.csv  
+* session_intake.csv  
+* session_followup_12.csv  
+* session_followup_3.csv  
+
+
+Output:  
+
+* disposition_info.csv  
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "./raw_data"
+path_shared <- "./analysis/shared/data"
+path_burden <- "./analysis/burden/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+```
+
+Read in data
+```{r}
+visits <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
+notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols())
+```
+
+
+### Creat disposition file
+
+Read in subids for all participants who showed up to the screen visit (N = 216) and add visit dates for all subids with at least a completed screen visit (N = 207)
+
+```{r}
+disposition <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>%
+  as.numeric() %>%  
+  enframe(name = NULL, value = "subid") %>% 
+  left_join(visits, by = "subid") %>% 
+  glimpse()
+```
+
+### Calculate disposition status 
+
+determine last completed visit
+```{r}
+disposition <- disposition %>% 
+  mutate(last_visit = case_when(!is.na(final_visit) ~ "followup_3",
+                                !is.na(followup_2) & is.na(final_visit) ~ "followup_2",
+                                !is.na(followup_1) & is.na(followup_2) & is.na(final_visit) ~ "followup_1",
+                                !is.na(intake) & is.na(followup_1) & is.na(followup_2) ~ "intake",
+                                !is.na(screen) & is.na(intake) ~ "screen",
+                                TRUE ~ as.character(NA))) %>% 
+  select(subid, last_visit, start_study, end_study) %>% 
+  glimpse()
+```
+
+```{r}
+tabyl(disposition$last_visit) %>% 
+  adorn_totals("row")
+```
+
+
+The following numbers are confirmed:   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2")) + nrow(subset(disposition, last_visit == "followup_1")) + nrow(subset(disposition, last_visit == "intake")) ` participants completed the intake (i.e., enrolled).   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2")) + nrow(subset(disposition, last_visit == "followup_1"))` participants completed followup 1   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2"))` participants made it to followup 2  
+`r nrow(subset(disposition, last_visit == "followup_3"))` participants completed followup 3  
+
+
+
+### Determine who screen failed and who declined to participate
+
+`r nrow(subset(disposition, last_visit == "screen")) + 9` participants showed to screen but did not enroll   
+An additional 9 participants did not complete the screen   
+
+
+#### Check eligibility info from screen survey and session form 
+
+screen survey
+```{r}
+screen <- read_csv(file.path(path_shared, "screen.csv"), col_types = cols()) %>%
+  rename(screen_date = end_date) %>% 
+  mutate(dsm5_1 = dplyr::recode(dsm5_1, No = 0, Yes = 1),
+         dsm5_2 = dplyr::recode(dsm5_2, No = 0, Yes = 1),
+         dsm5_3 = dplyr::recode(dsm5_3, No = 0, Yes = 1),
+         dsm5_4 = dplyr::recode(dsm5_4, No = 0, Yes = 1),
+         dsm5_5 = dplyr::recode(dsm5_5, No = 0, Yes = 1),
+         dsm5_6 = dplyr::recode(dsm5_6, No = 0, Yes = 1),
+         dsm5_7 = dplyr::recode(dsm5_7, No = 0, Yes = 1),
+         dsm5_8 = dplyr::recode(dsm5_8, No = 0, Yes = 1),
+         dsm5_9 = dplyr::recode(dsm5_9, No = 0, Yes = 1),
+         dsm5_10 = dplyr::recode(dsm5_10, No = 0, Yes = 1),
+         dsm5_11 = dplyr::recode(dsm5_11, No = 0, Yes = 1),
+         scl90_8 = dplyr::recode(scl90_8, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_18 = dplyr::recode(scl90_18, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_43 = dplyr::recode(scl90_43, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_68 = dplyr::recode(scl90_68, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_76 = dplyr::recode(scl90_76, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_83 = dplyr::recode(scl90_83, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_7 = dplyr::recode(scl90_7, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_16 = dplyr::recode(scl90_16, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_35 = dplyr::recode(scl90_35, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_62 = dplyr::recode(scl90_62, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_77 = dplyr::recode(scl90_77, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_84 = dplyr::recode(scl90_84, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_85 = dplyr::recode(scl90_85, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_87 = dplyr::recode(scl90_87, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_88 = dplyr::recode(scl90_88, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         scl90_90 = dplyr::recode(scl90_90, `Not At All` = 0, `A Little Bit` = 1, Moderately = 2, `Quite A Bit` = 3, Extremely = 4),
+         auh_8_year = as.character(auh_8_year),
+         auh_8_day = as.character(auh_8_day)) %>%
+  unite("quit_date", auh_8_year, auh_8_month, auh_8_day, sep = "-") %>% 
+  mutate(quit_date = as_date(quit_date, format = "%Y-%B-%d"),
+         days_quit = as.double(difftime(screen_date, quit_date, units = "days"))) %>% 
+  rowwise() %>% 
+  mutate(dsm_total_score = sum(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7 ,dsm5_8, dsm5_9, dsm5_10, dsm5_11),
+         scl90_paranoia = (sum(scl90_8, scl90_18, scl90_43, scl90_68, scl90_76, scl90_83) - 6)/6,
+         scl90_psychosis = (sum(scl90_7, scl90_16, scl90_35, scl90_62, scl90_77, scl90_84, scl90_85, scl90_87, scl90_88, scl90_90) - 10)/10) %>% 
+  ungroup() %>% 
+  select(subid, screen_date, quit_date, days_quit, dsm_total_score, scl90_paranoia, scl90_psychosis) %>% 
+  glimpse()
+```
+
+add relevant session form variables
+```{r}
+screen <- read_csv(file.path(path_shared, "session_screen.csv"), col_types = cols()) %>% 
+  unite("quit_date_session", sfsr_10_3_1, sfsr_10_1_1, sfsr_10_2_1, sep = "-") %>% 
+  mutate(quit_date_screen_session = as_date(quit_date_session, format = "%Y-%B-%d"),
+         days_quit_screen_session = as.double(difftime(start_date, quit_date_screen_session, units = "days"))) %>% 
+  select(subid,
+         screen_session_date = start_date,
+         quit_date_screen_session,
+         days_quit_screen_session,
+         screen_consent = sfsr_5,
+         screen_consent_no = sfsr_6,
+         screen_consent_no_explain = sfsr_6_text,
+         screen_continue_study = sfsr_9,
+         screen_complete = sfsr_39,
+         screen_incomplete_explain = sfsr_40,
+         screen_weeks_sober = sfsr_11,
+         screen_last_drink = sobr_check,
+         screen_complete_id = sfsr_14,
+         screen_incomplete_id_explain = sfsr_15,
+         screen_eligibility = sfsr_16,
+         screen_consult_eligibility_continue = sfsr_18,
+         screen_ineligibility_reason = sfsr_19,
+         screen_ineligibility_reason_explain = q62_text,
+         screen_intake_scheduled = sfsr_28,
+         screen_intake_not_scheduled_explain = sfsr_30,
+         screen_feasability = q76_1,
+         screen_notes = sfsr_41) %>% 
+  # filter out no shows 
+  filter(subid %in% disposition$subid) %>% 
+  # keep only most recent form to prevent duplicates
+  group_by(subid) %>% 
+  arrange(desc(screen_session_date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  full_join(screen, by = "subid") %>% 
+  glimpse()
+```
+
+
+Filter to subids that did not enroll
+```{r}
+no_intake <- disposition %>% 
+  filter(last_visit == "screen" | is.na(last_visit)) 
+screen %>% 
+  filter(subid %in% no_intake$subid) %>%
+  arrange(subid) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+#### Update status with new info
+
+```{r}
+reason_no_intake <- screen %>% 
+  filter(subid %in% no_intake$subid)  %>% 
+  mutate(reason_no_intake = case_when(screen_consent == "No" ~ "no_consent",
+                                      dsm_total_score < 4 ~ "ineligible",
+                                      screen_eligibility == "No" ~ "ineligible",
+                                      screen_incomplete_explain == "Screen ineligible - consult with Candace" ~ "ineligible",
+                                      TRUE ~ as.character(NA))) %>% 
+  select(subid, reason_no_intake)
+```
+
+Status determined from qualtrics surveys
+```{r}
+tabyl(reason_no_intake$reason_no_intake)
+```
+
+
+Status determined from notes    
+Update variable documenting if participant was not_interested or ineligible or if it is unclear to explain why they didn't enroll   
+No show or multiple reschedules before cancelling interpreted as not interested
+```{r}
+disposition <- disposition %>% 
+  full_join(reason_no_intake, by = "subid") %>% 
+  mutate(reason_no_intake = case_when(subid == 4 ~ "not_interested",
+                                      subid == 68 ~ "ineligible",
+                                      subid == 75 ~ "ineligible",
+                                      subid == 142 ~ "ineligible",
+                                      subid == 144 ~ "ineligible",
+                                      subid == 12 ~ "ineligible",
+                                      subid == 13 ~ "ineligible",
+                                      subid == 14 ~ "ineligible",
+                                      subid == 22 ~ "not_interested",
+                                      subid == 35 ~ "ineligible",
+                                      subid == 36 ~ "not_interested",
+                                      subid == 45 ~ "unclear",
+                                      subid == 46 ~ "unclear",
+                                      subid == 49 ~ "unclear",
+                                      subid == 57 ~ "ineligible",
+                                      subid == 60 ~ "ineligible",
+                                      subid == 67 ~ "ineligible",
+                                      subid == 69 ~ "unclear",
+                                      subid == 91 ~ "not_interested",
+                                      subid == 101 ~ "not_interested",
+                                      subid == 108 ~ "not_interested",
+                                      subid == 112 ~ "not_interested",
+                                      subid == 124 ~ "unclear",
+                                      subid == 125 ~ "unclear",
+                                      subid == 165 ~ "ineligible",
+                                      subid == 168 ~ "unclear",
+                                      subid == 174 ~ "not_interested",
+                                      subid == 216 ~ "not_interested",
+                                      subid == 219 ~ "unclear",
+                                      subid == 220 ~ "not_interested",
+                                      subid == 227 ~ "unclear",
+                                      subid == 233 ~ "not_interested",
+                                      subid == 254 ~ "not_interested",
+                                      subid == 260 ~ "ineligible",
+                                      subid == 272 ~ "ineligible",
+                                      TRUE ~ reason_no_intake))
+```
+
+```{r}
+disposition %>% 
+  filter(last_visit == "screen" | is.na(last_visit)) %>% 
+  tabyl(reason_no_intake) %>% 
+  janitor::adorn_totals("row")
+```
+
+Without more info - unclear cases will be defaulted to participant not being interested in study
+```{r}
+disposition <- disposition %>% 
+  mutate(reason_no_intake = case_when(reason_no_intake == "unclear" ~ "not_interested",
+                                      TRUE ~ reason_no_intake)) %>% 
+  glimpse()
+```
+
+
+### Write csv
+```{r}
+write_csv(disposition, file.path(path_burden, "disposition.csv"))
+```
+

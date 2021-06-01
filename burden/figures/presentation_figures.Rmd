@@ -1,0 +1,601 @@
+---
+title: "Plots for presentation"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+
+### Notes
+Creates plots on black background with large font for powerpoint presentation
+
+### Setup
+```{css, include = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+```{r}
+path_burden <- "/Volumes/private/StudyData/RISK/analysis/burden/data"
+path_data <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+```
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+library(ggtext)
+library(cowplot)
+library(ggstatsplot)
+library(patchwork)
+library(knitr)
+library(ggthemes)
+```
+
+### Read in data
+```{r}
+burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
+  # wristband will be analyzed in supplemental - not enough observations
+  select(-contains("wristband"))
+
+# pull out last available sleep monitor data since this date will be earlier than last survey date for some
+burden_sleep <- burden %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+  
+# pull out most recent survey for each subid
+burden_last <- burden %>% 
+  select(-c(starts_with("sleep_"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # join with sleep data
+  full_join(burden_sleep, by = c("subid"))
+```
+
+
+###### Active
+```{r}
+# Audio
+audio_int <- burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Willingness to Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y = element_text(hjust = .5),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_dis <-  burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Willingness to Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_1yr <-  burden_last %>% 
+  select("Interference" = audio_checkin_interfere, 
+         "Dislike" = audio_checkin_dislike, 
+         "Continue" = audio_checkin_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         audio = "Audio Check-in") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+audio_plot <- wrap_plots(audio_int, audio_dis, audio_1yr) 
+```
+
+
+```{r}
+# Daily survey 4 x's
+survey_4_int <- burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_4_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SA", "A", "U", "D", "SD"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL)  +
+  theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y = element_text(hjust = .5),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+
+survey_4_dis <-  burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Willingness to Continue" = daily_survey_4_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SA", "A", "U", "D", "SD"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+    labs(y = NULL,
+       x = NULL) +
+  theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3) 
+
+survey_4_1yr <-  burden_last %>% 
+  select("Interference" = daily_survey_interfere, 
+         "Dislike" = daily_survey_dislike, 
+         "Continue" = daily_survey_4_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SD", "D", "U", "A", "SA")),
+         survey = "Daily Survey (x4)") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3) 
+ 
+
+survey_4_plot <- wrap_plots(survey_4_int, survey_4_dis, survey_4_1yr) 
+```
+
+
+```{r fig.height = 6, warning = FALSE}
+# Final figure
+active_plot <- wrap_plots(audio_plot, survey_4_plot, ncol = 1) 
+
+active_plot  
+```
+
+###### Mixed
+
+```{r}
+# Sleep Monitor
+sleep_int <- burden_last %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Willingness to Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(hjust = .5)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_dis <-  burden_last %>% 
+  filter(!is.na(sleep_dislike)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Willingness to Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  scale_x_discrete(drop = FALSE) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_1yr <-  burden_last %>% 
+  filter(!is.na(sleep_1year)) %>% 
+  select("Interference" = sleep_interfere, 
+         "Dislike" = sleep_dislike, 
+         "Continue" = sleep_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         sleep = "Sleep Monitor") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+sleep_plot <- wrap_plots(sleep_int, sleep_dis, sleep_1yr) 
+```
+
+
+```{r}
+# carrying phone
+phone_int <- burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Willingness to Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Interference") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SA", "A", "U", "D", "SD"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.y = element_text(hjust = .5)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+
+phone_dis <-  burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Willingness to Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SA", "A", "U", "D", "SD"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+
+phone_1yr <-  burden_last %>% 
+  select("Interference" = carrying_phone_interfere, 
+         "Dislike" = carrying_phone_dislike, 
+         "Continue" = carrying_phone_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SD", "D", "U", "A", "SA")),
+         phone = "Carrying Phone") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+
+phone_plot <- wrap_plots(phone_int, phone_dis, phone_1yr) 
+```
+
+```{r}
+# Final figure
+mixed_plot <- wrap_plots(sleep_plot, phone_plot, ncol = 1) 
+
+mixed_plot
+```
+
+###### Passive
+
+```{r}
+# Location
+location_dis <-  burden_last %>% 
+  select("Dislike" = location_dislike, 
+         "Willingness to Continue" = location_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_grid(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y = element_text(hjust = .5),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank(),
+        strip.text.y = element_markdown()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+  
+  
+location_1yr <- burden_last %>% 
+  select("Dislike" = location_dislike, 
+         "Continue" = location_1year) %>%  
+  gather(key = "measure") %>% 
+  filter(measure == "Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         location = "Location") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.x = element_blank(),
+        strip.text.y = element_markdown()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+location_plot <- wrap_plots(location_dis, location_1yr) 
+```
+
+
+```{r}
+# Logs
+logs_dis <-  burden_last %>% 
+  select("Dislike" = all_logs_dislike, 
+         "Willingness to Continue" = all_logs_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly agree", "agree", "undecided", "disagree", "strongly disagree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y = element_text(hjust = .5),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+logs_1yr <-  burden_last %>% 
+  select("Dislike" = all_logs_dislike, 
+         "Willingness to Continue" = all_logs_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("strongly disagree", "disagree", "undecided", "agree", "strongly agree")),
+         logs = "Logs (SMS/Voice)") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+    theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.ticks.x=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank(),
+        axis.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "undecided"), linetype = "dashed", size = .3)
+
+logs_plot <- wrap_plots(logs_dis, logs_1yr) 
+```
+
+
+```{r}
+# sms
+sms_dis <-  burden_last %>% 
+  select("Dislike" = sms_content_dislike, 
+         "Willingness to Continue" = sms_content_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Dislike") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SA", "A", "U", "D", "SD"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        axis.text.y = element_text(hjust = .5),
+        text = element_text(size = 18),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+
+sms_1yr <-  burden_last %>% 
+  select("Dislike" = sms_content_dislike, 
+         "Willingness to Continue" = sms_content_1year) %>% 
+  gather(key = "measure") %>% 
+  filter(measure == "Willingness to Continue") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("SD", "D", "U", "A", "SA")),
+         sms = "SMS Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "light grey") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .6) +
+  labs(y = NULL,
+       x = NULL) +
+   theme_stata() + scale_color_stata() +
+    theme(legend.position = "none",
+        text = element_text(size = 18),
+        axis.text.y=element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.y=element_blank(),
+        strip.background.x = element_blank(),
+        strip.text.x = element_blank()) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .3, color = "maroon") +
+  geom_vline(aes(xintercept = "U"), linetype = "dashed", size = .3)
+sms_plot <- wrap_plots(sms_dis, sms_1yr) 
+```
+
+
+```{r fig.height = 6, fig.width = 5.5}
+# Final figure
+passive_plot <- wrap_plots(location_plot, logs_plot, sms_plot, ncol = 1) 
+
+passive_plot  
+```

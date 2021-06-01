@@ -1,0 +1,238 @@
+---
+title: "ali_ema_eda"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+options(knitr.kable.NA = '')
+
+#rmarkdown::draft(file = "./analysis/ema_stressors/scripts/template_stress_descriptors.Rmd", template = "../../demos_docs/R/templates/basic_shell")
+```
+
+## Notes
+The purpose of this script is to run some eda on the RISK intake data 
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+```{r}
+data_path <- "./analysis/shared/data"
+```
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+library(ggtext)
+library(cowplot)
+library(patchwork)
+library(knitr)
+```
+
+## Import screen survey data
+
+
+```{r}
+screen <- read_csv(file.path(data_path, "screen.csv"), 
+                   col_types = cols(
+                     assist_1_1 = col_factor(c("Yes", "No")), 
+                     assist_1_2 = col_factor(c("Yes", "No")), 
+                     assist_1_3 = col_factor(c("Yes", "No")), 
+                     assist_1_4 = col_factor(c("Yes", "No")), 
+                     assist_1_5 = col_factor(c("Yes", "No")), 
+                     assist_1_6 = col_factor(c("Yes", "No")),
+                     assist_1_7 = col_factor(c("Yes", "No")), 
+                     assist_1_8 = col_factor(c("Yes", "No")))) %>% glimpse()
+
+#screen_1 <- read_csv(file.path(data_path, "screen.csv")) %>% parse_factor(c("assist_1_1", "assist_1_2", "assist_1_3", "assist_1_4", "assist_1_5", "assist_1_6", "assist_1_7", "assist_1_8", "assist_1_9"), levels = c("Yes", "No")) %>% glimpse()
+#here is where you need to specify which variables are factors and ordered factors
+  #follow the instructions on data importing in r4ds
+
+```
+
+
+
+## Looking at assist responses
+
+
+
+1a. Make a table of frequency of lifetime use for every drug. Which drugs are common, which are not?
+
+```{r}
+screen %>% 
+  select(starts_with("assist_1")) %>% 
+  map(~tabyl(.x))
+```
+
+
+1b. Make histograms of each drug for lifetime history. Which drugs are common, which are not?
+```{r}
+
+screen %>% #please update the rest of the histograms to be tidy, like this one!
+  ggplot() + 
+  geom_bar(mapping = aes(x = assist_1_1)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Tobacco products (cigarettes, chewing tobacco, cigars, etc.")
+
+screen %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_1_2)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Cannabis (marijuana, pot, grass, hash, etc.")
+
+screen %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_1_3)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Cocaine (coke, crack, etc.")
+
+screen %>%
+  ggplot() +geom_bar(mapping = aes(x = assist_1_4)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Amphetamine type stimulants (speed, diet pills, ecstasy, etc.")
+
+screen %>%
+  ggplot() +geom_bar(mapping = aes(x = assist_1_5)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Inhalants (nitrous, glue, petrol, paint thinner, etc.")
+
+screen %>%
+  ggplot() +geom_bar(mapping = aes(x = assist_1_6)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Sedatives or Sleeping Pills (Valium, Serepax, Rohypnol, etc.)")
+
+screen %>%
+  ggplot() +geom_bar(mapping = aes(x = assist_1_7)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.")
+
+screen %>%
+  ggplot() +geom_bar(mapping = aes(x = assist_1_8)) + 
+  ggtitle("In your life, which of the following substances have you ever used? (Non-Medical Use Only) -\n Opioids (heroin, morphine, methadone, codeine, etc")
+```
+
+
+
+
+
+```{r}
+screen %>% select(starts_with("assist_1")) %>% mutate(sum_yes = rowSums(. == "Yes")) %>%  ggplot() +
+  geom_bar(mapping = aes(x = sum_yes)) + 
+  ggtitle("Distribution of # of drugs used across lifetime.(excluding alcohol)")
+
+whoassist_lifetime <- screen %>% select(starts_with("assist_1")) %>% mutate(sum_yes = rowSums(. == "Yes")) %>% mutate(low_drug = sum_yes <= 4, high_drug = sum_yes >= 5) %>% glimpse()
+
+
+whoassist_lifetime <- whoassist_lifetime %>% count(assist_1_1, assist_1_2, assist_1_3, assist_1_4, assist_1_5, assist_1_6, assist_1_7, assist_1_8, sort = TRUE) %>% view()
+
+rename(whoassist_lifetime, tobacco = assist_1_1, cannabis = assist_1_2, cocaine = assist_1_3, stimulants = assist_1_4, inhalants = assist_1_5, sedatives = assist_1_6, hallucinogens = assist_1_7, opioids = assist_1_8)
+```
+
+
+
+
+2. Make histograms of each drug for 3 month history. 
+```{r}
+screen %>% #use this tidy format for each of the other histograms
+  select(starts_with("assist_2")) %>% 
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_1)) + 
+  ggtitle("In the past 3 months, How often have you used -\n Tobacco products (cigarettes, chewing tobacco, cigars, etc.")
+
+screen %>%
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_2)) + 
+  ggtitle("In the past 3 months, How often have you used -\n Cannabis (marijuana, pot, grass, hash, etc.")
+
+screen %>%
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_3)) + 
+  ggtitle("In the past 3 months, How often have you used -\n Cocaine (coke, crack, etc.")
+
+screen %>% 
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_4)) + 
+  ggtitle("In the past 3 months, How often have you used -\n Amphetamine type stimulants (speed, diet pills, ecstasy, etc.")
+
+screen %>%
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_5)) +
+  ggtitle("In the past 3 months, How often have you used -\n Inhalants (nitrous, glue, petrol, paint thinner, etc.")
+
+screen %>%
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_6)) + 
+  ggtitle("In the past 3 months, How often have you used -\n Sedatives or Sleeping Pills (Valium, Serepax, Rohypnol, etc.)")
+
+screen %>% 
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_7)) +
+  ggtitle("In the past 3 months, How often have you used) -\n Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.")
+
+screen %>%
+  select(starts_with("assist_2")) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = assist_2_8)) + 
+  ggtitle("In the past 3 months, How often have you used) -\n Opioids (heroin, morphine, methadone, codeine, etc")
+```
+
+
+3. Lifetime Co-morbidity (which drugs do people tend to use together... e.g., if you've used X you are likely to have used Y.)
+```{r}
+#whoassist_lifetime_levels <- c("Yes", "No")
+#
+#assist_life_1 <- factor(screen$assist_1_1, levels = whoassist_lifetime_levels)
+#
+#assist_life_2 <- factor(screen$assist_1_2, levels = whoassist_lifetime_levels)
+#
+#assist_life_3 <- factor(screen$assist_1_3, levels = whoassist_lifetime_levels)
+#
+#assist_life_4 <- factor(screen$assist_1_4, levels = whoassist_lifetime_levels)
+#
+#assist_life_5 <- factor(screen$assist_1_5, levels = whoassist_lifetime_levels)
+#
+#assist_life_6 <- factor(screen$assist_1_6, levels = whoassist_lifetime_levels)
+#
+#assist_life_7 <- factor(screen$assist_1_7, levels = whoassist_lifetime_levels)
+#
+#assist_life_8 <- factor(screen$assist_1_8, levels = whoassist_lifetime_levels)
+#
+#
+
+#
+#assist_lifetime <- data.frame(assist_life_1, assist_life_2, assist_life_3, assist_life_4, assist_life_5, #assist_life_6, assist_life_7, assist_life_8)
+
+
+#assist_lifetime.cor <- cor(assist_lifetime)
+
+#assist_lifetime.cor
+
+#here is a more efficient way to do that
+screen %>% 
+  select(starts_with("assist_1")) %>% 
+  mutate(across(starts_with("assist_1"), as.numeric)) %>% 
+  cor()
+  
+```
+
+
+4. Once done, for the most common drug or 2 drugs look at the other questions.
+
+```{r}
+screen <- bind_cols(screen, whoassist_lifetime['sum_yes'])
+
+
+screen %>% lm(sum_yes ~ auh_1, data = .) %>% summary()
+
+screen %>% lm(auh_14 ~ auh_1 + sum_yes, data = .) %>% summary()
+
+
+screen %>% lm(sum_yes ~ auh_1 + auh_14, data = .) %>% summary()
+```
+

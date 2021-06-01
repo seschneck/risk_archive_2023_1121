@@ -1,0 +1,43 @@
+---
+title: "Emojis in Android test messages"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+---
+
+## Set up
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Paths 
+```{r}
+path_in <- "Z:/studydata/risk/analysis/meta/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+```
+
+## Read in text messages
+```{r}
+logs <- read_csv(file.path(path_in, "meta_sms_android.csv"), col_types = cols()) %>%
+  select(subid, body) %>% 
+  glimpse()
+```
+

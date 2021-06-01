@@ -1,0 +1,113 @@
+---
+title: "**Results**"
+output: 
+  word_document:
+    reference_docx: Ariel11.docx
+
+---
+```{r Setup, include=FALSE}
+#Hefner2_JAP2__knitr.RMD---------------------------------------------------------------------------
+#This file users knitr to dynamically generate the manuscript results section (including endnotes)
+#
+#
+#This section sets global options for doc.  Will not be displayed in doc b/c include=FALSE
+#echo=TRUE/FALSE, results='markup'/'hide'
+# Change the default font size and font family
+options(digits = 1, 'ReporteRs-fontsize'=11, 'ReporteRs-default-font'='Arial', width = 99)
+
+#Analysis source files
+#source('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_STL_Group.R')
+#source('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_Table1.R')
+#source('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_Table2.R')
+#source('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_STL_ID.R')
+
+#Required Packages ---------------------------------------------------------------
+#Analysis using R version 3.3.1 (2016-06-21) "Bug in Your Hair"
+#RStudio Version 0.99.903
+library(lmSupport) #version 2.9.4
+library(knitr) #version 1.14
+ library(formatR) #version 1.5
+knitr::opts_chunk$set(echo=TRUE, results ='markup', eval = TRUE, include=TRUE, cache=FALSE)
+
+
+```
+
+Data analysis and figure preparation were accomplished with R (R Core Team, 2015) within R-Studio using the lmSupport (Curtin, 2015) package. We use general linear models (GLMs) for all analyses unless otherwise noted. Marijuana Group effects were analyzed with two planned orthogonal contrasts: the Heavy Marijuana User contrast (deprived and non-deprived heavy users vs. minimal use controls) and the Deprivation contrast (deprived vs. non-deprived heavy marijuana users). We report 95% confidence intervals for raw parameter estimates (*b*) and partial $eta^2$ ($\eta_p^2$) from the GLMs to document effect sizes.  
+
+
+```{r include=TRUE, echo=FALSE}
+knitr::read_chunk('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_Table1.R')
+```
+
+```{r include=FALSE, echo=FALSE}
+# Open and Setup Data 
+InPath = 'P:/StudyData/HEFNER2/Analysis/JAP2/Data'
+
+#all participants
+dA = dfReadDat(file.path(InPath, 'IDScales.dat') ) 
+dA$Group3 = as.factor(dA$Group3)
+contrasts(dA$Group3) = varContrasts(dA$Group3, Type='POC', POCList = list(c(-2, 1, 1), c(0,1,-1)), Labels = c('Smo_v_Con', 'DS_v_NDS')) #set contrast codes for SG3
+
+dA$UserContrast = varRecode(dA$Group3, c('Con', 'DS', 'NDS'), c('Con', 'User', 'User'))
+
+```
+
+```{r table1, echo=TRUE, message=FALSE, warning=FALSE, include=TRUE}
+
+```
+
+
+`r diagnochi = chisq.test(dA$Group3, dA$MJDiagnosis, correct = TRUE, p = rep(1/length(x), length(x)), rescale.p = FALSE, simulate.p.value = FALSE, B = 2000)`
+
+# Group Comparisons on Affect and Marijuana-Relevant Individual Differences
+Means, standard deviations, and p-values for the two Marijuana Group contrasts for the affect and marijuana-relevant individual difference measures are reported in Table 1. None of the Deprivation contrasts were significant for any of the individual difference measures, as expected given that heavy users were randomly assigned to the deprived and non-deprived groups. Significant Heavy Marijuana User contrasts were observed for all individual difference measures. On the DASS-21, heavy marijuana users reported higher Depression [`r modelRmd('Group3Smo_v_Con', mDASS_Dep_Tab)`],  Anxiety [`r modelRmd('Group3Smo_v_Con', mDASS_Anx_Tab)`], and Stress [`r modelRmd('Group3Smo_v_Con', mDASS_Str_Tab)`] than controls in the past month.  On the MMM, heavy marijuana users endorsed greater Stress coping [`r modelRmd('Group3Smo_v_Con', mMMM_Cope_Tab)`], Enhancement [`r modelRmd('Group3Smo_v_Con', mMMM_Enhance_Tab)`], Expansion [`r modelRmd('Group3Smo_v_Con', mMMM_Expand_Tab)`], and Social Motives [`r modelRmd('Group3Smo_v_Con', mMMM_Social_Tab)`], and less Conformity [`r modelRmd('Group3Smo_v_Con', mMMM_Conform_Tab)`], than controls.  Finally, heavy marijuana users were also positive for marijuana abuse and dependence diagnoses (assessed via the MINI) at higher rates than controls [$\chi$^2^(`r diagnochi[2]`) = `r diagnochi[1]`, *p* < .001]
+
+
+
+
+```{r include=TRUE, echo=FALSE}
+knitr::read_chunk('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_Table2.R')
+```
+
+
+```{r table2, echo=TRUE, message=FALSE, warning=FALSE, include=TRUE}
+
+```
+
+# Marijuana Deprivation Manipulation Checks
+`r DaysLUse = varDescribeBy(dM$DaysSinceUse, list(dM$Group2))`
+Means, standard deviations, and p-values for the Deprivation contrast on self-report and biological confirmation of marijuana use, marijuana withdrawal, and marijuana craving are reported in Table 2. Deprived and non-deprived heavy marijuana users reported comparable average marijuana use at the screening session, as expected by random assignment, `r modelRmd('Group2DS_v_NDS', mGrams_Tab)`  Deprived marijuana users reported greater time since last marijuana use (*M* = `r DaysLUse[[2]][3]`, *SD* = `r DaysLUse[[2]][4]`, Range = `r DaysLUse[[2]][6]` - `r DaysLUse[[2]][7]`) relative to non-deprived users (*M* = `r DaysLUse[[1]][3]`, *SD* = `r DaysLUse[[1]][4]`, Range = `r DaysLUse[[1]][6]` - `r DaysLUse[[1]][7]`) at the experimental session [`r modelRmd('Group2DS_v_NDS',mDays_Tab)`], with descriptive statistics confirming that both groups adhered to instructions regarding the deprivation manipulation.   Biological verification of deprivation status via urinalysis confirmed that deprived marijuana users displayed lower creatinine-normalized THC at the experimental session (controlling for their baseline values at screening) [`r modelRmd('Group2DS_v_NDS', mSR_Tab)`], and a lower specimen ratio (experimental / screening session ratio of these values) [`r modelRmd('Group2DS_v_NDS', mTHC_E_Tab)`] relative to non-deprived users.  Furthermore, no deprived user had a specimen ratio that exceeded the 1.5 cut-point advocated by Huestis & Cone (1998)  for detection recent use.  Deprived users reported higher scores than the non-deprived users on the total score [`r modelRmd('Group2DS_v_NDS', mMWC_Tot_E_Tab)`] and negative affect subscale [`r modelRmd('Group2DS_v_NDS', mMWC_Affect_E_Tab)`] of the MWC at the experimental session, controlling for their respective baseline scores at screening.   Deprived users also reported higher marijuana craving than non-deprived users at the experimental session, controlling for their baseline craving at screening [`r modelRmd('Group2DS_v_NDS', mMCQ_Tot_E_Tab)`].
+
+
+
+
+```{r include=TRUE, echo=FALSE}
+knitr::read_chunk('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_STL_Group.R')
+```
+
+```{r STL_Group, echo=TRUE, include=TRUE}
+
+```
+# Marijuana Group Effects on Startle Potentiation
+
+Startle Potentiation^3^ was analyzed in a GLM with between-subjects regressors for the Heavy Marijuana User and Deprivation planned orthogonal contrasts. General Startle Reactivity (mean-centered) and Order (task order 1 vs. order 2) were included as interactive covariates. As expected, significant non-zero startle potentiation was observed, `r modelRmd('(Intercept)', mDiff)` such that startle response was significantly potentiated  during unpredictable shock threat as compared to no-shock blocks. The Heavy Marijuana User contrast was significant, `r modelRmd('Group3Smo_v_Con', mDiff)`, indicating that heavy marijuana users displayed approximately 15 ?V greater startle potentiation to threat of unpredictable shock as compared to controls (Figure 1). The Deprivation contrast was not significant, `r modelRmd('Group3DS_v_NDS', mDiff)`, indicating comparable startle potentiation across deprived and non-deprived heavy users.
+
+
+Supplemental robustness analyses evaluated the above reported significant Heavy Marijuana User contrast while controlling for all non-marijuana use relevant individual differences listed in Table 1 (i.e., age, sex, race, Hispanic ethnicity, DASS scales, self-report of anxiety, depression, or any psychiatric diagnosis or treatment, drinks/week, cigarettes/week, smoker status) by including each of these individual differences as a covariate in separate analyses. Cannabis use disorder diagnoses and Marijuana Use Motives were not considered as covariates in these analyses because variance on these measures is inherent to group membership in the heavy user groups (Miller & Chapman, 2001). The Heavy Marijuana User contrast remained significant across all models controlling for these covariates (individual p-values for this contrast ranged from .022-.047).
+
+
+```{r include=TRUE, echo=FALSE}
+knitr::read_chunk('P:\\StudyData\\Hefner2\\Analysis\\JAP2\\Scripts\\ana_STL_ID.R')
+```
+```{r STL_ID, echo=TRUE, include=TRUE}
+
+```
+# Marijuana-Relevant Individual Differences and Startle Potentiation
+To clarify the observed significant Heavy Marijuana User contrast, we conducted follow-up analyses of marijuana-relevant individual differences measures (i.e., marijuana use motives, diagnostic status). Each of these individual difference variables was examined in separate GLMs that included General Startle Reactivity and Order as interactive covariates per the primary analysis of Marijuana Group reported above. Given the exploratory nature of these follow-up analyses, we report both raw and false discovery rate (FDR) corrected p-values (Benjamini & Hochberg, 1995) for these statistical tests.
+
+`r pfdr = p.adjust(p=p, method = 'fdr')`	
+Participants who reported greater Stress Coping motives for their marijuana use displayed significantly increased startle potentiation, `r modelRmd('cMMM_Cope', mMMM_Cope)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[1]``r options(digits=2)` (see Figure 2A)^4^.   No significant effects were observed for Conformity [`r modelRmd('cMMM_Conform', mMMM_Conform)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[2]``r options(digits=2)`], Enhancement [`r modelRmd('cMMM_Enhance', mMMM_Enhance)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[3]``r options(digits=2)`], Expansion [`r modelRmd('cMMM_Expand', mMMM_Expand)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[4]``r options(digits=2)`], or Social motives for marijuana use [`r modelRmd('cMMM_Social', mMMM_Social)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[5]``r options(digits=2)`].   A significant linear effect for Marijuana Use Disorder diagnosis was observed, `r modelRmd('MJDiagnosisLin', mDiagPOC)`, `r options(digits=3) `FDR-corrected *p* = `r pfdr[6]``r options(digits=2)`, with increasing startle potentiation observed across participants with no diagnosis vs. marijuana abuse vs. marijuana dependence (see Figure 2B).
+
+
+
+

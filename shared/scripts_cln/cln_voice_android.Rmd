@@ -1,0 +1,653 @@
+---
+title: "Andriod/Voice Logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    pandoc_args: [
+      "+RTS", "-K1000m",
+      "-RTS"
+      ]
+    toc: yes
+    toc_depth: 3
+---
+
+### Notes
+Purpose: This script contains code to open and merge all voice log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+
+**Note: Emojis are accidently stripped in the aggregated csv file, still working on how to extract them from the xml files and will update.**    
+ 
+
+Inputs:   
+[subid]_Voice_1.xml  
+[subid]_Voice_2.xml   
+[subid]_Voice_3.xml  
+etc. for as many voice xml logs in the subid's folder  
+
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_raw <- "Z:/StudyData/RISK/raw_data"
+path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(XML)
+library(xml2)
+```
+
+
+### Android Voice Logs (XML) 
+
+#### Create function to read in subid logs
+
+```{r}
+read_xml <- function(subid) {
+    logs <- tibble(subid = character(),
+                   message = character())
+    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
+        if(str_detect(file,'.xml')) {
+          path <- file.path(path_raw, subid, file)
+          
+          # xml code adapted from Susan's fun_database script
+          # use read_html instead of read_xml to avoid problem with emojis in contacts
+          xml <- xml_children(read_html(file.path(path)))
+ 
+          # fix for problem with nested list after switching to read_html()
+          while (length(xml) == 1) {
+            xml <- xml_children(xml) #loop to find lower level of xml children 
+          }    
+
+          log <- data.frame(
+            number = xml_attr(xml,'number'),
+            duration = xml_attr(xml,'duration'),
+            date = xml_attr(xml,'date'),
+            type = xml_attr(xml,'type'),
+            presentation = xml_attr(xml,'presentation'),
+            readable_date = xml_attr(xml,'readable_date'),
+            contact_name = xml_attr(xml,'contact_name'),
+            stringsAsFactors = FALSE)
+          
+          # Add subid and log information to dataframe
+          log <- log %>% 
+            mutate(subid = subid,
+                   log_file = file,
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime)
+          
+          # Join log files
+          logs <- logs %>% 
+            full_join(log)
+        }
+        if(nrow(logs) == 0) {
+          extension <- str_extract(log_files[1], "[^.]*$")
+          logs <- logs %>% add_row(subid = subid, message = str_c("Log files in ", extension, " format"))
+        }
+      }
+      return(logs)
+    } else if(length(log_files) == 0){
+        logs <- logs %>% add_row(subid = subid, message = "No log files found")
+        return(logs)
+    }
+}
+```
+
+#### get subids
+```{r}
+subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>% 
+  keep(~ str_detect(.x, "([0-2][0-9][0-9])")) %>% 
+  enframe(name = NULL, value = "subid")
+```
+
+
+#### read in all logs
+```{r message = FALSE}
+all_logs <- tibble(subid = character())
+all_logs <- map_df(subids$subid, ~read_xml(.)) %>% 
+  glimpse()
+```
+
+#### Separate logs and messages
+```{r}
+log_messages <- all_logs %>% 
+  filter(!is.na(message)) %>% 
+  select(subid, message)
+
+table(log_messages$message)
+
+all_logs <- all_logs %>% 
+  filter(is.na(message)) %>%
+  # removing my temp message variable for documenting subids without XML logs
+  select(-message) %>% 
+  glimpse()
+```
+
+#### Remove duplicates
+```{r}
+logs_android <- all_logs %>% 
+  distinct(across(c(subid, number, duration, date, type, presentation)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
+Check no unique log entries in all_logs missing from logs_android
+```{r}
+all_logs %>% 
+  anti_join(logs_android, by = c("subid", "number", "duration", "date", "type", "presentation"))
+```
+
+Look at duplicates as a check      
+*Only showing preview in knitted file because pandoc crashes with full table*
+```{r}
+dups <- all_logs %>% 
+  add_count(subid, number, duration, date, type, presentation) %>% 
+  filter(n > 1) %>% 
+  select(-c(log_file, created, modified, n))
+
+all_logs %>% 
+  semi_join(dups, by = c("subid", "number", "duration", "date", "type", "presentation")) %>% 
+  arrange(subid, number, duration, date, type, presentation) %>%
+  head(n = 500) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+#### Convert utc to date time     
+Check all dates encoded as 13 digit utc in milliseconds  
+```{r}
+logs_android %>% 
+  filter(!nchar(date) == 13)
+```
+
+Check no missing date values
+```{r}
+logs_android %>% 
+  filter(is.na(date))
+```
+
+Convert to date time object
+```{r}
+logs_android <- logs_android %>% 
+  mutate(date = round(as.numeric(date)/1000, 0), 
+         date = as_datetime(date, tz = "utc"))
+```
+
+
+#### Other data updates for eda
+
+Check classes
+```{r}
+logs_android %>% 
+  glimpse()
+```
+
+Convert int columns to numeric
+```{r}
+# check variables contain only integers
+logs_android %>% 
+  count(duration) %>% 
+  print(n = Inf)
+logs_android %>% 
+  count(type)
+logs_android %>% 
+  count(presentation)
+
+# convert to int class
+logs_android <- logs_android %>% 
+  mutate(duration = as.numeric(duration),
+         type = as.numeric(type),
+         presentation = as.numeric(presentation)) 
+```
+
+replace empty character cells with NA
+```{r}
+logs_android <- logs_android %>% 
+  mutate(across(where(is.character), ~na_if(., "")))
+```
+
+Final glimpse
+```{r}
+logs_android %>% 
+  glimpse()
+```
+
+<br>
+
+### EDA
+
+`r length(unique(logs_android$subid))` subids had xml voice data logs read in.   
+`r nrow(subset(log_messages, message == "No log files found"))` subids did not have logs.  
+`r nrow(subset(log_messages, message != "No log files found"))` subids had logs but not in XML format.    
+
+This accounts for a total of 216 participants.  
+
+
+#### missing data
+```{r}
+logs_android %>% 
+  naniar::miss_var_summary()
+
+logs_android %>% 
+  naniar::vis_miss()
+```
+
+<br>
+
+#### dates
+date ranges from `r min(logs_android$date)` to `r max(logs_android$date)`   
+
+Check dates against readable_date variable   
+```{r}
+logs_android %>% 
+  # convert readable date to date time object
+  mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
+                                                   format = "%b %e, %Y %I:%M:%S %p")) %>% 
+  # convert utc date to central time
+  mutate(date = with_tz(date, tzone = "America/Chicago")) %>% 
+  select(date, date_str)
+```
+
+Compare two date entries for discrepancies
+```{r}
+logs_android %>% 
+  mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
+                                                   format = "%b %e, %Y %I:%M:%S %p"),
+         date = with_tz(date, tzone = "America/Chicago"),
+         diff = round(difftime(date, date_str, units = "mins"), 0)) %>%
+  filter(diff != 0)
+```
+
+Date and times match. No longer need readable date.
+```{r}
+logs_android <- logs_android %>% 
+  select(-readable_date) %>% 
+  glimpse()
+```
+
+<br>
+
+#### phone number
+
+180 missing phone numbers   
+All numbers correctly show the number was blocked (presentation = 2) or unknown by network (presentation = 3).   
+```{r}
+logs_android %>% 
+  filter(is.na(number)) %>% 
+  janitor::tabyl(presentation)
+```
+
+Seems like some subids get more blocked calls than others - all 180 missing numbers belong to 24 subids   
+```{r}
+logs_android %>% 
+  filter(is.na(number)) %>% 
+  count(subid) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+Raw number format
+```{r}
+logs_android %>% 
+  filter(!is.na(number)) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+<br>
+
+*Note: Blocked and unknown numbers often show up as -1 and -2.*    
+
+* For the most part -1 and -2 numbers seem to be related to blocked calls where -1 = unknown number by network and -2 = blocked number by caller.    
+* This information should be able to be retrieved from the presention variable where 2 = number blocked by user and 3 = number not specified or unknown by network      
+
+FIX: -1 and -2 numbers should be NA - correct in cleaning script or log?       
+  
+We might lose info on a few cases where presentation was 1 meaning number shown.     
+FIX: Presentation as 1 is incorrect on 11 blocked calls, fix this in cleaning log?  
+```{r}
+logs_android %>% 
+  filter(number == -1) %>% 
+  janitor::tabyl(presentation)
+
+logs_android %>% 
+  filter(number == -2) %>% 
+  janitor::tabyl(presentation)
+```
+ 
+All calls were incoming, missed, or rejected (info obtained from type variable)   
+```{r}
+logs_android %>% 
+  filter(number == -1 & presentation == 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+
+logs_android %>% 
+  filter(number == -2 & presentation == 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+<br>
+
+*Formatting notes to address at study-level*   
+
+Spaces
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "[[:space:]]")) %>% 
+  select(number)
+```
+
+Dashes
+```{r}
+logs_android %>% 
+  filter(number != "-1" & number != "-2") %>% 
+  filter(str_detect(number, "-")) %>% 
+  select(number)
+```
+
+Semicolons  
+FIX: keep number before ; only?
+```{r}
+logs_android %>% 
+  filter(str_detect(number, ";")) %>% 
+  select(number)
+```
+
+Pound signs
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "#")) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+Asterisks  
+* 67 before dialing a number hides the number from showing on caller id
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "\\*")) %>% 
+  count(number) %>% 
+  print(n = Inf)
+```
+
+all blocked numbers using * 67 are outgoing
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "^\\*67")) %>%  
+  count(type)
+```
+
+all 67 blocked outgoing calls are made by 8 subids
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "^\\*67")) %>%  
+  count(subid)
+```
+
+
+<br>
+
+Country codes   
+*US numbers either have no country code, a +1, a 1 or a +. Some also have no area code.*  
+
+US country codes that start with +1
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "\\+1")) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+Should only remove +1 from US numbers (12 characters long)   
+Do not eliminate +1 on following numbers
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "\\+1")) %>% 
+  # remove spaces and dashes from count
+  mutate(number = str_replace(number, "[[:space:]]", ""),
+         number = str_replace_all(number, "-", "")) %>% 
+  select(number) %>% 
+  filter(nchar(number) != 12)
+```
+
+US country codes that start with 1
+```{r}
+logs_android %>% 
+  filter(str_detect(number, "^1")) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+Should only remove 1 from US numbers (11 characters long)   
+Do not eliminate 1 on following numbers
+```{r}
+logs_android %>% 
+  # filter out blocked calls (-1)
+  filter(number != "-1") %>% 
+  filter(str_detect(number, "^1")) %>% 
+  # remove spaces and dashes from count
+  mutate(number = str_replace(number, "[[:space:]]", ""),
+         number = str_replace_all(number, "-", "")) %>% 
+  select(number) %>% 
+  filter(nchar(number) != 11) %>% 
+  print(n = Inf)
+```
+
+US country codes that start with +
+```{r}
+logs_android %>% 
+  # remove spaces and dashes for count
+  mutate(number = str_replace(number, "[[:space:]]", ""),
+         number = str_replace_all(number, "-", "")) %>% 
+  # remove us country codes
+   mutate(number = case_when(str_detect(number, "\\+1") & nchar(number) == 12 ~ 
+                               str_replace(number, "\\+1", ""),
+                             TRUE ~ number)) %>% 
+  filter(str_detect(number, "^\\+\\d*")) %>% 
+  filter(nchar(number) == 11) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+7 digit US numbers (no area code)    
+1488 numbers have no area code 
+```{r}
+logs_android %>% 
+  filter(str_length(number) == 7) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+<br>
+
+Non-US country codes 
+```{r}
+logs_android %>% 
+  # remove spaces and dashes for count
+  mutate(number = str_replace(number, "[[:space:]]", ""),
+         number = str_replace_all(number, "-", "")) %>% 
+  # remove us country codes
+   mutate(number = case_when(str_detect(number, "\\+1") & nchar(number) == 12 ~ 
+                               str_replace(number, "\\+1", ""),
+                             TRUE ~ number)) %>% 
+  filter(str_detect(number, "^\\+\\d*")) %>% 
+  filter(nchar(number) > 11) %>% 
+  select(number) %>% 
+  print(n = Inf)
+```
+
+
+https://countrycode.org/   
+91 = India  
+32 = Belgium  
+33 = France  
+233 = Ghana  
+60 = Malaysia   
+47 = Norway  
+
+<br>
+
+numbers with less than 7 characters     
+* 86 - calls voicemail for verizon phones   
+```{r}
+logs_android %>% 
+  #exclude blocked numbers
+  filter(number != "-1" & number != "-2") %>% 
+  filter(str_length(number) < 7) %>% 
+  count(number) %>% 
+  arrange(desc(n)) %>% 
+  print(n = Inf)
+```
+
+
+#### duration
+
+FIX: one call duration is -4 seconds
+```{r}
+psych::describe(logs_android$duration)
+
+logs_android %>% 
+  filter(duration < 0) %>%
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(3, color = "red")
+```
+
+Calls with 0 seconds duration
+```{r}
+logs_android %>% 
+  filter(duration == 0) %>% 
+  janitor::tabyl(type)
+```
+
+```{r}
+hist(logs_android$duration)
+```
+
+
+#### type
+```{r}
+table(logs_android$type)
+```
+https://developer.android.com/reference/android/provider/CallLog.Calls#TYPE   
+1 = incoming   
+2 = outgoing   
+3 = missed   
+4 = voicemail
+5 = rejected   
+6 = blocked (automatically - block list)     
+7 = answered externally (different device)   
+
+FIX: it seems like these 7 are the only documented types and online forums suggest that "some flavours of Android return haphazard integers."    
+**It looks like all 556 log entries with incorrect type integers belong to 8 subids**
+```{r}
+logs_android %>% 
+  filter(type > 7) %>% 
+  group_by(subid) %>% 
+  summarise(n = n())
+```
+
+
+#### presentation
+```{r}
+table(logs_android$presentation)
+```
+https://developer.android.com/reference/android/provider/CallLog.Calls#PRESENTATION_ALLOWED  
+1 = number displayed (presentation allowed)  
+2 = number is blocked by user   
+3 = number is not specified or unknown by network   
+4 = payphone  
+
+blocked numbers   
+Number displayed as -2 or NA for blocked calls.   
+```{r}
+logs_android %>% 
+  filter(presentation == 2) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+Number displayed as -1 or NA for calls that are unknown by network.   
+```{r}
+logs_android %>% 
+  filter(presentation == 3) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px")
+```
+
+
+#### contact name
+```{r}
+logs_android %>% 
+  group_by(contact_name) %>% 
+  slice(1) %>% 
+  select(contact_name) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "50%", height = "500px")
+```
+
+
+#### log files
+more than 3 logs
+```{r}
+logs_android %>% 
+  group_by(subid) %>% 
+  summarise(n_logs = length(unique(log_file))) %>% 
+  filter(n_logs > 3)
+
+logs_android %>% 
+  filter(subid == "032") %>% 
+  janitor::tabyl(log_file)
+
+logs_android %>% 
+  filter(subid == "052") %>% 
+  janitor::tabyl(log_file)
+```
+
+subid 32 bought a new phone in the first month of the study and so we collected call/sms logs from both phones at Follow Up 1.  
+subid 52 got a new phone while on study - likely explains extra log.   
+
+
+log creation dates range from `r min(logs_android$created)` to `r max(logs_android$created)`.      
+log modification dates range from `r min(logs_android$modified)` to `r max(logs_android$modified)`.   
+
+Note: almost all of the logs have modification dates that precede the creation date. Not sure why this is.
+```{r}
+logs_android %>% 
+  filter(modified < created)
+```
+
+
+### Write csv
+```{r}
+write_csv(logs_android, file.path(path_out, "voice_android.csv")) %>% glimpse()
+```
+
+**Note: dates saved as UTC**
+
+<br>

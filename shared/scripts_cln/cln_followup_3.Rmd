@@ -1,0 +1,308 @@
+---
+title: "Clean and process the raw qualtrics follow-up 3"
+author: "John Curtin and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+Purpose: This file does cleaning and basic processing of the qualtrics follow-up 12 survey.
+
+Inputs:  
+
+Opens data file in path_in  
+
+* followup_3.csv
+
+Opens log file in path_log  
+
+* log_followup_3.csv
+
+
+
+Output:  
+
+Creates file in path_out  
+
+* followup_3.csv
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(results = "hold",  message = FALSE)
+```
+
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Paths 
+```{r}
+path_in <- "raw_data/qualtrics"
+path_out <- "analysis/shared/data"
+path_log <- "analysis/shared/notes" 
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+library(psych)
+
+
+source('/Volumes/private/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+
+### Followup 3
+
+#### Clean it
+Load surveys, join, and remove unused variables
+
+Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
+```{r}
+main3 <- read_csv(file.path(path_in, 'followup_3.csv'), col_types = cols())  
+burden_sleep <- read_csv(file.path(path_in, 'followup_3_beddit_burden.csv'), col_types = cols())  %>% 
+  select(ResponseID, RBM_5, RBM_6, RBM_7, RBM_8) 
+burden_empatica <- read_csv(file.path(path_in, 'followup_3_empatica_burden.csv'), col_types = cols()) %>% 
+  select(ResponseID, RBM_1, RBM_2, RBM_3, RBM_4) 
+
+fu3 <- left_join(main3,burden_empatica, by = "ResponseID") %>% 
+  left_join(burden_sleep, by = "ResponseID") %>% 
+  select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
+            RecipientEmail, ExternalDataReference, Status, 
+            LocationLatitude, LocationLongitude, LocationAccuracy,
+            DataType, StudyName, RBM_Inst)) %>% 
+  rename(subid = SubID, response_id = ResponseID)  %>%  #update to tidy case for use in clean_qualtrics_by_log()
+  relocate(subid) %>% 
+  relocate(any_of(str_c("RBM_", 1:8)), .before = "RBM_9")
+```
+
+Open and summarize log
+```{r}
+log_fu3 <- read_csv(file.path(path_log, "log_followup_3.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>%
+  glimpse()
+```
+
+```{r}
+tabyl(log_fu3$log_action)
+```
+
+remove log entries:  
+No entries removed  
+
+recode_one log entries:
+```{r}
+log_fu3 %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to subid variable
+```{r}
+log_fu3 %>% 
+  filter(var_name == "subid") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Changes to UTC variable
+```{r}
+log_fu3 %>% 
+  filter(var_name == "UTC") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Changes to start or end date variable
+```{r}
+log_fu3 %>% 
+  filter(var_name == "StartDate" | var_name == "EndDate") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+note log entries:  
+```{r}
+log_fu3 %>% 
+  filter(log_action == "note") %>% 
+  kbl %>% 
+  kable_classic()
+```
+
+Clean raw data using log
+```{r}
+fu3 <- fu3 %>% 
+  # temporarily change start and end date to character string for cleaning function to work
+  mutate(StartDate = as.character(StartDate),
+         EndDate = as.character(EndDate)) %>% 
+  clean_qualtrics_by_log(., log_fu3) %>% 
+  # change start and end date back to date time
+   mutate(StartDate = as_datetime(StartDate),
+         EndDate = as_datetime(EndDate)) 
+```
+
+Tidy variable names
+```{r}
+fu3 <- clean_names(fu3, "snake") 
+```
+
+Tidy response options 
+Some text response options became slightly distorted, fixing for consistency
+```{r}
+fu3 <- fu3 %>% 
+  mutate(across(where(is.character), str_replace_all, pattern = "\\\\", replacement = " "))
+```
+
+
+
+#### EDA and Save
+
+```{r}
+fu3 %>% 
+  glimpse()
+```
+
+`r length(unique(fu3$subid))` participants contribute to a total of `r nrow(fu3)` reports.  
+
+- 133 is the expected number of participants who completed followup 3.  
+
+<br>
+
+##### Dates and Times
+
+The earliest recorded report is from `r min(fu3$start_date, na.rm = TRUE)` and the most recent is from `r max(fu3$start_date, na.rm = TRUE)`.  
+
+All timezones in UTC
+```{r}
+fu3 %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+```
+
+**Time difference in start_date and utc**
+```{r}
+options(tibble.print_max = Inf)
+fu3 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  tabyl(diff)
+```
+
+- Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).  
+- Check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.)  
+
+No notes for subid with over two hour start and UTC difference  
+```{r}
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+  select(subid, notes_general)
+sub_2hr <- fu3 %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  filter(diff > 120)
+notes %>% 
+  filter(subid %in% sub_2hr$subid) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+**Time difference in start and end date**  
+```{r}
+fu3_diff <- fu3 %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")),
+         diff_mins = as.numeric(str_replace(diff, " mins", "")))
+
+freq <- hist(fu3_diff$diff_mins, breaks = c(seq(0, 220, 10)), include.lowest=TRUE, plot=FALSE)
+tibble(mins = freq$breaks[-1], frequency = freq$counts)
+```
+
+Take a closer look at subid that that has 220 min time difference between start and end time - no notes explaining why  
+```{r}
+fu3 %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")),
+         diff_mins = as.numeric(str_replace(diff, " mins", ""))) %>% 
+  filter(diff_mins >= 220) %>% 
+  kbl %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+notes %>% 
+  filter(subid == 117) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+
+<br>
+
+##### Missing values
+
+```{r}
+fu3 %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing values all seem to be appropriate:  
+rbm_1 through rbm_8 represent wristband and sleep monitor  
+rbm_24 and rbm_31 are both free-text responses  
+
+##### Finished
+
+```{r}
+fu3 %>% 
+  tabyl(finished)
+```
+
+All followup 3 surveys are complete and marked as finished.  
+
+
+##### RA
+
+```{r}
+fu3 %>% 
+  tabyl(ra) %>% 
+  kbl() %>% 
+  kable_classic()
+```
+
+##### Burden Survey (rbm)
+```{r}
+fu3 %>% 
+  select(contains("rbm")) %>% 
+  select(-c(rbm_4, rbm_8, rbm_13, rbm_17, rbm_21, rbm_24, rbm_31)) %>% 
+  map(., table)
+```
+
+
+Save final clean data.  Variables will open with proper class on next load of data
+```{r}
+fu3 %>% 
+  select(-utc) %>% 
+  glimpse() %>% 
+  write_csv(file.path(path_out, "followup_3.csv")) 
+```

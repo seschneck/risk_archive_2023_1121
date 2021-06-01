@@ -1,0 +1,487 @@
+---
+title: "Clean and process the raw qualtrics intake"
+author: "John Curtin and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+Purpose: This file does cleaning and basic processing of the qualtrics intake survey.
+
+Inputs:  
+
+Opens data file in path_in  
+
+* intake.csv
+
+Opens log file in path_log  
+
+* log_intake.csv
+
+Opens supporting files in path_raw
+
+* raw_notes.csv
+
+
+Output:  
+
+Creates file in path_out  
+
+* intake.csv
+
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(results = "hold",  message = FALSE)
+```
+
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+
+Paths 
+```{r}
+path_in <- "raw_data/qualtrics"
+path_out <- "analysis/shared/data"
+path_log <- "analysis/shared/notes" 
+path_raw <- "raw_data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(kableExtra)
+library(psych)
+
+
+source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+```
+   
+### Intake survey
+
+#### Load data and glimpse
+Load survey and remove unused variables
+
+Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
+```{r}
+intake <- read_csv(file.path(path_in, 'intake.csv'), col_types = cols())  %>% 
+  select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
+            RecipientEmail, ExternalDataReference, Status,
+            LocationLatitude, LocationLongitude, LocationAccuracy, DataType,
+            StudyName, PACS_Inst, AASE_Inst, MAM_Inst, DASS21_Inst,
+            PSS_Inst, QOL_Inst, DAS_Inst, MSPSS_Inst)) %>% 
+  rename(subid = SubID, response_id = ResponseID)  %>%  #update to tidy case for use in clean_qualtrics_by_log()
+  relocate(subid)
+```
+
+Open and summarize data log
+```{r}
+log_intake <- read_csv(file.path(path_log, "log_intake.csv"), col_types = cols()) %>% 
+  rowid_to_column("index") %>% 
+  glimpse()
+```
+
+```{r}
+tabyl(log_intake$log_action)
+```
+
+remove log entries:
+```{r}
+log_intake %>% 
+  filter(log_action == "remove") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+recode_one log entries:
+```{r}
+log_intake %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+Changes to UTC variable  
+Appears both UTC entries are replacing missing values
+```{r}
+log_intake %>% 
+  filter(var_name == "UTC") %>% 
+  select(-index) %>% 
+  kbl %>% 
+  kable_styling()
+```
+
+*No changes to subids, start_date or end_date*   
+All other recode_one entries look good. Most entries are due to adding new questions and getting participant responses at next visit.  
+
+note log entries:  
+no note log entries  
+
+Clean raw data using log
+```{r}
+intake <- clean_qualtrics_by_log(intake, log_intake)
+```
+
+Tidy variable names
+```{r}
+intake <- clean_names(intake, "snake") 
+```
+
+Tidy response options 
+Some text response options became slightly distorted, fixing for consistency
+```{r}
+intake <- intake %>% 
+  mutate(across(where(is.character), str_replace_all, pattern = "&mdash;", replacement = " - "),
+         across(where(is.character), str_replace_all, pattern = '<span style=;white-space:nowrap;">', replacement = ""),
+         across(where(is.character), str_replace_all, pattern = "â€™", replacement = "'"))
+```
+
+
+
+#### EDA and Save
+
+```{r}
+kabyl <- compose(
+  partial(kable_classic, position = "left"),
+  partial(kbl, digits = 2, table.attr = "style='width:50%;'"),
+  partial(tabyl, dat = intake)
+)
+```
+
+```{r}
+intake %>% 
+  glimpse()
+```
+
+`r length(unique(intake$subid))` participants contribute to a total of `r nrow(intake)` reports.  
+
+- This matches the number of intake session forms (170)  
+
+<br>
+
+##### Dates and Times
+
+The earliest recorded report is from `r min(intake$start_date, na.rm = TRUE)` and the most recent is from `r max(intake$start_date, na.rm = TRUE)`.   
+
+All timezones in UTC
+```{r}
+intake %>% 
+  select(start_date, end_date) %>% 
+  map(tz)
+```
+
+**Time difference in start_date and utc**
+```{r}
+options(tibble.print_max = Inf)
+intake %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
+  tabyl(diff)
+```
+
+- Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).  
+- Check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.)
+- 3 subids have difference times of over 2 hour difference between start time and utc.  
+
+no helpful info from notes on subids with a 2 hour difference    
+```{r}
+notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+  select(subid, notes_general)
+subs_2hrs <- intake %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = difftime(utc, start_date, units = "mins")) %>% 
+  filter(diff > 120)
+notes %>% 
+  filter(subid %in% subs_2hrs$subid) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+<br>
+
+
+**Time difference in start and end date**  
+```{r}
+intake_diff <- intake %>% 
+  mutate(diff = round(difftime(end_date, start_date, units = "mins")),
+         diff_mins = as.numeric(str_replace(diff, " mins", "")))
+
+freq <- hist(intake_diff$diff_mins, breaks = c(seq(0, 180, 10)), include.lowest=TRUE, plot=FALSE)
+tibble(mins = freq$breaks[-1], frequency = freq$counts)
+```
+
+3 subids have almost 3 hour difference in start and end time.   
+
+
+Start and end dates less than 10 minutes apart   
+4 subids have start and end time less than 10 minutes apart 
+```{r}
+subs_10min <- intake %>% 
+  select(subid, start_date, end_date, utc) %>% 
+  mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
+  mutate(diff = difftime(end_date, start_date, units = "mins")) %>% 
+  filter(diff < 10)
+notes %>% 
+  filter(subid %in% subs_10min$subid) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+<br>
+
+
+
+##### Missing values
+
+```{r}
+intake %>% 
+  naniar::miss_var_summary() %>% 
+  kbl(table.attr = "style='width:40%;'") %>% 
+  kable_classic(position = "l") %>% 
+  add_header_above(c("Missing values by variable" = 3), bold = TRUE) %>% 
+  scroll_box(height = "500px")
+```
+
+Missing values all seem to be appropriate:  
+missing das values are because it was only given to individuals in a relationship  
+missing mam values are also conditional  
+
+
+##### Finished
+
+```{r}
+kabyl(finished)
+```
+All intakes are complete and marked as Finished  
+
+##### RA
+
+```{r}
+kabyl(ra)
+```
+
+##### PACS
+```{r}
+intake %>% 
+  select(contains("pacs")) %>% 
+  map(., table)
+```
+
+##### AASE
+```{r}
+intake %>% 
+  select(contains("aase")) %>% 
+  map(., table)
+```
+
+##### MAM
+living arrangement
+```{r}
+kabyl(mam_1)
+kabyl(mam_1_1)
+```
+
+live alone
+```{r}
+kabyl(mam_1_2)
+```
+
+Who do you live with
+```{r}
+kabyl(mam_1_3_1)
+kabyl(mam_1_3_2)
+kabyl(mam_1_3_3)
+kabyl(mam_1_3_4)
+kabyl(mam_1_3_5)
+```
+
+How many children in household?
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_1_4), na.rm = TRUE),
+            max = max(as.numeric(mam_1_4), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_4), na.rm = TRUE))
+```
+
+How many parents?
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_1_5), na.rm = TRUE),
+            max = max(as.numeric(mam_1_5), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_5), na.rm = TRUE))
+```
+
+How many relatives?
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_1_6), na.rm = TRUE),
+            max = max(as.numeric(mam_1_6), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_6), na.rm = TRUE))
+```
+
+How many non-relatives?
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_1_7), na.rm = TRUE),
+            max = max(as.numeric(mam_1_7), na.rm = TRUE),
+            mean = mean(as.numeric(mam_1_7), na.rm = TRUE))
+```
+
+Yes/no questions about past 30 days
+```{r}
+intake %>% 
+  select(c(mam_2:mam_7, mam_11, mam_17, mam_19)) %>% 
+  map(., table)
+```
+
+individual counseling sessions past 30 days
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_8), na.rm = TRUE),
+            max = max(as.numeric(mam_8), na.rm = TRUE),
+            mean = mean(as.numeric(mam_8), na.rm = TRUE))
+```
+
+group counseling sessions
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_9), na.rm = TRUE),
+            max = max(as.numeric(mam_9), na.rm = TRUE),
+            mean = mean(as.numeric(mam_9), na.rm = TRUE))
+```
+
+self-help meetings
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_10), na.rm = TRUE),
+            max = max(as.numeric(mam_10), na.rm = TRUE),
+            mean = mean(as.numeric(mam_10), na.rm = TRUE))
+```
+
+other counseling
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_12), na.rm = TRUE),
+            max = max(as.numeric(mam_12), na.rm = TRUE),
+            mean = mean(as.numeric(mam_12), na.rm = TRUE))
+```
+
+days with supportive friends/family
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_13), na.rm = TRUE),
+            max = max(as.numeric(mam_13), na.rm = TRUE),
+            mean = mean(as.numeric(mam_13), na.rm = TRUE))
+```
+
+days with unsupportive friends/family
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_14), na.rm = TRUE),
+            max = max(as.numeric(mam_14), na.rm = TRUE),
+            mean = mean(as.numeric(mam_14), na.rm = TRUE))
+```
+
+days at work, school, volunteering
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_15), na.rm = TRUE),
+            max = max(as.numeric(mam_15), na.rm = TRUE),
+            mean = mean(as.numeric(mam_15), na.rm = TRUE))
+```
+
+Has your religion or spirituality helped support your recovery within the past 30 days
+```{r}
+kabyl(mam_16)
+```
+
+Days taken alcohol medication as prescribed
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_18), na.rm = TRUE),
+            max = max(as.numeric(mam_18), na.rm = TRUE),
+            mean = mean(as.numeric(mam_18), na.rm = TRUE))
+```
+
+Days taken other medication as prescribed
+```{r}
+intake %>% 
+  summarise(min = min(as.numeric(mam_20), na.rm = TRUE),
+            max = max(as.numeric(mam_20), na.rm = TRUE),
+            mean = mean(as.numeric(mam_20), na.rm = TRUE))
+```
+
+How satisfied are you with your progress toward achieving your recovery goals in the past 30 days?
+```{r}
+kabyl(mam_21)
+```
+
+Is your goal still to remain abstinent in the future?
+```{r}
+kabyl(mam_22)
+```
+
+In the next 30 days, how confident are you in your ability to be completely abstinent from alcohol?
+```{r}
+kabyl(mam_23)
+```
+
+##### DASS
+```{r}
+intake %>% 
+  select(contains("dass")) %>% 
+  map(., table)
+```
+
+##### PSS
+```{r}
+intake %>% 
+  select(contains("pss")) %>% 
+  map(., table)
+```
+
+##### QOL
+```{r}
+intake %>% 
+  select(contains("qol")) %>% 
+  map(., table)
+```
+
+##### DAS
+```{r}
+intake %>% 
+  select(das_0:das_32) %>% 
+  map(., table)
+```
+
+##### MSPSS
+```{r}
+intake %>% 
+  select(contains("mspss")) %>% 
+  map(., table)
+```
+
+
+Save final clean data.  Variables will open with proper class on next load of data
+```{r}
+intake %>% 
+  select(-utc) %>% 
+  glimpse() %>% 
+  write_csv(file.path(path_out, "intake.csv")) 
+```

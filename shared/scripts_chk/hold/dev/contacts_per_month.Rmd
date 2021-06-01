@@ -1,0 +1,428 @@
+---
+title: "contacts_per_month"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+### Notes
+ 
+This script looks at frequency of communication with contacts to determine threshold for RISK2 social contacts survey.  
+  
+- It looks like 154 participants reported voice contacts but only 151 participants reported having SMS contacts.  
+- Outgoing calls make up about half of the spam and blank voice calls.  
+- No spam contacts for SMS messages  
+  
+
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+  
+Paths 
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(psych)
+library(kableExtra)
+library(data.table)
+library(purrr)
+```
+
+
+### Import data and glimpse 
+
+contacts
+```{r}
+contacts <- read_rds(file.path(path_data, "ds_contacts_report.rds")) 
+
+# add identifier for contacts since some have more than one number
+contacts <- contacts %>% 
+  mutate(cont_sub = 1000 + (1:nrow(contacts))) %>% 
+  select(subid, cont_sub, everything(), -utc)
+
+# gather to separate phone numbers into their own rows
+contacts <- contacts %>% 
+  gather(phone_type, number, home_phone:other_phone2) %>% 
+  filter(!is.na(number)) %>% 
+  select(subid, cont_sub, phone_type, number, 
+         contact_type = type,
+         everything())
+```
+
+sms
+```{r}
+sms <- read_rds(file.path(path_data, "ds_sms.rds")) %>%
+  as.data.table() %>% 
+  mutate(time_central = as_datetime(utc, tz = 'America/Chicago')) %>%
+  mutate(date_central = date(time_central), 
+         month_central = month(time_central),
+         hour_central = hour(time_central),
+         minute_central = minute(time_central), 
+         second_central = second(time_central),
+         duration = as.double(NA), #add columns for combined here
+         voice_sms = "sms") %>%
+  select(-c(utc, time_central)) %>% 
+  select(subid, #reorder variables
+         contact_type, voice_sms, 
+         phone, duration, text,
+         month_central, date_central, 
+         hour_central, minute_central, second_central,
+         drank_past, drink_future, drinker_status, emotion,
+         recovery, support,
+         type) %>% # remove surveysignal messages
+  filter(!(str_detect(text, "surveysignal")) & contact_type != "IRRELEVANT/SPAM") %>% 
+  glimpse()
+```
+
+voice
+```{r}
+voice <- read_rds(file.path(path_data, "ds_voice.rds")) %>%
+  as.data.table() %>% 
+  mutate(time_central = as_datetime(utc, tz = 'America/Chicago')) %>%
+  mutate(date_central = date(time_central), 
+         hour_central = hour(time_central),
+         month_central = month(time_central),
+         minute_central = minute(time_central), 
+         second_central = second(time_central),
+         text = as.character(NA),
+         voice_sms = "voice") %>% #add combined vars
+  select(-c(utc, time_central)) %>%
+  select(subid, #reorder variables
+         contact_type, voice_sms, 
+         phone, duration, text,
+         month_central, date_central, 
+         hour_central, minute_central, second_central,
+         drank_past, drink_future, drinker_status, emotion,
+         recovery, support,
+         type) %>% 
+glimpse()
+```
+
+combined
+```{r}
+combined <- funion(sms, voice) %>% #data table version of union
+  rename(number = phone) %>% 
+  select(-text) 
+
+rm(sms, voice) #to avoid having these massive datasets loaded
+
+# join contact subject id with df
+combined <- contacts %>% 
+  mutate(spam = case_when(contact_type == "IRRELEVANT/SPAM" ~ "spam", 
+                          contact_type != "IRRELEVANT/SPAM" & !is.na(cont_sub) ~ "contact",
+                          TRUE ~ "unknown")) %>% 
+  select(subid, cont_sub, phone_type, number, spam) %>% 
+  right_join(combined, by = c("subid", "number")) %>% 
+  glimpse()
+```
+
+There are `r nrow(filter(combined, voice_sms == "sms"))` sms entries.  
+There are `r nrow(filter(combined, voice_sms == "voice"))` voice call entries including spam/irrelevant calls and `r nrow(filter(combined, voice_sms == "voice", contact_type == "IRRELEVANT/SPAM"))` spam voice call entries.  
+
+### Total number of contacts
+
+contacts per participant (including spam)
+```{r}
+n_contacts <- contacts %>% 
+  group_by(subid) %>%
+  summarise(n_contacts = length(unique(cont_sub)))
+
+n_contacts %>% 
+  ggplot(aes(x = n_contacts)) +
+  geom_histogram() +
+  theme_classic() + 
+  labs(x = "number of contacts per participant",
+       title = "Total number of contacts per participant (with spam)")
+
+describe(n_contacts$n_contacts) %>% 
+  round(2) %>% 
+  select(n:se) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  add_header_above(c("Total number of contacts per participant (with spam)" = 13))
+```
+
+known contacts only (not including spam)
+```{r}
+n_cont_nospam <- contacts %>% 
+  filter(contact_type != "IRRELEVANT/SPAM") %>% 
+  group_by(subid) %>%
+  summarise(n_contacts = length(unique(cont_sub)))
+
+describe(n_cont_nospam$n_contacts) %>% 
+  round(2) %>% 
+  select(n:se) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  add_header_above(c("Total number of contacts per participant (without spam)" = 13))
+
+n_cont_nospam %>% 
+  ggplot(aes(x = n_contacts, fill = "")) +
+  geom_histogram() +
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("midnightblue")) +
+  labs(x = "number of known contacts per participant",
+       title = "Total number of known contacts per participant")
+```
+
+spam contacts only
+```{r}
+n_spam <- contacts %>% 
+  filter(contact_type == "IRRELEVANT/SPAM") %>% 
+  group_by(subid) %>%
+  summarise(n_contacts = length(unique(cont_sub)))
+
+describe(n_spam$n_contacts) %>% 
+  round(2) %>% 
+  select(n:se) %>% 
+  kable() %>% 
+  kable_styling() %>% 
+  add_header_above(c("Total number of spam contacts per participant" = 13))
+
+n_spam %>% 
+  ggplot(aes(x = n_contacts, fill = "")) +
+  geom_histogram() +
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("darksalmon")) +
+  labs(x = "number of spam contacts per participant",
+       title = "Total number of spam contacts per participant")
+```
+
+
+facet by spam
+```{r}
+contacts <- contacts %>% 
+  mutate(spam = case_when(contact_type == "IRRELEVANT/SPAM" ~ "spam", 
+                          contact_type != "IRRELEVANT/SPAM" & !is.na(cont_sub) ~ "contact",
+                          TRUE ~ as.character(NA))) 
+
+contacts %>% 
+  group_by(subid, spam) %>%
+  summarise(n_contacts = length(unique(cont_sub))) %>% 
+  drop_na(spam) %>% 
+  ggplot(aes(x = n_contacts, fill = spam)) +
+  geom_histogram() +
+  facet_wrap(~spam) +
+  theme_classic() + 
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("midnightblue", "darksalmon")) +
+  labs(x = "number of contacts per participant",
+       title = "Total number of contacts per participant faceted by spam") +
+  geom_vline(aes(xintercept = means), contacts %>% 
+  group_by(subid, spam) %>%
+  summarise(n_contacts = length(unique(cont_sub))) %>% 
+  drop_na(spam) %>% 
+  group_by(spam) %>% 
+  summarise(means = mean(n_contacts)), color = "red")
+```
+
+
+### Number of interactions per month for each known contact
+
+voice and SMS interactions per contact per month
+```{r, message=FALSE}
+count_interactions_per_month <- function(individual_subid){ #function to count contacts per month
+  
+  message(paste0("processing subject ", individual_subid))
+  
+  all_contacts <- combined %>% 
+    filter(subid == individual_subid) %>% 
+    pull(number) %>% 
+    unique()
+  
+  all_months <- combined %>% 
+    filter(subid == individual_subid) %>% 
+    pull(month_central) %>% 
+    unique()
+  
+  temp <- tibble()
+  
+ for (i in 1:length(all_contacts)) {
+    for (j in 1:length(all_months)) {
+      
+      filtered_combined <- combined %>%
+        filter(subid == individual_subid,
+               number == all_contacts[i],
+               month_central == all_months[j])
+      
+      total <- nrow(filtered_combined)
+      
+      sms <- filtered_combined %>%
+        filter(voice_sms == "sms") %>% 
+        nrow()
+      
+      voice <- filtered_combined %>%
+        filter(voice_sms == "voice") %>% 
+        nrow()
+      
+      temp <- tibble(
+        subid = individual_subid,
+        number = all_contacts[i],
+        month_central = all_months[j],
+        total_interactions = total,
+        sms_interactions = sms,
+        voice_interactions = voice) %>% 
+        bind_rows(temp)
+    }
+  }
+  return(temp)
+}
+
+interactions_per_month <- map_df(unique(contacts$subid), ~count_interactions_per_month(.x)) %>% 
+  as.data.table() %>% 
+  left_join(contacts, by = c("subid", "number")) %>% 
+  glimpse()
+```
+
+
+#### All contacts
+
+interactions with all contacts
+```{r}
+interactions_per_month %>% 
+  mutate(total_interactions = 
+           case_when(
+             total_interactions > 50 ~ 50,
+             TRUE ~ as.double(total_interactions))) %>% 
+  ggplot(aes(x = total_interactions)) +
+  geom_histogram(bins = 10) +
+  labs(x = "number interactions with all contacts per month per participant (50 = 50+)",
+       title = "Histogram of interactions with contacts per month (SMS/voice)",
+       subtitle = "Mean = 7.5") +
+  theme_classic() +
+  geom_vline(aes(xintercept = means), interactions_per_month %>% 
+               summarise(means = mean(total_interactions)), color = "red")
+```
+
+descriptives
+```{r}
+interactions_per_month %>% 
+  select(contains("interactions")) %>% 
+  psych::describe(.)
+```
+
+
+#### Spam only contacts
+
+```{r}
+interactions_per_month %>% 
+  filter(spam == "spam") %>% 
+  mutate(total_interactions = 
+           case_when(
+             total_interactions > 20 ~ 20,
+             TRUE ~ as.double(total_interactions))) %>% 
+  ggplot(aes(x = total_interactions, fill = "")) +
+  geom_histogram(bins = 10) +
+  scale_fill_manual(values = c("darksalmon")) +
+  labs(x = "number interactions with spam contacts per month per participant (20 = 20+)",
+       title = "Histogram of interactions with spam contacts per month",
+       subtitle = "Mean - 1.61") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  geom_vline(aes(xintercept = mean), interactions_per_month %>% 
+  filter(spam == "spam") %>% 
+  summarise(mean = mean(total_interactions)), color = "red")
+```
+
+descriptives
+```{r}
+interactions_per_month %>% 
+  filter(spam == "spam") %>% 
+  select(contains("interactions")) %>% 
+  psych::describe(.)
+```
+
+
+#### Faceted by spam
+
+```{r}
+interactions_per_month %>% 
+  mutate(total_interactions = 
+           case_when(
+             total_interactions > 50 ~ 50,
+             TRUE ~ as.double(total_interactions))) %>% 
+  drop_na(spam) %>% 
+  ggplot(aes(x = total_interactions, fill = spam)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(~spam) +
+  scale_fill_manual(values = c("midnightblue", "darksalmon")) +
+  labs(x = "number interactions per month per participant (50 = 50+)",
+       title = "Histogram of interactions with contacts per month faceted by spam") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  geom_vline(aes(xintercept = means), interactions_per_month %>% 
+  drop_na(spam) %>% 
+  group_by(spam) %>% 
+  summarise(means = mean(total_interactions)), color = "red")
+```
+
+descriptives by spam
+```{r}
+interactions_per_month %>% 
+  select(contains("interactions"), spam) %>% 
+  psych::describeBy(group = "spam")
+```
+
+
+#### voice calls only - faceted by spam
+
+```{r}
+interactions_per_month %>% 
+  mutate(voice_interactions = 
+           case_when(
+             voice_interactions > 30 ~ 30,
+             TRUE ~ as.double(voice_interactions))) %>% 
+  drop_na(spam) %>% 
+  ggplot(aes(x = voice_interactions, fill = spam)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(~spam) +
+  scale_fill_manual(values = c("midnightblue", "darksalmon")) +
+  labs(x = "number voice calls per month per participant (30 = 30+)",
+       title = "Histogram of voice calls with contacts per month faceted by spam") +
+  theme_classic() +
+  theme(legend.position = "none") +
+  geom_vline(aes(xintercept = means), interactions_per_month %>% 
+  drop_na(spam) %>% 
+  group_by(spam) %>% 
+  summarise(means = mean(voice_interactions)), color = "red")
+```
+
+descriptives by spam
+```{r}
+interactions_per_month %>% 
+  select(voice_interactions, spam) %>% 
+  psych::describeBy(group = "spam")
+```
+
+
+#### SMS messages
+
+```{r}
+interactions_per_month %>% 
+  mutate(sms_interactions = 
+           case_when(
+             sms_interactions > 50 ~ 50,
+             TRUE ~ as.double(sms_interactions))) %>% 
+  ggplot(aes(x = sms_interactions)) +
+  geom_histogram(bins = 10) +
+  labs(x = "number sms interactions with contacts per month per participant (50 = 50+)",
+       title = "Histogram of sms interactions with contacts per month",
+       subtitle = "Mean = 6.35") +
+  theme_classic() +
+  geom_vline(aes(xintercept = mean), interactions_per_month %>% 
+               summarise(mean = mean(sms_interactions)), color = "red")
+```

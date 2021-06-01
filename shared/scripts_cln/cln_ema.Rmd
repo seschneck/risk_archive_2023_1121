@@ -1,0 +1,161 @@
+---
+title: "Clean the raw qualtrics EMA surveys (morning and later)"
+author: "Sarah Sant'Ana"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+
+### Notes
+Purpose: This file does basic cleaning of the qualtrics EMA surveys.
+* Cleaning from data logs
+* Removing TEST IDs (because they are invalid data)
+* Updating variables to tidy format
+
+Inputs:  Opens two files in raw_data/qualtrics
+
+* ema_morning.csv
+* ema_later.csv
+
+Outputs: Creates two cleaned ema files in analysis/shared/data/clean
+
+* ema_morning.csv
+* ema_later.csv
+
+
+### Paths 
+```{r}
+path_in <- "P:/StudyData/RISK/raw_data/qualtrics"
+path_out <- "P:/StudyData/RISK/analysis/shared/data"
+path_log <- "P:/StudyData/RISK/analysis/shared/notes"  
+```
+
+### Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(tidymodels)
+
+source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source("P:/toolboxes/lab_support/fun_modeling.R")
+```
+
+
+
+### Load raw ema files
+
+Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
+
+```{r}
+
+ema_morning <- read_csv(file.path(path_in, 'ema_morning.csv'), col_types = cols()) %>% 
+  rename(subid = SubID) %>% 
+  rename(response_id = ResponseID)
+
+ema_later <- read_csv(file.path(path_in, 'ema_later.csv'), col_types = cols()) %>% 
+  rename(subid = SubID) %>% 
+  rename(response_id = ResponseID)
+
+```
+
+
+### Load and summarize data logs
+```{r}
+log_morning <- read_csv(file.path(path_log, "log_ema_morning.csv"), col_types = cols()) %>% 
+  glimpse()
+
+log_later <- read_csv(file.path(path_log, "log_ema_later.csv"), col_types = cols()) %>% 
+  glimpse()
+
+# Note extra variables will be deleted after final reviews are complete
+```
+
+### Log actions
+```{r}
+tabyl(log_morning$log_action)
+tabyl(log_later$log_action)
+```
+
+### Clean raw ema data
+1. Data are cleaned via log entries
+2. Data are cleaned via code to remove TEST ids
+```{r}
+ema_morning <- ema_morning %>% 
+  clean_qualtrics_by_log(log_morning) %>% 
+  filter(toupper(subid) != "TEST")   # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
+
+ema_later <- ema_later %>% 
+  clean_qualtrics_by_log(log_later)%>% 
+  filter(toupper(subid) != "TEST")  # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
+```
+
+### Tidy variable names
+
+```{r}
+ema_morning <- ema_morning %>% 
+  clean_names("snake")%>% 
+  glimpse()
+
+ema_later <- ema_later %>% 
+  clean_names("snake")%>% 
+  glimpse()
+
+```
+
+### Cleaning EDA
+
+Variable classes: As expected. Note - dates and subids read in as character strings.
+
+Missing data
+```{r}
+
+ema_morning %>% skim_some()
+#What is the send_time variable? does it matter for us?
+#Some missingness across ema variables, likely empty surveys
+
+ema_morning %>% filter(is.na(emam_2_1)) %>% print_kbl
+#All finished = 0, to be removed during processing
+
+ema_later %>% skim_some()
+#same story with ema_later vars
+```
+
+
+Numeric variables
+```{r}
+ema_morning %>% 
+  select(where(is.numeric)) %>% 
+  skim_some()
+
+ema_later  %>% 
+  select(where(is.numeric)) %>% 
+  skim_some()
+
+```
+Look at categorical response labels
+```{r}
+# Check response labels
+ema_morning %>% 
+  select(where(is.character)) %>% 
+  walk2(.x = names(.), 
+        .y = ., 
+        .f = print_responses)
+```
+
+I don't think I will tidy categorical response labels, since some lubridate functions expect certain capitalization in time and date vars. I could tidy Yes and No I suppose...
+
+#### Save
+```{r}
+ema_morning %>% 
+  write_csv(file.path(path_out, "ema_morning.csv"))
+
+ema_later %>% 
+  write_csv(file.path(path_out, "ema_later.csv"))
+
+```
