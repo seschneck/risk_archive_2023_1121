@@ -34,7 +34,7 @@ pre, code {
 
 Paths
 ```{r}
-path_in <- "./analysis/burden/data"
+path_in <- "/Volumes/private/studydata/risk/data_processed/burden"
 ```
 
 Packages
@@ -154,6 +154,44 @@ n <- slices
 lbls <- str_c(lbls, '\n', pct, '% (n = ', n, ')')
 pie(slices, lbls, col = c("lavender", "lightgrey", "lightblue"),
    main="Participants with at least 1 month of data (N = 154)") 
+```
+
+<br>
+
+Create blank flowchart
+```{r}
+DiagrammeR::grViz("
+  digraph {
+  
+  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6]
+  a [label = '@@1']
+  b1 [label = '@@2']
+  b2 [label = '@@3', color = crimson]
+  c1 [label = '@@4']
+  c2 [label = '@@5', color = crimson]
+  
+  node [fontname = 'Times New Roman', shape = circle, style = dotted]
+  d1 [label = '@@6']
+
+  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6, style = solid]
+  d2 [label = '@@7', color = crimson]
+  
+  a -> b1
+  a -> b2
+  b1 -> c1
+  b1 -> c2
+  c1 -> d1
+  c1 -> d2
+  }
+  
+  [1]: str_c(' ')
+  [2]: str_c(' ') 
+  [3]: str_c(' ')
+  [4]: str_c(' ')
+  [5]: str_c(' ')
+  [6]: str_c(' ')
+  [7]: str_c(' ')
+  ", width = "600px") 
 ```
 
 <br>
