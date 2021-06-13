@@ -50,7 +50,7 @@ add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap 
   ylabgrob <- patchwork::plot_spacer()
   if (!is.null(Ylab)) {
     ylabgrob <- ggplot() +
-      geom_text(aes(x = 1, y = 1), label = Ylab, angle = 90, family = "Times New Roman", size = 4.5) +
+      geom_text(aes(x = 1, y = 1), label = Ylab, angle = 90, family = "Arial", size = 4.5) +
       theme_void() 
   }
   if (!is.null(Xlab)) {
@@ -218,7 +218,7 @@ dislike_anova <- d_graph %>%
        y = NULL) +
   facet_wrap(~ measure) +
   theme_classic() +
-  theme(text = element_text(family = "Times New Roman", size = 12),
+  theme(text = element_text(family = "Arial", size = 12),
         legend.position = "none", 
         legend.background = element_blank()) +
   scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
@@ -242,7 +242,7 @@ willingness_anova <- d_graph_2 %>%
        y = NULL) +
   facet_wrap(~ measure) +
   theme_classic() +
-  theme(text = element_text(family = "Times New Roman", size = 12),
+  theme(text = element_text(family = "Arial", size = 12),
         legend.position = "none", 
         legend.background = element_blank()) +
   scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
@@ -283,7 +283,7 @@ dislike_avg_hist <- burden_dislike_long %>%
   labs(y = "Proportion",
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
@@ -316,7 +316,7 @@ willingness_avg_hist <- burden_willingness_long %>%
   labs(y = "Proportion",
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
@@ -398,8 +398,8 @@ use_sms <-  broom::tidy(lm(sms_content_1year ~ 1, data = burden_last)) %>%
 ```{r}
 corrplot_int <- burden_last %>% 
   select(`Audio Check-in` = audio_checkin_interfere,
-         `Daily Survey` = daily_survey_interfere,
-         `Sleep Monitor` = sleep_interfere) %>%
+         `EMA` = daily_survey_interfere,
+         `Sleep Monitoring` = sleep_interfere) %>%
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
@@ -418,7 +418,7 @@ corrplot_int <- corrplot_int %>%
 
 corrplot_int %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c")) %>% 
-  kable_classic(html_font = "Times New Roman") %>% 
+  kable_classic(html_font = "Arial") %>% 
   row_spec(c(1:3), background = "#FFDEDE") %>% 
   pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
   footnote("* p < 0.05")
@@ -431,14 +431,14 @@ burden_plot_int <- burden_last %>%
   mutate(measure = factor(measure, 
                           levels = c("audio_checkin_interfere", "daily_survey_interfere", 
                                      "sleep_interfere", "carrying_phone_interfere"),
-                          labels = c("Audio Check-in", "Daily Survey", "Sleep Monitor", "Carrying Phone"))) %>% 
+                          labels = c("Audio Check-in", "EMA", "Sleep Monitoring", "Carrying Phone"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "Daily Survey" ~ "Active",
-                            measure == "Sleep Monitor" ~ "Active")) 
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Monitoring" ~ "Active")) 
 
 active <- burden_plot_int %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -446,12 +446,12 @@ active <- burden_plot_int %>%
   labs(y = "Proportion",
        x = NULL) +
   theme(legend.position = "none",
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = means), burden_plot_int %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .4) 
 
@@ -469,11 +469,11 @@ Save figure
 ```{r}
 corrplot_dis <- burden_last %>% 
   select(`Audio Check-in` = audio_checkin_dislike,
-         `Daily Survey` = daily_survey_dislike,
-         `Sleep Monitor` = sleep_dislike,
-         `Location` = location_dislike,
-         `Logs (SMS/voice)` = all_logs_dislike,
-         `SMS Content` = sms_content_dislike) %>% 
+         `EMA` = daily_survey_dislike,
+         `Sleep Monitoring` = sleep_dislike,
+         `Moment-by-Moment Location` = location_dislike,
+         `Cellular Communication Logs` = all_logs_dislike,
+         `Text Message Content` = sms_content_dislike) %>% 
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
@@ -496,7 +496,7 @@ corrplot_dis <- corrplot_dis %>%
 
 corrplot_dis %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c")) %>% 
-  kable_classic(html_font = "Times New Roman") %>% 
+  kable_classic(html_font = "Arial") %>% 
   pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
   pack_rows("Passive", 4, 6, background = "#DBF8FF") %>% 
   row_spec(c(1:3), background = "#FFDEDE") %>% 
@@ -511,18 +511,18 @@ burden_plot_dis <- burden_last %>%
    mutate(measure = factor(measure, 
                           levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
                                      "location_dislike", "all_logs_dislike", "sms_content_dislike"),
-                          labels = c("Audio Check-in", "Daily Survey", "Sleep Monitor",
-                                     "Location", "Logs (SMS/voice)", "SMS Content"))) %>% 
+                          labels = c("Audio Check-in", "EMA", "Sleep Monitoring",
+                                     "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "Daily Survey" ~ "Active",
-                            measure == "Sleep Monitor" ~ "Active",
-                            measure == "Location" ~ "Passive",
-                            measure == "Logs (SMS/voice)" ~ "Passive",
-                            measure == "SMS Content" ~ "Passive")) 
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Monitoring" ~ "Active",
+                            measure == "Moment-by-Moment Location" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
 
 active_dis <- burden_plot_dis %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -532,10 +532,10 @@ active_dis <- burden_plot_dis %>%
   theme(legend.position = "none",
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
-        text = element_text(family = "Times New Roman")) +
+        text = element_text(family = "Arial", size = 12)) +
   ylim(0, .65) +
   geom_vline(aes(xintercept = means), burden_plot_dis %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .4) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
@@ -543,7 +543,7 @@ active_dis <- burden_plot_dis %>%
 
 
 passive_dis <- burden_plot_dis %>% 
-  filter(measure == "Location" | measure == "Logs (SMS/voice)" | measure == "SMS Content") %>% 
+  filter(measure == "Moment-by-Moment Location" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#DBF8FF") +
   facet_grid(active ~ measure) +
@@ -551,11 +551,11 @@ passive_dis <- burden_plot_dis %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), burden_plot_dis %>% 
-  filter(measure == "Location" | measure == "Logs (SMS/voice)" | measure == "SMS Content") %>%  
+  filter(measure == "Moment-by-Moment Location" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .4) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") 
@@ -580,11 +580,11 @@ Save Figure
 ```{r}
 corrplot_will <- burden_last %>% 
   select(`Audio Check-in` = audio_checkin_1year,
-         `Daily Survey` = daily_survey_4_1year,
-         `Sleep Monitor` = sleep_1year,
-         `Location` = location_1year,
-         `Logs (SMS/voice)` = all_logs_1year,
-         `SMS Content` = sms_content_1year) %>% 
+         `EMA` = daily_survey_4_1year,
+         `Sleep Monitoring` = sleep_1year,
+         `Moment-by-Moment Location` = location_1year,
+         `Cellular Communication Logs` = all_logs_1year,
+         `Text Message Content` = sms_content_1year) %>% 
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
@@ -607,7 +607,7 @@ corrplot_will <- corrplot_will %>%
 
 corrplot_will %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c")) %>% 
-  kable_classic(html_font = "Times New Roman") %>% 
+  kable_classic(html_font = "Arial") %>% 
   pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
   pack_rows("Passive", 4, 6, background = "#DBF8FF") %>% 
   row_spec(c(1:3), background = "#FFDEDE") %>% 
@@ -624,18 +624,18 @@ burden_plot_1yr <- burden_last %>%
                           levels = c("audio_checkin_1year", "daily_survey_4_1year", 
                                      "daily_survey_1_1year", "sleep_1year", "location_1year", 
                                      "all_logs_1year", "sms_content_1year"),
-                          labels = c("Audio Check-in", "Daily Survey", "Daily Survey (x1)<i><sup>a</sup></i>",
-                                     "Sleep Monitor", "Location", "Logs (SMS/voice)", "SMS Content"))) %>% 
+                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)<i><sup>a</sup></i>",
+                                     "Sleep Monitoring", "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
   mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "Daily Survey" ~ "Active",
-                            measure == "Sleep Monitor" ~ "Active",
-                            measure == "Location" ~ "Passive",
-                            measure == "Logs (SMS/voice)" ~ "Passive",
-                            measure == "SMS Content" ~ "Passive")) 
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Monitoring" ~ "Active",
+                            measure == "Moment-by-Moment Location" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
 
 willingness_active <- burden_plot_1yr %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -645,18 +645,18 @@ willingness_active <- burden_plot_1yr %>%
   theme(legend.position = "none",
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         strip.text = element_markdown()) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), burden_plot_1yr %>% 
-  filter(measure == "Audio Check-in" | measure == "Daily Survey" | measure == "Sleep Monitor") %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Monitoring") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .4) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 
 willingness_passive <- burden_plot_1yr %>% 
-  filter(measure == "Location" | measure == "Logs (SMS/voice)" | measure == "SMS Content") %>% 
+  filter(measure == "Moment-by-Moment Location" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#DBF8FF") +
   facet_grid(active ~ measure) +
@@ -664,11 +664,11 @@ willingness_passive <- burden_plot_1yr %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman", size = 12),
+        text = element_text(family = "Arial", size = 12),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), burden_plot_1yr %>% 
-  filter(measure == "Location" | measure == "Logs (SMS/voice)" | measure == "SMS Content") %>%  
+  filter(measure == "Moment-by-Moment Location" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .4) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
