@@ -27,7 +27,7 @@ pre, code {
 
 Paths 
 ```{r}
-path_burden <- "/Volumes/private/studydata/risk/analysis/burden/data"
+path_burden <- "/Volumes/private/studydata/risk/data_processed/burden"
 ```
 
 Packages and Source
@@ -136,9 +136,9 @@ Means and differences
 burden_dislike <- burden_last %>% 
   # get subject level means for active and passive measures
   group_by(subid) %>% 
-  summarise(active = mean(c(daily_survey_dislike, audio_checkin_dislike), na.rm = TRUE),
-            passive = mean(c(location_dislike, all_logs_dislike, sms_content_dislike), na.rm = TRUE),
-            dislike_diff = passive - active) 
+  summarise(Active = mean(c(daily_survey_dislike, audio_checkin_dislike), na.rm = TRUE),
+            Passive = mean(c(location_dislike, all_logs_dislike, sms_content_dislike), na.rm = TRUE),
+            dislike_diff = Passive - Active) 
 burden_dislike %>% 
   print(n = Inf)
 ```
@@ -147,9 +147,9 @@ burden_dislike %>%
 burden_willingness <- burden_last %>% 
   # get subject level means for active and passive measures
   group_by(subid) %>% 
-  summarise(active = mean(c(daily_survey_4_1year, audio_checkin_1year), na.rm = TRUE),
-            passive = mean(c(location_1year, all_logs_1year, sms_content_1year), na.rm = TRUE),
-            willingness_diff = passive - active) 
+  summarise(Active = mean(c(daily_survey_4_1year, audio_checkin_1year), na.rm = TRUE),
+            Passive = mean(c(location_1year, all_logs_1year, sms_content_1year), na.rm = TRUE),
+            willingness_diff = Passive - Active) 
 burden_willingness %>% 
   print(n = Inf)
 ```
@@ -180,7 +180,7 @@ Long format confirms exact same values
 Willingness
 ```{r}
 burden_willingness_long <- burden_willingness %>% 
-  pivot_longer(cols = c(active, passive), names_to = "effort", values_to = "willingness")
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "willingness")
 
 # don't need random effects for effort since only one observation per level
 m_willingness_long <- lmer(willingness ~ effort + (1 | subid), data = burden_willingness_long)
@@ -191,7 +191,7 @@ Anova(m_willingness_long, type = 3, test = "F")
 Dislike
 ```{r}
 burden_dislike_long <- burden_dislike %>% 
-  pivot_longer(cols = c(active, passive), names_to = "effort", values_to = "dislike")
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "dislike")
 
 m_dislike_long <- lmer(dislike ~ effort + (1 | subid), data = burden_dislike_long)
 summary(m_dislike_long)
@@ -206,12 +206,11 @@ Dislike
 ```{r}
 m_graph <- lm(dislike ~ effort, data = burden_dislike_long)
 
-d_graph <- expand.grid(effort = c("active", "passive"))
+d_graph <- expand.grid(effort = c("Active", "Passive"))
 d_graph <- lmSupport::modelPredictions(m_graph, d_graph)
 
 dislike_anova <- d_graph %>% 
   mutate(measure = "Dislike") %>% 
-  mutate(effort = ifelse(effort == "active", "Active", "Passive")) %>% 
   ggplot(aes(x = effort, y = Predicted, fill = effort)) +
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(ymax = CIHi, ymin = CILo), width = .25) +
@@ -231,12 +230,11 @@ Willingness
 ```{r}
 m_graph_2 <- lm(willingness ~ effort, data = burden_willingness_long)
 
-d_graph_2 <- expand.grid(effort = c("active", "passive"))
+d_graph_2 <- expand.grid(effort = c("Active", "Passive"))
 d_graph_2 <- lmSupport::modelPredictions(m_graph_2, d_graph_2)
 
 willingness_anova <- d_graph_2 %>%
   mutate(measure = "Willingness to Continue") %>% 
-  mutate(effort = ifelse(effort == "active", "Active", "Passive")) %>% 
   ggplot(aes(x = effort, y = Predicted, fill = effort)) +
   geom_bar(stat = "identity", color = "black") +
   geom_errorbar(aes(ymax = CIHi, ymin = CILo), width = .25) +
@@ -256,11 +254,86 @@ willingness_anova <- d_graph_2 %>%
 
 Save figures
 ```{r}
-
 final_anova <- wrap_plots(dislike_anova, willingness_anova, ncol = 2)
-
+final_anova
 # ggsave(plot = final_anova,  "~/Desktop/anova.png", width = 8.5, height = 4, units = "in", device = "png",  dpi = 500)
 
+```
+
+#### Histogram of averages
+
+**Dislike**  
+```{r}
+# already have participant averages for active/passive
+burden_dislike_long %>% 
+  select(-dislike_diff) %>% 
+  glimpse()
+```
+
+```{r}
+dislike_avg_hist <- burden_dislike_long %>% 
+  # bin continuous means, keep numeric
+  mutate(dislike_binned = as.numeric(cut(dislike, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(dislike_binned = dislike_binned - 3) %>% 
+  ggplot(aes(x = dislike_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman", size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), burden_dislike_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(dislike)), size = .4) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+```
+
+**Willingness**  
+```{r}
+# already have participant averages for active/passive
+burden_willingness_long %>% 
+  select(-willingness_diff) %>% 
+  glimpse()
+```
+
+```{r}
+willingness_avg_hist <- burden_willingness_long %>% 
+  # bin continuous means, keep numeric
+  mutate(willingness_binned = as.numeric(cut(willingness, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(willingness_binned = willingness_binned - 3) %>% 
+  ggplot(aes(x = willingness_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(family = "Times New Roman", size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly disagree", "Disgree", "Undecided", "Agree", "Strongly agree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), burden_willingness_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(willingness)), size = .4) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+```
+
+Save figures
+```{r}
+dislike_avg_hist
+willingness_avg_hist
+# ggsave(plot = dislike_avg_hist,  "~/Desktop/dislike_anova_hist.png", width = 5, height = 5.5, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = willingness_avg_hist,  "~/Desktop/willingness_anova_hist.png", width = 5, height = 5.5, units = "in", device = "png",  dpi = 500)
 ```
 
 
