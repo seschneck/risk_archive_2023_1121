@@ -11,7 +11,7 @@ editor_options:
 ---
 
 ### Notes
-Purpose: This script contains code to open all voice log files in sql format from participants raw data folders.  
+Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
 
 Inputs:   
 [subid]_Voice_1.sql  
@@ -32,8 +32,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_raw <- "Z:/StudyData/RISK/raw_data"
-path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+path_raw <- "Z:/studydata/risk/data_raw"
+path_out <- "Z:/studydata/risk/data_processed/shared"
 ```
 
 Packages and Source
@@ -45,7 +45,7 @@ library(lubridate)
 ```
 
 
-### IOS Voice Logs (SQL) 
+### Read in data 
 
 #### Create function to read in subid logs
 
@@ -127,12 +127,15 @@ subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>%
 ```
 
 
-#### read in all logs
+#### read in sql logs
 ```{r message = FALSE}
 all_logs <- tibble(subid = character())
 all_logs <- map_df(subids$subid, ~read_sql(.)) %>% 
   glimpse()
 ```
+
+FIX: Warning message explains that it is coercing a mixed type variable containing integers to string. I can cast this column as a character during SQL query but it gets complicated because then I can't just select all (*) and I might miss a newly appearing variable. Keeping this with warning until better fix is determined. Will carefully check ZFACE_TIME_DATA variable during EDA below.   
+FIX: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS). 100% of observations are blank for these variables (see eda); Also found 2 new tables in later SQL files - need to look more into these tables. They don't seem notably important from first looks.     
 
 
 #### Separate logs and messages
@@ -144,34 +147,11 @@ table(log_messages$message)
 
 logs_ios <- all_logs %>% 
   filter(is.na(message)) %>% 
+  # removing my temp message variable for documenting subids without SQL logs
   select(-message) %>% 
-  glimpse()
-
-# remove identical rows and fix how some logs were read in with blank cells instead of NA
-logs_ios <- logs_ios %>% 
-  mutate(ZDISCONNECTED_CAUSE = case_when(ZDISCONNECTED_CAUSE == "" ~ as.character(NA),
-                                         TRUE ~ ZDISCONNECTED_CAUSE),
-         ZFACE_TIME_DATA = case_when(ZFACE_TIME_DATA == "" ~ as.character(NA),
-                                     TRUE ~ ZFACE_TIME_DATA),
-         ZDEVICE_ID = case_when(ZDEVICE_ID == "" ~ as.character(NA),
-                                TRUE ~ ZDEVICE_ID),
-         ZNAME = case_when(ZNAME == "" ~ as.character(NA),
-                           TRUE ~ ZNAME),
-         ZLOCATION = case_when(ZLOCATION == "" ~ as.character(NA),
-                               TRUE ~ ZLOCATION),
-         ZADDRESS = case_when(ZADDRESS == "" ~ as.character(NA),
-                              TRUE ~ ZADDRESS)) %>% 
-  distinct(across(c(subid, ZUNIQUE_ID)), .keep_all = TRUE) %>% 
   glimpse()
 ```
 
-NOTE: Confirmed created/modified dates being read in as same time, may need to update TZ though - will look into.   
-NOTE: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS)   
-
-FIX: figure out what these variables are and why blank; Also found 2 new tables in later SQL files - need to look more into these tables      
-
-
-<br>
 
 ### Read in CSV logs (IOS 13+)
 
@@ -205,7 +185,7 @@ read_csv <- function(subid) {
 }
 ```
 
-
+#### Read in csv logs
 ```{r message = FALSE}
 csv_logs <- tibble(subid = character())
 csv_logs <- map_df(subids$subid, ~read_csv(.)) %>% 
@@ -215,7 +195,8 @@ csv_logs <- map_df(subids$subid, ~read_csv(.)) %>%
 Change variables to match sql db
 ```{r}
 csv_logs <- csv_logs %>% 
-  rename(ZADDRESS = Number,
+  rename(ZDATE = Date,
+         ZADDRESS = Number,
          ZLOCATION = Location,
          ZCALLTYPE = Service,
          ZDURATION = Duration,
@@ -226,6 +207,7 @@ csv_logs <- csv_logs %>%
                                ZCALLTYPE == "Phone" ~ "1",
                                TRUE ~ ZCALLTYPE),
          ZCALLTYPE = as.numeric(ZCALLTYPE),
+         # fix format of duration to seconds 
          ZDURATION = as.numeric(ZDURATION - as_datetime("1899-12-31 00:00:00")),
          ZORIGINATED = case_when(ZORIGINATED == "Incoming" ~ 0,
                                  ZORIGINATED == "Outgoing" ~ 1)) %>% 
@@ -233,102 +215,84 @@ csv_logs <- csv_logs %>%
 ```
 
 
-Join csv and sql files
-```{r}
-# update date in sql to UTC
-logs_ios <- logs_ios %>% 
-  mutate(Date = ZDATE + 978307200,
-         Date = as_datetime(Date, tz = "UTC")) %>% 
-  select(subid, Date, everything()) %>% 
-  glimpse()
+### Join csv and sql files
 
-# join
+update date in sql to a date object (UTC tz) for join
+```{r}
+glimpse(logs_ios)
+
+logs_ios <- logs_ios %>% 
+  mutate(ZDATE = ZDATE + 978307200,
+         ZDATE = as_datetime(ZDATE, tz = "UTC")) %>% 
+  select(subid, ZDATE, everything()) %>% 
+  glimpse()
+```
+
+Join
+```{r}
 logs_ios <- logs_ios %>% 
   full_join(csv_logs) %>% 
   glimpse()
 ```
 
-remove newly created duplicates
+
+#### Replace blank character cells with NA
 ```{r}
 logs_ios <- logs_ios %>% 
-  distinct(across(c(subid, Date, ZADDRESS, ZCALLTYPE, ZDURATION, ZORIGINATED)), .keep_all = TRUE)
+  mutate(across(where(is.character), ~na_if(., ""))) %>% 
+  glimpse()
 ```
 
-FIX: parsing error with ZNAME when read back in
+#### Remove duplicates
+Match on everything except log related info (file name, created/modified date)
+```{r}
+logs_ios <- logs_ios %>% 
+  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
+
 
 ### EDA
 
-`r length(unique(logs_ios$subid))` subids had SQL voice data logs read in.   
+`r length(unique(logs_ios$subid))` subids had SQL/CSV voice data logs read in.   
 `r nrow(subset(log_messages, message == "No log files found"))` subids did not have logs.  
 `r nrow(subset(log_messages, message != "No log files found"))` subids had logs but not in SQL format.    
 
 This accounts for a total of 216 participants.  
 
-Dates range from `r min(logs_ios$Date)` to `r max(logs_ios$Date)`
+#### missing data
+```{r}
+logs_ios %>% 
+  naniar::miss_var_summary() %>% 
+  print(n = Inf)
+```
+
+
+#### Dates
+
+Dates range from `r min(logs_ios$ZDATE)` to `r max(logs_ios$ZDATE)`
 
 FIX: 2 dates are out of study range - not sure why 
 ```{r}
 logs_ios %>% 
-  arrange(desc(Date))
+  arrange(desc(ZDATE))
 ```
 
-
-<br>
-
-#### Primary key
-
-4 subids are missing primary keys because they had csv files where this variable did not exist
 ```{r}
 logs_ios %>% 
-  filter(is.na(Z_PK)) %>% 
-  count(subid)
-```
-
-
-Check for duplicate keys within subid
-```{r}
-(dup_keys <- logs_ios %>% 
-  count(subid, Z_PK) %>% 
-  filter(n > 1)) %>% 
-  print(n = Inf)
-```
-
-`r nrow(dup_keys)` duplicate keys.  
-`r length(unique(dup_keys$subid))` subids have duplicate keys.   
-
-
-FIX: Subid 37 looks problematic - They have 6 dupicate keys and date, location, uniqueID, and phone number all different   
-**These are not repeated entries**
-```{r}
-logs_ios %>% 
-  filter(subid == "037" & Z_PK == 3745) %>% 
-  arrange(subid, Z_PK) %>% 
+  arrange(desc(ZDATE)) %>% 
+  slice(1:2) %>% 
   kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
-
-logs_ios %>% 
-  filter(subid == "037" & Z_PK == 3765) %>% 
-  arrange(subid, Z_PK) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
   scroll_box(width = "100%")
 ```
 
-Subid 100 also has 1 duplicate key with completely different entries
-```{r}
-logs_ios %>% 
-  filter(subid == "100" & Z_PK == 39) %>% 
-  arrange(subid, Z_PK) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
-```
 
 
 #### Phone number (ZADDRESS)
 
-Missing phone numbers
+Missing phone numbers by subid
 ```{r}
 logs_ios %>% 
   filter(is.na(ZADDRESS)) %>% 
@@ -354,40 +318,7 @@ logs_ios %>%
 ```
 
 
-Phone numbers are in all different formats
-```{r}
-logs_ios %>% 
-  select(ZADDRESS) %>% 
-  print(n = Inf)
-
-# remove US country code and formatting inconsistencies
-logs_ios <- logs_ios %>% 
-  mutate(phone_number = str_replace_all(ZADDRESS, "\\+1", ""),
-         phone_number = str_replace_all(phone_number, "-", ""),
-         phone_number = str_replace_all(phone_number, "\\(", ""),
-         phone_number = str_replace_all(phone_number, "\\)", ""),
-         phone_number = str_replace_all(phone_number, "[[:space:]]", ""))
-
-logs_ios %>% 
-  select(ZADDRESS, phone_number) %>% 
-  print(n = 100)
-```
-
-*FIX: Numbers without area code?*  
-*FIX: How to handle non-phone numbers - 0, 3 digit numbers, weird strings, email addresses, phone number followed by string*
-*FIX: leave pound sign or asterick in numbers less than 7 digits?*  
-
-Examine numbers with more than 10 digits for cleaning  
-*FIX: remove leading 1 for US numbers*
-```{r}
-logs_ios %>% 
-  filter(str_length(phone_number) > 11) %>% 
-  select(phone_number) %>% 
-  print(n = Inf)
-```
-
-
-#### Look at country code
+#### Country code
 No missing country codes   
 be = belgium; ca = canada; de = germany; mx = mexico; nz = new zealand; pe = peru; tr = turkey   
 Source: https://www.nationsonline.org/oneworld/country_code_list.htm   
@@ -401,18 +332,18 @@ table(logs_ios$ZISO_COUNTRY_CODE)
 FIX: some non-us country codes are paired with us numbers - may indicate traveling?  
 ```{r}
 logs_ios %>% 
-  select(ZADDRESS, phone_number, ZISO_COUNTRY_CODE) %>% 
+  select(ZADDRESS, ZADDRESS, ZISO_COUNTRY_CODE) %>% 
   filter(ZISO_COUNTRY_CODE != "us") %>% 
   print(n = Inf)
 ```
 
 
-Can't use location to infer area code  
-*FIX: Look into why no area code - may mean its stored in phone as a contact which could be a good feature or linked to known contacts file.*  
+Can't use location to infer area code   
+FIX: Look into why no area code - may mean its stored in phone as a contact which could be a good feature or linked to known contacts file.
 ```{r}
 logs_ios %>% 
-  filter(nchar(phone_number) == 7) %>% 
-  select(ZADDRESS, phone_number, ZISO_COUNTRY_CODE, ZLOCATION) %>% 
+  filter(nchar(ZADDRESS) == 7) %>% 
+  select(ZADDRESS, ZADDRESS, ZISO_COUNTRY_CODE, ZLOCATION) %>% 
   print(n = 500)
 
 table(all_logs$ZLOCATION)
@@ -448,7 +379,7 @@ table(logs_ios$ZCALLTYPE)
 ```{r}
 logs_ios %>% 
   filter(!is.na(ZFACE_TIME_DATA)) %>% 
-  select(ZFACE_TIME_DATA, ZCALLTYPE, phone_number)
+  select(ZFACE_TIME_DATA, ZCALLTYPE, ZADDRESS)
 ```
 
 Not sure what these data are yet, but matches onto FACETIME call type (8/16)   
@@ -460,7 +391,7 @@ table(logs_ios$ZANSWERED)
 
 logs_ios %>% 
   filter(ZANSWERED == 1) %>% 
-  select(phone_number, ZANSWERED, ZDURATION, ZORIGINATED)
+  select(ZADDRESS, ZANSWERED, ZDURATION, ZORIGINATED)
 ```
 
 0 = answered
@@ -498,18 +429,65 @@ Calls are both incoming and outgoing.
 table(logs_ios$ZREAD)
 ```
 
+#### Primary key
+Not sure what value this has - started investigating if it was a unique ideentifier (It is not). Not going to dig more into this right now.   
 
-### Rename variables and remove unused variables (i.e., with no  variance)
+4 subids are missing primary keys because they had csv files where this variable did not exist
 ```{r}
 logs_ios %>% 
-  select(-c(Z_ENT))
+  filter(is.na(Z_PK)) %>% 
+  count(subid)
 ```
 
 
+Check for duplicate keys within subid
+```{r}
+(dup_keys <- logs_ios %>% 
+  count(subid, Z_PK) %>% 
+  filter(n > 1)) %>% 
+  print(n = Inf)
+```
 
+`r nrow(dup_keys)` duplicate keys.  
+`r length(unique(dup_keys$subid))` subids have duplicate keys.   
+
+
+FIX: Subid 37 looks problematic - They have 6 duplicate keys and date, location, uniqueID, and phone number all different   
+**These are not repeated entries**
+```{r}
+logs_ios %>% 
+  filter(subid == "037" & Z_PK == 3745) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+logs_ios %>% 
+  filter(subid == "037" & Z_PK == 3765) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+Subid 100 also has 1 duplicate key with completely different entries
+```{r}
+logs_ios %>% 
+  filter(subid == "100" & Z_PK == 39) %>% 
+  arrange(subid, Z_PK) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+<br>
 
 ### Write CSV
 ```{r}
+# Tidy variable names
+logs_ios <- logs_ios %>% 
+  janitor::clean_names()
+
 write_csv(logs_ios, file.path(path_out, "voice_ios.csv")) %>% 
   glimpse()
 ```
