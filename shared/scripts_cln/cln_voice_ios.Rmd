@@ -268,17 +268,24 @@ logs_ios %>%
   print(n = Inf)
 ```
 
+100% missing values for 3 variables - remove them  
+```{r}
+logs_ios <- logs_ios %>% 
+  select(-c(ZDISCONNECTED_CAUSE, ZDEVICE_ID, ZLOCAL_ADDRESS))
+```
+
 
 #### Dates
 
 Dates range from `r min(logs_ios$ZDATE)` to `r max(logs_ios$ZDATE)`
 
-FIX: 2 dates are out of study range - not sure why 
+FIX: 2 dates are out of study range (2024) - not sure why 
 ```{r}
 logs_ios %>% 
   arrange(desc(ZDATE))
 ```
 
+Both are from same participant on their first log  
 ```{r}
 logs_ios %>% 
   arrange(desc(ZDATE)) %>% 
@@ -286,6 +293,18 @@ logs_ios %>%
   kbl() %>% 
   kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
   scroll_box(width = "100%")
+```
+
+
+look at raw log entries - date incorrectly encoded (UTC begins with 7 instead of 5) so no way to recover actual date.
+```{r message = FALSE}
+logs_163 <- read_sql("163")
+
+logs_163 %>% 
+  filter(log_file == "163_Voice_1.sql") %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(height = "500px", width = "100%")
 ```
 
 
@@ -301,20 +320,32 @@ logs_ios %>%
   print(n = Inf)
 ```
 
-Note: Looks like when number_availability = 1 then there is no phone number (likely blocked number)
+raw numbers 
+```{r}
+logs_ios %>% 
+  select(ZADDRESS) %>% 
+  print(n = Inf)
+```
+
+
+#### ZNUMBER_AVAILABILITY
+
+Note: Looks like when number_availability = 1 or 2 then there is no phone number (blocked and unknown numbers). Need to confirm which is which     
+
+
+0 = number known   
+1 =   
+2 =   
+
+
 ```{r}
 logs_ios %>% 
   filter(is.na(ZADDRESS)) %>% 
-  kbl(caption = "Missing phone numbers") %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%", height = "500px") 
+  tabyl(ZNUMBER_AVAILABILITY)
 
 logs_ios %>% 
   filter(!is.na(ZADDRESS)) %>% 
-  head(n = 40) %>% 
-  kbl(caption = "Phone numbers available") %>% 
-  kable_styling(bootstrap_options = c("condensed")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  tabyl(ZNUMBER_AVAILABILITY)
 ```
 
 

@@ -19,6 +19,8 @@ Preprocessing steps:
 
 1. Correct any identified errors in clean script    
 
+* 2 dates with year 2024   
+
 2. Format numbers to match contacts   
 
 * Contact numbers only have country codes if they non-US numbers   
@@ -42,8 +44,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_in <- "/Volumes/private/studydata/risk/analysis/shared/data"
-path_out <- "/Volumes/private/studydata/risk/analysis/meta/data"
+path_in <- "Z:/studydata/risk/data_processed/shared"
+path_out <- "Z:/studydata/risk/data_processed/meta"
 ```
 
 Packages and Source
@@ -51,63 +53,36 @@ Packages and Source
 library(tidyverse)
 library(kableExtra)
 library(lubridate)
+library(janitor)
 
-source("~/lab_support/fun_phone_numbers.R")
+source("Z:/toolboxes/lab_support/fun_phone_numbers.R")
 ```
 
 
 ### Read in logs
 ```{r}
-logs <- read_csv(file.path(path_in, "voice_android.csv"), col_types = cols()) %>% 
+logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = cols()) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
 
-Fix presentation value for blocked and unknown numbers    
-11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
+FIX: 2 dates with year 2024 - change to NA and filter out
 ```{r}
-logs <- logs %>% 
-  mutate(presentation = case_when(number == "-1" & presentation == 1 ~ 3,
-                                  number == "-2" & presentation == 1 ~ 2,
-                                  TRUE ~ presentation))
-```
+logs %>% 
+  arrange(desc(zdate))
 
-Fix invalid number +1-385-262-3849;418173518#    
-Unclear what number after semicolon is. Keeping US number before semicolon as number.
-```{r}
-logs <- logs %>% 
-  mutate(number = case_when(number == "+1-385-262-3849;418173518#" ~ "3852623849",
-                            TRUE ~ number))
-```
 
-Fix invalid duration value of -4   
-Duration cannot be negative; changing to NA since no way of knowing actual duration
-```{r}
 logs <- logs %>% 
-  mutate(duration = case_when(duration == -4 ~ as.numeric(NA),
-                              TRUE ~ duration))
-```
-
-Fix invalid type values   
-8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
-```{r}
-logs <- logs %>% 
-  mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.numeric(NA),
-                          TRUE ~ type))
-```
-
-Recode all blocked (-2) and unknown (-1) numbers to NA  
--1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown number; presentation variable provides this information as to whether call was blocked or unknown.
-```{r}
-logs <- logs %>% 
-  mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
-                            TRUE ~ number))
+  mutate(zdate = case_when(date(zdate) == "2024-11-26" ~ as_datetime(NA),
+                           TRUE ~ zdate)) %>% 
+  filter(!is.na(zdate))
 ```
 
 
 <br>
+
 
 ### Format numbers
 
@@ -115,11 +90,32 @@ logs <- logs %>%
 
 Clean numbers with function
 ```{r}
-logs$number_formatted <- map(logs$number, extract_number)
-logs <- logs %>% 
-  mutate(number_formatted = unlist(number_formatted)) %>% 
-  glimpse()
+logs$number_formatted <- map_chr(logs$zaddress, extract_number)
+
+glimpse(logs)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <br>
 

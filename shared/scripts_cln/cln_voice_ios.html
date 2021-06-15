@@ -11,7 +11,7 @@
 
 <meta name="author" content="Kendra Wyant" />
 
-<meta name="date" content="2021-06-14" />
+<meta name="date" content="2021-06-15" />
 
 <title>IOS/Voice Logs</title>
 
@@ -559,7 +559,7 @@ pre code {
 
 <h1 class="title toc-ignore">IOS/Voice Logs</h1>
 <h4 class="author">Kendra Wyant</h4>
-<h4 class="date">2021-06-14</h4>
+<h4 class="date">2021-06-15</h4>
 
 </div>
 
@@ -1416,7 +1416,7 @@ NA
 ## 44 207       1
 ## 45 230       1
 ## 46 268       1</code></pre>
-<p>Note: Looks like when number_availability = 1 then there is no phone number (likely blocked number)</p>
+<p>Note: Looks like when number_availability = 1 or 2 then there is no phone number (likely differentiates blocked and unknown numbers). number_availability = 0 for known numbers.</p>
 <pre class="r"><code>logs_ios %&gt;% 
   filter(is.na(ZADDRESS)) %&gt;% 
   kbl(caption = &quot;Missing phone numbers&quot;) %&gt;% 
