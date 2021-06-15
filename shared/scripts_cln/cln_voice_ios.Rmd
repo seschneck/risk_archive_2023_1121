@@ -42,6 +42,7 @@ library(tidyverse)
 library(kableExtra)
 library(RSQLite)
 library(lubridate)
+library(janitor)
 ```
 
 
@@ -247,7 +248,8 @@ logs_ios <- logs_ios %>%
 Match on everything except log related info (file name, created/modified date)
 ```{r}
 logs_ios <- logs_ios %>% 
-  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
+  distinct(across(-c(log_file, created, modified, ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID,
+                     Z_OPT, Z_PK)), .keep_all = TRUE) %>% 
   glimpse()
 ```
 
@@ -387,6 +389,11 @@ table(logs_ios$Z_ENT)
 ```
 
 Z_ENT is the identifier of the SQL table - all log info is coming from table ZCALLRECORD (table 2) so can remove this variable
+```{r}
+logs_ios <- logs_ios %>% 
+  select(-Z_ENT)
+```
+
 
 #### Z_OPT
 ```{r}
@@ -460,8 +467,74 @@ Calls are both incoming and outgoing.
 table(logs_ios$ZREAD)
 ```
 
+#### call category
+```{r}
+logs_ios %>% 
+  tabyl(ZCALL_CATEGORY)
+```
+
+1 = ?  
+2 = ?  
+
+
+#### handle type
+```{r}
+logs_ios %>% 
+  tabyl(ZHANDLE_TYPE)
+```
+
+0 =   
+1 =   
+2 =   
+3 =   
+
+#### name
+Name of contacts? Includes scam likely so may be display name or combination.
+```{r}
+logs_ios %>% 
+  group_by(ZNAME) %>% 
+  summarise(n = n()) %>% 
+  print(n = Inf)
+```
+
+Not sure why some names are numbers. Number as name appears to be same as raw number.
+```{r}
+logs_ios %>% 
+  filter(!is.na(ZNAME)) %>% 
+  select(ZADDRESS, ZNAME) %>% 
+  print(n = Inf)
+```
+
+
+#### service provider
+Almost all calls through Apple - also some Facebook messenger calls
+```{r}
+logs_ios %>% 
+  tabyl(ZSERVICE_PROVIDER)
+```
+
+
+#### unique id 
+The unique ID tracks the entry, but we may have duplicates if someone listens to a voicemail after their first data download. 
+```{r}
+logs_ios %>% 
+  group_by(ZUNIQUE_ID) %>% 
+  summarise(n = n()) %>% 
+  filter(n > 1) %>% 
+  arrange(desc(n)) 
+```
+
+For example the read variable here changes - Do we want to only keep the first entry or have duplicate with different read value?
+```{r}
+logs_ios %>% 
+  filter(ZUNIQUE_ID == "0255BA8B-DF83-4827-A529-B3AFA3671796") %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
 #### Primary key
-Not sure what value this has - started investigating if it was a unique ideentifier (It is not). Not going to dig more into this right now.   
+Not sure what value this has (seems to be more for SQL matching) - started investigating if it was a unique identifier (It is not). Not going to dig more into this right now.   
 
 4 subids are missing primary keys because they had csv files where this variable did not exist
 ```{r}
@@ -469,7 +542,6 @@ logs_ios %>%
   filter(is.na(Z_PK)) %>% 
   count(subid)
 ```
-
 
 Check for duplicate keys within subid
 ```{r}
@@ -512,6 +584,27 @@ logs_ios %>%
 ```
 
 <br>
+
+#### UUID variables 
+No idea what these are yet    
+
+
+ZLOCALPARTICIPANTUUID         
+```{r}
+logs_ios %>% 
+  group_by(ZLOCALPARTICIPANTUUID) %>% 
+  summarise(n = n()) %>% 
+  print(n = Inf)
+```
+
+ZOUTGOINGLOCALPARTICIPANTUUID 
+```{r}
+logs_ios %>% 
+  group_by(ZOUTGOINGLOCALPARTICIPANTUUID) %>% 
+  summarise(n = n()) %>% 
+  print(n = Inf)
+```
+
 
 ### Write CSV
 ```{r}

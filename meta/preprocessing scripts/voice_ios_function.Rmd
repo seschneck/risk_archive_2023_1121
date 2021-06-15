@@ -62,7 +62,7 @@ source("C:/Users/kpaquette2/lab_support/fun_phone_numbers.R")
 ### Read in logs
 Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
 ```{r}
-logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiiiiiiincccccccTTcc") %>% 
+logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiniiiincccccccTTcc") %>% 
   glimpse()
 ```
 
@@ -94,6 +94,9 @@ logs$number_formatted <- map_chr(logs$zaddress, extract_number)
 
 glimpse(logs)
 ```
+
+
+
 
 
 
