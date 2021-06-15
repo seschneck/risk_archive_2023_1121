@@ -60,9 +60,9 @@ source("Z:/toolboxes/lab_support/fun_phone_numbers.R")
 
 
 ### Read in logs
+Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
 ```{r}
-logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = cols()) %>% 
-  mutate(subid = as.numeric(subid)) %>% 
+logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiiiiiiincccccccTTcc") %>% 
   glimpse()
 ```
 
