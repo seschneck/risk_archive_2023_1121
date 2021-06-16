@@ -20,8 +20,13 @@ Preprocessing steps:
 1. Correct any identified errors in clean script    
 
 * 2 dates with year 2024   
+* Change <<RecentsNumberLocationNotFound>> in location to NA   
 
-2. Format numbers to match contacts   
+2. Tidy responses   
+
+* Recode known variables to character strings   
+
+3. Format numbers to match contacts   
 
 * Contact numbers only have country codes if they non-US numbers   
 * No + signs before non-US country codes and no punctuation or spaces in numbers (don't delete * from numbers that use it for blocking numbers)   
@@ -44,8 +49,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_in <- "Z:/studydata/risk/data_processed/shared"
-path_out <- "Z:/studydata/risk/data_processed/meta"
+path_in <- "/Volumes/private/studydata/risk/data_processed/shared"
+path_out <- "/Volumes/private/studydata/risk/data_processed/meta"
 ```
 
 Packages and Source
@@ -55,7 +60,7 @@ library(kableExtra)
 library(lubridate)
 library(janitor)
 
-source("C:/Users/kpaquette2/lab_support/fun_phone_numbers.R")
+source("~/lab_support/fun_phone_numbers.R")
 ```
 
 
@@ -80,6 +85,25 @@ logs <- logs %>%
   filter(!is.na(zdate))
 ```
 
+FIX: Replace <<RecentsNumberLocationNotFound>> with NA in location
+```{r}
+logs <- logs %>% 
+  mutate(zlocation = case_when(zlocation == "<<RecentsNumberLocationNotFound>>"~ as.character(NA),
+                               TRUE ~ zlocation)) %>% 
+  glimpse()
+```
+
+
+### Tidy responses
+
+Recode known variable responses to character strings
+```{r}
+
+```
+
+
+
+
 
 <br>
 
@@ -91,8 +115,6 @@ logs <- logs %>%
 Clean numbers with function
 ```{r}
 logs$number_formatted <- map_chr(logs$zaddress, extract_number)
-
-glimpse(logs)
 ```
 
 
