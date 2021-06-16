@@ -173,7 +173,7 @@ wrist_int <- wristband_descr %>%
        x = NULL) +
   scale_x_discrete(drop=FALSE) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
@@ -190,7 +190,7 @@ wrist_dis <- wristband_descr %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y =element_blank(),
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
@@ -210,7 +210,7 @@ wrist_1yr <- wristband_descr %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y=element_blank(),
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
@@ -222,10 +222,10 @@ wrist_1yr <- wristband_descr %>%
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
 p_wrist +
  plot_annotation(
-  caption =  "<i>Figure S2.</i> Wristband. Sample size is 9. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score.</i>"
+  caption =  "<i>Figure S2.</i> Physiology Wristband. Sample size is 9. Solid line represents the mean and dashed line represents the <br>neutral/ambivalent score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(size = 12),
         plot.subtitle = element_markdown(size = 12))
 ```
