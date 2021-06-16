@@ -321,9 +321,10 @@ p_phone +
 
 <br>
 
+### Participant characterization (supplement to partcipation flowchart)
 
 ```{r}
-notes_incomplete <- read_csv("/Volumes/private/StudyData/RISK/analysis/burden/data/notes_discontinue.csv", col_types = cols()) %>% 
+notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
   filter(screen != "cancelled" & screen != "no show") 
 
 notes_incomplete <- notes_incomplete %>%
@@ -357,7 +358,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>Table S1<br><br>A</b><br><i>Characterization of eligible and consented participants who discontinued prior to completing enrollment</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
 
 notes_incomplete %>% 
@@ -371,7 +372,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>B</b><br><i>Characterization of enrolled participants who discontinued prior to first month follow-up</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Discontinued' in Figure 1.")
 
 notes_incomplete %>% 
@@ -384,7 +385,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>C</b><br><i>Characterization of enrolled participants who discontinued after the first month follow-up</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
 
 notes_incomplete %>% 
@@ -398,13 +399,13 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>D</b><br><i>Characterization of ineligible participants</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Ineligible' in Figure 1.")
 ```
 
 <br>
 
-
+### Uncorrected pairwise comparisons
 ```{r}
 # dataframe of last survey
 # pull out last available sleep monitor data since this date will be earlier than last survey date for some
@@ -474,11 +475,11 @@ will_pair <- burden_last %>%
 ```{r}
 # format table
 tibble(
-  Measure = c("Daily Survey", "Sleep Monitor",
-              "Daily Survey", "Sleep Monitor", 
-              "Location", "Logs (SMS/call)", "SMS Content",
+  Measure = c("EMA", "Sleep Monitoring",
+              "EMA", "Sleep Monitoring", 
+              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content",
               "Daily Survey", "Sleep Monitor",
-              "Location", "Logs (SMS/call)", "SMS Content"),
+              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content"),
   "Audio Check-in" = c(
                        # interference
                        ".25", "< .001***", 
@@ -486,28 +487,28 @@ tibble(
                        "< .001***", "< .001***", "< .001***", ".001***", ".56", 
                        # willingness
                        ".47", ".46", ".14", ".42", ".96"), 
-  "Daily Survey" = c(
+  "EMA" = c(
                      # interference
                      NA, "< .001***", 
                      # Dislike
                      NA, ".30", ".56", ".63", ".002**",
                      # willingness
                      NA, ".18", ".03*", ".13", ".44"), 
-  "Sleep Monitor" = c(
+  "Sleep Monitoring" = c(
                       # interference
                       NA, NA, 
                       # dislike
                       NA, NA, ".59", ".15", "< .001***", 
                       # willingness
                       NA, NA, ".60", ".97", ".49"), 
-  "Location" = c(
+  "Moment-by-Moment Location" = c(
                  # interference
                  NA, NA,  
                  # dislike 
                  NA, NA, NA, ".29", "< .001***", 
                  # willingness 
                  NA, NA, NA, ".50", ".15"), 
-  "Logs (SMS/call)" = c(
+  "Cellular Communication Logs" = c(
                         # interference
                         NA, NA, 
                         # dislike
@@ -517,11 +518,11 @@ tibble(
   kbl(align = c("l", "c", "c", "c", "c", "c"),
       caption = "<b>Table S2</b><br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Signals across the Three Measures of Self Reported Acceptability</i>",
       escape = FALSE) %>% 
-  kable_classic(html_font = "Times New Roman") %>% 
+  kable_classic(html_font = "Arial") %>% 
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
   pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
   pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
-  footnote("Sample size for all personal sensing measures is 154 except for the sleep monitor which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
+  footnote("Sample size for all personal sensing measures is 154 except for the sleep monitoring which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
 ```
 
 
