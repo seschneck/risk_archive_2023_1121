@@ -20,7 +20,7 @@ Preprocessing steps:
 1. Correct any identified errors in clean script    
 
 * 2 dates with year 2024   
-* Change <<RecentsNumberLocationNotFound>> in location to NA   
+* Change RecentsNumberLocationNotFound in location to NA   
 
 2. Tidy responses   
 
@@ -85,7 +85,7 @@ logs <- logs %>%
   filter(!is.na(zdate))
 ```
 
-FIX: Replace <<RecentsNumberLocationNotFound>> with NA in location
+FIX: Replace RecentsNumberLocationNotFound with NA in location
 ```{r}
 logs <- logs %>% 
   mutate(zlocation = case_when(zlocation == "<<RecentsNumberLocationNotFound>>"~ as.character(NA),
@@ -96,12 +96,22 @@ logs <- logs %>%
 
 ### Tidy responses
 
-Recode known variable responses to character strings
+ziso_country_code: Two digit ISO country code
 ```{r}
-
+logs <- logs %>% 
+  mutate(ziso_country_code = factor(ziso_country_code, 
+                                    levels = c("ca", "be", "de", "mx", "nz", "pe", "tr", "us"),
+                                    labels = c("Canada", "Belgium", "Germany", "Mexico", "New Zealand",
+                                               "Peru", "Turkey", "United States")))
 ```
 
-
+zoriginated: Whether the call was outgoing
+```{r}
+logs <- logs %>% 
+  mutate(zoriginated = factor(zoriginated, 
+                              levels = c(0, 1),
+                              labels = c("incoming", "outgoing")))
+```
 
 
 
