@@ -321,6 +321,76 @@ p_phone +
 
 <br>
 
+### One time daily EMA 
+```{r}
+burden_ema_1x <- burden %>% 
+  select(subid, date, daily_survey_1_1year) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup()
+
+plot_ema_1x <- burden_ema_1x %>% 
+  rename(`Willingness to Continue for One Year` = daily_survey_1_1year) %>% 
+  pivot_longer(`Willingness to Continue for One Year`, names_to = "measure") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+
+plot_ema_1x +
+ plot_annotation(
+  caption =  "<i>Figure S4.</i> 1x Daily EMA. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
+<br>
+
+One sample t-test of willingness to use 1 x daily EMA for 1 year compared to a neutral/ambivalent score
+```{r}
+m_ema_1x <- lm(daily_survey_1_1year ~ 1, data = burden_ema_1x)
+summary(m_ema_1x)
+```
+**Acceptability ratings for a one time daily EMA were significantly higher than neutral, t(153) = 15.21, p < .001**  
+
+<br>
+
+
+Paired sample t-test of willingess to use 4 x daily EMA for 1 year compared to 1 x daily EMA
+```{r}
+# create long dataframe
+burden_ema_1x_and_4x <- burden %>% 
+  select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency") %>% 
+  glimpse()
+
+# t-test
+m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = burden_ema_1x_and_4x)
+summary(m_ema_1x_and_4x)
+car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
+```
+
+**Participant were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001**
+
+
 ### Participant characterization (supplement to partcipation flowchart)
 
 ```{r}
