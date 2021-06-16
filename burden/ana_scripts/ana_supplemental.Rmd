@@ -597,3 +597,123 @@ tibble(
 
 
 <br>
+
+
+
+
+### Participants using their own phone
+
+```{r}
+# read in excel phone tracking sheet
+phones <- readxl::read_excel("Z:/studydata/risk/administration/Participants/Technology Tracking/participant_phone_use_ALL.xlsx", range = "A1:F269") %>% 
+  rename(subid = `Sub ID`) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  clean_names() 
+
+# glimpse(phones)
+
+# filter down to burden sample (n = 154)
+phones <- phones %>% 
+  filter(subid %in% burden$subid)
+
+# table
+# phones %>% 
+#   tabyl(phone_type)
+
+phones <- phones %>% 
+  mutate(phone = case_when(str_detect(phone_type, "Study") ~ "Study Phone",
+                           TRUE ~ "Own Phone"))
+
+phones %>% 
+  tabyl(phone) %>% 
+  kbl(caption = "<b>Table S3</b><br><br><i>Number and percentage of participants that use their own smartphone or study iphone</i>") %>% 
+  kable_classic(html_font = "Arial") 
+```
+
+**Only 6 participants used study iphone**
+
+
+<br>
+
+<br>
+
+
+
+
+
+<!-- ```{r} -->
+<!-- # read in session forms -->
+<!-- intake_session <- read_csv(file.path(path_data, "session_intake.csv"), col_types = cols()) -->
+
+<!-- # filter down to subids in final sample -->
+<!-- intake_session <- intake_session %>%  -->
+<!--   filter(subid %in% burden$subid) -->
+
+<!-- # find duplicate session forms (i.e., from no show apts, or visits split into 2 parts) -->
+<!-- dup_subs <- intake_session %>%  -->
+<!--   count(subid) %>%  -->
+<!--   filter(n > 1) -->
+
+<!-- # intake_session %>%  -->
+<!-- #   filter(subid %in% dup_subs$subid) %>%  -->
+<!-- #   kbl() %>%  -->
+<!-- #   kable_styling() -->
+
+<!-- dups_remove <- c("R_29gDj65N3y04Wke", "R_1C9qMwUh1tmWVgp", "R_1d0nNdHOYw192hn", "R_2wz8FlLPyrcu2Sy") -->
+
+<!-- intake_session <- intake_session %>%  -->
+<!--   filter(!response_id %in% dups_remove) -->
+<!-- # 152 session forms -->
+
+<!-- # subid 9 and 31 have no session form -->
+<!-- burden %>%  -->
+<!--   filter(!subid %in% intake_session$subid) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- intake_session <- intake_session %>%  -->
+<!--   full_join(tibble(subid = c(9, 31), -->
+<!--                       q112 = c(as.character(NA), as.character(NA))), by = c("subid", "q112")) -->
+
+<!-- intake_session %>%  -->
+<!--   filter(is.na(q112)) %>%  -->
+<!--   select(subid) %>%  -->
+<!--   arrange(subid) %>%  -->
+<!--   print(n = Inf) -->
+<!-- ``` -->
+
+<!-- Is participant using their own phone? -->
+<!-- ```{r} -->
+<!-- intake_session %>%  -->
+<!--   tabyl(q112) -->
+<!-- ``` -->
+
+<!-- Notes for participants missing data -->
+<!-- ```{r} -->
+<!-- notes <- read_csv("Z:/studydata/risk/data_raw/raw_notes.csv", col_types = cols())  -->
+
+<!-- missing_session <- intake_session %>%  -->
+<!--   filter(is.na(q112)) -->
+
+<!-- notes %>%  -->
+<!--   filter(subid %in% missing_session$subid) %>%  -->
+<!--   kbl() %>%  -->
+<!--   kable_styling() %>%  -->
+<!--   scroll_box(height = "500px", width = "100%") -->
+<!-- ``` -->
+<!-- 1 - study phone -->
+<!-- 2 -  -->
+<!-- 3 - study phone? -->
+<!-- 5 -  -->
+<!-- 6 -  -->
+<!-- 7 -  -->
+<!-- 8 -  -->
+<!-- 9 - study phone? -->
+<!-- 10 -  -->
+<!-- 11 -  -->
+<!-- 15 -  -->
+<!-- 16 -  -->
+<!-- 31 - -->
+
+
+
