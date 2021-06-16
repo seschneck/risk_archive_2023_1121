@@ -42,7 +42,7 @@ theme_set(theme_bw())
 
 <br>
 
-Self-reported acceptability across 3 time points
+### Self-reported acceptability across 3 time points
 ```{r warning = FALSE}
 burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols())
 
@@ -144,7 +144,7 @@ burden_time_plot %>%
 <br>
 
 
-
+### Self-reported acceptability for the physiology wristband
 ```{r fig.height = 6}
 burden_wrist <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("wristband"))) 
@@ -230,6 +230,9 @@ p_wrist +
         plot.subtitle = element_markdown(size = 12))
 ```
 
+
+
+### Self reported acceptability related to carrying smartphone
 ```{r}
 burden_phone <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("carrying_phone"))) 
@@ -258,7 +261,7 @@ phone_int <- phone_descr %>%
        x = NULL) +
   scale_x_discrete(drop=FALSE) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
@@ -275,7 +278,7 @@ phone_dis <- phone_descr %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y =element_blank(),
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
@@ -295,7 +298,7 @@ phone_1yr <- phone_descr %>%
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y=element_blank(),
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
@@ -310,7 +313,7 @@ p_phone +
   caption =  "<i>Figure S3.</i> Carrying phone. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(size = 12),
         plot.subtitle = element_markdown(size = 12))
 ```
