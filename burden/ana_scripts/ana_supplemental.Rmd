@@ -25,8 +25,8 @@ options(knitr.kable.NA = '')
 
 
 ```{r}
-path_burden <- "/Volumes/private/StudyData/RISK/analysis/burden/data"
-path_data <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+path_burden <- "Z:/studydata/risk/data_processed/burden"
+path_data <- "Z:/studydata/risk/data_processed/shared"
 ```
 
 ```{r, message = FALSE, warning = FALSE}
@@ -42,6 +42,7 @@ theme_set(theme_bw())
 
 <br>
 
+Self-reported acceptability across 3 time points
 ```{r warning = FALSE}
 burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols())
 
@@ -107,15 +108,16 @@ burden_time_plot <- burden_time %>%
                             measure %in% interfere$measure ~ "Interference",
                             measure %in% oneyear$measure ~ "Willingness to Continue"),
          burden = factor(burden, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
-  mutate(measure = case_when(measure %in% logs$measure ~ "Logs (SMS/call)",
-                                  # measure %in% sleep$measure ~ "Sleep Monitor",
+  mutate(measure = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
+                                  measure %in% sleep$measure ~ "Sleep Monitoring",
                                   measure %in% audio$measure ~ "Audio Check-in",
-                                  measure %in% daily_4$measure ~ "Daily Survey",
-                                  measure %in% location$measure ~ "Location",
-                                  measure %in% sms$measure ~ "SMS Content"))
+                                  measure %in% daily_4$measure ~ "EMA",
+                                  measure %in% location$measure ~ "Moment-by-Moment Location",
+                                  measure %in% sms$measure ~ "Text Message Content")) 
 
 burden_time_plot %>% 
   group_by(measure, time, burden) %>% 
+  # missing values due to two participants who didn't complete survey at time point 2
   summarise(mean = mean(value, na.rm = TRUE)) %>% 
   ggplot(aes(x = time, y = mean, group = measure, color = measure)) +
   geom_point() +
@@ -123,23 +125,25 @@ burden_time_plot %>%
   facet_wrap(~burden) +
   theme_classic() +
   scale_color_manual(values = c("dodgerblue4",  "skyblue3", "azure3", 
-                                "thistle3", "plum4")) +
+                                "thistle1", "thistle3", "plum4")) +
   scale_x_continuous(name = "Time Point", 
                      breaks = c(1, 2, 3)) +
   scale_y_continuous(name = "Mean Score", 
                      breaks = c(-2, -1, 0, 1, 2), 
                      limits = c(-2, 2)) +
-  labs(caption = "<i>Figure S1.</i> Acceptance scores over time by personal sensing signal. Participant ratings (<i>N</i> = 133) for <br>each measure of acceptability at three different time points one-month apart. Each measure is on a <br>5-point bipolar scale anchored around a neutral/ambivalent response of 0 (i.e., undecided) with higher <br>values representing higher acceptability. Dashed line represents neutral score.") +
+  labs(caption = "<i>Figure S1.</i> Acceptance scores over time by personal sensing signal. Participant ratings (<i>N</i> = 133) for <br>each measure of acceptability at three different time points one-month apart. Sleep monitoring N = 87. <br>Each measure is on a 5-point bipolar scale anchored around a neutral/ambivalent response of 0 (i.e., <br>undecided) with higher values representing higher acceptability. Dashed line represents neutral score.") +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(),
         plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
   geom_hline(aes(yintercept = 0), linetype = "dashed", size = .3)
 ```
 
 <br>
+
+
 
 ```{r fig.height = 6}
 burden_wrist <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
