@@ -25,8 +25,8 @@ options(knitr.kable.NA = '')
 
 
 ```{r}
-path_burden <- "/Volumes/private/StudyData/RISK/analysis/burden/data"
-path_data <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+path_burden <- "Z:/studydata/risk/data_processed/burden"
+path_data <- "Z:/studydata/risk/data_processed/shared"
 ```
 
 ```{r, message = FALSE, warning = FALSE}
@@ -42,6 +42,7 @@ theme_set(theme_bw())
 
 <br>
 
+### Self-reported acceptability across 3 time points
 ```{r warning = FALSE}
 burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols())
 
@@ -107,15 +108,16 @@ burden_time_plot <- burden_time %>%
                             measure %in% interfere$measure ~ "Interference",
                             measure %in% oneyear$measure ~ "Willingness to Continue"),
          burden = factor(burden, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
-  mutate(measure = case_when(measure %in% logs$measure ~ "Logs (SMS/call)",
-                                  # measure %in% sleep$measure ~ "Sleep Monitor",
+  mutate(measure = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
+                                  measure %in% sleep$measure ~ "Sleep Monitoring",
                                   measure %in% audio$measure ~ "Audio Check-in",
-                                  measure %in% daily_4$measure ~ "Daily Survey",
-                                  measure %in% location$measure ~ "Location",
-                                  measure %in% sms$measure ~ "SMS Content"))
+                                  measure %in% daily_4$measure ~ "EMA",
+                                  measure %in% location$measure ~ "Moment-by-Moment Location",
+                                  measure %in% sms$measure ~ "Text Message Content")) 
 
 burden_time_plot %>% 
   group_by(measure, time, burden) %>% 
+  # missing values due to two participants who didn't complete survey at time point 2
   summarise(mean = mean(value, na.rm = TRUE)) %>% 
   ggplot(aes(x = time, y = mean, group = measure, color = measure)) +
   geom_point() +
@@ -123,17 +125,17 @@ burden_time_plot %>%
   facet_wrap(~burden) +
   theme_classic() +
   scale_color_manual(values = c("dodgerblue4",  "skyblue3", "azure3", 
-                                "thistle3", "plum4")) +
+                                "thistle1", "thistle3", "plum4")) +
   scale_x_continuous(name = "Time Point", 
                      breaks = c(1, 2, 3)) +
   scale_y_continuous(name = "Mean Score", 
                      breaks = c(-2, -1, 0, 1, 2), 
                      limits = c(-2, 2)) +
-  labs(caption = "<i>Figure S1.</i> Acceptance scores over time by personal sensing signal. Participant ratings (<i>N</i> = 133) for <br>each measure of acceptability at three different time points one-month apart. Each measure is on a <br>5-point bipolar scale anchored around a neutral/ambivalent response of 0 (i.e., undecided) with higher <br>values representing higher acceptability. Dashed line represents neutral score.") +
+  labs(caption = "<i>Figure S1.</i> Acceptance scores over time by personal sensing signal. Participant ratings (<i>N</i> = 133) for <br>each measure of acceptability at three different time points one-month apart. Sleep monitoring N = 87. <br>Each measure is on a 5-point bipolar scale anchored around a neutral/ambivalent response of 0 (i.e., <br>undecided) with higher values representing higher acceptability. Dashed line represents neutral score.") +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(),
         plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
   geom_hline(aes(yintercept = 0), linetype = "dashed", size = .3)
@@ -141,6 +143,8 @@ burden_time_plot %>%
 
 <br>
 
+
+### Self-reported acceptability for the physiology wristband
 ```{r fig.height = 6}
 burden_wrist <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("wristband"))) 
@@ -161,7 +165,7 @@ wrist_int <- wristband_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
@@ -169,7 +173,7 @@ wrist_int <- wristband_descr %>%
        x = NULL) +
   scale_x_discrete(drop=FALSE) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
@@ -179,14 +183,14 @@ wrist_dis <- wristband_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y =element_blank(),
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
@@ -199,14 +203,14 @@ wrist_1yr <- wristband_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y=element_blank(),
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
@@ -218,14 +222,17 @@ wrist_1yr <- wristband_descr %>%
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
 p_wrist +
  plot_annotation(
-  caption =  "<i>Figure S2.</i> Wristband. Sample size is 9. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score.</i>"
+  caption =  "<i>Figure S2.</i> Physiology Wristband. Sample size is 9. Solid line represents the mean and dashed line represents the <br>neutral/ambivalent score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(size = 12),
         plot.subtitle = element_markdown(size = 12))
 ```
 
+
+
+### Self reported acceptability related to carrying smartphone
 ```{r}
 burden_phone <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("carrying_phone"))) 
@@ -246,7 +253,7 @@ phone_int <- phone_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
@@ -254,7 +261,7 @@ phone_int <- phone_descr %>%
        x = NULL) +
   scale_x_discrete(drop=FALSE) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
@@ -264,14 +271,14 @@ phone_dis <- phone_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y =element_blank(),
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
@@ -284,14 +291,14 @@ phone_1yr <- phone_descr %>%
   mutate(value = factor(value, levels = c(-2:2),
                         labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#DBF8FF") +
+  geom_bar(color = "black", fill = "#FFDEDE") +
   facet_wrap(~measure) +
   theme_classic() +
   ylim(0, .7) +
   labs(y = NULL,
        x = NULL) +
     theme(legend.position = "none",
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         axis.text.y=element_blank(),
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
@@ -306,7 +313,7 @@ p_phone +
   caption =  "<i>Figure S3.</i> Carrying phone. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(family = "Times New Roman"),
+        text = element_text(),
         plot.title = element_markdown(size = 12),
         plot.subtitle = element_markdown(size = 12))
 ```
@@ -314,9 +321,80 @@ p_phone +
 
 <br>
 
+### One time daily EMA 
+```{r}
+burden_ema_1x <- burden %>% 
+  select(subid, date, daily_survey_1_1year) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup()
+
+plot_ema_1x <- burden_ema_1x %>% 
+  rename(`Willingness to Continue for One Year` = daily_survey_1_1year) %>% 
+  pivot_longer(`Willingness to Continue for One Year`, names_to = "measure") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+
+plot_ema_1x +
+ plot_annotation(
+  caption =  "<i>Figure S4.</i> 1x Daily EMA. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
+<br>
+
+One sample t-test of willingness to use 1 x daily EMA for 1 year compared to a neutral/ambivalent score
+```{r}
+m_ema_1x <- lm(daily_survey_1_1year ~ 1, data = burden_ema_1x)
+summary(m_ema_1x)
+```
+**Acceptability ratings for a one time daily EMA were significantly higher than neutral, t(153) = 15.21, p < .001**  
+
+<br>
+
+
+Paired sample t-test of willingess to use 4 x daily EMA for 1 year compared to 1 x daily EMA
+```{r}
+# create long dataframe
+burden_ema_1x_and_4x <- burden %>% 
+  select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency") %>% 
+  glimpse()
+
+# t-test
+m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = burden_ema_1x_and_4x)
+summary(m_ema_1x_and_4x)
+car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
+```
+
+**Participant were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001**
+
+
+### Participant characterization (supplement to partcipation flowchart)
 
 ```{r}
-notes_incomplete <- read_csv("/Volumes/private/StudyData/RISK/analysis/burden/data/notes_discontinue.csv", col_types = cols()) %>% 
+notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
   filter(screen != "cancelled" & screen != "no show") 
 
 notes_incomplete <- notes_incomplete %>%
@@ -350,7 +428,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>Table S1<br><br>A</b><br><i>Characterization of eligible and consented participants who discontinued prior to completing enrollment</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
 
 notes_incomplete %>% 
@@ -364,7 +442,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>B</b><br><i>Characterization of enrolled participants who discontinued prior to first month follow-up</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Discontinued' in Figure 1.")
 
 notes_incomplete %>% 
@@ -377,7 +455,7 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>C</b><br><i>Characterization of enrolled participants who discontinued after the first month follow-up</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
 
 notes_incomplete %>% 
@@ -391,13 +469,13 @@ notes_incomplete %>%
   kbl(col.names = c("", "<i>n</i>", "%"), 
       caption = "<b>D</b><br><i>Characterization of ineligible participants</i>",
       digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Times New Roman") %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
   footnote("These participants are noted as 'Ineligible' in Figure 1.")
 ```
 
 <br>
 
-
+### Uncorrected pairwise comparisons
 ```{r}
 # dataframe of last survey
 # pull out last available sleep monitor data since this date will be earlier than last survey date for some
@@ -467,11 +545,11 @@ will_pair <- burden_last %>%
 ```{r}
 # format table
 tibble(
-  Measure = c("Daily Survey", "Sleep Monitor",
-              "Daily Survey", "Sleep Monitor", 
-              "Location", "Logs (SMS/call)", "SMS Content",
+  Measure = c("EMA", "Sleep Monitoring",
+              "EMA", "Sleep Monitoring", 
+              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content",
               "Daily Survey", "Sleep Monitor",
-              "Location", "Logs (SMS/call)", "SMS Content"),
+              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content"),
   "Audio Check-in" = c(
                        # interference
                        ".25", "< .001***", 
@@ -479,28 +557,28 @@ tibble(
                        "< .001***", "< .001***", "< .001***", ".001***", ".56", 
                        # willingness
                        ".47", ".46", ".14", ".42", ".96"), 
-  "Daily Survey" = c(
+  "EMA" = c(
                      # interference
                      NA, "< .001***", 
                      # Dislike
                      NA, ".30", ".56", ".63", ".002**",
                      # willingness
                      NA, ".18", ".03*", ".13", ".44"), 
-  "Sleep Monitor" = c(
+  "Sleep Monitoring" = c(
                       # interference
                       NA, NA, 
                       # dislike
                       NA, NA, ".59", ".15", "< .001***", 
                       # willingness
                       NA, NA, ".60", ".97", ".49"), 
-  "Location" = c(
+  "Moment-by-Moment Location" = c(
                  # interference
                  NA, NA,  
                  # dislike 
                  NA, NA, NA, ".29", "< .001***", 
                  # willingness 
                  NA, NA, NA, ".50", ".15"), 
-  "Logs (SMS/call)" = c(
+  "Cellular Communication Logs" = c(
                         # interference
                         NA, NA, 
                         # dislike
@@ -510,11 +588,11 @@ tibble(
   kbl(align = c("l", "c", "c", "c", "c", "c"),
       caption = "<b>Table S2</b><br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Signals across the Three Measures of Self Reported Acceptability</i>",
       escape = FALSE) %>% 
-  kable_classic(html_font = "Times New Roman") %>% 
+  kable_classic(html_font = "Arial") %>% 
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
   pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
   pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
-  footnote("Sample size for all personal sensing measures is 154 except for the sleep monitor which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
+  footnote("Sample size for all personal sensing measures is 154 except for the sleep monitoring which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
 ```
 
 
