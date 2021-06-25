@@ -61,6 +61,9 @@ library(lubridate)
 library(janitor)
 
 source("~/lab_support/fun_phone_numbers.R")
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
 ```
 
 
@@ -139,19 +142,55 @@ logs %>% glimpse()
 tabyl(logs$extracted_country_code)
 ```
 
+extracted country code and iso country code
+```{r}
+table(logs$ziso_country_code, logs$extracted_country_code)
 
-IBTU numbers
+logs %>% 
+  filter(ziso_country_code == "Mexico")
+```
+
+
+BTU numbers - Facebook messenger
 ```{r}
 logs %>% 
-  filter(str_detect(number_formatted, "IBTU") | str_detect(number_formatted, "JBTU")) %>% 
+  filter(str_detect(number_formatted, "IBTU") | str_detect(number_formatted, "JBTU") | 
+           str_detect(number_formatted, "KBTU")) %>% 
   select(number_formatted, zservice_provider) %>% 
   print(n = Inf)
 ```
 
+```{r}
+tabyl(logs$zservice_provider)
+```
+
+Amazon echo calls    
+FIX: replace with something readable?
+```{r}
+logs %>% 
+  filter(zservice_provider == "94KV3E626L.com.amazon.echo") %>% 
+  tabyl(zaddress)
+```
+
+Instagram  
+```{r}
+logs %>% 
+  filter(zservice_provider == "MH9GU9K5PX.com.burbn.instagram") %>% 
+  tabyl(zaddress)
+```
+
+Whisper
+```{r}
+logs %>% 
+  filter(zservice_provider == "U68MSDN6DR.org.whispersystems.signal") %>% 
+  tabyl(zaddress)
+```
 
 
-
-
+```{r}
+logs %>% 
+  filter(zaddress == "+179182191962") 
+```
 
 
 
