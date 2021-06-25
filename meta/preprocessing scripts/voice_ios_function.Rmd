@@ -127,8 +127,26 @@ Clean numbers with function
 logs$number_formatted <- map_chr(logs$zaddress, extract_number)
 ```
 
+Extract country codes
+```{r}
+logs$extracted_country_code <- map_chr(logs$zaddress, extract_country_code)
+```
+
+Glimpse
+```{r}
+logs %>% glimpse()
+
+tabyl(logs$extracted_country_code)
+```
 
 
+IBTU numbers
+```{r}
+logs %>% 
+  filter(str_detect(number_formatted, "IBTU") | str_detect(number_formatted, "JBTU")) %>% 
+  select(number_formatted, zservice_provider) %>% 
+  print(n = Inf)
+```
 
 
 
