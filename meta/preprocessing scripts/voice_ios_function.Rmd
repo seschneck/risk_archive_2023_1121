@@ -4,10 +4,6 @@ author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
-    pandoc_args: [
-      "+RTS", "-K1000m",
-      "-RTS"
-      ]
     toc: yes
     toc_depth: 3
 ---
@@ -49,8 +45,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_in <- "/Volumes/private/studydata/risk/data_processed/shared"
-path_out <- "/Volumes/private/studydata/risk/data_processed/meta"
+path_in <- "Z:/studydata/risk/data_processed/shared"
+path_out <- "Z:/studydata/risk/data_processed/meta"
 ```
 
 Packages and Source
@@ -60,7 +56,7 @@ library(kableExtra)
 library(lubridate)
 library(janitor)
 
-source("~/lab_support/fun_phone_numbers.R")
+source("C:/Users/kpaquette2/lab_support/fun_phone_numbers.R")
 
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
@@ -79,7 +75,8 @@ logs <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiniiiin
 FIX: 2 dates with year 2024 - change to NA and filter out
 ```{r}
 logs %>% 
-  arrange(desc(zdate))
+  arrange(desc(zdate)) %>% 
+  head(10)
 
 
 logs <- logs %>% 
