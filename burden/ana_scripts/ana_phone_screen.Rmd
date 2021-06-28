@@ -1,0 +1,253 @@
+---
+title: "Phone screen"
+output: html_document
+---
+
+## Notes
+This script pull info about participants screened out of risk during phone screen for burden manuscript.
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+```{r}
+path_in <- "Z:/studydata/risk/data_raw/qualtrics"
+```
+
+### Read in data and join relevant columns
+
+```{r}
+screen_1 <- read_csv(file.path(path_in, "phone_screen_v1.csv"), col_types = cols()) %>% 
+  select(-Q6) %>% 
+  rename(Q6 = Q5) %>% 
+  select(-Q10) %>% 
+  rename(Q10 = Q9) %>% 
+  rename(Q9 = Q8) %>% 
+  select(-Q18) %>% 
+  rename(Q18 = Q17) %>% 
+  glimpse()
+
+screen_2 <- read_csv(file.path(path_in, "phone_screen_v2.csv"), col_types = cols()) %>% 
+  glimpse()
+
+screen_3 <- read_csv(file.path(path_in, "phone_screen_v3.csv"), col_types = cols()) %>% 
+  glimpse()
+
+screen_4 <- read_csv(file.path(path_in, "phone_screen_v4.csv"), col_types = cols()) %>% 
+  rename(Q2 = DataType,
+         Q32 = CallType,
+         Q18 = Phone_11,
+         Q38 = Phone_12,
+         Q19 = Phone_13) %>% 
+  mutate(Q10 = ifelse(Phone_7 == "Participant did not have time to be screened (skip to end of survey)", 
+                     "No, participant does not have time now", "Yes, participant has time now"),
+         Q9 = ifelse(Phone_7 == "Participant was not interested in the study (skip to end of survey)",
+                     "Participant is no longer interested", "Participant is interested"),
+         Q2 = ifelse(Q2 == "Real", "Real data", "Fake data")) %>% 
+  glimpse()
+```
+
+
+
+```{r}
+screen <- screen_1 %>% 
+  select(Q2, Q6, Q9, Q10, Q18) %>% 
+  full_join(screen_2 %>% 
+              select(Q2, Q6, Q9, Q10, Q18, Q19, Q32)) %>% 
+  full_join(screen_3 %>% 
+              select(Q2, Q6, Q9, Q10, Q18, Q19, Q32, Q38)) %>% 
+  full_join(screen_4 %>% 
+              select(Q2, Q9, Q10, Q18, Q19, Q32, Q38)) %>% 
+  glimpse()
+```
+
+
+
+
+
+
+
+
+
+### Version 1
+```{r}
+tabyl(screen_1$Q10)
+```
+
+
+### Version 2
+```{r}
+screen_2 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Interest in study after hearing about it
+```{r}
+screen_2 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q9)
+```
+
+Interested but does not have time to complete screen now
+```{r}
+screen_2 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q10)
+```
+
+
+Able and willing to use own phone
+Interest in study after hearing about it
+```{r}
+screen_2 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q18)
+```
+
+
+Primary number is internet based service
+Interest in study after hearing about it
+```{r}
+screen_2 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q19)
+```
+
+### Version 3
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Interest in study after hearing about it
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q9)
+```
+
+Interested but does not have time to complete screen now
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q10)
+```
+
+
+Able and willing to use own phone
+Interest in study after hearing about it
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q18)
+```
+
+
+Primary number is internet based service
+Interest in study after hearing about it
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q19)
+```
+
+Phone model   
+Samsung galaxy s7 or older = ineligible
+```{r}
+screen_3 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>%
+  filter(Q19 == "No") %>% 
+  tabyl(Q38)
+```
+
+### Version 4
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  # filter(Q6 == "Yes, participant has time now") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Interest in study after hearing about it
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  # filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q9)
+```
+
+Interested but does not have time to complete screen now
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q9 == "Participant is interested") %>% 
+  # filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q10)
+```
+
+
+Able and willing to use own phone
+Interest in study after hearing about it
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q18)
+```
+
+
+Primary number is internet based service
+Interest in study after hearing about it
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>% 
+  tabyl(Q19)
+```
+
+Phone model   
+Samsung galaxy s7 or older = ineligible
+```{r}
+screen_4 %>%
+  filter(Q2 == "Real data") %>% 
+  filter(Q32 == "Screen") %>% 
+  filter(Q6 == "Yes, participant has time now") %>%
+  filter(Q19 == "No") %>% 
+  tabyl(Q38)
+```
