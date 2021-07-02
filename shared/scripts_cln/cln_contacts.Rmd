@@ -30,9 +30,9 @@ pre, code {
 
 Paths 
 ```{r}
-path_raw <- "./raw_data"
-path_log <- "./analysis/shared/notes"
-path_out <- "./analysis/shared/data"
+path_raw <- "/Volumes/private/studydata/risk/data_raw"
+path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+path_log <- "~/analysis_risk1/shared/notes"
 ```
 
 Packages and Source
@@ -78,8 +78,7 @@ contacts <- map_df(subids$subid, ~read_contacts(.)) %>%
 
 
 ### Clean data from log
-cleaning function   
-(function written by Hannah)
+cleaning function (function written by Hannah)
 ```{r}
 clean_contacts <- function(..., log){
   data_row <- tibble(...) # (the tibble is turned into a list by pmap)
@@ -130,20 +129,6 @@ contacts <- contacts %>%
   glimpse()
 ```
 
-Create date variable    
-First check no missing UTCs
-```{r}
-contacts %>% 
-  filter(is.na(utc))
-```
-
-Convert UTC to datetime
-```{r}
-contacts <- contacts %>% 
-  mutate(utc = as.numeric(utc),
-         date = as_datetime(utc, tz = "utc")) %>% 
-  glimpse()
-```
 
 Check for any legitimate missing phone numbers before transforming dataframe to long
 ```{r}
@@ -165,9 +150,7 @@ pivot longer and reorder variables
 contacts <- contacts %>% 
   pivot_longer(home_phone:other_phone2, names_to = "phone_type", values_to = "phone_number") %>% 
   filter(!is.na(phone_number)) %>% 
-  # remove time from datetime 
-  mutate(date = date(date)) %>% 
-  select(subid, date, contact_type = type, phone_type, phone_number, contact_drank_past:state, utc) %>% 
+  select(subid, utc, contact_type = type, phone_type, phone_number, contact_drank_past:state, utc) %>% 
   glimpse()
 ```
 
@@ -188,7 +171,7 @@ contacts <- contacts %>%
 Check to see who completed intake that don't have contacts  
 NOTE: Subids 8 and 235 do not have a contacts file
 ```{r}
-visit_dates <- read_csv(file.path(path_out, "visit_dates.csv"), col_types = cols())
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
 notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general) 
 
@@ -279,7 +262,7 @@ contacts %>%
 ```
 
 Missing context variables   
-Most missing context variables are self or spam entries - still a considerable amount of missing values for co-workers and family-other
+Most missing context variables are self, other or spam entries - still a considerable amount of missing values for co-workers and family-other
 ```{r}
 contacts %>% 
   filter(is.na(recovery)) %>% 
@@ -287,15 +270,6 @@ contacts %>%
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
   scroll_box(width = "100%", height = "500px")
-```
-
-1 entry is also in the duplicate list and was previously entered as irrelevant/spam
-```{r}
-contacts %>% 
-  filter(subid == 33 & phone_number == "6088735039") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
 ```
 
 
