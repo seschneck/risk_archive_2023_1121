@@ -300,15 +300,6 @@ contacts %>%
 
 <br>
 
-```{r}
-contacts %>% 
-  filter(subid == 41) %>% 
-  filter(is.na(phone_number)) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  column_spec(5, color = "red") %>% 
-  scroll_box(width = "100%")
-```
 
 Missing contact type values have an actual NA in the excel file - what could this mean?
 ```{r}
@@ -354,7 +345,7 @@ contacts %>%
 ```
 
 Numbers not 10 digits   
-Most are Spam
+Only 3 are known contacts 
 ```{r}
 contacts %>% 
   select(subid, phone_number, contact_type) %>% 
@@ -380,9 +371,6 @@ contacts %>%
   select(subid, phone_number, contact_type) %>% 
   print(n = Inf)
 ```
-
-
-
 
 
 Check for non-numeric characters    
@@ -510,7 +498,7 @@ contacts %>%
 
 ### Write CSV
 ```{r}
-write_csv(contacts, file.path(path_out, "contacts.csv")) %>% 
+write_csv(contacts, file.path(path_shared, "contacts.csv")) %>% 
   glimpse()
 ```
 
