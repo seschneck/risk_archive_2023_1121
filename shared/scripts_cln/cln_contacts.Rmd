@@ -122,7 +122,7 @@ clean_contacts <- function(d, log){
   }
     
   # recode_all entries
-  # Changing typos in variable response labels
+  # Involves changing recurrent typo patterns in variable response labels
   log_recode_all <- filter(log, log_action == "recode_all")
   
   for (i in seq_along(log_recode_all$index)){
@@ -344,6 +344,13 @@ contacts %>%
   print(n = Inf)
 ```
 
+Check for non-numeric characters    
+```{r}
+contacts %>% 
+  filter(str_detect(phone_number, "[[:space:][:punct:][:alpha:]]")) %>% 
+  select(phone_number)
+```
+
 Numbers not 10 digits   
 Only 3 are known contacts 
 ```{r}
@@ -353,9 +360,43 @@ contacts %>%
   print(n = Inf)
 ```
 
+Filter out short codes
+```{r}
+contacts %>% 
+  select(subid, phone_number, contact_type) %>% 
+  filter(str_length(phone_number) != 10) %>% 
+  filter(str_length(phone_number) != 5 & str_length(phone_number) != 6) %>% 
+  print(n = Inf)
+```
+
+Check country code on these numbers
+```{r}
+numbers <- contacts %>% 
+  filter(str_length(phone_number) != 10) %>% 
+  filter(str_length(phone_number) != 5 & str_length(phone_number) != 6) %>% 
+  select(phone_number) %>% 
+  unlist(use.names = FALSE)
+
+valid_country_code <- NULL
+
+for (i in 1:length(numbers)) {
+  if(check_country_code(numbers[i])) {
+     valid_country_code <- append(valid_country_code, numbers[i])
+  }
+}
+
+valid_country_code
+```
+
+
 Check area code for all 10 digit numbers    
 Print numbers without valid area code   
 ```{r}
+numbers <- contacts %>% 
+  filter(str_length(phone_number) == 10) %>% 
+  select(phone_number) %>% 
+  unlist(use.names = FALSE)
+
 not_valid_area_code <- NULL
   
 for (i in 1:length(numbers)) {
@@ -364,21 +405,77 @@ for (i in 1:length(numbers)) {
   }
 }
 
-not_valid_area_code
-
 contacts %>% 
   filter(phone_number %in% not_valid_area_code) %>% 
   select(subid, phone_number, contact_type) %>% 
   print(n = Inf)
 ```
 
+FIX: 600 area code under subid 29 is probably supposed to be 608 since 600 is not a valid US area code and no log entries exist with that area code
+```{r}
+logs <- read_csv(file.path(path_shared, "voice_ios.csv"), col_types = "iTiiiiiniiiincccccccTTcc") %>% 
+  glimpse()
 
-Check for non-numeric characters    
+logs %>% 
+  filter(zaddress == "6008904796") %>% 
+  select(subid, zaddress)
+```
+
+```{r}
+logs %>% 
+  filter(zaddress == "6088904796") %>% 
+  filter(subid == 29) %>% 
+  select(subid, zaddress)
+```
+
+No contacts already listed as this number for subid 29
 ```{r}
 contacts %>% 
-  filter(str_detect(phone_number, "[[:space:][:punct:][:alpha:]]")) %>% 
-  select(phone_number)
+  filter(phone_number == "6088904796") %>% 
+  filter(subid == "029")
 ```
+
+Filter out spam from other numbers with invalid area codes 
+```{r}
+contacts %>% 
+  filter(phone_number %in% not_valid_area_code) %>% 
+  select(subid, phone_number, contact_type) %>% 
+  filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>% 
+  print(n = Inf)
+```
+
+
+Check country codes for international numbers
+```{r}
+numbers <- contacts %>% 
+  filter(phone_number %in% not_valid_area_code) %>% 
+  filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>% 
+  select(phone_number) %>% 
+  unlist(use.names = FALSE)
+
+valid_country_code <- NULL
+
+for (i in 1:length(not_valid_area_code)) {
+  if(check_country_code(not_valid_area_code[i])) {
+     valid_country_code <- append(valid_country_code, not_valid_area_code[i])
+  }
+}
+
+valid_country_code
+```
+
+* 47 is germany country code and 44 is UK country code but these have too few digits  
+* The rest all belong to one subid and so I am wondering if these are internet numbers or something that isn't registering as a valid number. 
+```{r}
+contacts %>% 
+  filter(phone_number %in% not_valid_area_code) %>% 
+  filter(!phone_number %in% valid_country_code) %>% 
+  select(subid, phone_number, contact_type) %>% 
+  filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>% 
+  print(n = Inf)
+```
+
+
 
 <br>
 
