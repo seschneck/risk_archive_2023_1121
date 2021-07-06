@@ -214,7 +214,7 @@ contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>%
 - duration - duration of call    
 - presentation - whether number was available, or blocked/unknown    
 - incoming  
-- rejected  
+- answered  
 - facetime - no, audio, video and audio
 
 
@@ -230,7 +230,7 @@ voice_android <- voice_android %>%
 
 Create new variables to match IOS
 ```{r}
-voice_android %>% 
+voice_android <- voice_android %>% 
   mutate(incoming = case_when(type == 1 ~ "incoming",
                               type == 2 ~ "outgoing",
                               type == 3 ~ "incoming", # type 3 = missed
@@ -239,16 +239,17 @@ voice_android %>%
                               type == 6 ~ "incoming", # type 6 = blocked
                               type == 7 ~ "incoming", # type 7 = answered externally
                               TRUE ~ as.character(NA)),
-         rejected = case_when(type == 5 ~ "yes",
+         answered = case_when(type == 1 ~ "yes",
                               is.na(type) ~ as.character(NA),
                               TRUE ~ "no"),
-         presentation = case_when(presentation == 1 ~ "displayed",
-                                  presentation == 2 ~ "blocked",
-                                  presentation == 3 ~ "unknown",
+         presentation = case_when(presentation == 1 ~ "available",
+                                  presentation == 2 ~ "unavailable",
+                                  presentation == 3 ~ "unavailable",
                                   TRUE ~ as.character(NA)),
          facetime = "no") %>% 
   # remove old variables
-  select(-type)
+  select(-type) %>% 
+  glimpse()
 ```
 
 
@@ -262,39 +263,50 @@ voice_ios %>%
 voice_ios <- voice_ios %>% 
   select(c(subid,
            date = zdate,
-           rejected = zanswered,
+           answered = zanswered,
            incoming = zoriginated,
            facetime = zcalltype,
            duration = zduration,
            contact_name = zname,
-           number = zaddress)) %>% 
+           number = zaddress,
+           presentation = znumber_availability)) %>% 
   glimpse()
 ```
 
-zoriginated: Whether the call was outgoing
 ```{r}
-logs <- logs %>% 
+voice_ios <- voice_ios %>% 
   mutate(incoming = case_when(incoming == 0 ~ "incoming",
                               incoming == 1 ~ "outgoing",
                               TRUE ~ as.character(NA)),
-         rejected = case_when(rejected == 0 ~ "no",
-                              rejected == 1 ~ "yes",
+         answered = case_when(answered == 0 ~ "no", # includes outgoing, missed, or rejected calls
+                              answered == 1 ~ "yes",
                               TRUE ~ as.character(NA)),
          facetime = case_when(facetime == 8 ~ "audio",
                               facetime == 16 ~ "audio and video",
-                              TRUE ~ "no"))
+                              TRUE ~ "no"),
+         presentation = case_when(presentation == 0 ~ "available",
+                                  presentation == 1 ~ "unavailable",
+                                  presentation == 2 ~ "unavailable",
+                                  TRUE ~ as.character(NA))) %>% 
+  glimpse()
 ```
-
 
 
 
 ### Join
 ```{r}
-
+logs <- voice_android %>% 
+  full_join(voice_ios,  by = c("subid", "number", "duration", "date", 
+                               "presentation", "contact_name", "incoming",
+                               "answered", "facetime")) %>% 
+  glimpse()
 ```
 
 <br>
 
+```{r}
+voice_ios %>% naniar::miss_var_summary()
+```
 
 
 
@@ -423,89 +435,6 @@ logs %>%
 ```
 
 
-### Phone numbers
-
-**Internet calls**    
-
-```{r}
-tabyl(logs$zservice_provider) 
-```
-
-BTU numbers are from Facebook messenger
-```{r}
-logs %>% 
-  filter(str_detect(number_formatted, "IBTU") | str_detect(number_formatted, "JBTU") | 
-           str_detect(number_formatted, "KBTU")) %>% 
-  select(number_formatted, zservice_provider) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
-  scroll_box(height = "500px", width = "75%")
-```
-
-Amazon echo calls    
-FIX: replace with something readable?
-```{r}
-logs %>% 
-  filter(zservice_provider == "94KV3E626L.com.amazon.echo") %>% 
-  tabyl(zaddress)  %>% 
-  kbl() %>% 
-  kable_styling()
-```
-
-Instagram  
-```{r}
-logs %>% 
-  filter(zservice_provider == "MH9GU9K5PX.com.burbn.instagram") %>% 
-  tabyl(zaddress) %>% 
-  kbl() %>% 
-  kable_styling()
-```
-
-Whisper
-```{r}
-logs %>% 
-  filter(zservice_provider == "U68MSDN6DR.org.whispersystems.signal") %>% 
-  tabyl(zaddress) %>% 
-  kbl() %>% 
-  kable_styling()
-```
-
-
-
-
-
-
-
-
-
-
-
-### Country codes
-
-extracted country code and iso country code don't always match    
-According to Apple ISO Country code = The ISO country code for the user’s cellular service provider
-```{r}
-table(logs$ziso_country_code, logs$extracted_country_code)
-
-logs %>% 
-  filter(ziso_country_code == "Mexico") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(height = "500px", width = "100%")
-```
-
-
-
-
-
-
-
-## Remove other columns unnecessary for data analyses
-
-```{r}
-logs_final <- logs %>% 
-  select(-c(log_file, created, modified, zunique_id))
-```
 
 
 ## Write csv
@@ -513,8 +442,6 @@ logs_final <- logs %>%
 # write_csv(logs, file.path(path_out, "meta_voice_ios.csv")) %>% 
 #   glimpse()
 ```
-
-**Dates saved as UTC**
 
 <br>
 
