@@ -1,0 +1,529 @@
+---
+title: "Meta logs"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 3
+---
+
+### Notes
+Purpose: This script does further cleaning and pre-processing on the voice and SMS logs specifically for meta study. It outputs a single clean log file joined with the cleaned contact variables ready for feature engineering in the meta project.    
+
+Preprocessing steps:   
+
+1. Handle any identified errors/anomallies in clean scripts    
+ 
+
+2. Tidy responses   
+
+3. Join logs on common variables    
+
+4. Format numbers to match contacts   
+
+Inputs:  
+- voice_ios.csv    
+- voice_android.csv   
+- sms_ios.csv  
+- sms_android.csv  
+- contacts.csv
+
+Output:   
+- meta_logs.csv 
+
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths 
+```{r}
+path_in <- "Z:/studydata/risk/data_processed/shared"
+path_out <- "Z:/studydata/risk/data_processed/meta"
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(janitor)
+
+source("C:/Users/kpaquette2/lab_support/fun_phone_numbers.R")
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+## Voice IOS logs
+
+Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
+```{r}
+voice_ios <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiniiiincccccccTTcc") %>% 
+  glimpse()
+```
+
+### Clean errors identified in clean script EDA
+
+FIX: 2 dates with year 2024 - change to NA and filter out
+```{r}
+voice_ios %>% 
+  arrange(desc(zdate)) %>% 
+  head(10)  %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  scroll_box(width = "100%", height = "500px")
+
+
+voice_ios <- voice_ios %>% 
+  mutate(zdate = case_when(date(zdate) == "2024-11-26" ~ as_datetime(NA),
+                           TRUE ~ zdate)) %>% 
+  filter(!is.na(zdate))
+```
+
+Fix invalid numbers with semicolon     
+```{r}
+voice_ios %>% 
+  filter(str_detect(zaddress, ";")) %>% 
+  select(subid, zaddress)
+```
+
+Unclear what number after semicolon is. Keeping US number before semicolon as number.
+```{r}
+voice_ios <- voice_ios %>% 
+  mutate(zaddress = case_when(zaddress == "608-663-3926;206" ~ "608-663-3926",
+                              zaddress == "+12623678600;114" ~ "+12623678600",
+                              zaddress == "6082561901;15045" ~ "6082561901",
+                              zaddress == "+86566;n" ~ "+86566",
+                              zaddress == "6082332100;2024" ~ "6082332100",
+                              zaddress == "6086615437;116" ~ "6086615437",
+                              zaddress == "8444176626;5618" ~ "8444176626",
+                              zaddress == "18774155164;5077085016597013" ~ "18774155164",
+                              TRUE ~ zaddress))
+```
+
+FIX: Replace RecentsNumberLocationNotFound with NA in location
+```{r}
+voice_ios <- voice_ios %>% 
+  mutate(zlocation = case_when(zlocation == "<<RecentsNumberLocationNotFound>>"~ as.character(NA),
+                               TRUE ~ zlocation)) %>% 
+  glimpse()
+```
+
+### Filter out duplicate unique IDS 
+Duplicates due to changes in read status between log downloads   
+Will keep first occurrence of each log entry
+
+```{r}
+voice_ios <- voice_ios %>%
+  group_by(zunique_id, zdate) %>%
+  arrange(zdate) %>%
+  slice(1) %>%
+  ungroup() %>%
+  glimpse()
+
+```
+
+
+## Voice Android logs
+
+```{r}
+voice_android <- read_csv(file.path(path_in, "voice_android.csv"), col_types = cols()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  glimpse()
+```
+
+### Clean errors identified in clean script EDA
+
+Fix presentation value for blocked and unknown numbers    
+11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
+```{r}
+voice_android <- voice_android %>% 
+  mutate(presentation = case_when(number == "-1" & presentation == 1 ~ 3,
+                                  number == "-2" & presentation == 1 ~ 2,
+                                  TRUE ~ presentation))
+```
+
+Fix invalid number +1-385-262-3849;418173518#    
+Unclear what number after semicolon is. Keeping US number before semicolon as number.
+```{r}
+voice_android <- voice_android %>% 
+  mutate(number = case_when(number == "+1-385-262-3849;418173518#" ~ "3852623849",
+                            TRUE ~ number))
+```
+
+Fix invalid duration value of -4   
+Duration cannot be negative; changing to NA since no way of knowing actual duration
+```{r}
+voice_android <- voice_android %>% 
+  mutate(duration = case_when(duration == -4 ~ as.numeric(NA),
+                              TRUE ~ duration))
+```
+
+Fix invalid type values   
+8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
+```{r}
+voice_android <- voice_android %>% 
+  mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.numeric(NA),
+                          TRUE ~ type))
+```
+
+Recode all blocked (-2) and unknown (-1) numbers to NA  
+-1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown number; presentation variable provides this information as to whether call was blocked or unknown.
+```{r}
+voice_android <- voice_android %>% 
+  mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
+                            TRUE ~ number))
+```
+
+
+## SMS IOS logs
+
+
+## SMS Android logs
+
+
+
+## Contacts
+```{r}
+contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+
+
+
+
+
+
+## Tidy responses and Join
+
+### Common voice log variables relevant to meta project
+
+- subid - participant identifier   
+- date - date and time of log entry    
+- number - raw phone number of other party  
+- contact_name   
+- duration - duration of call    
+- presentation - whether number was available, or blocked/unknown    
+- incoming  
+- rejected  
+- facetime - no, audio, video and audio
+
+
+### tidy android variables for merge
+```{r}
+voice_android %>% 
+  glimpse()
+
+voice_android <- voice_android %>% 
+  select(-c(log_file, created, modified)) %>% 
+  glimpse()
+```
+
+Create new variables to match IOS
+```{r}
+voice_android %>% 
+  mutate(incoming = case_when(type == 1 ~ "incoming",
+                              type == 2 ~ "outgoing",
+                              type == 3 ~ "incoming", # type 3 = missed
+                              type == 4 ~ "incoming", # type 4 = voicemail
+                              type == 5 ~ "incoming", # type 5 = rejected
+                              type == 6 ~ "incoming", # type 6 = blocked
+                              type == 7 ~ "incoming", # type 7 = answered externally
+                              TRUE ~ as.character(NA)),
+         rejected = case_when(type == 5 ~ "yes",
+                              is.na(type) ~ as.character(NA),
+                              TRUE ~ "no"),
+         presentation = case_when(presentation == 1 ~ "displayed",
+                                  presentation == 2 ~ "blocked",
+                                  presentation == 3 ~ "unknown",
+                                  TRUE ~ as.character(NA)),
+         facetime = "no") %>% 
+  # remove old variables
+  select(-type)
+```
+
+
+
+
+### tidy ios variables for merge
+```{r}
+voice_ios %>% 
+  glimpse()
+
+voice_ios <- voice_ios %>% 
+  select(c(subid,
+           date = zdate,
+           rejected = zanswered,
+           incoming = zoriginated,
+           facetime = zcalltype,
+           duration = zduration,
+           contact_name = zname,
+           number = zaddress)) %>% 
+  glimpse()
+```
+
+zoriginated: Whether the call was outgoing
+```{r}
+logs <- logs %>% 
+  mutate(incoming = case_when(incoming == 0 ~ "incoming",
+                              incoming == 1 ~ "outgoing",
+                              TRUE ~ as.character(NA)),
+         rejected = case_when(rejected == 0 ~ "no",
+                              rejected == 1 ~ "yes",
+                              TRUE ~ as.character(NA)),
+         facetime = case_when(facetime == 8 ~ "audio",
+                              facetime == 16 ~ "audio and video",
+                              TRUE ~ "no"))
+```
+
+
+
+
+### Join
+```{r}
+
+```
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Clean numbers
+
+Clean numbers with function
+```{r}
+logs$number_formatted <- map_chr(logs$zaddress, extract_number)
+```
+
+Extract country codes
+```{r}
+logs$extracted_country_code <- map_chr(logs$zaddress, extract_country_code)
+
+tabyl(logs$extracted_country_code)
+```
+
+### Check unknown patterns for matches to contacts
+
+read in contacts
+```{r message = FALSE}
+contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+match 7 digit numbers to pull area codes
+```{r}
+numbers_7_digits <- logs %>% 
+  filter(str_detect(zaddress, "^[1-9]") & nchar(zaddress) == 7) %>% 
+  select(zaddress) %>% 
+  unlist(use.names = FALSE)
+
+contacts_7_digits <- tibble(subid = as.numeric())
+
+for (i in seq_along(numbers_7_digits)) {
+  match <- contacts %>% 
+    filter(str_detect(phone_number, numbers_7_digits[i])) %>% 
+    mutate(pattern = numbers_7_digits[i])
+  if(nrow(match) != 0) {  
+    contacts_7_digits <- contacts_7_digits %>% full_join(match)
+  }
+}
+
+contacts_7_digits %>% 
+  select(subid, phone_number, pattern, contact_type) %>% 
+  group_by(subid, phone_number, pattern) %>% 
+  slice(1) %>% 
+  print(n = Inf) 
+```
+
+Area code is 608 for most but not all 7-digit number matches
+```{r}
+contacts_7_digits %>% 
+  mutate(area_code = str_sub(phone_number, 1, 3)) %>% 
+  tabyl(area_code)
+```
+
+Join numbers with log entries and replace formatted number with contact number
+```{r}
+logs <- logs %>% 
+  left_join(contacts_7_digits %>% 
+              select(subid, contact_number = phone_number, zaddress = pattern), 
+            by = c("subid", "zaddress")) %>% 
+  glimpse()
+```
+
+Log entries with contact matches
+```{r}
+logs %>% 
+  filter(!is.na(contact_number)) %>% 
+  select(subid, zaddress, contact_number, zdate) %>% 
+  print(n = Inf)
+```
+
+Update formatted number
+```{r}
+logs <- logs %>% 
+  mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
+                                      TRUE ~ number_formatted)) 
+
+# check
+logs %>% 
+  filter(!is.na(contact_number)) %>% 
+  select(subid, zaddress, contact_number, number_formatted) %>% 
+  print(n = Inf)
+
+# remove contact number variable
+logs <- logs %>% 
+  select(-contact_number)
+```
+
+
+Contact numbers more than 10 digits in length        
+FIX: 11 is US exit code for dialing out of country. Remove 11 to match log format?   
+43 - Austria   
+49 - Germany  
+91 - India  
+57 - Columbia   
+
+800050001020 is health insurance scammer according to Google  
+
+```{r}
+contacts %>% 
+  filter(nchar(phone_number) > 10) %>% 
+  select(subid, phone_number, contact_type)
+```
+
+
+
+## EDA
+
+Missing data
+```{r}
+logs %>%
+  naniar::miss_var_summary()
+```
+
+
+### Phone numbers
+
+**Internet calls**    
+
+```{r}
+tabyl(logs$zservice_provider) 
+```
+
+BTU numbers are from Facebook messenger
+```{r}
+logs %>% 
+  filter(str_detect(number_formatted, "IBTU") | str_detect(number_formatted, "JBTU") | 
+           str_detect(number_formatted, "KBTU")) %>% 
+  select(number_formatted, zservice_provider) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  scroll_box(height = "500px", width = "75%")
+```
+
+Amazon echo calls    
+FIX: replace with something readable?
+```{r}
+logs %>% 
+  filter(zservice_provider == "94KV3E626L.com.amazon.echo") %>% 
+  tabyl(zaddress)  %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Instagram  
+```{r}
+logs %>% 
+  filter(zservice_provider == "MH9GU9K5PX.com.burbn.instagram") %>% 
+  tabyl(zaddress) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+Whisper
+```{r}
+logs %>% 
+  filter(zservice_provider == "U68MSDN6DR.org.whispersystems.signal") %>% 
+  tabyl(zaddress) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+
+
+
+
+
+
+
+
+
+### Country codes
+
+extracted country code and iso country code don't always match    
+According to Apple ISO Country code = The ISO country code for the user’s cellular service provider
+```{r}
+table(logs$ziso_country_code, logs$extracted_country_code)
+
+logs %>% 
+  filter(ziso_country_code == "Mexico") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+
+
+
+
+
+
+## Remove other columns unnecessary for data analyses
+
+```{r}
+logs_final <- logs %>% 
+  select(-c(log_file, created, modified, zunique_id))
+```
+
+
+## Write csv
+```{r}
+# write_csv(logs, file.path(path_out, "meta_voice_ios.csv")) %>% 
+#   glimpse()
+```
+
+**Dates saved as UTC**
+
+<br>
+
+
+
+
+
+
+
+
+
+
