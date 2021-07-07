@@ -15,7 +15,6 @@ Preprocessing steps:
 
 1. Handle any identified errors/anomallies in clean scripts    
  
-
 2. Tidy responses   
 
 3. Join logs on common variables    
@@ -44,8 +43,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_in <- "Z:/studydata/risk/data_processed/shared"
-path_out <- "Z:/studydata/risk/data_processed/meta"
+path_in <- "/Volumes/private/studydata/risk/data_processed/shared"
+path_out <- "/Volumes/private/studydata/risk/data_processed/meta"
 ```
 
 Packages and Source
@@ -55,7 +54,7 @@ library(kableExtra)
 library(lubridate)
 library(janitor)
 
-source("C:/Users/kpaquette2/lab_support/fun_phone_numbers.R")
+source("~/lab_support/fun_phone_numbers.R")
 
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
@@ -66,7 +65,7 @@ options(tibble.print_max = Inf)
 
 Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
 ```{r}
-voice_ios <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiiiiiniiiincccccccTTcc") %>% 
+voice_ios <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiicicniiccncccccccTT") %>% 
   glimpse()
 ```
 
@@ -79,6 +78,7 @@ voice_ios %>%
   head(10)  %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
+  row_spec(1:2, color = "red") %>% 
   scroll_box(width = "100%", height = "500px")
 
 
@@ -128,14 +128,13 @@ voice_ios <- voice_ios %>%
   slice(1) %>%
   ungroup() %>%
   glimpse()
-
 ```
 
 
 ## Voice Android logs
 
 ```{r}
-voice_android <- read_csv(file.path(path_in, "voice_android.csv"), col_types = cols()) %>% 
+voice_android <- read_csv(file.path(path_in, "voice_android.csv"), col_types = "icnTccccTT") %>% 
   mutate(subid = as.numeric(subid)) %>% 
   glimpse()
 ```
@@ -146,12 +145,19 @@ Fix presentation value for blocked and unknown numbers
 11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
 ```{r}
 voice_android <- voice_android %>% 
-  mutate(presentation = case_when(number == "-1" & presentation == 1 ~ 3,
-                                  number == "-2" & presentation == 1 ~ 2,
-                                  TRUE ~ presentation))
+  mutate(presentation = case_when(number == "-1" & presentation == "Displayed" ~ "Unknown",
+                                  number == "-2" & presentation == "Displayed" ~ "Blocked",
+                                  TRUE ~ as.character(presentation)))
 ```
 
-Fix invalid number +1-385-262-3849;418173518#    
+
+Fix invalid number with semicolon     
+```{r}
+voice_android %>% 
+  filter(str_detect(number, ";")) %>% 
+  select(subid, number)
+```
+  
 Unclear what number after semicolon is. Keeping US number before semicolon as number.
 ```{r}
 voice_android <- voice_android %>% 
@@ -171,8 +177,8 @@ Fix invalid type values
 8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
 ```{r}
 voice_android <- voice_android %>% 
-  mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.numeric(NA),
-                          TRUE ~ type))
+  mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.character(NA),
+                          TRUE ~ as.character(type)))
 ```
 
 Recode all blocked (-2) and unknown (-1) numbers to NA  
@@ -182,6 +188,7 @@ voice_android <- voice_android %>%
   mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
                             TRUE ~ number))
 ```
+
 
 
 ## SMS IOS logs
@@ -199,10 +206,6 @@ contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>%
 
 
 
-
-
-
-
 ## Tidy responses and Join
 
 ### Common voice log variables relevant to meta project
@@ -213,45 +216,34 @@ contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>%
 - contact_name   
 - duration - duration of call    
 - presentation - whether number was available, or blocked/unknown    
-- incoming  
+- originated (incoming or outgoing)  
 - answered  
-- facetime - no, audio, video and audio
+- call_type - phone, facetime audio, facetime video
 
 
 ### tidy android variables for merge
 ```{r}
 voice_android %>% 
   glimpse()
-
-voice_android <- voice_android %>% 
-  select(-c(log_file, created, modified)) %>% 
-  glimpse()
 ```
 
 Create new variables to match IOS
 ```{r}
 voice_android <- voice_android %>% 
-  mutate(incoming = case_when(type == 1 ~ "incoming",
-                              type == 2 ~ "outgoing",
-                              type == 3 ~ "incoming", # type 3 = missed
-                              type == 4 ~ "incoming", # type 4 = voicemail
-                              type == 5 ~ "incoming", # type 5 = rejected
-                              type == 6 ~ "incoming", # type 6 = blocked
-                              type == 7 ~ "incoming", # type 7 = answered externally
-                              TRUE ~ as.character(NA)),
-         answered = case_when(type == 1 ~ "yes",
+  mutate(originated = case_when( type == "Missed" ~ "Incoming",
+                                 type == "Voicemail" ~ "Incoming",
+                                 type == "Rejected" ~ "Incoming",
+                                 type == "Blocked" ~ "Incoming",
+                                 type == "Answered Externally" ~ "Incoming",
+                                 TRUE ~ type),
+         answered = case_when(type == "Incoming" ~ "Answered",
                               is.na(type) ~ as.character(NA),
-                              TRUE ~ "no"),
-         presentation = case_when(presentation == 1 ~ "available",
-                                  presentation == 2 ~ "unavailable",
-                                  presentation == 3 ~ "unavailable",
-                                  TRUE ~ as.character(NA)),
-         facetime = "no") %>% 
-  # remove old variables
-  select(-type) %>% 
+                              TRUE ~ "Not Answered"),
+         call_type = "Phone") %>% 
+  # remove unused variables
+  select(-c(log_file, created, modified, type, presentation)) %>% 
   glimpse()
 ```
-
 
 
 
@@ -264,58 +256,28 @@ voice_ios <- voice_ios %>%
   select(c(subid,
            date = zdate,
            answered = zanswered,
-           incoming = zoriginated,
-           facetime = zcalltype,
+           originated = zoriginated,
+           call_type = zcalltype,
            duration = zduration,
            contact_name = zname,
-           number = zaddress,
-           presentation = znumber_availability)) %>% 
-  glimpse()
-```
-
-```{r}
-voice_ios <- voice_ios %>% 
-  mutate(incoming = case_when(incoming == 0 ~ "incoming",
-                              incoming == 1 ~ "outgoing",
-                              TRUE ~ as.character(NA)),
-         answered = case_when(answered == 0 ~ "no", # includes outgoing, missed, or rejected calls
-                              answered == 1 ~ "yes",
-                              TRUE ~ as.character(NA)),
-         facetime = case_when(facetime == 8 ~ "audio",
-                              facetime == 16 ~ "audio and video",
-                              TRUE ~ "no"),
-         presentation = case_when(presentation == 0 ~ "available",
-                                  presentation == 1 ~ "unavailable",
-                                  presentation == 2 ~ "unavailable",
-                                  TRUE ~ as.character(NA))) %>% 
+           number = zaddress)) %>% 
   glimpse()
 ```
 
 
 
 ### Join
+join voice logs
 ```{r}
 logs <- voice_android %>% 
-  full_join(voice_ios,  by = c("subid", "number", "duration", "date", 
-                               "presentation", "contact_name", "incoming",
-                               "answered", "facetime")) %>% 
+  full_join(voice_ios,  by = c("subid", "number", "duration", "date", "contact_name", 
+                               "originated", "answered", "call_type")) %>% 
   glimpse()
 ```
 
+Will join contacts after numbers are cleaned
+
 <br>
-
-```{r}
-voice_ios %>% naniar::miss_var_summary()
-```
-
-
-
-
-
-
-
-
-
 
 
 
@@ -324,29 +286,17 @@ voice_ios %>% naniar::miss_var_summary()
 
 Clean numbers with function
 ```{r}
-logs$number_formatted <- map_chr(logs$zaddress, extract_number)
+logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = TRUE)
 ```
 
-Extract country codes
-```{r}
-logs$extracted_country_code <- map_chr(logs$zaddress, extract_country_code)
-
-tabyl(logs$extracted_country_code)
-```
 
 ### Check unknown patterns for matches to contacts
 
-read in contacts
-```{r message = FALSE}
-contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>% 
-  glimpse()
-```
-
-match 7 digit numbers to pull area codes
+match 7 digit numbers to known contacts
 ```{r}
 numbers_7_digits <- logs %>% 
-  filter(str_detect(zaddress, "^[1-9]") & nchar(zaddress) == 7) %>% 
-  select(zaddress) %>% 
+  filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
+  select(number) %>% 
   unlist(use.names = FALSE)
 
 contacts_7_digits <- tibble(subid = as.numeric())
@@ -374,12 +324,14 @@ contacts_7_digits %>%
   tabyl(area_code)
 ```
 
-Join numbers with log entries and replace formatted number with contact number
+Join numbers with log entries on number and subid and replace formatted number with contact number
 ```{r}
 logs <- logs %>% 
   left_join(contacts_7_digits %>% 
-              select(subid, contact_number = phone_number, zaddress = pattern), 
-            by = c("subid", "zaddress")) %>% 
+              select(subid, contact_number = phone_number, number = pattern), 
+            by = c("subid", "number")) %>% 
+  mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
+                                      TRUE ~ number_formatted)) %>% 
   glimpse()
 ```
 
@@ -387,41 +339,38 @@ Log entries with contact matches
 ```{r}
 logs %>% 
   filter(!is.na(contact_number)) %>% 
-  select(subid, zaddress, contact_number, zdate) %>% 
+  select(subid, number, contact_number, date) %>% 
   print(n = Inf)
 ```
 
-Update formatted number
+remove contact number variable
 ```{r}
-logs <- logs %>% 
-  mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
-                                      TRUE ~ number_formatted)) 
-
-# check
-logs %>% 
-  filter(!is.na(contact_number)) %>% 
-  select(subid, zaddress, contact_number, number_formatted) %>% 
-  print(n = Inf)
-
-# remove contact number variable
 logs <- logs %>% 
   select(-contact_number)
 ```
 
 
 Contact numbers more than 10 digits in length        
-FIX: 11 is US exit code for dialing out of country. Remove 11 to match log format?   
-43 - Austria   
-49 - Germany  
+```{r}
+contacts %>% 
+  filter(nchar(phone_number) > 10) %>% 
+  select(subid, phone_number, contact_type)
+```
 91 - India  
 57 - Columbia   
 
 800050001020 is health insurance scammer according to Google  
 
+## Join logs with contacts on formatted number
 ```{r}
-contacts %>% 
-  filter(nchar(phone_number) > 10) %>% 
-  select(subid, phone_number, contact_type)
+glimpse(contacts)
+
+logs <- logs %>% 
+  full_join(contacts %>% 
+              select(-utc) %>% 
+              mutate(phone_number = as.character(phone_number)), 
+            by = c("subid", "number_formatted" = "phone_number")) %>% 
+  glimpse()
 ```
 
 
@@ -434,13 +383,27 @@ logs %>%
   naniar::miss_var_summary()
 ```
 
+FIX: Remove street address, city, and state?
+
+
+contact name doesn't seem to be related to context variables/known contacts
+```{r}
+logs %>% 
+  filter(is.na(contact_name)) %>% 
+  tabyl(contact_type)
+
+logs %>% 
+  filter(!is.na(contact_name)) %>% 
+  tabyl(contact_type)
+```
+
 
 
 
 ## Write csv
 ```{r}
-# write_csv(logs, file.path(path_out, "meta_voice_ios.csv")) %>% 
-#   glimpse()
+write_csv(logs, file.path(path_out, "meta_logs.csv")) %>% 
+  glimpse()
 ```
 
 <br>
