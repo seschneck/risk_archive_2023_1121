@@ -36,9 +36,17 @@ pre, code {
 
 Absolute Paths 
 ```{r}
-path_raw <- "P:/studydata/risk/data_raw"
-path_shared <- "P:/studydata/risk/data_processed/shared"
-path_lab_support <- "P:/toolboxes/lab_support"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"})
 ```
 
 Packages for lab workflow 
