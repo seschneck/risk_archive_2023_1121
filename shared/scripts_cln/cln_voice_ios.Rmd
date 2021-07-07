@@ -240,7 +240,9 @@ csv_logs <- csv_logs %>%
 Join
 ```{r}
 logs_ios <- logs_ios %>% 
-  full_join(csv_logs) %>% 
+  full_join(csv_logs,  by = c("subid", "ZDATE", "ZCALLTYPE", "ZORIGINATED", "ZDURATION", 
+                              "ZLOCATION", "ZNAME", "ZADDRESS", "log_file", "created", 
+                              "modified")) %>% 
   glimpse()
 ```
 
@@ -294,7 +296,8 @@ Dates range from `r min(logs_ios$ZDATE)` to `r max(logs_ios$ZDATE)`
 FIX: 2 dates are out of study range (2024) - not sure why 
 ```{r}
 logs_ios %>% 
-  arrange(desc(ZDATE))
+  arrange(desc(ZDATE)) %>% 
+  head(50)
 ```
 
 Both are from same participant on their first log  
