@@ -43,6 +43,9 @@ library(kableExtra)
 library(RSQLite)
 library(lubridate)
 library(janitor)
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
 ```
 
 
@@ -136,7 +139,7 @@ all_logs <- map_df(subids$subid, ~read_sql(.)) %>%
 ```
 
 FIX: Warning message explains that it is coercing a mixed type variable containing integers to string. I can cast this column as a character during SQL query but it gets complicated because then I can't just select all (*) and I might miss a newly appearing variable. Keeping this with warning until better fix is determined. Will carefully check ZFACE_TIME_DATA variable during EDA below.   
-FIX: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS). 100% of observations are blank for these variables (see eda); Also found 2 new tables in later SQL files - need to look more into these tables. They don't seem notably important from first looks.     
+FIX: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS). 100% are missing values for ZLOCAL_ADDRESS and UUID variables do not seem to contain relevant info. Keeping variables for closer inspection with EDA. Also found 2 new tables in later SQL files - need to look more into these tables. They don't seem notably important from first looks.     
 
 
 #### Separate logs and messages
@@ -193,7 +196,33 @@ csv_logs <- map_df(subids$subid, ~read_csv(.)) %>%
   glimpse()
 ```
 
-Change variables to match sql db
+
+CSV logs don't have many of the variables that SQL has.   
+
+
+### Join csv and sql files
+
+Update SQL logs for merge
+```{r}
+glimpse(logs_ios)
+
+logs_ios <- logs_ios %>%
+  # convert date to utc date time object
+  mutate(ZDATE = ZDATE + 978307200,
+         ZDATE = as_datetime(ZDATE, tz = "UTC")) %>% 
+  # recode variables as strings to match csv
+  mutate(ZCALLTYPE = case_when(ZCALLTYPE == 8 ~ "FaceTime Audio",
+                               ZCALLTYPE == 16 ~ "FaceTime Video",
+                               ZCALLTYPE == 1 ~ "Phone",
+                               TRUE ~ as.character(ZCALLTYPE)),
+         ZORIGINATED = case_when(ZORIGINATED == 0 ~ "Incoming",
+                                 ZORIGINATED == 1 ~ "Outgoing",
+                                 TRUE ~ as.character(ZORIGINATED))) %>% 
+  select(subid, ZDATE, everything()) %>% 
+  glimpse()
+```
+
+Prepare CSV logs for merge
 ```{r}
 csv_logs <- csv_logs %>% 
   rename(ZDATE = Date,
@@ -203,29 +232,8 @@ csv_logs <- csv_logs %>%
          ZDURATION = Duration,
          ZNAME = Contact,
          ZORIGINATED = `Call type`) %>% 
-  mutate(ZCALLTYPE = case_when(ZCALLTYPE == "FaceTime Audio" ~ "8",
-                               ZCALLTYPE == "FaceTime Video" ~ "16",
-                               ZCALLTYPE == "Phone" ~ "1",
-                               TRUE ~ ZCALLTYPE),
-         ZCALLTYPE = as.numeric(ZCALLTYPE),
-         # fix format of duration to seconds 
-         ZDURATION = as.numeric(ZDURATION - as_datetime("1899-12-31 00:00:00")),
-         ZORIGINATED = case_when(ZORIGINATED == "Incoming" ~ 0,
-                                 ZORIGINATED == "Outgoing" ~ 1)) %>% 
-  glimpse()
-```
-
-
-### Join csv and sql files
-
-update date in sql to a date object (UTC tz) for join
-```{r}
-glimpse(logs_ios)
-
-logs_ios <- logs_ios %>% 
-  mutate(ZDATE = ZDATE + 978307200,
-         ZDATE = as_datetime(ZDATE, tz = "UTC")) %>% 
-  select(subid, ZDATE, everything()) %>% 
+  mutate(# fix format of duration to seconds 
+         ZDURATION = as.numeric(ZDURATION - as_datetime("1899-12-31 00:00:00"))) %>% 
   glimpse()
 ```
 
@@ -276,6 +284,8 @@ logs_ios <- logs_ios %>%
   select(-c(ZDISCONNECTED_CAUSE, ZDEVICE_ID, ZLOCAL_ADDRESS))
 ```
 
+Variables with 1040 missing values are all due to csv files not having these variables.   
+
 
 #### Dates
 
@@ -304,6 +314,8 @@ logs_163 <- read_sql("163")
 
 logs_163 %>% 
   filter(log_file == "163_Voice_1.sql") %>% 
+  arrange(desc(ZDATE)) %>% 
+  select(subid, ZDATE, everything()) %>% 
   kbl() %>% 
   kable_styling() %>% 
   scroll_box(height = "500px", width = "100%")
@@ -352,17 +364,14 @@ logs_ios %>%
 
 
 #### Country code
-No missing country codes   
+Missing ISO country codes are from csv logs which didn't have this as a variable.     
 be = belgium; ca = canada; de = germany; mx = mexico; nz = new zealand; pe = peru; tr = turkey   
 Source: https://www.nationsonline.org/oneworld/country_code_list.htm   
 ```{r}
-logs_ios %>% 
-  filter(is.na(ZISO_COUNTRY_CODE))
-
-table(logs_ios$ZISO_COUNTRY_CODE)
+tabyl(logs_ios$ZISO_COUNTRY_CODE)
 ```
 
-FIX: some non-us country codes are paired with us numbers - may indicate traveling?  
+NOTE: some non-us country codes are paired with us numbers - may indicate traveling?  
 ```{r}
 logs_ios %>% 
   select(ZADDRESS, ZADDRESS, ZISO_COUNTRY_CODE) %>% 
@@ -371,23 +380,18 @@ logs_ios %>%
 ```
 
 
-Can't use location to infer area code   
-FIX: Look into why no area code - may mean its stored in phone as a contact which could be a good feature or linked to known contacts file.
+#### ZLOCATION
 ```{r}
-logs_ios %>% 
-  filter(nchar(ZADDRESS) == 7) %>% 
-  select(ZADDRESS, ZADDRESS, ZISO_COUNTRY_CODE, ZLOCATION) %>% 
-  print(n = 500)
-
-table(all_logs$ZLOCATION)
+tabyl(all_logs$ZLOCATION) %>% 
+  select(1:2) 
 ```
 
 
 #### Z_ENT
 ```{r}
-table(logs_ios$Z_ENT)
+tabyl(logs_ios$Z_ENT)
 ```
-
+NAs due to missing variable in CSV files   
 Z_ENT is the identifier of the SQL table - all log info is coming from table ZCALLRECORD (table 2) so can remove this variable
 ```{r}
 logs_ios <- logs_ios %>% 
@@ -397,20 +401,29 @@ logs_ios <- logs_ios %>%
 
 #### Z_OPT
 ```{r}
-table(logs_ios$Z_OPT)
+tabyl(logs_ios$Z_OPT)
 ```
 
-Z_OPT indicates the number of times an entity has been changed (starting with 1 when it is initially added to the database).
+Z_OPT indicates the number of times an entity has been changed (starting with 1 when it is initially added to the database)
 
 #### call type (ZCALLTYPE)
 ```{r}
-table(logs_ios$ZCALLTYPE)
+tabyl(logs_ios$ZCALLTYPE)
 ```
 
-0 = ?
-1 = standard phone call
-8 = facetime audio call
-16 = facetime audio/video call
+0 = third party app call
+```{r}
+logs_ios %>% 
+  filter(ZCALLTYPE == 0) %>% 
+  tabyl(ZSERVICE_PROVIDER)
+
+logs_ios <- logs_ios %>% 
+  mutate(ZCALLTYPE = case_when(ZCALLTYPE == "0" ~ "Third Party App",
+                               TRUE ~ ZCALLTYPE))
+
+tabyl(logs_ios$ZCALLTYPE)
+```
+
 
 
 #### Facetime info (ZFACE_TIME_DATA)
@@ -425,25 +438,36 @@ Not sure what these data are yet, but matches onto FACETIME call type (8/16)
 
 #### answered vs rejected calls (ZANSWERED)
 ```{r}
-table(logs_ios$ZANSWERED)
+tabyl(logs_ios$ZANSWERED)
 
 logs_ios %>% 
   filter(ZANSWERED == 1) %>% 
   select(ZADDRESS, ZANSWERED, ZDURATION, ZORIGINATED)
+
+logs_ios %>% 
+  filter(ZANSWERED == 0) %>% 
+  select(ZADDRESS, ZANSWERED, ZDURATION, ZORIGINATED)
 ```
 
-0 = answered
-1 = rejected
+0 = not answered (includes outgoing, missed, and rejected calls)   
+1 = answered  
+Missing values from csv files
 
-Not sure why the duration is not 0 for rejected calls. All calls are incoming (ZORIGINATED == 0) so that matches up but need to check on how duration is calculated.
+```{r}
+logs_ios <- logs_ios %>% 
+  mutate(ZANSWERED = case_when(ZANSWERED == 1 ~ "Answered",
+                               ZANSWERED == 0 ~ "Not Answered",
+                               TRUE ~ as.character(ZANSWERED)))
+
+tabyl(logs_ios$ZANSWERED)
+```
+
 
 #### incoming vs outgoing calls (ZORIGINATED)
 ```{r}
-table(logs_ios$ZORIGINATED)
+tabyl(logs_ios$ZORIGINATED)
 ```
 
-0 = incoming
-1 = outgoing
 
 #### duration of call in seconds (ZDURATION)
 ```{r}
@@ -451,27 +475,70 @@ psych::describe(logs_ios$ZDURATION)
 
 logs_ios %>% 
   filter(ZDURATION == 0) %>% 
-  janitor::tabyl(ZANSWERED)
+  tabyl(ZANSWERED)
+```
 
+FIX: Not sure how some calls that were incoming and answered have a duration of 0 seconds
+```{r}
 logs_ios %>% 
   filter(ZDURATION == 0) %>% 
-  janitor::tabyl(ZORIGINATED)
+  filter(ZANSWERED == "Answered") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
-All calls with a duration of 0 have ZANSWERED == 0 which means the call was answered?  
-Calls are both incoming and outgoing.  
 
-
-#### call read?
+#### call read
 ```{r}
-table(logs_ios$ZREAD)
+tabyl(logs_ios$ZREAD)
 ```
+
+
+Calls that are not read are missed incoming calls
+```{r}
+logs_ios %>% 
+  filter(ZREAD == 0) %>% 
+  tabyl(ZANSWERED)
+
+logs_ios %>% 
+  filter(ZREAD == 0) %>% 
+  tabyl(ZORIGINATED)
+
+logs_ios %>% 
+  filter(ZREAD == 0) %>% 
+  tabyl(Z_OPT)
+```
+
+```{r}
+logs_ios <- logs_ios %>% 
+  mutate(ZREAD = case_when(ZREAD == 1 ~ "Read",
+                           ZREAD == 0 ~ "Not Read",
+                           TRUE ~ as.character(ZREAD)))
+
+tabyl(logs_ios$ZREAD)
+```
+
+Missing values due to CSV files not containing this variable
+
 
 #### call category
 ```{r}
 logs_ios %>% 
   tabyl(ZCALL_CATEGORY)
 ```
+
+Not yet sure what this one is    
+```{r}
+logs_ios %>% 
+  filter(ZCALL_CATEGORY == 2) %>% 
+  tabyl(ZCALLTYPE)
+
+logs_ios %>% 
+  filter(ZCALL_CATEGORY == 1) %>% 
+  tabyl(ZCALLTYPE)
+```
+
 
 1 = ?  
 2 = ?  
@@ -482,6 +549,39 @@ logs_ios %>%
 logs_ios %>% 
   tabyl(ZHANDLE_TYPE)
 ```
+
+0 seems to be related to missing number   
+Handle type appears to be related to type of call and platform used. Likely not relevant.
+```{r}
+logs_ios %>% 
+  filter(is.na(ZADDRESS)) %>% 
+  tabyl(ZHANDLE_TYPE)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 1) %>% 
+  tabyl(ZCALLTYPE)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 1) %>% 
+  tabyl(ZSERVICE_PROVIDER)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 2) %>% 
+  tabyl(ZCALLTYPE)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 2) %>% 
+  tabyl(ZSERVICE_PROVIDER)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 3) %>% 
+  tabyl(ZCALLTYPE)
+
+logs_ios %>% 
+  filter(ZHANDLE_TYPE == 3) %>% 
+  tabyl(ZSERVICE_PROVIDER)
+```
+
 
 0 =   
 1 =   
@@ -515,7 +615,7 @@ logs_ios %>%
 
 
 #### unique id 
-The unique ID tracks the entry, but we may have duplicates if someone listens to a voicemail after their first data download. 
+The unique ID tracks the entry, but we may have duplicates if someone listens to a voicemail after their first data download or views call log to see missed call. 
 ```{r}
 logs_ios %>% 
   group_by(ZUNIQUE_ID) %>% 
@@ -524,13 +624,16 @@ logs_ios %>%
   arrange(desc(n)) 
 ```
 
-For example the read variable here changes - Do we want to only keep the first entry or have duplicate with different read value?
+For example the read variable here changes       
 ```{r}
 logs_ios %>% 
   filter(ZUNIQUE_ID == "0255BA8B-DF83-4827-A529-B3AFA3671796") %>% 
   kbl() %>% 
   kable_styling()
 ```
+
+FIX: keep the first entry or have duplicate with different read value
+
 
 
 #### Primary key
@@ -586,8 +689,7 @@ logs_ios %>%
 <br>
 
 #### UUID variables 
-No idea what these are yet    
-
+No idea what these are yet but do not seem relevant and there are only 42 unique entries.    
 
 ZLOCALPARTICIPANTUUID         
 ```{r}
@@ -604,6 +706,13 @@ logs_ios %>%
   summarise(n = n()) %>% 
   print(n = Inf)
 ```
+
+NOTE: removing for UUIDs for now
+```{r}
+logs_ios <- logs_ios %>% 
+  select(-c(ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID))
+```
+
 
 
 ### Write CSV
