@@ -14,8 +14,6 @@ output:
 
 ### Notes
 Purpose: This script contains code to open and merge all voice log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
-
-**Note: Emojis are accidently stripped in the aggregated csv file, still working on how to extract them from the xml files and will update.**    
  
 
 Inputs:   
@@ -37,8 +35,8 @@ pre, code {
 
 Paths 
 ```{r}
-path_raw <- "Z:/StudyData/RISK/raw_data"
-path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+path_raw <- "Z:/studydata/risk/data_raw"
+path_out <- "Z:/studydata/risk/data_processed/shared"
 ```
 
 Packages and Source
@@ -245,9 +243,6 @@ This accounts for a total of 216 participants.
 ```{r}
 logs_android %>% 
   naniar::miss_var_summary()
-
-logs_android %>% 
-  naniar::vis_miss()
 ```
 
 <br>
@@ -348,139 +343,9 @@ logs_android %>%
   scroll_box(width = "100%")
 ```
 
-<br>
-
-*Formatting notes to address at study-level*   
-
-Spaces
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "[[:space:]]")) %>% 
-  select(number)
-```
-
-Dashes
-```{r}
-logs_android %>% 
-  filter(number != "-1" & number != "-2") %>% 
-  filter(str_detect(number, "-")) %>% 
-  select(number)
-```
-
-Semicolons  
-FIX: keep number before ; only?
-```{r}
-logs_android %>% 
-  filter(str_detect(number, ";")) %>% 
-  select(number)
-```
-
-Pound signs
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "#")) %>% 
-  select(number) %>% 
-  print(n = Inf)
-```
-
-Asterisks  
-* 67 before dialing a number hides the number from showing on caller id
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "\\*")) %>% 
-  count(number) %>% 
-  print(n = Inf)
-```
-
-all blocked numbers using * 67 are outgoing
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "^\\*67")) %>%  
-  count(type)
-```
-
-all 67 blocked outgoing calls are made by 8 subids
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "^\\*67")) %>%  
-  count(subid)
-```
-
 
 <br>
 
-Country codes   
-*US numbers either have no country code, a +1, a 1 or a +. Some also have no area code.*  
-
-US country codes that start with +1
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "\\+1")) %>% 
-  select(number) %>% 
-  print(n = Inf)
-```
-
-Should only remove +1 from US numbers (12 characters long)   
-Do not eliminate +1 on following numbers
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "\\+1")) %>% 
-  # remove spaces and dashes from count
-  mutate(number = str_replace(number, "[[:space:]]", ""),
-         number = str_replace_all(number, "-", "")) %>% 
-  select(number) %>% 
-  filter(nchar(number) != 12)
-```
-
-US country codes that start with 1
-```{r}
-logs_android %>% 
-  filter(str_detect(number, "^1")) %>% 
-  select(number) %>% 
-  print(n = Inf)
-```
-
-Should only remove 1 from US numbers (11 characters long)   
-Do not eliminate 1 on following numbers
-```{r}
-logs_android %>% 
-  # filter out blocked calls (-1)
-  filter(number != "-1") %>% 
-  filter(str_detect(number, "^1")) %>% 
-  # remove spaces and dashes from count
-  mutate(number = str_replace(number, "[[:space:]]", ""),
-         number = str_replace_all(number, "-", "")) %>% 
-  select(number) %>% 
-  filter(nchar(number) != 11) %>% 
-  print(n = Inf)
-```
-
-US country codes that start with +
-```{r}
-logs_android %>% 
-  # remove spaces and dashes for count
-  mutate(number = str_replace(number, "[[:space:]]", ""),
-         number = str_replace_all(number, "-", "")) %>% 
-  # remove us country codes
-   mutate(number = case_when(str_detect(number, "\\+1") & nchar(number) == 12 ~ 
-                               str_replace(number, "\\+1", ""),
-                             TRUE ~ number)) %>% 
-  filter(str_detect(number, "^\\+\\d*")) %>% 
-  filter(nchar(number) == 11) %>% 
-  select(number) %>% 
-  print(n = Inf)
-```
-
-7 digit US numbers (no area code)    
-1488 numbers have no area code 
-```{r}
-logs_android %>% 
-  filter(str_length(number) == 7) %>% 
-  select(number) %>% 
-  print(n = Inf)
-```
-
-<br>
 
 Non-US country codes 
 ```{r}
@@ -549,7 +414,7 @@ hist(logs_android$duration)
 
 #### type
 ```{r}
-table(logs_android$type)
+janitor::tabyl(logs_android$type)
 ```
 https://developer.android.com/reference/android/provider/CallLog.Calls#TYPE   
 1 = incoming   
@@ -568,6 +433,20 @@ logs_android %>%
   group_by(subid) %>% 
   summarise(n = n())
 ```
+
+Add categorical labels
+```{r}
+logs_android <- logs_android %>% 
+  mutate(type = case_when(type == 1 ~ "Incoming",
+                          type == 2 ~ "Outgoing",
+                          type == 3 ~ "Missed",
+                          type == 4 ~ "Voicemail",
+                          type == 5 ~ "Rejected",
+                          type == 6 ~ "Blocked",
+                          type == 7 ~ "Answered Externally",
+                          TRUE ~ as.character(type)))
+```
+
 
 
 #### presentation
@@ -598,6 +477,17 @@ logs_android %>%
   kable_styling() %>% 
   scroll_box(height = "500px")
 ```
+
+Add categorical labels
+```{r}
+logs_android <- logs_android %>% 
+  mutate(presentation = case_when(presentation == 1 ~ "Displayed",
+                                  presentation == 2 ~ "Blocked",
+                                  presentation == 3 ~ "Unknown",
+                                  presentation == 4 ~ "Payphone",
+                                  TRUE ~ as.character(presentation)))
+```
+
 
 
 #### contact name
