@@ -71,7 +71,7 @@ library(janitor)
 
 theme_set(theme_classic())
 
-source(here(path_lab_support, "fun_phone_numbers.R"))
+source(file.path(path_lab_support, "fun_phone_numbers.R"))
 ```
 
 Relative Paths
@@ -123,11 +123,10 @@ clean_contacts <- function(d, log){
     log_new_value <- pluck(log_recode_one, "new_value", i)
     log_old_value <- pluck(log_recode_one, "old_value", i)
 
-    # check that only one matching data row
+    # pull out row id
     if (is.na(log_old_value)) {
       row_id <- d %>%
       mutate(row_number = as.numeric(rownames(d))) %>%
-      dplyr::filter(subid == log_subid) %>%
       dplyr::filter(is.na(get(log_var_name))) %>%
       select(row_number) %>%
       unlist(use.names = FALSE)
@@ -139,7 +138,8 @@ clean_contacts <- function(d, log){
       select(row_number) %>%
       unlist(use.names = FALSE)
     }
-
+    
+    # check that only one matching data row
     if (length(row_id) != 1) {
       stop("Rows matching subid: ", log_subid, " does not equal 1")
     }
@@ -151,7 +151,7 @@ clean_contacts <- function(d, log){
 
   }
 
-  # recode_all entries
+  # recode_all log entries
   # Involves changing recurrent typo patterns in variable response labels
   log_recode_all <- dplyr::filter(log, log_action == "recode_all")
 
@@ -175,7 +175,69 @@ clean_contacts <- function(d, log){
       if (is.POSIXt(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as_datetime(log_new_value)
     }
   }
+  
+  # remove log entries
+  # match on subid, utc, var_name and remove_on values
+  log_remove <- dplyr::filter(log, log_action == "remove")
 
+  for (i in seq_along(log_remove$index)){
+
+    log_subid <- pluck(log_remove, "subid", i)
+    log_utc <- pluck(log_remove, "utc", i)
+    log_var_1_name <- pluck(log_remove, "var_name", i)
+    log_var_1_value <- pluck(log_remove, "old_value", i)
+    log_var_2_name <- pluck(log_remove, "remove_on", i)
+    log_var_2_value <- pluck(log_remove, "remove_on_value", i)
+    
+
+    # pull out row_id
+     if (is.na(log_var_1_value) && is.na(log_var_2_value)) {
+      row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(UTC == log_utc) %>%
+      dplyr::filter(is.na(get(log_var_1_name)) & is.na(get(log_var_2_name))) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    } else if (is.na(log_var_1_value) && !is.na(log_var_2_value)) {
+      row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(UTC == log_utc) %>%
+      dplyr::filter(is.na(get(log_var_1_name)) & get(log_var_2_name) == log_var_2_value) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    } else if (!is.na(log_var_1_value) && is.na(log_var_2_value)) {
+      row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(UTC == log_utc) %>%
+      dplyr::filter(is.na(get(log_var_2_name)) & get(log_var_1_name) == log_var_1_value) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    } else {
+      row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(UTC == log_utc) %>%
+      dplyr::filter(get(log_var_1_name) == log_var_1_value) %>%
+      dplyr::filter(get(log_var_2_name) == log_var_2_value) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    }
+    
+    # check that only one matching data row
+    if (length(row_id) != 1) {
+      stop("Rows matching subid: ", log_subid, " does not equal 1")
+    }
+
+    # filter out row id
+    d <- d %>% 
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(row_number != row_id) %>% 
+      select(-row_number)
+  }
+  
   return(d)
 }
 ```
@@ -189,7 +251,13 @@ log <- read_csv(file.path(path_log, "log_contacts.csv"), col_types = cols()) %>%
 # view log actions
 table(log$log_action)
 
-# print notes
+# print remove entries
+log %>%
+  dplyr::filter(log_action == "remove") %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("condensed"))
+
+# print note entries
 log %>%
   dplyr::filter(log_action == "note") %>%
   kbl() %>%

@@ -1,19 +1,21 @@
-subid,var_name,old_value,new_value,log_action,source,notes
-24,UTC,,1510243200,recode_one,EDA Kendra,"All contacts have same utc except for the first entry (""self"") that has no UTC. Entering in the UTC that the other contact entries have."
-17,Type,Co-Worker,Co-Worker/Business Contact,recode_one,EDA Kendra,Incorrect factor label - renaming to correct label so there are not extra categories (i.e. Co-Worker and Co-Worker/Business Contact)
-,Type,Co-Worker/Business contact,Co-Worker/Business Contact,recode_all,EDA Kendra,Incorrect factor label - lowercase instead of capital C in Co-Worker/Business Contact. Correcting so there are not duplicate factor levels for the same type of contact
-,Type,Co-Worker/Business Contacts,Co-Worker/Business Contact,recode_all,EDA Kendra,Incorrect factor label - extra s on end of Co-Worker/Business Contact. Correcting so there are not duplicate factor levels for the same type of contact
-,Type,Family,Family-Other,recode_all,EDA Kendra,Incorrect factor label - Should be Family-Other not Family.
-,Type,Family - Other,Family-Other,recode_all,EDA Kendra,Incorrect factor label - extra spaces surrounding dash in Family-Other.
-19,Type,Spouse/Significant other,Spouse/Significant Other,recode_one,EDA Kendra,Incorrect factor label - O in other should be capital not lowercase. Correcting to prevent duplicate factor levels.
-28,ContactDrankPast,Always/Almost Always,Almost Always/Always,recode_all,EDA Kendra,Incorrect factor label - switch always and almost always so we don't have duplicate factor levels.
-182,ContactDrankPast,Never/Always Never,Never/Almost Never,recode_one,EDA Kendra,Incorrect factor label - should be almost never not always never
-,ContactDrankPast,Ocassionally,Occasionally,recode_all,EDA Kendra,Incorrect factor label - Correcting spelling of factor label to prevent duplicate levels in same variable.
-,ContactDrankPast,Occassionally,Occasionally,recode_all,EDA Kendra,Incorrect factor label - Correcting spelling of factor label to prevent duplicate levels in same variable.
-134,SupportStatus,Dont know,Dont Know,recode_one,EDA Kendra,Incorrect factor label - Capitalizing K to prevent duplicate factor levels in same variable.
-16,SupportStatus,No,,note,EDA Kendra,No is not a valid response option - we do not have enough info to resolve this error though so it will be a project-level pre-processing decision of how to handle
-87,SupportStatus,No,,note,EDA Kendra,No is not a valid response option - we do not have enough info to resolve this error though so it will be a project-level pre-processing decision of how to handle
-33,ContactExperience,Unpleasant/mixed,,note,EDA Kendra,Unpleasant/mixed is not a valid response option - we do not have enough info to resolve this error though so it will be a project-level pre-processing decision of how to handle
-39,OtherPhone1,18008436154,8008436154,recode_one,EDA Kendra,Removing 1 from 800 number to be consistent with formatting. All US numbers in contacts are 10 digits
-87,CellPhone,114353572525,4353572525,recode_one,EDA Kendra,11 is US exit code for dialing out of country. Remove 11 to match log format
-87,OtherPhone1,114924174643,4924174643,recode_one,EDA Kendra,11 is US exit code for dialing out of country. Remove 11 to match log format
+subid,utc,var_name,old_value,new_value,log_action,remove_on,remove_on_value,source,notes
+24,,UTC,,1510243200,recode_one,,,EDA Kendra,"All contacts have same utc except for the first entry (""self"") that has no UTC. Entering in the UTC that the other contact entries have."
+17,1507925100,Type,Co-Worker,Co-Worker/Business Contact,recode_one,,,EDA Kendra,Incorrect factor label - renaming to correct label so there are not extra categories (i.e. Co-Worker and Co-Worker/Business Contact)
+,,Type,Co-Worker/Business contact,Co-Worker/Business Contact,recode_all,,,EDA Kendra,Incorrect factor label - lowercase instead of capital C in Co-Worker/Business Contact. Correcting so there are not duplicate factor levels for the same type of contact
+,,Type,Co-Worker/Business Contacts,Co-Worker/Business Contact,recode_all,,,EDA Kendra,Incorrect factor label - extra s on end of Co-Worker/Business Contact. Correcting so there are not duplicate factor levels for the same type of contact
+,,Type,Family,Family-Other,recode_all,,,EDA Kendra,Incorrect factor label - Should be Family-Other not Family.
+,,Type,Family - Other,Family-Other,recode_all,,,EDA Kendra,Incorrect factor label - extra spaces surrounding dash in Family-Other.
+19,1508941800,Type,Spouse/Significant other,Spouse/Significant Other,recode_one,,,EDA Kendra,Incorrect factor label - O in other should be capital not lowercase. Correcting to prevent duplicate factor levels.
+,,ContactDrankPast,Always/Almost Always,Almost Always/Always,recode_all,,,EDA Kendra,Incorrect factor label - switch always and almost always so we don't have duplicate factor levels.
+182,1549998900,ContactDrankPast,Never/Always Never,Never/Almost Never,recode_one,,,EDA Kendra,Incorrect factor label - should be almost never not always never
+,,ContactDrankPast,Ocassionally,Occasionally,recode_all,,,EDA Kendra,Incorrect factor label - Correcting spelling of factor label to prevent duplicate levels in same variable.
+,,ContactDrankPast,Occassionally,Occasionally,recode_all,,,EDA Kendra,Incorrect factor label - Correcting spelling of factor label to prevent duplicate levels in same variable.
+134,1539888600,SupportStatus,Dont know,Dont Know,recode_one,,,EDA Kendra,Incorrect factor label - Capitalizing K to prevent duplicate factor levels in same variable.
+16,1509728400,SupportStatus,No,Don't Know,recode_one,,,EDA Kendra,"No is not a valid response option - after speaking with John we came to decide that we can be reasonably certain that No should be Don't Know for the question ""Does this person know about your recovery and if so are they supportive?"""
+87,1532016000,SupportStatus,No,Don't Know,recode_one,,,EDA Kendra,"No is not a valid response option - after speaking with John we came to decide that we can be reasonably certain that No should be Don't Know for the question ""Does this person know about your recovery and if so are they supportive?"""
+33,1519146600,ContactExperience,Unpleasant/mixed,,note,,,EDA Kendra,Unpleasant/mixed is not a valid response option - we do not have enough info to resolve this error though so it will be a project-level pre-processing decision of how to handle
+39,1518802200,OtherPhone1,18008436154,8008436154,recode_one,,,EDA Kendra,Removing 1 from 800 number to be consistent with formatting. All US numbers in contacts are 10 digits
+87,1532016000,CellPhone,114353572525,4353572525,recode_one,,,EDA Kendra,11 is US exit code for dialing out of country. Remove 11 to match log format
+87,1532016000,OtherPhone1,114924174643,4924174643,recode_one,,,EDA Kendra,11 is US exit code for dialing out of country. Remove 11 to match log format
+41,1519331400,CellPhone,,,remove,OtherPhone1,,EDA Kendra,Missing phone number. No notes as to why. We cannot use this entry without a phone number so removing after discussing with John.
+61,1523634900,CellPhone,6083474657,,remove,MonthlyVisit,No,EDA Kendra,2 duplicate entries made on same day. Only difference is second entry has monthly visit set to Yes and provides address of contact. Keeping second entry with more information per discussion with John. 
