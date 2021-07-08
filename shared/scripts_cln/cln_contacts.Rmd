@@ -48,7 +48,8 @@ switch (Sys.info()[['sysname']],
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_lab_support <- "/Volumes/private/toolboxes/lab_support"})
+          # temporary directory to use check country code function not merged into production version
+          path_lab_support <- "~/lab_support"})
 ```
 
 Packages for lab workflow 
@@ -244,7 +245,7 @@ clean_contacts <- function(d, log){
 
 read in log and summarize
 ```{r}
-log <- read_csv(file.path(path_log, "log_contacts.csv"), col_types = cols()) %>%
+log <- read_csv(here(path_log, "log_contacts.csv"), col_types = cols()) %>%
   rowid_to_column("index") %>%
   glimpse()
 
@@ -281,22 +282,32 @@ contacts <- contacts %>%
 ```
 
 
-Check for any legitimate missing phone numbers before transforming dataframe to long
+Check for any context entries with no associated numbers
 ```{r}
 contacts %>%
-  dplyr::filter(is.na(home_phone) & is.na(cell_phone) & is.na(other_phone1) & is.na(other_phone2)) %>%
-  kbl() %>%
-  kable_styling() %>%
-  scroll_box(width = "100%")
-
-# Temporarily turn NA into character to preserve
-contacts <- contacts %>%
-  mutate(cell_phone = case_when(subid == 41 & is.na(cell_phone) & is.na(other_phone1) ~ "NA",
-                                TRUE ~ cell_phone))
+  dplyr::filter(is.na(home_phone) & is.na(cell_phone) & is.na(other_phone1) & is.na(other_phone2)) 
 ```
 
+Check how many entries have more than one number
+```{r}
+contacts_wide <- contacts
 
-pivot longer and reorder variables
+n_numbers <- contacts %>% 
+  mutate(home = if_else(is.na(home_phone), 0, 1),
+         cell = if_else(is.na(cell_phone), 0, 1),
+         other = if_else(is.na(other_phone1), 0, 1),
+         other_2 = if_else(is.na(other_phone2), 0, 1)) %>% 
+  rowwise() %>% 
+  mutate(n_numbers = sum(home, cell, other, other_2)) %>% 
+  select(home_phone:other_phone2, n_numbers)
+
+n_numbers %>% 
+  dplyr::filter(n_numbers != 1) %>% 
+  print(n = Inf)
+```
+
+pivot longer and reorder variables   
+We expect to have an additional `r sum(n_numbers$n_numbers) - nrow(contacts_wide)` rows added to the data frame, which is the total sum of numbers (`r sum(n_numbers$n_numbers)`) minus the number of contacts/rows in wide tibble (`r nrow(contacts_wide)`).
 ```{r}
 contacts <- contacts %>%
   pivot_longer(home_phone:other_phone2, names_to = "phone_type", values_to = "phone_number") %>%
@@ -305,24 +316,31 @@ contacts <- contacts %>%
   glimpse()
 ```
 
-replace all string NAs to actual missing value NAs
-```{r}
-contacts <- contacts %>%
-  naniar::replace_with_na_if(.predicate = is.character, condition = ~.x == "NA")
-```
-
+`r nrow(contacts) - nrow(contacts_wide)` new rows added   
 
 <br>
 
 
 ### EDA
 
-`r length(unique(contacts$subid))` subids have contact information.
+#### Check for missing contact files
 
-Check to see who completed intake that don't have contacts
-NOTE: Subids 8 and 235 do not have a contacts file
+Read in visit dates
 ```{r}
-visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+**170 participants completed intake visit**
+```{r}
+visit_dates %>% 
+  dplyr::filter(!is.na(intake))
+```
+
+**We have contact information for `r length(unique(contacts$subid))` subids.**     
+
+**Subids 8 and 235 completed intake but do not have a contacts file**     
+```{r}
 notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>%
   select(subid, notes_general)
 
@@ -337,7 +355,7 @@ notes %>%
 ```
 
 
-NOTE: subid 67 has contacts but never completed intake/started study - leaving contacts in because they will be filtered out at the project-level depending on final sample
+**Subid 67 has contacts but never completed intake/started study** (leaving contacts in because they will be filtered out at the study-level depending on final sample)
 ```{r}
 intake <- visit_dates %>%
   dplyr::filter(!is.na(intake))
@@ -354,22 +372,35 @@ notes %>%
 ```
 
 
-Check for duplicate entries
-FIX: Some duplicates are errors (2 entries on same date with discrepant answers) and some are not (updating address, home phone number belongs to 2 parents, etc.)
-NOTE: leaving as project-level pre-processing decision of how to handle error and non-error duplicates
+#### Check for duplicate entries
+9 entries were identical on every variable except UTC - these are filtered out
 ```{r}
+glimpse(contacts)
+
 # filter out identical entries
 contacts <- contacts %>%
-  distinct(across(-utc), .keep_all = TRUE)
+  distinct(across(-utc), .keep_all = TRUE) %>% 
+  glimpse()
+```
 
+Duplicate numbers and discrepancies still exist.  
+```{r}
 # count duplicate numbers listed for each subid
 duplicates <- contacts %>%
   group_by(subid, phone_number) %>%
-  summarise(n = n()) %>%
+  summarise(n = n(), .groups = "drop") %>%
   dplyr::filter(n > 1)
+```
 
+`r nrow(duplicates)` subid/phone_number duplicates   
+```{r}
 print(duplicates, n = Inf)
+```
 
+Some duplicates represent errors in data/poor data quality (2 entries on same date with discrepant answers) and some are not errors (updating address, home phone number belongs to 2 parents, etc.)     
+
+FIX: Need to handle at study-level
+```{r}
 contacts %>%
   dplyr::filter(phone_number %in% duplicates$phone_number & subid %in% duplicates$subid) %>%
   arrange(subid, phone_number) %>%
@@ -378,28 +409,36 @@ contacts %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
+
 <br>
 
 #### Missing data
+
+Convert text string NA's to NA
+```{r}
+contacts <- contacts %>% 
+  naniar::replace_with_na_if(.predicate = is.character, condition = ~.x == "NA")
+```
+
 ```{r}
 naniar::miss_var_summary(contacts)
 ```
 
-2 Missing phone numbers
+1 Missing phone number noted in cleaning log
 ```{r}
-contacts %>%
-  dplyr::filter(is.na(phone_number))
+log %>% 
+  dplyr::filter(subid == 81, log_action == "note") %>% 
+  select(subid, log_action, notes) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
 ```
 
-<br>
-
-* subid 81: from data log - "Participant’s partner is incarcerated. She reported that all of the phone calls that come up as restricted or unknown are incoming calls from her partner. She reported that she speaks to him frequently." Also, note the state is Illinois which might give some clues as to which unknown/restricted numbers are him
-* subid 41: No info as to why this number is blank
 
 <br>
 
 
-Missing contact type values have an actual NA in the excel file - what could this mean?
+3 missing contact type values, despite full context information available
 ```{r}
 contacts %>%
   dplyr::filter(is.na(contact_type)) %>%
@@ -409,7 +448,21 @@ contacts %>%
   scroll_box(width = "100%")
 ```
 
-Missing context variables
+Check if numbers with missing contact type have duplicate entries   
+Only one entry for each number
+```{r}
+missing_type <- contacts %>%
+  dplyr::filter(is.na(contact_type)) %>% 
+  select(phone_number) %>% 
+  unlist(use.names = FALSE)
+
+contacts %>% 
+  dplyr::filter(phone_number %in% missing_type) %>% 
+  group_by(subid, phone_number) %>% 
+  summarise(n = n(), .groups = "drop")
+```
+
+
 Most missing context variables are self, other or spam entries - still a considerable amount of missing values for co-workers and family-other
 ```{r}
 contacts %>%
@@ -418,6 +471,21 @@ contacts %>%
   kbl() %>%
   kable_styling(bootstrap_options = c("condensed", "striped")) %>%
   scroll_box(width = "100%", height = "500px")
+```
+
+Check if duplicate entries for these numbers exist  
+No duplicates exist
+```{r}
+missing_context <- contacts %>%
+  dplyr::filter(is.na(recovery)) %>%
+  dplyr::filter(contact_type != "Self" & contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
+  select(phone_number) %>% 
+  unlist(use.names = FALSE)
+
+contacts %>% 
+  dplyr::filter(phone_number %in% missing_context) %>% 
+  group_by(subid, phone_number) %>% 
+  summarise(n = n(), .groups = "drop")
 ```
 
 
@@ -450,7 +518,6 @@ contacts %>%
 ```
 
 Numbers not 10 digits
-Only 3 are known contacts
 ```{r}
 contacts %>%
   select(subid, phone_number, contact_type) %>%
@@ -485,7 +552,9 @@ for (i in 1:length(numbers)) {
 
 valid_country_code
 ```
-
+**All known contacts (i.e., not irrelevant/spam) are valid international numbers**   
+- 57 = columbia   
+- 91 = India   
 
 Check area code for all 10 digit numbers
 Print numbers without valid area code
@@ -502,55 +571,35 @@ for (i in 1:length(numbers)) {
      not_valid_area_code <- append(not_valid_area_code, numbers[i])
   }
 }
-
-contacts %>%
-  dplyr::filter(phone_number %in% not_valid_area_code) %>%
-  select(subid, phone_number, contact_type) %>%
-  print(n = Inf)
 ```
 
-FIX: 600 area code under subid 29 is probably supposed to be 608 since 600 is not a valid US area code and no log entries exist with that area code
-```{r}
-logs <- read_csv(file.path(path_shared, "voice_ios.csv"), col_types = "iTiiiiiniiiincccccccTTcc") %>%
-  glimpse()
-
-logs %>%
-  dplyr::filter(zaddress == "6008904796") %>%
-  select(subid, zaddress)
-```
-
-```{r}
-logs %>%
-  dplyr::filter(zaddress == "6088904796") %>%
-  dplyr::filter(subid == 29) %>%
-  select(subid, zaddress)
-```
-
-No contacts already listed as this number for subid 29
-```{r}
-contacts %>%
-  dplyr::filter(phone_number == "6088904796") %>%
-  dplyr::filter(subid == "029")
-```
-
-Filter out spam from other numbers with invalid area codes
+`r length(not_valid_area_code)` out of `r length(numbers)` 10 digit numbers don't have a valid North American area code.
 ```{r}
 contacts %>%
   dplyr::filter(phone_number %in% not_valid_area_code) %>%
   select(subid, phone_number, contact_type) %>%
-  dplyr::filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
   print(n = Inf)
-```
 
-
-Check country codes for international numbers
-```{r}
+# filter out spam and irrelevant/other numbers
 numbers <- contacts %>%
   dplyr::filter(phone_number %in% not_valid_area_code) %>%
   dplyr::filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
   select(phone_number) %>%
   unlist(use.names = FALSE)
+```
 
+
+`r length(numbers)` are known contacts
+```{r}
+contacts %>%
+  dplyr::filter(phone_number %in% numbers) %>%
+  select(subid, phone_number, contact_type) %>%
+  print(n = Inf)
+```
+
+
+Check if any are international numbers
+```{r}
 valid_country_code <- NULL
 
 for (i in 1:length(not_valid_area_code)) {
@@ -562,18 +611,14 @@ for (i in 1:length(not_valid_area_code)) {
 valid_country_code
 ```
 
-* 47 is germany country code and 44 is UK country code but these have too few digits
-* The rest all belong to one subid and so I am wondering if these are internet numbers or something that isn't registering as a valid number.
+* 47 number is a valid number for Norway    
+* 49 is the country code for Germany but there are too few digits 
+
+subid 87 never made it to followup 1 so no logs to check the 49 number
 ```{r}
-contacts %>%
-  dplyr::filter(phone_number %in% not_valid_area_code) %>%
-  dplyr::filter(!phone_number %in% valid_country_code) %>%
-  select(subid, phone_number, contact_type) %>%
-  dplyr::filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
-  print(n = Inf)
+visit_dates %>% 
+  dplyr::filter(subid == 87)
 ```
-
-
 
 <br>
 
@@ -625,24 +670,12 @@ contacts %>%
 
 contacts %>%
   tabyl(support_status)
-```
 
-FIX: No is not a valid response - error, but not enough info to resolve (note entry in log)
-```{r}
-contacts %>%
-  dplyr::filter(support_status == "No") %>%
-  kbl() %>%
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>%
-  column_spec(10, color = "red") %>%
-  scroll_box(width = "100%")
-```
-
-```{r}
 contacts %>%
   tabyl(contact_experience)
 ```
 
-FIX: unpleasant/mixed is not a valid response option - error, but not enough info to resolve (note entry in log)
+FIX: unpleasant/mixed is not a valid response option - error, but not enough info to resolve? (note entry in log)
 ```{r}
 contacts %>%
   dplyr::filter(contact_experience == "Unpleasant/mixed") %>%
@@ -663,29 +696,41 @@ contacts %>%
   group_by(subid) %>%
   summarise(n_contacts = length(unique(phone_number))) %>%
   ggplot(aes(x = n_contacts)) +
-  geom_histogram(color = "black", fill = "light grey") +
+  geom_histogram(color = "black", fill = "light grey", bins = 20) +
   labs(title = "Number of contacts per participant") +
   geom_vline(aes(xintercept = mean(n_contacts)), contacts %>%
                group_by(subid) %>%
                summarise(n_contacts = length(unique(phone_number))), linetype = "dashed")
 ```
 
+Min, max, and average number of contacts per subid
+```{r}
+contacts %>%
+  group_by(subid) %>%
+  summarise(n_contacts = length(unique(phone_number))) %>%
+  summarise(min = min(n_contacts),
+            max = max(n_contacts),
+            mean = mean(n_contacts))
+```
+
 Number of contacts per subid faceted by spam vs not spam
 ```{r message = FALSE}
 contacts %>%
   mutate(spam = case_when(contact_type == "Irrelevant/Spam" ~ "spam",
-                          TRUE ~ "contact")) %>%
+                          TRUE ~ "known contact")) %>%
   group_by(subid, spam) %>%
-  summarise(n_contacts = length(unique(phone_number))) %>%
+  summarise(n_contacts = length(unique(phone_number)), .groups = "drop") %>%
   ggplot(aes(x = n_contacts)) +
-  geom_histogram(color = "black", fill = "light grey") +
+  geom_histogram(color = "black", fill = "light grey", bins = 20) +
   facet_wrap(~ spam) +
-  labs(title = "Number of contacts per participant") +
+  labs(title = "Number of contacts per participant",
+       x = "Number of contacts",
+       y = "Number of participants") +
   geom_vline(aes(xintercept = mean(n_contacts)), contacts %>%
                mutate(spam = case_when(contact_type == "Irrelevant/Spam" ~ "spam",
-                          TRUE ~ "contact")) %>%
+                          TRUE ~ "known contact")) %>%
                group_by(subid, spam) %>%
-               summarise(n_contacts = length(unique(phone_number))), linetype = "dashed")
+               summarise(n_contacts = length(unique(phone_number)), .groups = "drop"), linetype = "dashed")
 ```
 
 
