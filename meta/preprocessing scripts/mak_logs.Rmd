@@ -17,7 +17,9 @@ knit: (function(input, ...) {
 ---
 
 ### Notes
-Purpose: This script does further cleaning and pre-processing on the voice and SMS logs specifically for meta study. It outputs a single clean log file joined with the cleaned contact variables ready for feature engineering in the meta project.    
+Purpose: This script does further cleaning and pre-processing on the voice and SMS 
+logs specifically for meta study. It outputs a single clean log file joined with the 
+cleaned contact variables ready for feature engineering in the meta project.    
 
 Preprocessing steps:   
 
@@ -98,7 +100,8 @@ options(tibble.width = Inf)
 ## Voice IOS logs
 
 ### Read in Data
-Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
+Manually specifying column types because for some reason it was reading ZNAME in as 
+logical and losing the little data available
 ```{r}
 voice_ios <- read_csv(file.path(path_shared, "voice_ios.csv"), col_types = "iTiicicniiccncccccccTT") %>% 
   glimpse()
@@ -177,7 +180,9 @@ voice_android <- read_csv(file.path(path_shared, "voice_android.csv"), col_types
 ### Clean errors identified in clean script EDA
 
 FIX: presentation value for blocked and unknown numbers    
-11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
+11 entries indicated number was shown when it was not - presentation should 3 for -1 
+numbers since the number was unknown by the network and 2 for -2 numbers since it was 
+blocked.
 ```{r}
 voice_android <- voice_android %>% 
   mutate(presentation = case_when(number == "-1" & presentation == "Displayed" ~ "Unknown",
@@ -208,7 +213,8 @@ voice_android <- voice_android %>%
 ```
 
 FIX: invalid type values   
-8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
+8 subids produced invalid numbers for type variable. Changing these numbers to NA since 
+we have no way of determining correct value.
 ```{r}
 voice_android <- voice_android %>% 
   mutate(type = case_when(type %in% c(8, 9, 10, 101, 1000, 1001, 1002, 6503) ~ as.character(NA),
@@ -216,7 +222,8 @@ voice_android <- voice_android %>%
 ```
 
 FIX: Recode all blocked (-2) and unknown (-1) numbers to NA  
--1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown number; presentation variable provides this information as to whether call was blocked or unknown.
+-1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown 
+number; presentation variable provides this information as to whether call was blocked or unknown.
 ```{r}
 voice_android <- voice_android %>% 
   mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
@@ -255,7 +262,8 @@ contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = "iccccc
 
 ### Clean errors identified in clean script EDA
 
-FIX: Recode unpleasant/mixed response for "How would you describe your typical experience with this person?"   
+FIX: Recode unpleasant/mixed response for "How would you describe your typical experience 
+with this person?"   
 Recoding as mixed for now - discuss with John
 ```{r}
 contacts <- contacts %>% 
@@ -286,15 +294,162 @@ print(duplicates, n = Inf)
 `r nrow(duplicates)` duplicates to handle  
 
 Duplicate 1: Subid 24  
-Differs only on one context variable - may be two different parents but no way to know which they are speaking to.    
-Change contact_drink_future to NA?
+Differs only on one context variable - may be two different parents but no way to know 
+which they are speaking to.    
+JOHN: Change contact_drink_future to NA?  
+UPDATE: This subid does not make it to followup 1 so these entries will be filtered out.
 ```{r}
-contacts %>%
+duplicates <- contacts %>%
   dplyr::filter(phone_number %in% duplicates$phone_number & subid %in% duplicates$subid) %>%
-  arrange(subid, phone_number) %>%
+  arrange(subid, phone_number) 
+
+duplicates %>%
   slice(1:2)
 ```
 
+Duplicate 2: Subid 33   
+Differs only on contact type - keep first entry
+```{r}
+duplicates %>%
+  slice(3:4)
+
+contacts <- contacts %>% 
+  filter(!(subid == 33 & utc == 1519146600 & phone_number == 6088735039))
+```
+
+Duplicate 3: Subid 86
+Differs on two context variable and address   
+JOHN: Keep first entry but with updated address? We probably don't need address for this 
+study or maybe just state for feature engineering (out of state calls).
+```{r}
+duplicates %>%
+  slice(5:6)
+```
+
+Duplicate 4: Subid 97  
+Keep first entry - Although Other Phone might be a more accurate phone_type description
+```{r}
+duplicates %>%
+  slice(7:8)
+
+contacts <- contacts %>% 
+  filter(!(subid == 97 & utc == 1537889400 & phone_number == 6086433393))
+```
+
+Duplicate 5: Subid 104  
+Differs on one context variable and updates address  
+JOHN: Keep first entry with address added to it?
+```{r}
+duplicates %>%
+  slice(9:10)
+```
+
+Duplicate 6: Subid 109  
+Keep first entry
+```{r}
+duplicates %>%
+  slice(11:12)
+
+contacts <- contacts %>% 
+  filter(!(subid == 109 & utc == 1542036600 & phone_number == 6305611375))
+```
+
+Duplicate 7: Subid 110  
+JOHN: Keep 2nd entry?
+```{r}
+duplicates %>%
+  slice(13:14)
+```
+
+Duplicate 8-9: Subid 117   
+JOHN: These 2 are really conflicting - not sure how to handle
+```{r}
+duplicates %>%
+  slice(15:16)
+
+duplicates %>%
+  slice(17:18)
+```
+
+Duplicate 10: Subid 119
+```{r}
+duplicates %>%
+  slice(19:20)
+```
+
+Duplicate 11: Subid 139   
+Keep 2nd entry
+```{r}
+duplicates %>%
+  slice(21:22)
+
+contacts <- contacts %>% 
+  filter(!(subid == 119 & utc == 1540397820 & phone_number == 6082398865))
+```
+
+Duplicate 12: Subid 143   
+Keep 1st entry
+```{r}
+duplicates %>%
+  slice(23:24)
+
+contacts <- contacts %>% 
+  filter(!(subid == 143 & utc == 1541790000 & phone_number == 6082828270))
+```
+
+Duplicate 13: Subid 240   
+Only change is updated address - Keep 2nd entry 
+```{r}
+duplicates %>%
+  slice(25:26)
+
+contacts <- contacts %>% 
+  filter(!(subid == 240 & utc == 1561474800 & phone_number == 9204509643))
+```
+
+Duplicate 14-17: Subid 248  
+14 differs on only one variable - keep 1st entry  
+```{r}
+duplicates %>%
+  slice(27:28)
+
+contacts <- contacts %>% 
+  filter(!(subid == 248 & utc == 1568314800 & phone_number == 6084452342))
+```
+
+15 differs on three variables some are probably important (drinker vs. nondrinker)   
+JOHN: How to handle?
+```{r}
+duplicates %>%
+  slice(29:30)
+```
+
+16 differs on only one variable - keep 1st entry  
+```{r}
+duplicates %>%
+  slice(31:32)
+
+contacts <- contacts %>% 
+  filter(!(subid == 248 & utc == 1568314800 & phone_number == 6088432572))
+```
+
+17 differs on 3 variables   
+JOHN: How to handle?
+```{r}
+duplicates %>%
+  slice(33:34)
+```
+
+Duplicate 18-19: Subid 269   
+These differ quite a bit - makes me wonder how much we can trust either entry.  
+JOHN: How to handle?
+```{r}
+duplicates %>%
+  slice(35:36)
+
+duplicates %>%
+  slice(37:38)
+```
 
 
 
@@ -397,17 +552,23 @@ logs <- logs_voice %>%
 ## Filter down to analysis sample (N = 154)
 Read in visit dates
 ```{r}
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
 
+study_sample <- visit_dates %>% 
+  filter(!is.na(followup_1)) %>% 
+  glimpse()
 ```
 
 Filter log data
 ```{r}
-
+logs <- logs %>% 
+  filter(subid %in% study_sample$subid)
 ```
 
 Filter contacts 
 ```{r}
-
+contacts <- contacts %>% 
+  filter(subid %in% study_sample$subid)
 ```
 
 
@@ -490,7 +651,6 @@ contacts %>%
 ```
 91 - India  
 57 - Columbia   
-
 800050001020 is health insurance scammer according to Google  
 
 
