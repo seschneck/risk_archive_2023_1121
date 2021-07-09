@@ -611,7 +611,29 @@ for (i in 1:length(not_valid_area_code)) {
 valid_country_code
 ```
 
-* 47 number is a valid number for Norway    
+Since 47 number is a 10 digit number check to see if it appears in logs
+```{r}
+# read in voice and SMS logs
+voice_logs <- read_csv(file.path(path_shared, "voice_android.csv"), col_types = "icnTccccTT") 
+sms_logs <- read_csv(file.path(path_shared, "sms_android.csv"), col_types = "icicTiccccciiicccTT") 
+
+logs_76 <- voice_logs %>% 
+  dplyr::filter(subid == 76) %>% 
+  select(number) %>% 
+  bind_rows(sms_logs %>% 
+              dplyr::filter(subid == 76) %>% 
+              select(number = address)) %>% 
+  group_by(number) %>% 
+  slice(1) %>% 
+  ungroup()
+
+logs_76$number_formatted <- purrr::map_chr(logs_76$number, extract_number)
+
+logs_76 %>% 
+  dplyr::filter(str_detect(number, "4745227703"))
+```
+
+* 47 number is in logs and passed country code check as a valid number for Norway      
 * 49 is the country code for Germany but there are too few digits 
 
 subid 87 never made it to followup 1 so no logs to check the 49 number
