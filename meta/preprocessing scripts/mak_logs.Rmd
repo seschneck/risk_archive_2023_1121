@@ -90,8 +90,8 @@ source(file.path(path_lab_support, "fun_phone_numbers.R"))
 Global Settings
 ```{r}
 theme_set(theme_classic())
-options(tibble.width = Inf)
 options(tibble.print_max = Inf)
+options(tibble.width = Inf)
 ```
 
 
@@ -249,11 +249,52 @@ voice_android <- voice_android %>%
 
 ### Read in Data
 ```{r}
-contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = cols()) %>% 
+contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = "icccccccccccccc") %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
+
+FIX: Recode unpleasant/mixed response for "How would you describe your typical experience with this person?"   
+Recoding as mixed for now - discuss with John
+```{r}
+contacts <- contacts %>% 
+  mutate(contact_experience = case_when(contact_experience == "Unpleasant/mixed" ~ "Mixed",
+                                        TRUE ~ contact_experience))
+```
+
+FIX: Remove entry with missing number
+```{r}
+contacts %>% 
+  filter(is.na(phone_number))
+
+contacts <- contacts %>% 
+  filter(!is.na(phone_number))
+```
+
+FIX: Duplicate entries for numbers
+```{r}
+# Duplicate subid/phone number pairs
+duplicates <- contacts %>%
+  group_by(subid, phone_number) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  dplyr::filter(n > 1)
+
+print(duplicates, n = Inf)
+```
+
+`r nrow(duplicates)` duplicates to handle  
+
+Duplicate 1: Subid 24  
+Differs only on one context variable - may be two different parents but no way to know which they are speaking to.    
+Change contact_drink_future to NA?
+```{r}
+contacts %>%
+  dplyr::filter(phone_number %in% duplicates$phone_number & subid %in% duplicates$subid) %>%
+  arrange(subid, phone_number) %>%
+  slice(1:2)
+```
+
 
 
 
@@ -377,7 +418,9 @@ Clean numbers with function
 logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = TRUE)
 ```
 
-### Check unknown patterns for matches to contacts
+### Check unknown patterns for matches to contacts   
+
+FIX: How to handle group messages?
 ```{r}
 
 ```
