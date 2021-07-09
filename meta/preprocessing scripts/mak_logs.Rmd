@@ -1,11 +1,19 @@
 ---
-title: "Meta logs"
+title: "Meta Logs"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
-    toc: yes
-    toc_depth: 3
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Notes
@@ -13,25 +21,28 @@ Purpose: This script does further cleaning and pre-processing on the voice and S
 
 Preprocessing steps:   
 
-1. Handle any identified errors/anomallies in clean scripts    
- 
-2. Tidy responses   
+1. Handle any identified errors/anomalies in clean scripts    
 
-3. Join logs on common variables    
+2. Join logs on common variables    
 
-4. Format numbers to match contacts   
+3. Filter down to analysis sample (N = 154; participants who completed followup 1)    
+
+4. Format numbers to match contacts and join with context variables   
+
+5. EDA on numbers and check for contacts not in logs     
 
 Inputs:  
 - voice_ios.csv    
 - voice_android.csv   
-- sms_ios.csv  
+- sms_ios.csv   
 - sms_android.csv  
-- contacts.csv
+- contacts.csv    
 
 Output:   
-- meta_logs.csv 
+- meta_logs.csv   
 
 ### Setup
+
 ```{css, echo = FALSE}
 pre, code {
   max-height: 500px;
@@ -41,21 +52,44 @@ pre, code {
 }
 ```
 
-Paths 
+Absolute Paths 
 ```{r}
-path_in <- "/Volumes/private/studydata/risk/data_processed/shared"
-path_out <- "/Volumes/private/studydata/risk/data_processed/meta"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+        # IOS paths
+        Darwin = {
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          # temporary directory to use check country code function not merged into production version
+          path_lab_support <- "~/lab_support"})
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# Detect and warn about function conflicts
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+
+# establish project directory consistently as working directory
+library(here)  
 ```
 
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
 library(kableExtra)
+library(readxl)
 library(lubridate)
 library(janitor)
 
-source("~/lab_support/fun_phone_numbers.R")
+source(file.path(path_lab_support, "fun_phone_numbers.R"))
+```
 
+Global Settings
+```{r}
+theme_set(theme_classic())
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
@@ -63,9 +97,10 @@ options(tibble.print_max = Inf)
 
 ## Voice IOS logs
 
+### Read in Data
 Manually specifying column types because for some reason it was reading ZNAME in as logical and losing the little data available
 ```{r}
-voice_ios <- read_csv(file.path(path_in, "voice_ios.csv"), col_types = "iTiicicniiccncccccccTT") %>% 
+voice_ios <- read_csv(file.path(path_shared, "voice_ios.csv"), col_types = "iTiicicniiccncccccccTT") %>% 
   glimpse()
 ```
 
@@ -75,11 +110,11 @@ FIX: 2 dates with year 2024 - change to NA and filter out
 ```{r}
 voice_ios %>% 
   arrange(desc(zdate)) %>% 
-  head(10)  %>% 
+  head(5)  %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
   row_spec(1:2, color = "red") %>% 
-  scroll_box(width = "100%", height = "500px")
+  scroll_box(width = "100%")
 
 
 voice_ios <- voice_ios %>% 
@@ -88,7 +123,7 @@ voice_ios <- voice_ios %>%
   filter(!is.na(zdate))
 ```
 
-Fix invalid numbers with semicolon     
+FIX: invalid numbers with semicolon     
 ```{r}
 voice_ios %>% 
   filter(str_detect(zaddress, ";")) %>% 
@@ -133,14 +168,15 @@ voice_ios <- voice_ios %>%
 
 ## Voice Android logs
 
+### Read in data
 ```{r}
-voice_android <- read_csv(file.path(path_in, "voice_android.csv"), col_types = "icnTccccTT") %>% 
+voice_android <- read_csv(file.path(path_shared, "voice_android.csv"), col_types = "icnTccccTT") %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
 
-Fix presentation value for blocked and unknown numbers    
+FIX: presentation value for blocked and unknown numbers    
 11 entries indicated number was shown when it was not - presentation should 3 for -1 numbers since the number was unknown by the network and 2 for -2 numbers since it was blocked.
 ```{r}
 voice_android <- voice_android %>% 
@@ -149,8 +185,7 @@ voice_android <- voice_android %>%
                                   TRUE ~ as.character(presentation)))
 ```
 
-
-Fix invalid number with semicolon     
+FIX: invalid number with semicolon     
 ```{r}
 voice_android %>% 
   filter(str_detect(number, ";")) %>% 
@@ -164,7 +199,7 @@ voice_android <- voice_android %>%
                             TRUE ~ number))
 ```
 
-Fix invalid duration value of -4   
+FIX: invalid duration value of -4   
 Duration cannot be negative; changing to NA since no way of knowing actual duration
 ```{r}
 voice_android <- voice_android %>% 
@@ -172,7 +207,7 @@ voice_android <- voice_android %>%
                               TRUE ~ duration))
 ```
 
-Fix invalid type values   
+FIX: invalid type values   
 8 subids produced invalid numbers for type variable. Changing these numbers to NA since we have no way of determining correct value.
 ```{r}
 voice_android <- voice_android %>% 
@@ -180,7 +215,7 @@ voice_android <- voice_android %>%
                           TRUE ~ as.character(type)))
 ```
 
-Recode all blocked (-2) and unknown (-1) numbers to NA  
+FIX: Recode all blocked (-2) and unknown (-1) numbers to NA  
 -1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown number; presentation variable provides this information as to whether call was blocked or unknown.
 ```{r}
 voice_android <- voice_android %>% 
@@ -192,20 +227,37 @@ voice_android <- voice_android %>%
 
 ## SMS IOS logs
 
+### Read in data
+```{r}
+
+```
+
+### Clean errors identified in clean script EDA
+
 
 ## SMS Android logs
 
+### Read in data
+```{r}
+
+```
+
+### Clean errors identified in clean script EDA
 
 
 ## Contacts
+
+### Read in Data
 ```{r}
-contacts <- read_csv(file.path(path_in, "contacts.csv"), col_types = cols()) %>% 
+contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = cols()) %>% 
   glimpse()
 ```
 
+### Clean errors identified in clean script EDA
 
 
-## Tidy responses and Join
+
+## Join voice logs
 
 ### Common voice log variables relevant to meta project
 
@@ -245,7 +297,6 @@ voice_android <- voice_android %>%
 ```
 
 
-
 ### tidy ios variables for merge
 ```{r}
 voice_ios %>% 
@@ -264,21 +315,59 @@ voice_ios <- voice_ios %>%
 ```
 
 
-
 ### Join
 join voice logs
 ```{r}
-logs <- voice_android %>% 
+logs_voice <- voice_android %>% 
   full_join(voice_ios,  by = c("subid", "number", "duration", "date", "contact_name", 
                                "originated", "answered", "call_type")) %>% 
+  # add new variable to mark these are voice logs
+  mutate(log_type = "voice") %>% 
   glimpse()
 ```
-
-Will join contacts after numbers are cleaned
 
 <br>
 
 
+## Join SMS variables
+
+### Common voice log variables relevant to meta project
+
+### tidy android variables for merge
+
+### tidy IOS variables for merge
+
+### Join
+```{r}
+logs_sms <- sms_android %>% 
+  full_join(sms_ios, by = c()) %>% 
+  # add new variable to mark these are sms logs
+  mutate(log_type = "sms") %>% 
+  glimpse()
+
+# join SMS and voice logs
+logs <- logs_voice %>% 
+  full_join(logs_sms, by = c()) %>% 
+  glimpse()
+```
+
+
+
+## Filter down to analysis sample (N = 154)
+Read in visit dates
+```{r}
+
+```
+
+Filter log data
+```{r}
+
+```
+
+Filter contacts 
+```{r}
+
+```
 
 
 ## Clean numbers
@@ -288,10 +377,12 @@ Clean numbers with function
 logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = TRUE)
 ```
 
-
 ### Check unknown patterns for matches to contacts
+```{r}
 
-match 7 digit numbers to known contacts
+```
+
+### Pull area codes for 7 digit numbers from contacts
 ```{r}
 numbers_7_digits <- logs %>% 
   filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
@@ -348,7 +439,6 @@ logs <- logs %>%
   select(-contact_number)
 ```
 
-
 Contact numbers more than 10 digits in length        
 ```{r}
 contacts %>% 
@@ -360,18 +450,21 @@ contacts %>%
 
 800050001020 is health insurance scammer according to Google  
 
+
 ## Join logs with contacts on formatted number
 ```{r}
 glimpse(contacts)
 
 logs <- logs %>% 
-  full_join(contacts %>% 
+  left_join(contacts %>% 
               select(-utc) %>% 
               mutate(phone_number = as.character(phone_number)), 
-            by = c("subid", "number_formatted" = "phone_number")) %>% 
+              by = c("subid", "number_formatted" = "phone_number")) %>% 
   glimpse()
 ```
 
+
+## Contacts without log entries
 
 
 ## EDA

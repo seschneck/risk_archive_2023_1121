@@ -580,10 +580,10 @@ contacts %>%
   select(subid, phone_number, contact_type) %>%
   print(n = Inf)
 
-# filter out spam and irrelevant/other numbers
+# filter out spam and irrelevant/spam numbers
 numbers <- contacts %>%
   dplyr::filter(phone_number %in% not_valid_area_code) %>%
-  dplyr::filter(contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
+  dplyr::filter(contact_type != "Irrelevant/Spam") %>%
   select(phone_number) %>%
   unlist(use.names = FALSE)
 ```
