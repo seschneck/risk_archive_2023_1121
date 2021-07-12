@@ -74,25 +74,6 @@ logs <- logs %>%
 
 ### Errors identified in clean script EDA
 
-One date was parsed or read incorrectly - should be in 13 digit UTC but was -1 in raw log file.
-```{r}
-logs %>% 
-  arrange(date)
-```
-
-Place in log shows that this message likely occurred in July which is prior to the subids start date of 9/08 - will be filtered out.
-```{r}
-logs %>% 
-  filter(log_file == "128_SMS_1.xml") %>% 
-  arrange(date) 
-```
-
-Changing date to NA for now since current date is not accurate  
-```{r}
-logs <- logs %>% 
-  mutate(date = case_when(subid == 128 & address == "+16087127555" & date(date) == "1970-01-01" ~ as_datetime(NA),
-         TRUE ~ date))
-```
 
 Cannot use log entry without date so checking for other missing date values   
 No other missing dates

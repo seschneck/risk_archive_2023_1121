@@ -58,6 +58,7 @@ switch (Sys.info()[['sysname']],
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
+library(janitor)
 library(kableExtra)
 library(lubridate)
 library(XML)
@@ -306,6 +307,22 @@ all_logs %>%
   janitor::tabyl(sc_toa)
 ```
 
+Subject of text message should always be null/NA in SMS
+```{r}
+all_logs %>% 
+  filter(!is.na(subject)) %>% 
+  select(subject) %>% 
+  print(n = Inf)
+```
+
+All non-null subjects belong to one subid  
+Not clear why there is a subject on these messages
+```{r}
+all_logs %>% 
+  filter(!is.na(subject)) %>% 
+  tabyl(subid)
+```
+
 Remove variables with > 98% missing values
 ```{r}
 all_logs <- all_logs %>%
@@ -327,6 +344,7 @@ all_logs %>%
 <br>
 
 #### Dates
+Date = date message was received   
 Dates range from `r min(all_logs$date, na.rm = TRUE)` to `r max(all_logs$date, na.rm = TRUE)`   
 
 Check dates against readable_date variable   
@@ -357,6 +375,17 @@ Removing readable date - will be using unix time stamp from here on out
 ```{r}
 all_logs <- all_logs %>% 
   select(-readable_date)
+```
+
+
+Date sent - Either has a date or 0. Not sure what 0 is yet, doesn't seem to be completely related to type of message and not limited to a subset of subids.
+```{r}
+all_logs %>% 
+  tabyl(date_sent == 0)
+
+all_logs %>% 
+  filter(date_sent == 0) %>% 
+  tabyl(type)
 ```
 
 <br>
@@ -392,47 +421,170 @@ all_logs %>%
   print(n = Inf)
 ```
 
+All group messages are NA - I think this is because group messages are MMS not SMS   
+FIX: confirm they are blank in xml logs 
+```{r}
+logs %>% 
+  filter(str_detect(address, "~")) %>% 
+  select(body) %>% 
+  print(n = Inf)
+```
+
 #### type
+
+Valid options = 1-5
 ```{r}
 all_logs %>% 
+  tabyl(type)
+```
+
+* 1 = inbox  
+* 2 = sent  
+* 3 = draft  
+* 4 = temporary state of outbox (ultimately ends up in sent or failed)   
+* 5 = failed  
+
+Type 19's all belong to one subid and contain alerts   
+FIX: should be incoming/type 1?
+```{r}
+all_logs %>% 
+  filter(type == 19) %>% 
+  select(subid, address, body)
+```
+
+Check type for other alerts
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "alert") | str_detect(address, "Alert") | str_detect(address, "Amber")) %>% 
+  select(address, contact_name, type) %>% 
+  print(n = Inf)
+```
+
+
+Type -1 may signify an outgoing message to a group of people  
+https://www.ijser.org/researchpaper/Identification-of-Fake-SMS-generated-using-Android-Applications-in-Android-Devices.pdf
+```{r}
+all_logs %>% 
+  filter(type == -1) %>% 
+  count(contact_name) %>% 
+  print(n = Inf)
+```
+
+Check for other group messages    
+All group messages are type -1 or NA
+```{r}
+all_logs
+logs %>% 
+  filter(str_detect(address, "~")) %>% 
   count(type)
 ```
 
-#### read
+Type -1 responses all belong to 6 subids. Their type of Android may be creating variables not consistent with other subids.
 ```{r}
 all_logs %>% 
-  count(read)
+  filter(!type %in% c(1:5, NA)) %>% 
+  count(subid)
 ```
 
-#### status
+However 37 subids have group messages
 ```{r}
 all_logs %>% 
-  count(status)
+  filter(str_detect(address, "~")) %>% 
+  count(subid)
+```
+
+FIX: Due to inconsistent coding likely will want to recode type -1 as NA and use address column to identify group messages   
+
+Type 3 is drafts  
+```{r}
+all_logs %>% 
+  filter(type == 3)
+```
+
+
+#### read
+Boolean value for "Has the message been read"?
+```{r}
+all_logs %>% 
+  tabyl(read)
+```
+
+* 0 = no   
+* 1 = yes  
+
+All unread messages are incoming or type unknown   
+```{r}
+all_logs %>% 
+  filter(read == 0) %>% 
+  count(type)
+```
+
+
+#### status
+TP-Status value for the message (TP = transfer protocol)
+```{r}
+all_logs %>% 
+  tabyl(status)
+```
+
+* -1 = no status  
+* 0 = status complete  
+* 32 = status pending   
+* 64 = status failed   
+
+All failed calls (status = 64) also show type as failed (type = 5)
+```{r}
+all_logs %>% 
+  filter(status == 64) %>% 
+  tabyl(type)
+```
+
+Some failed calls with type = 5 have no status (-1)   
+*Type might be more informative if interested in failed calls*
+```{r}
+all_logs %>% 
+  filter(type == 5) %>% 
+  tabyl(status)
 ```
 
 #### protocol
+
+Protocol identifier code - 0 is default value for SMS (short message service)       
+All but 17 entries are 0 or NA
 ```{r}
 all_logs %>% 
-  count(protocol)
+  tabyl(protocol)
+```
+
+All 57 cases belong to subid 117 and all 95 cases belong to subid 191
+```{r}
+all_logs %>% 
+  filter(protocol == 57 | protocol == 95)
+```
+
+Since there doesn't seem to be much info in this variable, I am removing it
+```{r}
+all_logs <- all_logs %>%
+  select(-protocol) %>%
+  glimpse()
 ```
 
 #### locked
+Boolean value for "Is the message locked"?   
+Locking a text message marks the message to prevent it from being deleted.
 ```{r}
 all_logs %>% 
-  count(locked)
+  tabyl(locked)
 ```
 
-#### date sent
-
-About half have a date of 0. Not sure what 0 is yet, doesn't seem to be related to type of call.
+15 subids have locked messages
 ```{r}
 all_logs %>% 
-  count(date_sent == 0)
-
-all_logs %>% 
-  filter(date_sent == 0) %>% 
-  janitor::tabyl(type)
+  filter(locked == 1) %>% 
+  count(subid) %>% 
+  arrange(desc(n))
 ```
+
 
 #### contact name
 ```{r}
@@ -440,10 +592,17 @@ all_logs %>%
   group_by(contact_name) %>% 
   slice(1) %>% 
   select(contact_name) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "50%", height = "500px")
+  print(n = Inf)
 ```
+
+Many email address numbers have unknown contact names
+```{r}
+all_logs %>% 
+  filter(str_detect(address, "@")) %>% 
+  tabyl(contact_name)
+```
+
+
 
 #### log files
 more than 3 logs
@@ -479,6 +638,42 @@ log modification dates range from `r min(all_logs$modified)` to `r max(all_logs$
 
 ### Add categorical labels
 
+Type
+```{r}
+all_logs <- all_logs %>% 
+  mutate(type = case_when(type == 1 ~ "inbox",
+                          type == 2 ~ "sent",
+                          type == 3 ~ "draft",
+                          type == 4 ~ "outbox",
+                          type == 5 ~ "failed",
+                          TRUE ~ as.character(type)))
+```
+
+Status
+```{r}
+all_logs <- all_logs %>% 
+  mutate(status = case_when(status == -1 ~ "no status",
+                            status == 0 ~ "status complete",
+                            status == 32 ~ "status pending",
+                            status == 64 ~ "status failed",
+                            TRUE ~ as.character(status)))
+```
+
+Read
+```{r}
+all_logs <- all_logs %>% 
+  mutate(read = case_when(read == 0 ~ "no",
+                          read == 1 ~ "yes",
+                          TRUE ~ as.character(read)))
+```
+
+Locked
+```{r}
+all_logs <- all_logs %>% 
+  mutate(locked = case_when(locked == 0 ~ "no",
+                            locked == 1 ~ "yes",
+                            TRUE ~ as.character(locked)))
+```
 
 
 
