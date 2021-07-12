@@ -8,6 +8,14 @@ output:
     toc_depth: 2
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Notes
@@ -33,11 +41,19 @@ pre, code {
 }
 ```
 
-Paths 
+Absolute Paths 
 ```{r}
-path_raw <- "Z:/StudyData/RISK/raw_data"
-path_out <- "Z:/StudyData/RISK/analysis/shared/data"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"})
 ```
+
 
 Packages and Source
 ```{r, message = FALSE}
@@ -57,17 +73,16 @@ library(xml2)
 read_xml <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
-    # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
-    log_files <- discard(log_files, log_files == "RawSMSVoice")
-    if(length(log_files) > 0) {
-      for(file in log_files) {
+    filepaths <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE, full.names = TRUE)
+    # subids 1-15 have a RawSMSVoice folder in addition to XML logs - not including this folder 
+    filepaths <- discard(filepaths, filepaths == file.path(path_raw, subid, "RawSMSVoice"))
+    if(length(filepaths) > 0) {
+      for(file in filepaths) {
         if(str_detect(file,'.xml')) {
-          path <- file.path(path_raw, subid, file)
           
           # xml code adapted from Susan's fun_database script
           # use read_html instead of read_xml to avoid problem with emojis in contacts
-          xml <- xml_children(read_html(file.path(path)))
+          xml <- xml_children(read_html(file.path(file)))
  
           # fix for problem with nested list after switching to read_html()
           while (length(xml) == 1) {
@@ -96,8 +111,8 @@ read_xml <- function(subid) {
           log <- log %>% 
             mutate(subid = subid,
                    log_file = file,
-                   created = file.info(path)$ctime,
-                   modified = file.info(path)$mtime)
+                   created = file.info(file)$ctime,
+                   modified = file.info(file)$mtime)
           
           # Join log files
           logs <- logs %>% 
@@ -533,7 +548,7 @@ all_logs %>%
 
 ### Write csv
 ```{r}
-write_csv(all_logs, file.path(path_out, "sms_android.csv")) %>% glimpse()
+write_csv(all_logs, file.path(path_shared, "sms_android.csv")) %>% glimpse()
 ```
 
 **Note: date saved as UTC**
