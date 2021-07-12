@@ -245,39 +245,6 @@ all_logs %>%
   filter(!nchar(date) == 13)
 ```
 
-FIX: One date appears to have been parsed or read incorrectly - should be in 13 digit UTC
-```{r}
-all_logs %>% 
-  filter(log_file == "128_SMS_1.xml") %>% 
-  arrange(date) %>%  
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  row_spec(1, color = "red") %>% 
-  scroll_box(height = "500px", width = "100%")
-```
-
-Read in same way in all subsequent logs
-```{r}
-all_logs %>% 
-  filter(subid == "128" & body == "Well if u can gwt for a good price but why wouldnt marty just do that himself then? If u can get car and engine for 500 good deal. What year is it")
-```
-
-
-* Date was incorrect in log:   
-sms protocol="0" address="+16087127555" date="-1" type="2" subject="null" body="Well if u can gwt for a good price but why wouldnt marty just do that himself then? If u can get car and engine for 500 good deal. What year is it" toa="null" sc_toa="null" service_center="+12063130004" read="1" status="-1" locked="0" date_sent="0" readable_date="Dec 31, 1969 5:59:59 PM" contact_name="Al"   
-
-* NOTE: Place in log shows that this message likely occurred in July which is prior to the subids start date of 9/08 - will be filtered out later.   
- 
-* FIX: I noticed some messages in 128's log were read in blank, because of emojis? Working on a solution for correctly parsing emojis from xml files    
-
-example message that was read in as blank: sms protocol="0" address="+16083203603" date="1530892964248" type="1" subject="null" body="&#55357;&#56469; Hi Tai,&#13;Is there anyway you or Al could water today and/or tomorrow?&#55357;&#56842; " toa="null" sc_toa="null" service_center="+14054720056" read="1" status="-1" locked="0" date_sent="1530892961000" readable_date="Jul 6, 2018 11:02:44 AM" contact_name="Jeanette Cell"
-
-Check no missing date values
-```{r}
-all_logs %>% 
-  filter(is.na(date))
-```
-
 Convert dates to date time object
 ```{r}
 all_logs <- all_logs %>% 
@@ -298,44 +265,20 @@ all_logs %>%
 
 #### Other data updates for eda
 
-Check classes
+Replace empty and null character strings with NA
 ```{r}
-all_logs %>% 
+all_logs <- all_logs %>% 
+  mutate(across(where(is.character), ~na_if(., c(""))),
+         across(where(is.character), ~na_if(., c("null")))) %>% 
   glimpse()
 ```
 
-Convert int columns to numeric
-```{r}
-# check variables contain only integers
-all_logs %>% 
-  count(protocol) 
-all_logs %>% 
-  count(type)
-all_logs %>% 
-  count(read)
-all_logs %>% 
-  count(status)
-all_logs %>% 
-  count(locked)
 
-# convert to int class
+Remove survey signal messages from study staff
+```{r}
+(test_messages <- str_subset(all_logs$body, "SurveySignal"))
 all_logs <- all_logs %>% 
-  mutate(protocol = as.numeric(protocol),
-         type = as.numeric(type),
-         read = as.numeric(read),
-         status = as.numeric(status),
-         locked = as.numeric(locked)) 
-```
-
-Replace empty character strings with NA
-```{r}
-all_logs <- all_logs %>% 
-  mutate(across(where(is.character), ~na_if(., "")))
-```
-
-Final glimpse
-```{r}
-all_logs %>% 
+  filter(!body %in% test_messages) %>% 
   glimpse()
 ```
 
@@ -354,18 +297,7 @@ all_logs %>%
 
 100% of texts missing message (note text message content is in body variable)       
 
-Quick check of other variables that may not be needed (mostly null)
-```{r}
-all_logs %>% 
-  count(subject == "null")
-
-all_logs %>% 
-  filter(subject != "null") %>% 
-  select(subject) %>% 
-  print(n = Inf)
-```
-
-toa and sc_toa are 0, null, or NA for all log entries   
+toa and sc_toa are 0 or NA for all log entries   
 ```{r}
 all_logs %>% 
   janitor::tabyl(toa)
@@ -374,6 +306,16 @@ all_logs %>%
   janitor::tabyl(sc_toa)
 ```
 
+Remove variables with > 98% missing values
+```{r}
+all_logs <- all_logs %>%
+  select(-c(message, subject, toa, sc_toa)) %>% 
+  glimpse()
+```
+
+
+NOTE: Not sure if service center is useful, but keeping for now    
+
 service_center = "The service center (SC) through which to send the message, if present."    
 https://developer.android.com/reference/android/provider/Telephony.TextBasedSmsColumns#SERVICE_CENTER
 ```{r}
@@ -381,33 +323,11 @@ all_logs %>%
   janitor::tabyl(service_center)
 ```
 
-FIX: may want to remove these variables - seems to not contain much info
-```{r}
-# all_logs <- all_logs %>% 
-#   select(-c(message, subject, toa, sc_toa, service_center))
-```
 
 <br>
 
 #### Dates
-Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`   
-
-Min date is off because of observation above that seems to not be read in correctly. Date was originally -1.        
-
-Next min value is in 2013
-```{r}
-all_logs %>% 
-  filter(date > "1970-01-01") %>% 
-  arrange(date) %>% 
-  slice(1)
-```
-
-No other dates less than 2013
-```{r}
-all_logs %>% 
-  filter(date < "2013-11-27")
-```
-
+Dates range from `r min(all_logs$date, na.rm = TRUE)` to `r max(all_logs$date, na.rm = TRUE)`   
 
 Check dates against readable_date variable   
 ```{r}
@@ -421,17 +341,16 @@ all_logs %>%
 ```
 
 Compare two date entries for discrepancies    
-Readable date for 3 entries are 1 hour off. May be due to traveling?
+Readable date for 3 entries are 1 hour off. May be due to traveling?   
+FIX: Doesn't look like 60 minute difference?
 ```{r}
 all_logs %>% 
   mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
                                                    format = "%b %e, %Y %I:%M:%S %p"),
          date = with_tz(date, tzone = "America/Chicago"),
          diff = round(difftime(date, date_str, units = "mins"), 0)) %>%
-  filter(diff != 0) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
+  filter(diff != 0)  %>% 
+  select(subid, address, date, date_str, diff)
 ```
 
 Removing readable date - will be using unix time stamp from here on out
@@ -443,13 +362,10 @@ all_logs <- all_logs %>%
 <br>
 
 #### phone numbers
-1 Missing number
+Missing numbers mostly belong to subid 240
 ```{r}
 all_logs %>% 
-  filter(is.na(address)) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
+  filter(is.na(address)) 
 ```
 
 Raw number format   
@@ -462,48 +378,18 @@ all_logs %>%
   print(n = Inf)
 ```
 
-numbers with @ sign    
-Note: some emails have - so need to preserve if removing - from numbers
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "@")) %>% 
-  count(address) %>% 
-  print(n = Inf)
-```
-
-Some numbers are formatted with parenthesis, spaces, and dashes
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "\\(")) %>% 
-  count(address)
-```
-
-Pound signs
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "#")) %>% 
-  count(address) 
-```
-
-Asterisks  
-* 67 before dialing a number hides the number from showing on caller id - I didnt know this worked for SMS though
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "\\*")) %>% 
-  count(address)
-```
 
 
 #### text content
 
+Random sample of truncated text content    
 FIX: Not seeing many emojis - may have accidently been stripped, working on solution.
 ```{r}
 all_logs %>% 
   select(body) %>% 
-  head(n = 200) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(height = "500px", width = "100%")
+  mutate(body = str_trunc(body, 20)) %>% 
+  sample_n(., 200) %>% 
+  print(n = Inf)
 ```
 
 #### type
@@ -590,11 +476,10 @@ subid 223 got a new phone and phone number so they came in on 5/20/2019 to get a
 log creation dates range from `r min(all_logs$created)` to `r max(all_logs$created)`.      
 log modification dates range from `r min(all_logs$modified)` to `r max(all_logs$modified)`.   
 
-Note: almost all (but not all) of the logs have modification dates that precede the creation date. Not sure why this is.
-```{r}
-all_logs %>% 
-  filter(modified < created)
-```
+
+### Add categorical labels
+
+
 
 
 ### Write csv
