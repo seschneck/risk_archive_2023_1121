@@ -21,7 +21,7 @@ knit: (function(input, ...) {
 ### Notes
 Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
 
-**Note: Emojis are accidently stripped in the aggregated csv file, still working on how to extract them from the xml files and will update.**    
+**Note: File not ready for analysis on text content. Emojis are accidently stripped in the aggregated csv file (may result in blank messages), still working on how to extract them from the xml files and will update.**    
 
 
 Inputs:   
@@ -64,6 +64,12 @@ library(XML)
 library(xml2)
 ```
 
+Relative Paths
+```{r}
+library(here)
+
+path_log <- "shared/notes"
+```
 
 ### Android SMS Logs (XML) 
 
@@ -162,29 +168,74 @@ all_logs <- map_df(xml_subids$subid, ~read_xml(.)) %>%
 ```
 
 #### Remove duplicates
-Inspect duplicates    
-*Only showing preview in knitted file because pandoc crashes with full table*
-```{r}
-dups <- all_logs %>% 
-  add_count(subid, date, address, body, contact_name) %>% 
-  filter(n > 1) %>% 
-  select(-c(log_file, created, modified, n))
 
-all_logs %>% 
-  semi_join(dups, by = c("subid", "date", "address", "body", "contact_name")) %>% 
-  arrange(subid, date, address, body, contact_name) %>%
-  head(n = 500) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
-```
-
-Remove duplicates
 ```{r}
-all_logs <- all_logs %>% 
-  distinct(across(c(subid, date, address, body, contact_name)), .keep_all = TRUE) %>% 
+all_logs <- all_logs %>%
+  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
   glimpse()
 ```
+
+
+#### Clean with cleaning log
+cleaning function
+```{r}
+clean_logs <- function(d, log){
+  # recode_one log entries
+  log_recode_one <- dplyr::filter(log, log_action == "recode_one")
+
+  for (i in seq_along(log_recode_one$index)){
+
+    log_subid <- pluck(log_recode_one, "subid", i)
+    log_date <- pluck(log_recode_one, "date", i)
+    log_address <- pluck(log_recode_one, "address", i)
+    log_var_name <- pluck(log_recode_one, "var_name", i)
+    log_new_value <- pluck(log_recode_one, "new_value", i)
+    log_old_value <- pluck(log_recode_one, "old_value", i)
+
+    # pull out row id
+    row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      # match on subid, date, phone number, and old value
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(get(log_var_name) == log_old_value) %>%
+      dplyr::filter(date == log_date) %>%
+      dplyr::filter(address == log_address) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    }
+    
+    # check that only one matching data row
+    if (length(row_id) != 1) {
+      stop("Rows matching subid: ", log_subid, " does not equal 1")
+    }
+
+    # make change to rowid
+    if (is.numeric(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.numeric(log_new_value)
+    if (is_character(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.character(log_new_value)
+    if (is.POSIXt(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as_datetime(log_new_value)
+
+  
+  return(d)
+}
+```
+
+read in log and summarize
+```{r}
+log <- read_csv(here(path_log, "log_sms_android.csv"), col_types = "ccccccccc") %>%
+  rowid_to_column("index") %>%
+  glimpse()
+
+# view log actions
+table(log$log_action)
+```
+
+clean data
+```{r}
+all_logs <- all_logs %>%
+  clean_logs(., log) %>%
+  glimpse()
+```
+
 
 
 #### Convert utc to date time 
