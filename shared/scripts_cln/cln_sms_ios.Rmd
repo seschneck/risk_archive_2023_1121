@@ -8,10 +8,20 @@ output:
     toc_depth: 2
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Notes
-Purpose: This script contains code to open all sms log files in sql format from participants raw data folders.  
+Purpose: This script contains code to open and merge all SMS log files in SQL format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+
+**Note: File not ready for analysis on text content. Emojis are accidently stripped in the aggregated csv file (may result in blank messages), still working on how to extract them from the xml files and will update.**    
 
 Inputs:   
 [subid]_SMS_1.sql  

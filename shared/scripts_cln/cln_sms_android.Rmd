@@ -80,16 +80,17 @@ path_log <- "shared/notes"
 read_xml <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    filepaths <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE, full.names = TRUE)
+    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to XML logs - not including this folder 
-    filepaths <- discard(filepaths, filepaths == file.path(path_raw, subid, "RawSMSVoice"))
-    if(length(filepaths) > 0) {
-      for(file in filepaths) {
+    log_files <- discard(log_files, log_files == "RawSMSVoice")
+    if(length(log_files) > 0) {
+      for(file in log_files) {
         if(str_detect(file,'.xml')) {
+          path <- file.path(path_raw, subid, file)
           
           # xml code adapted from Susan's fun_database script
           # use read_html instead of read_xml to avoid problem with emojis in contacts
-          xml <- xml_children(read_html(file.path(file)))
+          xml <- xml_children(read_html(file.path(path)))
  
           # fix for problem with nested list after switching to read_html()
           while (length(xml) == 1) {
@@ -301,13 +302,14 @@ all_logs %>%
 toa and sc_toa are 0 or NA for all log entries   
 ```{r}
 all_logs %>% 
-  janitor::tabyl(toa)
+  tabyl(toa)
 
 all_logs %>% 
-  janitor::tabyl(sc_toa)
+  tabyl(sc_toa)
 ```
 
-Subject of text message should always be null/NA in SMS
+Subject of text message should always be null/NA in SMS   
+Not clear why there is a subject on these messages
 ```{r}
 all_logs %>% 
   filter(!is.na(subject)) %>% 
@@ -316,7 +318,6 @@ all_logs %>%
 ```
 
 All non-null subjects belong to one subid  
-Not clear why there is a subject on these messages
 ```{r}
 all_logs %>% 
   filter(!is.na(subject)) %>% 
@@ -337,7 +338,7 @@ service_center = "The service center (SC) through which to send the message, if 
 https://developer.android.com/reference/android/provider/Telephony.TextBasedSmsColumns#SERVICE_CENTER
 ```{r}
 all_logs %>% 
-  janitor::tabyl(service_center)
+  tabyl(service_center)
 ```
 
 
@@ -381,9 +382,6 @@ all_logs <- all_logs %>%
 Date sent - Either has a date or 0. Not sure what 0 is yet, doesn't seem to be completely related to type of message and not limited to a subset of subids.
 ```{r}
 all_logs %>% 
-  tabyl(date_sent == 0)
-
-all_logs %>% 
   filter(date_sent == 0) %>% 
   tabyl(type)
 ```
@@ -424,10 +422,9 @@ all_logs %>%
 All group messages are NA - I think this is because group messages are MMS not SMS   
 FIX: confirm they are blank in xml logs 
 ```{r}
-logs %>% 
+all_logs %>% 
   filter(str_detect(address, "~")) %>% 
-  select(body) %>% 
-  print(n = Inf)
+  tabyl(body)
 ```
 
 #### type
@@ -448,7 +445,7 @@ Type 19's all belong to one subid and contain alerts
 FIX: should be incoming/type 1?
 ```{r}
 all_logs %>% 
-  filter(type == 19) %>% 
+  filter(type == "19") %>% 
   select(subid, address, body)
 ```
 
@@ -461,7 +458,7 @@ all_logs %>%
 ```
 
 
-Type -1 may signify an outgoing message to a group of people  
+Type -1 may signify an outgoing message to a group of people - but not consistent
 https://www.ijser.org/researchpaper/Identification-of-Fake-SMS-generated-using-Android-Applications-in-Android-Devices.pdf
 ```{r}
 all_logs %>% 
@@ -473,8 +470,7 @@ all_logs %>%
 Check for other group messages    
 All group messages are type -1 or NA
 ```{r}
-all_logs
-logs %>% 
+all_logs %>% 
   filter(str_detect(address, "~")) %>% 
   count(type)
 ```
@@ -512,7 +508,7 @@ all_logs %>%
 * 0 = no   
 * 1 = yes  
 
-All unread messages are incoming or type unknown   
+Most unread messages are incoming or type unknown   
 ```{r}
 all_logs %>% 
   filter(read == 0) %>% 
@@ -577,7 +573,7 @@ all_logs %>%
   tabyl(locked)
 ```
 
-15 subids have locked messages
+16 subids have locked messages
 ```{r}
 all_logs %>% 
   filter(locked == 1) %>% 
