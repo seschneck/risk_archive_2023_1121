@@ -10,8 +10,8 @@ knit: (function(input, ...) {
     rmarkdown::render(
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/shared", 
-      "/Volumes/private/studydata/risk/knits/shared")
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
     )
   })
 ---
@@ -60,10 +60,13 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_shared <- "P:/studydata/risk/data_processed/shared"
-          path_lab_support <- "P:/toolboxes/lab_support"},
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          # temporary directory to use check country code function not merged into production version
+          path_lab_support <- "C:/Users/kpaquette2/lab_support"},
         # IOS paths
         Darwin = {
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
           # temporary directory to use check country code function not merged into production version
           path_lab_support <- "~/lab_support"})
 ```
@@ -238,6 +241,8 @@ voice_android <- voice_android %>%
 ```{r}
 
 ```
+
+### Filter out duplicate GUIDs
 
 ### Clean errors identified in clean script EDA
 
@@ -535,16 +540,17 @@ logs_voice <- voice_android %>%
 
 ### Join
 ```{r}
-logs_sms <- sms_android %>% 
-  full_join(sms_ios, by = c()) %>% 
-  # add new variable to mark these are sms logs
-  mutate(log_type = "sms") %>% 
-  glimpse()
-
+# logs_sms <- sms_android %>% 
+#   full_join(sms_ios, by = c()) %>% 
+#   # add new variable to mark these are sms logs
+#   mutate(log_type = "sms") %>% 
+#   glimpse()
+# 
 # join SMS and voice logs
-logs <- logs_voice %>% 
-  full_join(logs_sms, by = c()) %>% 
-  glimpse()
+logs <- logs_voice 
+# %>% 
+#   full_join(logs_sms, by = c()) %>% 
+#   glimpse()
 ```
 
 
@@ -587,7 +593,7 @@ FIX: How to handle group messages?
 ```
 
 ### Pull area codes for 7 digit numbers from contacts
-```{r}
+```{r message = FALSE}
 numbers_7_digits <- logs %>% 
   filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
   select(number) %>% 
@@ -697,7 +703,7 @@ logs %>%
 
 ## Write csv
 ```{r}
-write_csv(logs, file.path(path_out, "meta_logs.csv")) %>% 
+write_csv(logs, file.path(path_meta, "meta_logs.csv")) %>% 
   glimpse()
 ```
 

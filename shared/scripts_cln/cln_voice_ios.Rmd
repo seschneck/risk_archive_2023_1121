@@ -8,6 +8,14 @@ output:
     toc_depth: 2
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Notes
@@ -30,11 +38,19 @@ pre, code {
 }
 ```
 
-Paths 
+Absolute Paths 
 ```{r}
-path_raw <- "Z:/studydata/risk/data_raw"
-path_out <- "Z:/studydata/risk/data_processed/shared"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"})
 ```
+
 
 Packages and Source
 ```{r, message = FALSE}
@@ -724,7 +740,7 @@ logs_ios <- logs_ios %>%
 logs_ios <- logs_ios %>% 
   janitor::clean_names()
 
-write_csv(logs_ios, file.path(path_out, "voice_ios.csv")) %>% 
+write_csv(logs_ios, file.path(path_shared, "voice_ios.csv")) %>% 
   glimpse()
 ```
 

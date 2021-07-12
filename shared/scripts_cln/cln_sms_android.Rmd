@@ -119,8 +119,8 @@ read_xml <- function(subid) {
           log <- log %>% 
             mutate(subid = subid,
                    log_file = file,
-                   created = file.info(file)$ctime,
-                   modified = file.info(file)$mtime)
+                   created = file.info(path)$ctime,
+                   modified = file.info(path)$mtime)
           
           # Join log files
           logs <- logs %>% 

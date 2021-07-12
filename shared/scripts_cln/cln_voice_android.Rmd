@@ -4,12 +4,18 @@ author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
-    pandoc_args: [
-      "+RTS", "-K1000m",
-      "-RTS"
-      ]
-    toc: yes
-    toc_depth: 3
+    toc: true 
+    toc_depth: 2
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Notes
@@ -33,11 +39,19 @@ pre, code {
 }
 ```
 
-Paths 
+Absolute Paths 
 ```{r}
-path_raw <- "Z:/studydata/risk/data_raw"
-path_out <- "Z:/studydata/risk/data_processed/shared"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"})
 ```
+
 
 Packages and Source
 ```{r, message = FALSE}
@@ -535,7 +549,7 @@ logs_android %>%
 
 ### Write csv
 ```{r}
-write_csv(logs_android, file.path(path_out, "voice_android.csv")) %>% glimpse()
+write_csv(logs_android, file.path(path_shared, "voice_android.csv")) %>% glimpse()
 ```
 
 **Note: dates saved as UTC**
