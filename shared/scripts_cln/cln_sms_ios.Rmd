@@ -87,27 +87,24 @@ read_sql <- function(subid) {
           # dbListTables(log_db)
           message <- dbGetQuery(log_db,'select * from message')
           handle <- dbGetQuery(log_db,'select ROWID, id from handle')
-          # chat <- dbGetQuery(log_db,'select * from chat')
-          # chat_message_join <- dbGetQuery(log_db,'select chat_id, message_id from chat_message_join')
+          chat_message_join <- dbGetQuery(log_db,'select chat_id, message_id from chat_message_join')
+          # below is table that can be used to link all numbers associated with group chat
           # chat_handle_join <- dbGetQuery(log_db,'select * from chat_handle_join')
+          
+          # rename keys for joining tables to be more clear and reduce duplicate names
+          message <- message %>% 
+            rename(message_id = ROWID)
+          handle <- handle %>% 
+            rename(handle_id = ROWID,
+                   phone_number = id)
           
           # join messages with number
           log <- message %>% 
-            left_join(handle, by = c("handle_id" = "ROWID"))
+            left_join(handle, by = "handle_id")
           
-          # FIX: Still working on logic for joining tables, not everyone has all the chat tables
-          # chat <- chat %>% 
-          #   select(-ROWID) %>% 
-          #   inner_join(handle, by = c("chat_identifier" = "id")) %>% 
-          #   inner_join(chat_handle_join, by = c("ROWID" = "handle_id")) %>% 
-          #   rename(chat_handle_id = ROWID,
-          #          chat_guid = guid) %>% 
-          #   select(-c(ck_sync_state, sr_ck_sync_state))
-          
-          # join log with chat
-          # log <- log %>% 
-          #   left_join(chat_message_join, by = c("ROWID" = "message_id")) %>% 
-          #   left_join(chat, by = "chat_id") %>%    glimpse()
+          # join with chat id
+          log <- log %>% 
+            left_join(chat_message_join, by = "message_id")
           
           # Add subid and log information to dataframe
           log <- log %>% 
@@ -116,17 +113,9 @@ read_sql <- function(subid) {
                    created = file.info(path)$ctime,
                    modified = file.info(path)$mtime)
           
-         # Update attributedBody to text instead of blob SQL object - not sure what this is
-          body <-  dbGetQuery(log_db,'select cast(attributedBody as text) from message')
-          payload <-  dbGetQuery(log_db,'select cast(payload_data as text) from message')
-          summary <-  dbGetQuery(log_db,'select cast(message_summary_info as text) from message')
+         # Remove binary variables not relevant and class everything as character for merging
           log <- log %>%
-            mutate(attributedBody = unlist(body),
-                   attributedBody = as.character(attributedBody),
-                   payload_data = unlist(payload),
-                   payload_data = as.character(payload_data),
-                   message_summary_info = unlist(summary),
-                   message_summary_info = as.character(message_summary_info)) %>% 
+            select(-c(attributedBody, payload_data, message_summary_info)) %>% 
             mutate(across(where(is.numeric), as.character))
           
           #close the db connection
@@ -285,28 +274,6 @@ all_logs %>%
   filter(!is.na(balloon_bundle_id))
 ```
 
-payload data, message summary info, reply to guid, and associated message guid - not readable?
-```{r}
-all_logs %>% 
-  filter(!is.na(payload_data)) %>% 
-  select(payload_data) %>% 
-  print(n = Inf)
-
-all_logs %>% 
-  filter(!is.na(message_summary_info)) %>% 
-  select(message_summary_info) %>% 
-  print(n = Inf)
-
-all_logs %>% 
-  filter(!is.na(reply_to_guid)) %>% 
-  select(reply_to_guid) %>% 
-  print(n = Inf)
-
-all_logs %>% 
-  filter(!is.na(associated_message_guid)) %>% 
-  select(associated_message_guid) %>% 
-  print(n = Inf)
-```
 
 spam - not sure what this is, everything is NA or 0. Messages with 0 are not all spam
 ```{r}
@@ -323,8 +290,8 @@ all_logs %>%
 **Too many missing values so removing variables with 99% missing data**
 ```{r}
 all_logs <- all_logs %>% 
-  select(-c(expressive_send_style_id, subject, balloon_bundle_id, payload_data, 
-            is_spam, message_summary_info, associated_message_guid, reply_to_guid)) %>% 
+  select(-c(expressive_send_style_id, subject, balloon_bundle_id,
+            is_spam, associated_message_guid, reply_to_guid)) %>% 
   glimpse()
 ```
 
@@ -344,6 +311,7 @@ all_logs %>%
             associated_message_range_length, other_handle, date_played, date_delivered)) %>% 
   map(., tabyl)
 
+# no variance variables
 all_logs <- all_logs %>% 
   select(-c(is_corrupt, sr_ck_sync_state, message_source, is_archive, is_forward,
             is_service_message, is_system_message, is_delayed, is_empty, is_emote,
@@ -373,29 +341,42 @@ all_logs %>%
 ```
 
 
-Note: ROWID and handle_id are SQL keys for joining tables - handle_id joins message to phone number
+**Note: ROWID and handle_id are SQL keys for joining tables - handle_id joins message to phone number** 
 
 #### ID (phone number)
 
 `r nrow(subset(all_logs, is.na(id)))` Missing phone numbers   
-FIX: missing numbers due to group chats?   
 
+Fix: missing numbers are sent messages to a group chat.   
+Chat Id is a way to see thread of group messages.  
 
-Create number column from chat and individual messages
 ```{r}
-# log <- log %>%
-#   mutate(number = case_when(is.na(id) & !is.na(chat_identifier) ~ chat_identifier,
-#                             !is.na(id) & is.na(chat_identifier) ~ id,
-#                             id == chat_identifier ~ id,
-#                             TRUE ~ as.character(NA)))
+
+```
+
+#### Sent (is_from_me)
+
+1 = outgoing
+0 = incoming
+
+
+#### Version
+
+4 subids have version 1 log entries
+```{r}
+all_logs %>% 
+  tabyl(subid, version)
 ```
 
 
+#### Type
+
 ```{r}
-# log %>%
-#   filter(is.na(id)) %>%
-#   select(id, chat_identifier, number)
+tabyl(all_logs$type) 
 ```
+
+0 = 
+1 = 
 
 
 
@@ -407,15 +388,6 @@ FIX: Does this mean an image or object was sent via text?
 all_logs %>% 
   filter(text == "￼")
 ```
-
-#### Type
-
-```{r}
-tabyl(all_logs$type) 
-```
-
-0 = 
-1 = 
 
 
 
