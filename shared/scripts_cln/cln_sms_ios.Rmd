@@ -21,7 +21,9 @@ knit: (function(input, ...) {
 ### Notes
 Purpose: This script contains code to open and merge all SMS log files in SQL format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
 
-**Note: File not ready for analysis on text content. Emojis may not be properly encoded in aggregated csv file, still working on how to extract them from the SQL files and will update.**    
+**Note: File not ready for analysis on text content. Emojis may not be properly encoded in aggregated csv file, still working on how to extract them from the SQL files and will update.**   
+
+**NOTE: Still working on how to correctly merge group chat SQL table with messages.**    
 
 **Note: Have not completed full EDA on every variable. Still trying to figure out what most of these mean. Focus is on variables relevant for meta study.**   
 
@@ -83,26 +85,30 @@ read_sql <- function(subid) {
           log_db <- dbConnect(RSQLite::SQLite(), path)
           # uncomment below to see all available tables
           # dbListTables(log_db)
-          log <- dbGetQuery(log_db,'select * from message')
-          number <- dbGetQuery(log_db,'select ROWID, id from handle')
+          message <- dbGetQuery(log_db,'select * from message')
+          handle <- dbGetQuery(log_db,'select ROWID, id from handle')
           # chat <- dbGetQuery(log_db,'select * from chat')
           # chat_message_join <- dbGetQuery(log_db,'select chat_id, message_id from chat_message_join')
           # chat_handle_join <- dbGetQuery(log_db,'select * from chat_handle_join')
-          # attachments <- dbGetQuery(log_db,'select * from attachment')
-          # message_attachment_join <- dbGetQuery(log_db,'select * from message_attachment_join')
-          # deleted <- dbGetQuery(log_db,'select * from deleted_messages')
           
-          # join log with number
-          log <- log %>% 
-            left_join(number, by = c("handle_id" = "ROWID"))
+          # join messages with number
+          log <- message %>% 
+            left_join(handle, by = c("handle_id" = "ROWID"))
+          
+          # FIX: Still working on logic for joining tables, not everyone has all the chat tables
+          # chat <- chat %>% 
+          #   select(-ROWID) %>% 
+          #   inner_join(handle, by = c("chat_identifier" = "id")) %>% 
+          #   inner_join(chat_handle_join, by = c("ROWID" = "handle_id")) %>% 
+          #   rename(chat_handle_id = ROWID,
+          #          chat_guid = guid) %>% 
+          #   select(-c(ck_sync_state, sr_ck_sync_state))
           
           # join log with chat
-          # FIX: Still working on logic for joining tables, not everyone has all the chat tables
           # log <- log %>% 
           #   left_join(chat_message_join, by = c("ROWID" = "message_id")) %>% 
-          #   left_join(chat_handle_join, by = "chat_id") %>% 
-          #   left_join(number, by = c("handle_id" = "ROWID"))
-
+          #   left_join(chat, by = "chat_id") %>%    glimpse()
+          
           # Add subid and log information to dataframe
           log <- log %>% 
             mutate(subid = subid,
@@ -245,7 +251,7 @@ naniar::miss_var_summary(all_logs) %>%
 ```
 
 
-Remove variables with no data
+**Remove variables with 100% missing data**
 ```{r}
 all_logs <- all_logs %>% 
   select(-c(message, service_center, sr_ck_record_id, sr_ck_record_change_tag, group_title))
@@ -314,7 +320,7 @@ all_logs %>%
   sample_n(., 20) 
 ```
 
-Too many missing values so removing variables with 99% missing data
+**Too many missing values so removing variables with 99% missing data**
 ```{r}
 all_logs <- all_logs %>% 
   select(-c(expressive_send_style_id, subject, balloon_bundle_id, payload_data, 
@@ -324,7 +330,26 @@ all_logs <- all_logs %>%
 
 
 FIX: Other variables likely not informative due to too many missing values are country, 
-sort_id, ck_record_id, ck_record_change_tag, and cacheroomnames
+sort_id, ck_record_id, ck_record_change_tag, and cacheroomnames  
+
+
+**Remove variables with no variance**
+
+```{r}
+all_logs %>% 
+  select(where(is.character)) %>% 
+  select(-c(subid, ROWID, guid, text, handle_id, attributedBody, account, account_guid,
+            date_read, cache_roomnames, id, ck_record_id, log_file, destination_caller_id,
+            ck_record_change_tag, time_expressive_send_played, associated_message_range_location,
+            associated_message_range_length, other_handle, date_played, date_delivered)) %>% 
+  map(., tabyl)
+
+all_logs <- all_logs %>% 
+  select(-c(is_corrupt, sr_ck_sync_state, message_source, is_archive, is_forward,
+            is_service_message, is_system_message, is_delayed, is_empty, is_emote,
+            is_finished, replace, country, ))
+```
+
 
 <br>
 
@@ -332,7 +357,7 @@ sort_id, ck_record_id, ck_record_change_tag, and cacheroomnames
 
 Duplicate messages still exist   
 Same message, but variables such as row_id, handle_id, version, account, etc. differ   
-FIX: Handle duplicates
+FIX: Duplicates from group messages?
 ```{r}
 duplicate_guids <- all_logs %>% 
   count(guid) %>% 
@@ -348,17 +373,28 @@ all_logs %>%
 ```
 
 
-Note: ROWID and handle_id are SQL keys for joining tables
+Note: ROWID and handle_id are SQL keys for joining tables - handle_id joins message to phone number
 
 #### ID (phone number)
 
-Missing phone numbers    
-FIX: Look into missing numbers - may be group messages that can be matched with 
-other SQL tables
+`r nrow(subset(all_logs, is.na(id)))` Missing phone numbers   
+FIX: missing numbers due to group chats?   
+
+
+Create number column from chat and individual messages
 ```{r}
-all_logs %>% 
-  filter(is.na(id)) %>% 
-  nrow()
+# log <- log %>%
+#   mutate(number = case_when(is.na(id) & !is.na(chat_identifier) ~ chat_identifier,
+#                             !is.na(id) & is.na(chat_identifier) ~ id,
+#                             id == chat_identifier ~ id,
+#                             TRUE ~ as.character(NA)))
+```
+
+
+```{r}
+# log %>%
+#   filter(is.na(id)) %>%
+#   select(id, chat_identifier, number)
 ```
 
 
