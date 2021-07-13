@@ -23,8 +23,6 @@ Purpose: This script contains code to open and merge all SMS log files in SQL fo
 
 **Note: File not ready for analysis on text content. Emojis may not be properly encoded in aggregated csv file, still working on how to extract them from the SQL files and will update.**   
 
-**NOTE: Still working on how to correctly merge group chat SQL table with messages.**    
-
 **Note: Have not completed full EDA on every variable. Still trying to figure out what most of these mean. Focus is on variables relevant for meta study.**   
 
 Inputs:   
@@ -78,6 +76,7 @@ read_sql <- function(subid) {
     log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
+    
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.sql')) {
@@ -186,7 +185,8 @@ all_logs <- all_logs %>%
 
 #### Format date (UTC)
 
-All dates either in 9-digit UTC or apple's 18-digit version of UTC seen on newer IOS models
+Dates are in either a 9-digit time stamp - seconds since 2001-01-01 or 
+an 18-digit time stamp - nanoseconds since 2001-01-01 (seen on newer IOS models)
 ```{r}
 all_logs %>% 
   filter(!(nchar(date) == 18 | nchar(date) == 9))
@@ -227,6 +227,17 @@ all_logs <- all_logs %>%
 
 `r length(unique(all_logs$subid))` subids had SQL sms data logs read in.   
 
+sql file detected for subid 9 but not read in     
+NOTE: 3 logs exist but no observations in logs
+```{r}
+sql_subids %>% 
+  filter(!subid %in% all_logs$subid)
+
+subid_9 <- read_sql("009") %>% 
+  glimpse()
+```
+
+
 
 Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
 
@@ -240,64 +251,13 @@ naniar::miss_var_summary(all_logs) %>%
 ```
 
 
-**Remove variables with 100% missing data**
+**Remove variables with 98 - 100% missing data**
 ```{r}
 all_logs <- all_logs %>% 
-  select(-c(message, service_center, sr_ck_record_id, sr_ck_record_change_tag, group_title))
+  select(-c(message, service_center, sr_ck_record_id, sr_ck_record_change_tag, 
+            group_title, expressive_send_style_id, subject, balloon_bundle_id,
+            reply_to_guid, associated_message_guid, country))
 ```
-
-7 variables with 99% missing data   
-
-message effects
-```{r}
-tabyl(all_logs$expressive_send_style_id) %>% 
-  mutate(percent = round(percent, 3),
-         valid_percent = round(valid_percent, 2))
-```
-
-subject line
-```{r}
-tabyl(all_logs$subject) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(height = "500px")
-```
-
-balloon bundle id - some type of extension
-```{r}
-tabyl(all_logs$balloon_bundle_id ) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
-
-all_logs %>% 
-  filter(!is.na(balloon_bundle_id))
-```
-
-
-spam - not sure what this is, everything is NA or 0. Messages with 0 are not all spam
-```{r}
-tabyl(all_logs$is_spam) 
-
-all_logs %>% 
-  filter(is_spam == 0) %>% 
-  select(text) %>% 
-  # print random sample with truncated text
-  mutate(text = str_trunc(text, 20)) %>% 
-  sample_n(., 20) 
-```
-
-**Too many missing values so removing variables with 99% missing data**
-```{r}
-all_logs <- all_logs %>% 
-  select(-c(expressive_send_style_id, subject, balloon_bundle_id,
-            is_spam, associated_message_guid, reply_to_guid)) %>% 
-  glimpse()
-```
-
-
-FIX: Other variables likely not informative due to too many missing values are country, 
-sort_id, ck_record_id, ck_record_change_tag, and cacheroomnames  
 
 
 **Remove variables with no variance**
@@ -305,8 +265,8 @@ sort_id, ck_record_id, ck_record_change_tag, and cacheroomnames
 ```{r}
 all_logs %>% 
   select(where(is.character)) %>% 
-  select(-c(subid, ROWID, guid, text, handle_id, attributedBody, account, account_guid,
-            date_read, cache_roomnames, id, ck_record_id, log_file, destination_caller_id,
+  select(-c(subid, message_id, guid, text, handle_id, account, account_guid, chat_id,
+            date_read, cache_roomnames, phone_number, ck_record_id, log_file, destination_caller_id,
             ck_record_change_tag, time_expressive_send_played, associated_message_range_location,
             associated_message_range_length, other_handle, date_played, date_delivered)) %>% 
   map(., tabyl)
@@ -315,8 +275,116 @@ all_logs %>%
 all_logs <- all_logs %>% 
   select(-c(is_corrupt, sr_ck_sync_state, message_source, is_archive, is_forward,
             is_service_message, is_system_message, is_delayed, is_empty, is_emote,
-            is_finished, replace, country, ))
+            is_finished, replace, is_spam))
 ```
+
+
+Other possibly uninformative variables:
+```{r}
+naniar::miss_var_summary(all_logs) %>% 
+  print(n = 5)
+```
+
+sort_id   
+Unclear what sort_id 17 means - even if valuable we only have one value so not helpful
+```{r}
+all_logs %>% 
+  tabyl(sort_id)
+
+all_logs %>% 
+  filter(sort_id == 17) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+
+# remove variable
+all_logs <- all_logs %>% 
+  select(-sort_id)
+```
+
+cache_roomnames
+Doesn't completely Overlap with chat_id
+```{r}
+# number distinct roomnames
+all_logs %>% 
+  filter(!is.na(cache_roomnames)) %>% 
+  group_by(cache_roomnames) %>% 
+  slice(1) %>% 
+  nrow()
+
+# number distinct roomname/chat_id pairings
+all_logs %>% 
+  filter(!is.na(cache_roomnames)) %>% 
+  group_by(cache_roomnames, chat_id) %>% 
+  slice(1) %>% 
+  nrow()
+```
+
+ck_record_id - seems to be some type of record identifier - too many missing values to be useful
+```{r}
+all_logs %>% 
+  filter(!is.na(ck_record_id)) %>% 
+  select(ck_record_id)
+
+all_logs <- all_logs %>% 
+  select(-ck_record_id)
+```
+
+ck_record_change_tag
+FIX: not sure yet what this is
+```{r}
+all_logs %>% 
+  filter(!is.na(ck_record_change_tag)) %>% 
+  count(ck_record_change_tag) %>% 
+  head(n = 10)
+
+all_logs %>% 
+  filter(ck_record_change_tag == 100) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+destination_caller_id
+This is just the subid's phone number or apple id account that they make calls through - dont need
+```{r}
+# Not just outgoing calls have value
+all_logs %>% 
+  filter(!is.na(destination_caller_id)) %>% 
+  tabyl(is_from_me)
+
+all_logs %>% 
+  filter(!is.na(destination_caller_id)) %>% 
+  group_by(destination_caller_id, subid) %>% 
+  slice(1) %>% 
+  arrange(subid) %>% 
+  select(subid, destination_caller_id) %>% 
+  print(n = Inf)
+```
+
+account and account_guid is also subid specific. Repetitive and less complete info compared to subid variable
+```{r}
+all_logs %>% 
+  group_by(account, destination_caller_id) %>% 
+  slice(1) %>% 
+  select(subid, account, destination_caller_id, account_guid) %>% 
+  arrange(subid) %>% 
+  print(n = Inf)
+```
+
+Remove repetitive/unneccessary variables
+```{r}
+all_logs <- all_logs %>% 
+  select(-c(destination_caller_id, account, account_guid))
+```
+
+
+```{r}
+all_logs %>% 
+  glimpse()
+```
+
+
 
 
 <br>
@@ -343,21 +411,39 @@ all_logs %>%
 
 **Note: ROWID and handle_id are SQL keys for joining tables - handle_id joins message to phone number** 
 
+#### Sent (is_from_me)
+
+```{r}
+all_logs %>% 
+  tabyl(is_from_me)
+```
+
+
+1 = outgoing   
+0 = incoming   
+
+
 #### ID (phone number)
 
-`r nrow(subset(all_logs, is.na(id)))` Missing phone numbers   
+`r nrow(subset(all_logs, is.na(phone_number)))` missing phone numbers
 
-Fix: missing numbers are sent messages to a group chat.   
+Fix: most missing numbers are sent messages to a group chat.   
 Chat Id is a way to see thread of group messages.  
 
 ```{r}
-
+all_logs %>% 
+  filter(is.na(phone_number)) %>% 
+  tabyl(is_from_me)
 ```
 
-#### Sent (is_from_me)
 
-1 = outgoing
-0 = incoming
+#### Is delivered
+```{r}
+all_logs %>% 
+  tabyl(is_delivered)
+```
+
+
 
 
 #### Version
@@ -373,6 +459,16 @@ all_logs %>%
 
 ```{r}
 tabyl(all_logs$type) 
+```
+
+0 = 
+1 = 
+
+
+#### Group action type
+
+```{r}
+tabyl(all_logs$group_action_type)
 ```
 
 0 = 
