@@ -78,6 +78,7 @@ read_sql <- function(subid) {
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     
     if(length(log_files) > 0) {
+      
       for(file in log_files) {
         if(str_detect(file,'.sql')) {
           path <- file.path(path_raw, subid, file)
