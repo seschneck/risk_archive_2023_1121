@@ -4,19 +4,18 @@ author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
 ---
 
-Purpose: These are the supplemental analyses for the burden paper.  
+Purpose: These are the supplemental figures, tables, and analyses for *Acceptability of Personal Sensing among People with Alcohol Use Disorder*.  
 
-
-```{css, include = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
-```
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = TRUE, echo = FALSE)
@@ -25,8 +24,8 @@ options(knitr.kable.NA = '')
 
 
 ```{r}
-path_burden <- "Z:/studydata/risk/data_processed/burden"
-path_data <- "Z:/studydata/risk/data_processed/shared"
+path_burden <- "P:/studydata/risk/data_processed/burden"
+path_data <- "P:/studydata/risk/data_processed/shared"
 ```
 
 ```{r, message = FALSE, warning = FALSE}
@@ -35,6 +34,7 @@ library(kableExtra)
 library(ggtext)
 library(cowplot)
 library(patchwork)
+library(rstatix)
 library(janitor)
 
 theme_set(theme_bw())
@@ -42,8 +42,8 @@ theme_set(theme_bw())
 
 <br>
 
-### Self-reported acceptability across 3 time points
-```{r warning = FALSE}
+
+```{r warning = FALSE, fig.height=6, fig.width=8}
 burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols())
 
 burden_time <- burden %>% 
@@ -109,10 +109,10 @@ burden_time_plot <- burden_time %>%
                             measure %in% oneyear$measure ~ "Willingness to Continue"),
          burden = factor(burden, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
   mutate(measure = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
-                                  measure %in% sleep$measure ~ "Sleep Monitoring",
+                                  measure %in% sleep$measure ~ "Sleep Quality",
                                   measure %in% audio$measure ~ "Audio Check-in",
-                                  measure %in% daily_4$measure ~ "EMA",
-                                  measure %in% location$measure ~ "Moment-by-Moment Location",
+                                  measure %in% daily_4$measure ~ "Ecological Momentary Assessment",
+                                  measure %in% location$measure ~ "Moment-by-Moment Geolocation",
                                   measure %in% sms$measure ~ "Text Message Content")) 
 
 burden_time_plot %>% 
@@ -131,7 +131,8 @@ burden_time_plot %>%
   scale_y_continuous(name = "Mean Score", 
                      breaks = c(-2, -1, 0, 1, 2), 
                      limits = c(-2, 2)) +
-  labs(caption = "<i>Figure S1.</i> Acceptance scores over time by personal sensing signal. Participant ratings (<i>N</i> = 133) for <br>each measure of acceptability at three different time points one-month apart. Sleep monitoring N = 87. <br>Each measure is on a 5-point bipolar scale anchored around a neutral/ambivalent response of 0 (i.e., <br>undecided) with higher values representing higher acceptability. Dashed line represents neutral score.") +
+  labs(title = "Figure S1<br><br>Acceptability over time by personal sensing method",
+       caption = "<i>Note:</i>  Participant ratings (<i>N</i> = 133) for each measure of acceptability at three different time points one-month <br>apart. Sleep monitoring N = 87. Each measure is on a 5-point bipolar scale anchored around a neutral/<br>ambivalent response of 0 (i.e., undecided) with higher values representing higher acceptability. Dashed line <br>represents neutral score.") +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
@@ -144,7 +145,6 @@ burden_time_plot %>%
 <br>
 
 
-### Self-reported acceptability for the physiology wristband
 ```{r fig.height = 6}
 burden_wrist <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("wristband"))) 
@@ -222,7 +222,8 @@ wrist_1yr <- wristband_descr %>%
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
 p_wrist +
  plot_annotation(
-  caption =  "<i>Figure S2.</i> Physiology Wristband. Sample size is 9. Solid line represents the mean and dashed line represents the <br>neutral/ambivalent score.</i>"
+   title = "Figure S2<br><br> Physiology Wristband Acceptability",
+  caption =  "<i>Note:</i> Sample size is 9. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
@@ -231,8 +232,8 @@ p_wrist +
 ```
 
 
+<br>
 
-### Self reported acceptability related to carrying smartphone
 ```{r}
 burden_phone <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
   select(c(subid, date, contains("carrying_phone"))) 
@@ -310,7 +311,8 @@ phone_1yr <- phone_descr %>%
 p_phone <- wrap_plots(phone_int, phone_dis, phone_1yr) 
 p_phone +
  plot_annotation(
-  caption =  "<i>Figure S3.</i> Carrying phone. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
+  title = "Figure S3<br><br> Carrying Phone Acceptability",
+  caption =  "<i>Note:</i> Sample size is 154. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score."
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
@@ -321,7 +323,7 @@ p_phone +
 
 <br>
 
-### One time daily EMA 
+
 ```{r}
 burden_ema_1x <- burden %>% 
   select(subid, date, daily_survey_1_1year) %>% 
@@ -350,7 +352,8 @@ plot_ema_1x <- burden_ema_1x %>%
 
 plot_ema_1x +
  plot_annotation(
-  caption =  "<i>Figure S4.</i> 1x Daily EMA. Sample size is 154. Solid line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
+  title = "Figure S4<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
+  caption =  "<i>Note:</i> Sample size is 154. Solid line represents the mean and dashed line represents the neutral/ambivalent score."
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
@@ -360,17 +363,19 @@ plot_ema_1x +
 
 <br>
 
-One sample t-test of willingness to use 1 x daily EMA for 1 year compared to a neutral/ambivalent score
+**One sample t-test of willingness to use 1 x daily EMA for 1 year compared to a neutral/ambivalent score**   
+*Acceptability ratings for a one time daily EMA were significantly higher than neutral, t(153) = 15.21, p < .001*   
 ```{r}
 m_ema_1x <- lm(daily_survey_1_1year ~ 1, data = burden_ema_1x)
 summary(m_ema_1x)
 ```
-**Acceptability ratings for a one time daily EMA were significantly higher than neutral, t(153) = 15.21, p < .001**  
+
 
 <br>
 
 
-Paired sample t-test of willingess to use 4 x daily EMA for 1 year compared to 1 x daily EMA
+**Paired sample t-test of willingess to use 4 x daily EMA for 1 year compared to 1 x daily EMA**   
+*Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001*  
 ```{r}
 # create long dataframe
 burden_ema_1x_and_4x <- burden %>% 
@@ -379,8 +384,7 @@ burden_ema_1x_and_4x <- burden %>%
   arrange(desc(date)) %>% 
   slice(1) %>% 
   ungroup() %>% 
-  pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency") %>% 
-  glimpse()
+  pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
 
 # t-test
 m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = burden_ema_1x_and_4x)
@@ -388,94 +392,155 @@ summary(m_ema_1x_and_4x)
 car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
 ```
 
-**Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001**
+ 
 
 
-### Participant characterization (supplement to partcipation flowchart)
-
-```{r}
-notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
-  filter(screen != "cancelled" & screen != "no show") 
-
-notes_incomplete <- notes_incomplete %>%
-  filter(screen != "no consent") %>%
-  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
-                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
-                                  characterize == "rescheduled" ~ "Rescheduled multiple times before cancelling/no showing",
-                                  characterize == "treatment" ~ "Entered inpatient treatment for AUD",
-                                  characterize == "compliance" ~ "Noncompliance with providing data",
-                                  characterize == "lapse" ~ "Frequent lapses likely contributed to discontinuation",
-                                  characterize == "cell_service" ~ "Cell service shut off",
-                                  characterize == "move" ~ "Moved out of the country",
-                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
-                                  characterize == "Unreachable" ~ "Unable to reach participant",
-                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
-                                  characterize == "inappropriate behavior" ~ "Staff concerns",
-                                  characterize == "mental health" ~ "Mental health concerns",
-                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe AUD",
-                                  characterize == "phone" ~ "Ineligible phone",
-                                  is.na(characterize) ~ "Unknown",
-                                  TRUE ~ characterize))
-
-notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(intake != "complete" | is.na(intake)) %>% 
-  filter(intake != "ineligible" | is.na(intake)) %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(col.names = c("", "<i>n</i>", "%"), 
-      caption = "<b>Table S1<br><br>A</b><br><i>Characterization of eligible and consented participants who discontinued prior to completing enrollment</i>",
-      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Arial") %>% 
-  footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
-
-notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(completed_1month == "no") %>% 
-  filter(intake == "complete") %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(col.names = c("", "<i>n</i>", "%"), 
-      caption = "<b>B</b><br><i>Characterization of enrolled participants who discontinued prior to first month follow-up</i>",
-      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Arial") %>% 
-  footnote("These participants are noted as 'Discontinued' in Figure 1.")
-
-notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(completed_1month == "yes") %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(col.names = c("", "<i>n</i>", "%"), 
-      caption = "<b>C</b><br><i>Characterization of enrolled participants who discontinued after the first month follow-up</i>",
-      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Arial") %>% 
-  footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
-
-notes_incomplete %>% 
-  filter(screen == "ineligible" | intake == "ineligible") %>% 
-  mutate(characterize = case_when(characterize == "No longer sober or no longer wishes to abstain from alcohol" ~ "Not one week sober or temporary goal of abstinence",
-                                  TRUE ~ characterize)) %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(col.names = c("", "<i>n</i>", "%"), 
-      caption = "<b>D</b><br><i>Characterization of ineligible participants</i>",
-      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
-  kable_classic(position = "left", html_font = "Arial") %>% 
-  footnote("These participants are noted as 'Ineligible' in Figure 1.")
-```
 
 <br>
 
-### Uncorrected pairwise comparisons
+```{r}
+screen <- read_csv(file.path(path_data, "screen.csv"), col_types = cols()) 
+disposition <- read_csv(file.path(path_burden, "disposition.csv"), col_types = cols()) 
+
+# remove ineligible participants
+eligible_sample <- disposition %>%  
+  filter(reason_no_intake != "ineligible" | is.na(reason_no_intake))
+screen <- screen %>% 
+  filter(subid %in% eligible_sample$subid)
+
+# select demographic and AUD variables
+screen <- screen %>% 
+  select(subid, dem_1:dem_8, -dem_3_1, -dem_4_1, -dem_6_1, auh_1:auh_7, -auh_6_7_text, 
+         starts_with("dsm5_"), assist_1_1:assist_1_8) 
+
+# add grouping variable (completed 1st month vs discontinued)
+sample_completed <- disposition %>% 
+  filter(last_visit != "screen" & last_visit != "intake")
+screen <- screen %>% 
+  mutate(disposition = case_when(subid %in% sample_completed$subid ~ "continued",
+                                 TRUE ~ "discontinued"))
+
+# give descriptive names to variables and recode
+screen <- screen %>% 
+  # demographics
+  rename(age = dem_1,
+         sex = dem_2,
+         race = dem_3,
+         Hispanic = dem_4,
+         education = dem_5,
+         employment = dem_6,
+         income = dem_7,
+         marrital_status = dem_8) %>% 
+  mutate(male = recode(sex, "Male" = 1, "Female" = 0),
+         race = factor(race, levels = c("American Indian/Alaska Native", "Asian",
+                                        "Black/African American", "Other/Multiracial",
+                                        "White/Caucasian"), labels = c("American Indian or Alaska Native", "Asian",
+                                        "Black/African American", "Multiracial or not listed above",
+                                        "white")),
+         Hispanic = case_when(Hispanic == "No, I am not of Hispanic, Latino, or Spanish origin" ~ 0,
+                         TRUE ~ 1),
+         education = factor(education, 
+                         levels = c("Less than high school or GED degree", "High school or GED", 
+                         "Some college", "2-Year degree", "College degree", "Advanced degree"),
+                         ordered = TRUE),
+         employment = factor(employment),
+         marrital_status = factor(marrital_status)) %>% 
+  # AUH 
+  rename(age_first_drink = auh_1,
+         age_reg_drink = auh_2,
+         age_problem_drink = auh_3,
+         age_first_quit = auh_4,
+         num_quit_attempts = auh_5,
+         lt_residential_tx = auh_6_1,
+         st_residential_tx = auh_6_2,
+         outpatient_tx = auh_6_3,
+         individ_counseling = auh_6_4,
+         group_counseling = auh_6_5,
+         aa_or_na = auh_6_6,
+         other_tx = auh_6_7,
+         med_for_aud = auh_7) %>% 
+  # recode tx vars as ordered no yes factors
+  mutate(lt_residential_tx = case_when(lt_residential_tx == "Long-Term Residential Treatment (more than 6 months)" ~ 1,
+                                       TRUE ~ 0),
+         st_residential_tx = case_when(st_residential_tx == "Short-Term Residential Treatment (less than 6 months)" ~ 1,
+                                       TRUE ~ 0),
+         outpatient_tx = case_when(outpatient_tx == "Outpatient Treatment" ~ 1,
+                                       TRUE ~ 0),
+         individ_counseling = case_when(individ_counseling == "Individual Counseling" ~ 1,
+                                       TRUE ~ 0),
+         group_counseling = case_when(group_counseling == "Group Counseling" ~ 1,
+                                       TRUE ~ 0),
+         aa_or_na = case_when(aa_or_na == "Alcoholics Anonymous/Narcotics Anonymous" ~ 1,
+                                       TRUE ~ 0),
+         other_tx = case_when(other_tx == "Other" ~ 1,
+                                       TRUE ~ 0),
+         med_for_aud = recode(med_for_aud, "No" = 0, "Yes" = 1)) %>% 
+  # Assist
+  mutate(tobacco = recode(assist_1_1, "No" = 0, "Yes" = 1),
+         cannabis = recode(assist_1_2, "No" = 0, "Yes" = 1),
+         cocaine = recode(assist_1_3, "No" = 0, "Yes" = 1),
+         amphetamine = recode(assist_1_4, "No" = 0, "Yes" = 1),
+         inhalant = recode(assist_1_5, "No" = 0, "Yes" = 1),
+         sedative = recode(assist_1_6, "No" = 0, "Yes" = 1),
+         hallucinogen = recode(assist_1_7, "No" = 0, "Yes" = 1),
+         opiate = recode(assist_1_8, "No" = 0, "Yes" = 1)) %>% 
+  # dsm5
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  # remove duplicate vars
+  select(-c(assist_1_1:assist_1_8), -sex) %>% 
+  select(subid, disposition, everything()) 
+
+# combine variables
+screen_combined <- screen %>% 
+  # calculate total dsm5 score by adding up dsm5_1 through dsm5_11
+  rowwise() %>% 
+  mutate(dsm5_total = sum(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11),
+         num_types_tx = sum(lt_residential_tx, st_residential_tx, outpatient_tx, 
+                            individ_counseling, group_counseling, aa_or_na, other_tx, med_for_aud),
+         num_other_drugs = sum(tobacco, cannabis, cocaine, amphetamine, inhalant,
+                               sedative, hallucinogen, opiate),
+         avg_age_aud_milestones = sum(age_first_drink, age_reg_drink, age_problem_drink,
+                                       age_first_quit)/ 4,
+         white = case_when(race == "white" ~ 1,
+                          TRUE ~ 0),
+         employed = case_when(employment == "Employed" ~ 1,
+                          TRUE ~ 0),
+         married = case_when(marrital_status == "Married" ~ 1,
+                          TRUE ~ 0)) %>% 
+  ungroup() %>% 
+  select(-c(age_first_drink:age_first_quit, lt_residential_tx:dsm5_11, tobacco:opiate, race,
+            employment, marrital_status)) 
+
+# t-tests
+screen_combined_long <- screen_combined %>%
+  select(-subid) %>% 
+  mutate(education = as.numeric(education)) %>% 
+  pivot_longer(-disposition, names_to = "variables", values_to = "value")
+
+screen_combined_long %>%
+  group_by(variables) %>%
+  t_test(value ~ disposition) %>%
+  adjust_pvalue(method = "holm") %>%
+  add_significance() %>% 
+  select(` ` = variables,
+         `Group 1` = group1,
+         `Group 2` = group2,
+         `N 1` = n1,
+         `N 2` = n2,
+         t = statistic,
+         df,
+         p,
+         `p adj` = p.adj,
+         `p adj sig` = p.adj.signif) %>% 
+  kbl(digits = 2,
+      align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "<b>Table S1<br><br>T-Tests with Holm-Bonferroni Correction to Compare Group Differences between Continued and Discontinued Participants</b>") %>% 
+  kable_classic(html_font = "Arial")
+```
+
+
+
 ```{r}
 # dataframe of last survey
 # pull out last available sleep monitor data since this date will be earlier than last survey date for some
@@ -545,11 +610,11 @@ will_pair <- burden_last %>%
 ```{r}
 # format table
 tibble(
-  Measure = c("EMA", "Sleep Monitoring",
-              "EMA", "Sleep Monitoring", 
-              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content",
-              "EMA", "Sleep Monitoring",
-              "Moment-by-Moment Location", "Cellular Communication Logs", "Text Message Content"),
+  Measure = c("Ecological Momentary Assessment", "Sleep Quality",
+              "Ecological Momentary Assessment", "Sleep Quality", 
+              "Moment-by-Moment Geolocation", "Cellular Communication Logs", "Text Message Content",
+              "Ecological Momentary Assessment", "Sleep Quality",
+              "Moment-by-Moment Geolocation", "Cellular Communication Logs", "Text Message Content"),
   "Audio Check-in" = c(
                        # interference
                        ".25", "< .001***", 
@@ -557,21 +622,21 @@ tibble(
                        "< .001***", "< .001***", "< .001***", ".001***", ".56", 
                        # willingness
                        ".47", ".46", ".14", ".42", ".96"), 
-  "EMA" = c(
+  "Ecological Momentary Assessment" = c(
                      # interference
                      NA, "< .001***", 
                      # Dislike
                      NA, ".30", ".56", ".63", ".002**",
                      # willingness
                      NA, ".18", ".03*", ".13", ".44"), 
-  "Sleep Monitoring" = c(
+  "Sleep Quality" = c(
                       # interference
                       NA, NA, 
                       # dislike
                       NA, NA, ".59", ".15", "< .001***", 
                       # willingness
                       NA, NA, ".60", ".97", ".49"), 
-  "Moment-by-Moment Location" = c(
+  "Moment-by-Moment Geolocation" = c(
                  # interference
                  NA, NA,  
                  # dislike 
@@ -586,7 +651,7 @@ tibble(
                         # willingness
                         NA, NA, NA, NA, ".44")) %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c"),
-      caption = "<b>Table S2</b><br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Signals across the Three Measures of Self Reported Acceptability</i>",
+      caption = "<b>Table S2<br><br>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Methods across the Three Measures of Self Reported Acceptability</b>",
       escape = FALSE) %>% 
   kable_classic(html_font = "Arial") %>% 
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
@@ -601,11 +666,10 @@ tibble(
 
 
 
-### Participants using their own phone
 
 ```{r}
 # read in excel phone tracking sheet
-phones <- readxl::read_excel("Z:/studydata/risk/administration/Participants/Technology Tracking/participant_phone_use_ALL.xlsx", range = "A1:F269") %>% 
+phones <- readxl::read_excel("P:/studydata/risk/administration/Participants/Technology Tracking/participant_phone_use_ALL.xlsx", range = "A1:F269") %>% 
   rename(subid = `Sub ID`) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   clean_names() 
@@ -626,94 +690,15 @@ phones <- phones %>%
 
 phones %>% 
   tabyl(phone) %>% 
-  kbl(caption = "<b>Table S3</b><br><br><i>Number and percentage of participants that use their own smartphone or study iphone</i>") %>% 
+  kbl(caption = "<b>Table S3<br><br>Number and percentage of participants that use their own smartphone or study iphone</b>", digits = 2) %>% 
   kable_classic(html_font = "Arial") 
 ```
 
-**Only 6 participants used study iphone**
+
 
 
 <br>
 
 <br>
-
-
-
-
-
-<!-- ```{r} -->
-<!-- # read in session forms -->
-<!-- intake_session <- read_csv(file.path(path_data, "session_intake.csv"), col_types = cols()) -->
-
-<!-- # filter down to subids in final sample -->
-<!-- intake_session <- intake_session %>%  -->
-<!--   filter(subid %in% burden$subid) -->
-
-<!-- # find duplicate session forms (i.e., from no show apts, or visits split into 2 parts) -->
-<!-- dup_subs <- intake_session %>%  -->
-<!--   count(subid) %>%  -->
-<!--   filter(n > 1) -->
-
-<!-- # intake_session %>%  -->
-<!-- #   filter(subid %in% dup_subs$subid) %>%  -->
-<!-- #   kbl() %>%  -->
-<!-- #   kable_styling() -->
-
-<!-- dups_remove <- c("R_29gDj65N3y04Wke", "R_1C9qMwUh1tmWVgp", "R_1d0nNdHOYw192hn", "R_2wz8FlLPyrcu2Sy") -->
-
-<!-- intake_session <- intake_session %>%  -->
-<!--   filter(!response_id %in% dups_remove) -->
-<!-- # 152 session forms -->
-
-<!-- # subid 9 and 31 have no session form -->
-<!-- burden %>%  -->
-<!--   filter(!subid %in% intake_session$subid) -->
-<!-- ``` -->
-
-<!-- ```{r} -->
-<!-- intake_session <- intake_session %>%  -->
-<!--   full_join(tibble(subid = c(9, 31), -->
-<!--                       q112 = c(as.character(NA), as.character(NA))), by = c("subid", "q112")) -->
-
-<!-- intake_session %>%  -->
-<!--   filter(is.na(q112)) %>%  -->
-<!--   select(subid) %>%  -->
-<!--   arrange(subid) %>%  -->
-<!--   print(n = Inf) -->
-<!-- ``` -->
-
-<!-- Is participant using their own phone? -->
-<!-- ```{r} -->
-<!-- intake_session %>%  -->
-<!--   tabyl(q112) -->
-<!-- ``` -->
-
-<!-- Notes for participants missing data -->
-<!-- ```{r} -->
-<!-- notes <- read_csv("Z:/studydata/risk/data_raw/raw_notes.csv", col_types = cols())  -->
-
-<!-- missing_session <- intake_session %>%  -->
-<!--   filter(is.na(q112)) -->
-
-<!-- notes %>%  -->
-<!--   filter(subid %in% missing_session$subid) %>%  -->
-<!--   kbl() %>%  -->
-<!--   kable_styling() %>%  -->
-<!--   scroll_box(height = "500px", width = "100%") -->
-<!-- ``` -->
-<!-- 1 - study phone -->
-<!-- 2 -  -->
-<!-- 3 - study phone? -->
-<!-- 5 -  -->
-<!-- 6 -  -->
-<!-- 7 -  -->
-<!-- 8 -  -->
-<!-- 9 - study phone? -->
-<!-- 10 -  -->
-<!-- 11 -  -->
-<!-- 15 -  -->
-<!-- 16 -  -->
-<!-- 31 - -->
-
 
 
