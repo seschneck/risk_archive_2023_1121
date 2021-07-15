@@ -1,0 +1,714 @@
+---
+title: "Self-reported Acceptability"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+
+**Purpose: This file is the primary analysis script for the self-report acceptability data **
+**(acceptability.csv). This includes all figures, tables, and statistical analyses.**      
+
+
+### Setup
+```{css, echo = FALSE}
+# This code creates scroll blocks in knitted file for large chunks of code or output
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+Paths   
+*NOTE: Change path to location of acceptability.csv file*
+```{r}
+path_data <- "P:/studydata/risk/data_processed/burden"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(broom)
+library(lme4)
+library(ggtext)
+library(car)
+library(corx)
+library(patchwork)
+library(psych)
+
+options(knitr.kable.NA = '')
+```
+
+
+Functions 
+```{r}
+# Adds Y label to histogram plots with 2 rows - code adapted from Stack overflow
+add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap = 0.03, ...) {
+  ylabgrob <- patchwork::plot_spacer()
+  if (!is.null(Ylab)) {
+    ylabgrob <- ggplot() +
+      geom_text(aes(x = 1, y = 1), label = Ylab, angle = 90, size = 4) +
+      theme_void() 
+  }
+  if (!is.null(Ylab) & is.null(Xlab)) {
+    return((ylabgrob + patchworkGrob(pwobj)) + 
+             patchwork::plot_layout(widths = 100 * c(Ygap, 1 - Ygap)))
+  }
+  
+  return(pwobj)
+}
+```
+
+
+<br>
+
+
+### Read in data
+```{r}
+data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols()) %>% 
+  # wristband will be analyzed in supplemental - not enough observations
+  select(-contains("wristband"))
+```
+
+Pull out last observation for each participant
+```{r}
+# pull out last available sleep monitor data since this date will be earlier than last 
+# survey date for some due to discontinuation of monitor
+data_sleep <- data %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+  
+# pull out most recent survey for each subid
+data_last <- data %>% 
+  select(-c(starts_with("sleep_"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # join with sleep data
+  full_join(data_sleep, by = c("subid")) %>% 
+  glimpse()
+```
+
+-----
+
+<br>
+
+### Interference
+
+#### Histogram plot
+
+The plot below is Figure 2 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about interference. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
+
+```{r fig.height = 3.5}
+interference_plot_data <- data_last %>% 
+  select(contains("interfere"), -carrying_phone_interfere) %>%   
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_interfere", "daily_survey_interfere", 
+                                     "sleep_interfere"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active")) 
+
+interference_plot <- interference_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+  theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
+  geom_vline(aes(xintercept = means), interference_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark red") 
+
+
+interference_plot
+```
+
+Uncomment to save figure  
+*Note: Replace PATH with location to save plot.*
+```{r}
+# ggsave(plot = interference_plot,  "PATH", width = 7.75, height = 3.5, units = "in", device = "png",  dpi = 500)
+```
+
+<br>
+
+#### Correlation and Summary Statistics
+
+Run one sample t-tests to compare each raw data stream mean (for self-reported acceptability about interference) to a neutral acceptability score of 0.   
+
+```{r}
+int_sleep <- tidy(lm(sleep_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_interfere, na.rm = TRUE),
+         d = mean(data_last$sleep_interfere, na.rm = TRUE)/sd)
+int_audio <- tidy(lm(audio_checkin_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_interfere, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_interfere, na.rm = TRUE)/sd)
+int_ema <- tidy(lm(daily_survey_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_interfere, na.rm = TRUE),
+         d = mean(data_last$daily_survey_interfere, na.rm = TRUE)/sd)
+```
+
+
+This table is Table 4 from the manuscript. It reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. One sample t-tests revealed that each mean interference score was significantly more acceptable than 0.   
+
+```{r}
+corrplot_int <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_interfere,
+         `EMA` = daily_survey_interfere,
+         `Sleep Quality` = sleep_interfere) %>%
+  corx(triangle = "lower",
+       stars = c(0.05),
+       method = "pearson",
+       describe = c(`$M$` = mean, `$SD$` = sd))
+
+corrplot_int <- as_tibble(corrplot_int, rownames = " ")
+corrplot_int[corrplot_int == " - " ] <- "--"
+
+corrplot_int <- corrplot_int %>% 
+  mutate(`$N$` = c(154, 154, 87)) %>% 
+  mutate(`$t$` = c(str_c(round(int_audio$statistic, 2), "*"), 
+                   str_c(round(int_ema$statistic, 2), "*"), 
+                   str_c(round(int_sleep$statistic, 2), "*"))) %>% 
+  mutate(`$d$` = (c(round(int_audio$d, 2), round(int_ema$d, 2), round(int_sleep$d, 2)))) %>% 
+  select(` `, `1`, `2`, `$N$`, `$M$`, `$SD$`, everything())
+
+corrplot_int %>% 
+  kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c")) %>% 
+  kable_classic(html_font = "Arial") %>% 
+  row_spec(c(1:3), background = "#FFDEDE") %>% 
+  pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
+  footnote("* p < 0.05")
+```
+
+<br>
+
+#### ICC 
+
+Additionally, an ICC (type 3) showed that, on average, interference ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.31 - .53].  
+
+```{r}
+data_last %>% 
+  select(`EMA` = daily_survey_interfere,
+         `Audio check-in` = audio_checkin_interfere) %>% 
+  ICC()
+```
+
+
+<br> 
+
+----
+
+### Dislike
+
+#### Histogram Plot
+
+The plot below is Figure 3 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about dislike Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
+
+```{r fig.height = 6}
+dislike_plot_data <- data_last %>% 
+  select(contains("dislike")) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+   mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
+                                     "location_dislike", "all_logs_dislike", "sms_content_dislike"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality",
+                                     "Geolocation", "Cellular Communication Logs", "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active",
+                            measure == "Geolocation" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
+
+active_dis <- dislike_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+  theme(legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(size = 12)) +
+  ylim(0, .65) +
+  geom_vline(aes(xintercept = means), dislike_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
+  theme(text = element_text(size = 12))
+
+
+passive_dis <- dislike_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#DBF8FF") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), dislike_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark blue") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") 
+
+dislike_plot <- wrap_plots(active_dis, passive_dis, ncol = 1)
+
+dislike_plot <- dislike_plot  %>% 
+  add_global_label(Ylab = "                   Proportion",
+                   Ygap = .02
+)
+
+dislike_plot
+```
+
+
+Uncomment to save figure  
+*Note: Replace PATH with location to save plot.*   
+```{r}
+# ggsave(plot = dislike_plot,  "PATH", width = 7.75, height = 6, units = "in", device = "png",  dpi = 500)
+```
+
+
+<br>
+
+#### Correlation and Summary Statistics
+
+Run one sample t-tests to compare each raw data stream mean (for self-reported acceptability about dislike) to a neutral acceptability score of 0. 
+
+```{r}
+dis_sleep <- tidy(lm(sleep_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_dislike, na.rm = TRUE),
+         d = mean(data_last$sleep_dislike, na.rm = TRUE)/sd)
+dis_audio <- tidy(lm(audio_checkin_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_dislike, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_dislike, na.rm = TRUE)/sd)
+dis_ema <- tidy(lm(daily_survey_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_dislike, na.rm = TRUE),
+         d = mean(data_last$daily_survey_dislike, na.rm = TRUE)/sd)
+dis_geolocation <- tidy(lm(location_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$location_dislike, na.rm = TRUE),
+         d = mean(data_last$location_dislike, na.rm = TRUE)/sd)
+dis_logs <- tidy(lm(all_logs_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$all_logs_dislike, na.rm = TRUE),
+         d = mean(data_last$all_logs_dislike, na.rm = TRUE)/sd)
+dis_text_content <- tidy(lm(sms_content_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sms_content_dislike, na.rm = TRUE),
+         d = mean(data_last$sms_content_dislike, na.rm = TRUE)/sd)
+```
+
+
+This table is Table 5 from the manuscript. It reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. One sample t-tests revealed that each mean dislike score was significantly more acceptable than 0.  
+
+```{r}
+corrplot_dis <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_dislike,
+         `EMA` = daily_survey_dislike,
+         `Sleep Quality` = sleep_dislike,
+         `Geolocation` = location_dislike,
+         `Cellular Communication Logs` = all_logs_dislike,
+         `Text Message Content` = sms_content_dislike) %>% 
+  corx(triangle = "lower",
+       stars = c(0.05),
+       method = "pearson",
+       describe = c(`$M$` = mean, `$SD$` = sd))
+
+corrplot_dis <- as_tibble(corrplot_dis, rownames = " ")
+corrplot_dis[corrplot_dis== " - " ] <- "--"
+
+corrplot_dis <- corrplot_dis %>% 
+  mutate(`$N$` = c(154, 154, 87, 154, 154, 154)) %>% 
+  mutate(`$t$` = c(str_c(round(dis_audio$statistic, 2), "*"), 
+                   str_c(round(dis_ema$statistic, 2), "*"), 
+                   str_c(round(dis_sleep$statistic, 2), "*"),
+                   str_c(round(dis_geolocation$statistic, 2), "*"), 
+                   str_c(round(dis_logs$statistic, 2), "*"), 
+                   str_c(round(dis_text_content$statistic, 2), "*"))) %>% 
+  mutate(`$d$` = (c(round(dis_audio$d, 2), round(dis_ema$d, 2), round(dis_sleep$d, 2),
+                    round(dis_geolocation$d, 2), round(dis_logs$d, 2), round(dis_text_content$d, 2)))) %>% 
+  select(` `, `1`, `2`, `3`, `4`, `5`, `$N$`, `$M$`, `$SD$`, everything())
+
+corrplot_dis %>% 
+  kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c", "c")) %>% 
+  kable_classic(html_font = "Arial") %>% 
+  pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
+  pack_rows("Passive", 4, 6, background = "#DBF8FF") %>% 
+  row_spec(c(1:3), background = "#FFDEDE") %>% 
+  row_spec(c(4:6), background = "#DBF8FF") %>% 
+  footnote("* p < 0.05")
+```
+
+<br>
+
+#### ICC
+
+An ICC (type 3) showed that, on average, the dislike ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.35 - .48]. 
+```{r}
+data_last %>% 
+  select(`EMA` = daily_survey_dislike,
+         `Audio check-in` = audio_checkin_dislike,
+         `Geolocation` = location_dislike,
+         `Cellular communication logs` = all_logs_dislike,
+         `Text message content` = sms_content_dislike) %>%
+  ICC()
+```
+
+----
+
+### Willingness to Continue for One Year
+
+#### Histogram Plot
+
+The plot below is Figure 5 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about willingness to continue for one year. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
+
+
+
+```{r message = FALSE, warning = FALSE, fig.height = 6}
+willingness_plot_data <- data_last %>% 
+  select(contains("1year")) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_1year", "daily_survey_4_1year", 
+                                     "daily_survey_1_1year", "sleep_1year", "location_1year", 
+                                     "all_logs_1year", "sms_content_1year"),
+                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)<i><sup>a</sup></i>",
+                                     "Sleep Quality", "Geolocation", "Cellular Communication Logs", 
+                                     "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active",
+                            measure == "Geolocation" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
+
+willingness_active <- willingness_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+  theme(legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(size = 12),
+        strip.text = element_markdown()) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), willingness_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+
+
+willingness_passive <- willingness_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#DBF8FF") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), willingness_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark blue") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+
+willingness_final_plot <- wrap_plots(willingness_active, willingness_passive, ncol = 1)
+
+willingness_final_plot <- willingness_final_plot  %>% 
+  add_global_label(Ylab = "                   Proportion",
+                   Ygap = .02
+)
+
+willingness_final_plot
+```
+
+
+Uncomment to save figure  
+*Note: Replace PATH with location to save plot.*
+```{r}
+# ggsave(plot = willingness_final_plot,  "PATH", width = 7.75, height = 6, units = "in", device = "png",  dpi = 500)
+```
+
+<br>
+
+#### Correlation and Summary Statistics
+
+Run one sample t-tests to compare each raw data stream mean (for self-reported acceptability about willingness to continue for one year) to a neutral acceptability score of 0. 
+
+```{r}
+use_audio <- tidy(lm(audio_checkin_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_1year, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_1year, na.rm = TRUE)/sd)
+use_sleep <- tidy(lm(sleep_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_1year, na.rm = TRUE),
+         d = mean(data_last$sleep_1year, na.rm = TRUE)/sd)
+use_ema <- tidy(lm(daily_survey_4_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_4_1year, na.rm = TRUE),
+         d = mean(data_last$daily_survey_4_1year, na.rm = TRUE)/sd)
+use_geolocation <- tidy(lm(location_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$location_1year, na.rm = TRUE),
+         d = mean(data_last$location_1year, na.rm = TRUE)/sd)
+use_logs <- tidy(lm(all_logs_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$all_logs_1year, na.rm = TRUE),
+         d = mean(data_last$all_logs_1year, na.rm = TRUE)/sd)
+use_text_content <- tidy(lm(sms_content_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sms_content_1year, na.rm = TRUE),
+         d = mean(data_last$sms_content_1year, na.rm = TRUE)/sd)
+```
+
+
+This table is Table 6 from the manuscript. It reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0.   
+
+```{r}
+corrplot_will <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_1year,
+         `EMA` = daily_survey_4_1year,
+         `Sleep Quality` = sleep_1year,
+         `Geolocation` = location_1year,
+         `Cellular Communication Logs` = all_logs_1year,
+         `Text Message Content` = sms_content_1year) %>% 
+  corx(triangle = "lower",
+       stars = c(0.05),
+       method = "pearson",
+       describe = c(`$M$` = mean, `$SD$` = sd))
+
+corrplot_will <- as_tibble(corrplot_will, rownames = " ")
+corrplot_will[corrplot_will== " - " ] <- "--"
+
+corrplot_will <- corrplot_will %>% 
+  mutate(`$N$` = c(154, 154, 87, 154, 154, 154)) %>% 
+  mutate(`$t$` = c(str_c(round(use_audio$statistic, 2), "*"),
+                   str_c(round(use_ema$statistic, 2), "*"), 
+                   str_c(round(use_sleep$statistic, 2), "*"),
+                   str_c(round(use_geolocation$statistic, 2), "*"), 
+                   str_c(round(use_logs$statistic, 2), "*"), 
+                   str_c(round(use_text_content$statistic, 2), "*"))) %>% 
+  mutate(`$d$` = (c(round(use_audio$d, 2), round(use_ema$d, 2), round(use_sleep$d, 2),
+                    round(use_geolocation$d, 2), round(use_logs$d, 2), round(use_text_content$d, 2)))) %>% 
+  select(` `, `1`, `2`, `3`, `4`, `5`, `$N$`, `$M$`, `$SD$`, everything())
+
+corrplot_will %>% 
+  kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c")) %>% 
+  kable_classic(html_font = "Arial") %>% 
+  pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
+  pack_rows("Passive", 4, 6, background = "#DBF8FF") %>% 
+  row_spec(c(1:3), background = "#FFDEDE") %>% 
+  row_spec(c(4:6), background = "#DBF8FF") %>% 
+  footnote("* p < 0.05")
+```
+
+<br>
+
+#### ICC
+
+An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
+```{r}
+data_last %>% 
+  select(`EMA` = daily_survey_4_1year,
+         `Audio check-in` = audio_checkin_1year,
+         `Geolocation` = location_1year,
+         `Cellular communication logs` = all_logs_1year,
+         `Text message content` = sms_content_1year) %>% 
+  ICC()
+```
+
+
+
+<br>
+
+----
+
+### Effect of Active Effort on Dislike and Willingness to Continue for One Year
+
+#### Create dataframes   
+
+* active = audio check in and daily survey
+* passive = location, sms content, logs
+
+NOTE: Sleep monitor is an active measure but due to sample size is not included in analyses. 
+Carrying phone is not included as personal sensing signal. Daily survey (x 1) is hypothetical 
+and only included in supplemental.  
+
+Dislike - Active and Passive Means and group difference
+```{r}
+data_dislike <- data_last %>% 
+  # get subject level means for active and passive measures
+  group_by(subid) %>% 
+  summarise(Active = mean(c(daily_survey_dislike, audio_checkin_dislike), na.rm = TRUE),
+            Passive = mean(c(location_dislike, all_logs_dislike, sms_content_dislike), na.rm = TRUE),
+            dislike_diff = Passive - Active) 
+data_dislike %>% 
+  print(n = Inf)
+```
+
+Willingness to continue - Active and Passive Means and group difference
+```{r}
+data_willingness <- data_last %>% 
+  # get subject level means for active and passive measures
+  group_by(subid) %>% 
+  summarise(Active = mean(c(daily_survey_4_1year, audio_checkin_1year), na.rm = TRUE),
+            Passive = mean(c(location_1year, all_logs_1year, sms_content_1year), na.rm = TRUE),
+            willingness_diff = Passive - Active) 
+data_willingness %>% 
+  print(n = Inf)
+```
+
+<br>
+
+#### Paired Samples t-tests 
+
+*Intercept = mean difference between active and passive group*   
+
+  
+**Dislike**  
+
+```{r}
+model_dislike <- lm(dislike_diff ~ 1, data = data_dislike)
+summary(model_dislike)
+```
+
+Participants did not different significantly in their dislike of active vs. passive methods, t(153) = `r round(tidy(summary(model_dislike))$statistic, 2)`, p = `r round(tidy(summary(model_dislike))$p.value, 2)`.    
+   
+
+Formula for Cohens D for paired samples t-test:  
+d = mean(passive) - mean(active)/ sd(difference) = `r round((mean(data_dislike$Passive) - mean(data_dislike$Active)) / sd(data_dislike$dislike_diff), 2)`
+
+<br>
+
+**Willingness**    
+```{r}
+model_willingness <- lm(willingness_diff ~ 1, data = data_willingness)
+summary(model_willingness)
+```
+
+Participants reported higher acceptability with respect to willingness for passive data streams (M = `r round(mean(data_willingness$Passive), 2)`, SD = `r round(sd(data_willingness$Passive), 2)`) relative to active data streams (M = `r round(mean(data_willingness$Active), 2)`, SD = `r round(sd(data_willingness$Active), 2)`), t(153) = `r round(tidy(summary(model_willingness))$statistic, 2)`, p = `r round(tidy(summary(model_willingness))$p.value, 2)`.    
+    
+d = `r round((mean(data_willingness$Passive) - mean(data_willingness$Active)) / sd(data_willingness$willingness_diff), 2)`
+
+
+<br>
+
+
+#### Histograms 
+
+**Dislike**    
+```{r}
+# transform dataframe of active/passive means to long
+data_dislike_long <- data_dislike %>% 
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "dislike") %>% 
+  select(-dislike_diff)
+```
+
+The figure below is Figure 4 from the manuscript. It shows the distribution of average dislike scores grouped by active and passive methods.  
+
+```{r}
+dislike_avg_hist <- data_dislike_long %>% 
+  # bin continuous means, keep numeric
+  mutate(dislike_binned = as.numeric(cut(dislike, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(dislike_binned = dislike_binned - 3) %>% 
+  ggplot(aes(x = dislike_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), data_dislike_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(dislike)), size = .705, color = c("dark red", "dark blue")) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+
+dislike_avg_hist
+```
+
+<br> 
+
+**Willingness**  
+```{r}
+# transform dataframe of active/passive means to long
+data_willingness_long <- data_willingness %>% 
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "willingness") %>% 
+  select(-willingness_diff)
+```
+
+The figure below is Figure 6 from the manuscript. It shows the distribution of average willingness scores grouped by active and passive methods.  
+
+```{r}
+willingness_avg_hist <- data_willingness_long %>% 
+  # bin continuous means, keep numeric
+  mutate(willingness_binned = as.numeric(cut(willingness, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(willingness_binned = willingness_binned - 3) %>% 
+  ggplot(aes(x = willingness_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly disagree", "Disgree", "Undecided", "Agree", "Strongly agree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), data_willingness_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(willingness)), size = .705, color = c("dark red", "dark blue")) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+
+willingness_avg_hist
+```
+
+Uncomment to save figures  
+*Note: Replace PATH with location for saved plots*
+```{r}
+# ggsave(plot = dislike_avg_hist,  "PATH", width = 5, height = 5.5, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = willingness_avg_hist,  "PATH", width = 5, height = 5.5, units = "in", device = "png",  dpi = 500)
+```
+
+
