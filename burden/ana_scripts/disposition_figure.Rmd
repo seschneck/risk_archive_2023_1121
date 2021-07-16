@@ -4,17 +4,8 @@ author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
-    code_folding: show
     toc: true 
     toc_depth: 3
-knit: (function(input, ...) {
-    rmarkdown::render(
-      input,
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/burden", 
-      "/Volumes/private/studydata/risk/knits/burden")
-    )
-  })
 ---
 
 <br>
@@ -107,12 +98,15 @@ disposition <- disposition %>%
 
 One participant discontinued same day as starting study - moving participant to not enrolled since no data collected
 ```{r}
-not_enrolled <- disposition_summary %>% filter(group == "discontinued") %>% select(n) %>% unlist(use.names = FALSE) + 1
+not_enrolled <- disposition_summary %>% 
+  filter(group == "discontinued") %>% 
+  select(n) %>% 
+  unlist(use.names = FALSE) + 1
 ```
 
 create separate branch variables
 ```{r}
-starting_sample <- disposition %>% nrow()
+starting_sample <- nrow(disposition) 
 no_consent <- disposition_summary %>% filter(group == "no_consent") %>% select(n) %>% unlist(use.names = FALSE)
 consented <- starting_sample - no_consent 
 enrolled <- consented - not_enrolled
@@ -157,7 +151,7 @@ DiagrammeR::grViz("
   c1 -> d2
   }
   
-  [1]: str_c('Eligible Sample\\n', 'N = ', starting_sample)
+  [1]: paste('Eligible Sample\\n', 'N = ', starting_sample)
   [2]: str_c('Consented\\n', 'n = ', consented) 
   [3]: str_c('Not Consented\\n', 'n = ', no_consent)
   [4]: str_c('Enrolled\\n', 'n = ', enrolled)
