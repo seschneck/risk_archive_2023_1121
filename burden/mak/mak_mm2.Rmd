@@ -1,6 +1,7 @@
 ---
-title: "Supplemental Analyses"
-author: "Kendra Wyant"
+title: "Multimedia Appendix 2: Supplemental Analyses"
+subtitle: "Acceptability of Personal Sensing among People with Alcohol Use Disorder"
+author: "Kendra Wyant, Hannah Moshontz, Stephanie Ward, John Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
@@ -90,7 +91,7 @@ wrist_int <- wristband_descr %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 wrist_dis <- wristband_descr %>% 
@@ -110,7 +111,7 @@ wrist_dis <- wristband_descr %>%
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
 
 wrist_1yr <- wristband_descr %>% 
@@ -130,7 +131,7 @@ wrist_1yr <- wristband_descr %>%
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
 
 
@@ -152,8 +153,9 @@ p_wrist +
 
 ### Time Analysis
 
-Create dataframe of only subids with three time points (N = 133).
+
 ```{r}
+# Create dataframe of only subids with three time points (N = 133).
 acceptability_time <- data %>% 
   # filter out wristband and carrying_phone
   select(-c(contains("wristband"), contains("phone"))) %>% 
@@ -166,7 +168,7 @@ acceptability_time <- data %>%
   ungroup()
 ```
 
-The figure below is Figure S2 from the manuscript. We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
+The figure below is Figure S2 from the manuscript. We examined acceptability ratings over time for participants who completed the study through follow-up 3 (N = 133). We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
 
 ```{r warning = FALSE, fig.height=6, fig.width=8}
 # create grouping variables to use for figure
@@ -286,7 +288,7 @@ plot_ema_1x <- ema_1x %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 plot_ema_1x +
