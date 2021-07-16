@@ -18,7 +18,7 @@ knit: (function(input, ...) {
 
 <br>
 
-**Purpose: This file is the primary analysis script for the self-report acceptability data (acceptability.csv). This includes all figures, tables, and statistical analyses.**      
+Purpose: This file is the primary analysis script for the self-report acceptability data (acceptability.csv). This includes all figures, tables, and statistical analyses.      
 
 
 ### Setup
@@ -116,7 +116,7 @@ data_last <- data %>%
 
 #### Histogram plot
 
-The plot below is Figure 2 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about interference. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
+The plot below is Figure 2 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about interference.Responses are grouped by personal sensing data stream. All data streams are classified as active in effort. The solid red line depicts the mean. The dashed line depicts a neutral/ambivalent score of 0. Distributions further to the right represent higher acceptability. Sample size for all data streams are 154, except sleep quality (N = 87).
 
 ```{r fig.height = 3.5}
 interference_plot_data <- data_last %>% 
@@ -231,7 +231,7 @@ data_last %>%
 
 #### Histogram Plot
 
-The plot below is Figure 3 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about dislike Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
+The plot below is Figure 3 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about dislike. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it (red bars are active methods, blue bars are passive methods). The solid red or blue line depicts the mean. The dashed line depicts a neutral/ambivalent score of 0. Distributions further to the right represent higher acceptability. Sample size for all data streams are 154, except sleep quality (N = 87).
 
 ```{r fig.height = 6}
 dislike_plot_data <- data_last %>% 
@@ -396,9 +396,7 @@ data_last %>%
 
 #### Histogram Plot
 
-The plot below is Figure 5 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about willingness to continue for one year. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it.  
-
-
+The plot below is Figure 5 from the manuscript. It shows the distribution of participant responses to the self-reported acceptability item about willingness to continue for one year. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it (red bars are active methods, blue bars are passive methods). The solid red or blue line depicts the mean. The dashed line depicts a neutral/ambivalent score of 0. Distributions further to the right represent higher acceptability. Sample size for all data streams are 154, except sleep quality (N = 87).   
 
 ```{r message = FALSE, warning = FALSE, fig.height = 6}
 willingness_plot_data <- data_last %>% 
@@ -645,7 +643,7 @@ data_dislike_long <- data_dislike %>%
   select(-dislike_diff)
 ```
 
-The figure below is Figure 4 from the manuscript. It shows the distribution of average dislike scores grouped by active and passive methods.  
+The figure below is Figure 4 from the manuscript. It shows the distribution of average dislike scores grouped by active and passive methods. The solid red or blue line depicts the mean. The dashed line depicts a neutral/ambivalent score of 0. Distributions further to the right represent higher acceptability. N = 154.     
 
 ```{r}
 dislike_avg_hist <- data_dislike_long %>% 
@@ -684,7 +682,7 @@ data_willingness_long <- data_willingness %>%
   select(-willingness_diff)
 ```
 
-The figure below is Figure 6 from the manuscript. It shows the distribution of average willingness scores grouped by active and passive methods.  
+The figure below is Figure 6 from the manuscript. It shows the distribution of average willingness scores grouped by active and passive methods. The solid red or blue line depicts the mean. The dashed line depicts a neutral/ambivalent score of 0. Distributions further to the right represent higher acceptability. N = 154.    
 
 ```{r}
 willingness_avg_hist <- data_willingness_long %>% 
