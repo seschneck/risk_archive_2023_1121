@@ -1,0 +1,331 @@
+---
+title: "Demographic Descriptives"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+
+### Notes
+
+This script assesses demographics for all participants who completed the screen (N = 208) separated by participants who completed through at least followup 1 vs participants who screened out or discontinued or were withdrawn prior to completing the first month follow-up. To look for group differences we combined several demographic variables to create the final measures of:  
+1. age (numeric)  
+2. Hispanic (numeric; 1 = yes, 0 = no)  
+3. White (numeric; 1 = yes, 0 = no)  
+4. Male (numeric; 1 = yes, 0 = no)  
+5. Income (numeric)  
+6. Education (ordered factor)  
+7. Employed (numeric; 1 = employed, 0 = not employed)  
+8. Married (numeric; 1 = married, 0 = not married)  
+9. DSM5 AUD symptom count (numeric)  
+10. Number of types of AUD treatment participant received (numeric)  
+11. Number of quit attempts (numeric)  
+12. Number of other drugs particpant used in their lifetime (numeric)  
+13. Average age reported for various AUD milestones (numeric)  
+
+We then ran independent samples t-tests with a bonferroni-holm adjustment to account for family-wise error on all derived variables.    
+
+
+### Setup
+
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
+```
+
+packages
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+library(psych)
+library(cowplot)
+library(rstatix)
+```
+
+path
+```{r}
+path_data <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+path_burden <- "/Volumes/private/StudyData/RISK/analysis/burden/data"
+```
+
+### Read in data
+```{r}
+screen <- read_csv(file.path(path_data, "screen.csv"), col_types = cols()) 
+disposition <- read_csv(file.path(path_burden, "disposition.csv"), col_types = cols()) 
+```
+
+### Prepare data for analyses
+Remove ineligible participants
+```{r}
+eligible_sample <- disposition %>%  
+  filter(reason_no_intake != "ineligible" | is.na(reason_no_intake))
+
+screen <- screen %>% 
+  filter(subid %in% eligible_sample$subid)
+```
+
+2 subids do not have a screen because they did not complete screen - discontinued or not consented
+```{r}
+eligible_sample %>% 
+  filter(!subid %in% screen$subid)
+```
+
+
+Select demographic, AUH variables, and lifetime drug use (assist_1_1:assist_1_8)
+```{r}
+screen <- screen %>% 
+  select(subid, dem_1:dem_8, -dem_3_1, -dem_4_1, -dem_6_1, auh_1:auh_7, -auh_6_7_text, 
+         starts_with("dsm5_"), assist_1_1:assist_1_8) 
+```
+
+
+Add grouping variable - participants who completed follow-up 1 vs did not complete through followup 1
+```{r}
+sample_completed <- disposition %>% 
+  filter(last_visit != "screen" & last_visit != "intake")
+screen <- screen %>% 
+  mutate(disposition = case_when(subid %in% sample_completed$subid ~ "continued",
+                                 TRUE ~ "discontinued"))
+
+tabyl(screen$disposition) %>% 
+  adorn_totals("row")
+```
+
+Give descriptive names to variables and recode
+```{r}
+screen <- screen %>% 
+  # demographics
+  rename(age = dem_1,
+         sex = dem_2,
+         race = dem_3,
+         Hispanic = dem_4,
+         education = dem_5,
+         employment = dem_6,
+         income = dem_7,
+         marrital_status = dem_8) %>% 
+  mutate(male = recode(sex, "Male" = 1, "Female" = 0),
+         race = factor(race, levels = c("American Indian/Alaska Native", "Asian",
+                                        "Black/African American", "Other/Multiracial",
+                                        "White/Caucasian"), labels = c("American Indian or Alaska Native", "Asian",
+                                        "Black/African American", "Multiracial or not listed above",
+                                        "white")),
+         Hispanic = case_when(Hispanic == "No, I am not of Hispanic, Latino, or Spanish origin" ~ 0,
+                         TRUE ~ 1),
+         education = factor(education, 
+                         levels = c("Less than high school or GED degree", "High school or GED", 
+                         "Some college", "2-Year degree", "College degree", "Advanced degree"),
+                         ordered = TRUE),
+         employment = factor(employment),
+         marrital_status = factor(marrital_status)) %>% 
+  # AUH 
+  rename(age_first_drink = auh_1,
+         age_reg_drink = auh_2,
+         age_problem_drink = auh_3,
+         age_first_quit = auh_4,
+         num_quit_attempts = auh_5,
+         lt_residential_tx = auh_6_1,
+         st_residential_tx = auh_6_2,
+         outpatient_tx = auh_6_3,
+         individ_counseling = auh_6_4,
+         group_counseling = auh_6_5,
+         aa_or_na = auh_6_6,
+         other_tx = auh_6_7,
+         med_for_aud = auh_7) %>% 
+  # recode tx vars as ordered no yes factors
+  mutate(lt_residential_tx = case_when(lt_residential_tx == "Long-Term Residential Treatment (more than 6 months)" ~ 1,
+                                       TRUE ~ 0),
+         st_residential_tx = case_when(st_residential_tx == "Short-Term Residential Treatment (less than 6 months)" ~ 1,
+                                       TRUE ~ 0),
+         outpatient_tx = case_when(outpatient_tx == "Outpatient Treatment" ~ 1,
+                                       TRUE ~ 0),
+         individ_counseling = case_when(individ_counseling == "Individual Counseling" ~ 1,
+                                       TRUE ~ 0),
+         group_counseling = case_when(group_counseling == "Group Counseling" ~ 1,
+                                       TRUE ~ 0),
+         aa_or_na = case_when(aa_or_na == "Alcoholics Anonymous/Narcotics Anonymous" ~ 1,
+                                       TRUE ~ 0),
+         other_tx = case_when(other_tx == "Other" ~ 1,
+                                       TRUE ~ 0),
+         med_for_aud = recode(med_for_aud, "No" = 0, "Yes" = 1)) %>% 
+  # Assist
+  mutate(tobacco = recode(assist_1_1, "No" = 0, "Yes" = 1),
+         cannabis = recode(assist_1_2, "No" = 0, "Yes" = 1),
+         cocaine = recode(assist_1_3, "No" = 0, "Yes" = 1),
+         amphetamine = recode(assist_1_4, "No" = 0, "Yes" = 1),
+         inhalant = recode(assist_1_5, "No" = 0, "Yes" = 1),
+         sedative = recode(assist_1_6, "No" = 0, "Yes" = 1),
+         hallucinogen = recode(assist_1_7, "No" = 0, "Yes" = 1),
+         opiate = recode(assist_1_8, "No" = 0, "Yes" = 1)) %>% 
+  # dsm5
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  # remove duplicate vars
+  select(-c(assist_1_1:assist_1_8), -sex) %>% 
+  select(subid, disposition, everything()) %>% 
+  glimpse()
+```
+
+Combine vars
+```{r}
+screen_combined <- screen %>% 
+  # calculate total dsm5 score by adding up dsm5_1 through dsm5_11
+  rowwise() %>% 
+  mutate(dsm5_total = sum(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11),
+         num_types_tx = sum(lt_residential_tx, st_residential_tx, outpatient_tx, 
+                            individ_counseling, group_counseling, aa_or_na, other_tx, med_for_aud),
+         num_other_drugs = sum(tobacco, cannabis, cocaine, amphetamine, inhalant,
+                               sedative, hallucinogen, opiate),
+         avg_age_aud_milestones = sum(age_first_drink, age_reg_drink, age_problem_drink,
+                                       age_first_quit)/ 4) %>% 
+  ungroup() %>% 
+  select(-c(age_first_drink:age_first_quit, lt_residential_tx:dsm5_11, tobacco:opiate)) %>% 
+  glimpse()
+```
+
+Due to uneven cell sizes, grouping race as white and non-white participants
+```{r}
+tabyl(screen$race) %>% 
+  adorn_totals("row")
+
+screen_combined <- screen_combined %>%
+  mutate(white = case_when(race == "white" ~ 1,
+                          TRUE ~ 0)) %>% 
+  select(-race) 
+```
+
+Create category for employed vs not employed  
+```{r}
+tabyl(screen$employment)
+
+screen_combined <- screen_combined %>%
+  mutate(employed = case_when(employment == "Employed" ~ 1,
+                          TRUE ~ 0)) %>% 
+  select(-employment)
+```
+
+group marital status as married vs not married  
+```{r}
+tabyl(screen$marrital_status)
+
+screen_combined <- screen_combined %>%
+  mutate(married = case_when(marrital_status == "Married" ~ 1,
+                          TRUE ~ 0)) %>% 
+  select(subid, disposition, age, male, white, employed, married, everything(), -marrital_status) %>% 
+  glimpse()
+```
+
+
+### Alpha of all combined variable groups
+
+number of other drugs used
+```{r}
+screen %>% 
+  select(tobacco:opiate) %>% 
+  alpha()
+```
+
+avg age for AUD milestones
+```{r}
+screen %>% 
+  select(age_first_drink:age_first_quit) %>% 
+  alpha()
+```
+
+
+dsm5 total
+```{r}
+screen %>% 
+  select(dsm5_1:dsm5_11) %>% 
+  alpha()
+```
+
+number of types of tx
+```{r}
+screen %>% 
+  select(lt_residential_tx:med_for_aud) %>% 
+  alpha()
+```
+
+
+### Get correlation matrices
+
+continued participants
+```{r}
+screen_combined %>% 
+  filter(disposition == "continued") %>% 
+  # change ordered factors to numeric
+  mutate(across(where(is.ordered), as.numeric)) %>% 
+  select(-c(subid, disposition)) %>% 
+  cor() %>% 
+  corrplot::corrplot.mixed(tl.cex = 0.6)
+```
+
+Discontinued participants
+```{r}
+screen_combined %>% 
+  filter(disposition == "discontinued") %>% 
+  # change ordered factors to numeric
+  mutate(across(where(is.ordered), as.numeric)) %>% 
+  select(-c(subid, disposition)) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  corrplot::corrplot.mixed(tl.cex = 0.6)
+```
+
+
+### Summary statistics by group (continued vs discontinued)
+
+Continued participants
+```{r}
+screen_combined %>% 
+  filter(disposition == "continued") %>% 
+  mutate(across(where(is.ordered), as.numeric)) %>%
+  select(-c(subid, disposition)) %>% 
+  describe() %>% 
+  select(n, mean, sd, median, min, max, skew) %>% 
+  kbl(caption = "continued participants",
+      digits = 1) %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped"))
+```
+
+Discontinued participants
+```{r}
+screen_combined %>% 
+  filter(disposition == "discontinued") %>% 
+  mutate(across(where(is.ordered), as.numeric)) %>%
+  select(-c(subid, disposition)) %>% 
+  describe() %>% 
+  select(n, mean, sd, median, min, max, skew) %>% 
+  kbl(caption = "discontinued participants",
+      digits = 1) %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped"))
+```
+
+
+
+### t-tests with correction for inflated family wise error
+
+After holm-bonferroni adjustment, no significant differences between groups
+```{r}
+screen_combined_long <- screen_combined %>%
+  select(-subid) %>% 
+  mutate(education = as.numeric(education)) %>% 
+  pivot_longer(-disposition, names_to = "variables", values_to = "value") %>% 
+  glimpse()
+
+screen_combined_long %>%
+  group_by(variables) %>%
+  t_test(value ~ disposition) %>%
+  adjust_pvalue(method = "holm") %>%
+  add_significance() %>% 
+  kbl(digits = 2) %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped"))
+```
+
+
