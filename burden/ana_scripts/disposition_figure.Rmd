@@ -1,5 +1,5 @@
 ---
-title: "Disposition Analysis Script"
+title: "Disposition Flowchart Figure"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
@@ -7,21 +7,22 @@ output:
     code_folding: show
     toc: true 
     toc_depth: 3
-editor_options: 
-  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
 ---
 
-### Notes
+<br>
  
-This script examines disposition status throughout the study by creating a flowchart. The purpose of this script is to create branches for retention flow chart for burden project.  
+Purpose: This script examines disposition status throughout the study by creating a flowchart from participant data.  
 
-Inputs:   
-disposition.csv
 
 ### Setup
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = FALSE, error = TRUE)
-```
 
 ```{css, echo = FALSE}
 pre, code {
@@ -34,41 +35,60 @@ pre, code {
 
 Paths
 ```{r}
-path_in <- "/Volumes/private/studydata/risk/data_processed/burden"
+path_data <- "P:/studydata/risk/data_processed/burden"
 ```
 
 Packages
-```{r warning = FALSE}
+```{r message = FALSE, warning = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
 library(psych)
 library(kableExtra)
+library(DiagrammeR) # for flowchart
 ```
 
 
 
-### Read in disposition file
+### Read in Data
 
 ```{r}
-disposition <- read_csv(file.path(path_in, "disposition.csv"), col_types = cols()) %>% 
-  glimpse()
+disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols())
 ```
 
+<br>
+
+### Disposition Status  
+
+Last completed visits
 ```{r}
 tabyl(disposition$last_visit)
+```
 
+The following numbers are confirmed:   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2")) + nrow(subset(disposition, last_visit == "followup_1")) + nrow(subset(disposition, last_visit == "intake")) ` participants completed the intake (i.e., enrolled).   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2")) + nrow(subset(disposition, last_visit == "followup_1"))` participants completed followup 1   
+`r nrow(subset(disposition, last_visit == "followup_3")) + nrow(subset(disposition, last_visit == "followup_2"))` participants made it to followup 2  
+`r nrow(subset(disposition, last_visit == "followup_3"))` participants completed followup 3    
+
+<br>
+
+Discontinued participants
+```{r}
 disposition %>% 
   filter(last_visit == "screen" | is.na(last_visit)) %>% 
   tabyl(reason_no_intake)
 ```
 
-### Create summary of disposition
+<br>
+
+
+### Calculate Flowchart Branches
 
 ```{r}
 disposition_summary <- disposition %>% 
   group_by(last_visit, reason_no_intake) %>% 
-  summarise(n = n()) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
   mutate(group = case_when(reason_no_intake == "ineligible" ~ "ineligible",
                            reason_no_intake == "no_consent" ~ "no_consent",
                            reason_no_intake == "not_interested" ~ "discontinued",
@@ -90,9 +110,9 @@ One participant discontinued same day as starting study - moving participant to 
 not_enrolled <- disposition_summary %>% filter(group == "discontinued") %>% select(n) %>% unlist(use.names = FALSE) + 1
 ```
 
-calculate other flowchart branches
+create separate branch variables
 ```{r}
-starting_sample <- nrow(disposition)
+starting_sample <- disposition %>% nrow()
 no_consent <- disposition_summary %>% filter(group == "no_consent") %>% select(n) %>% unlist(use.names = FALSE)
 consented <- starting_sample - no_consent 
 enrolled <- consented - not_enrolled
@@ -102,24 +122,31 @@ followup_1 <- disposition_summary %>% filter(group == "followup_1") %>% select(n
 discontinued <- enrolled - followup_1
 ```
 
+<br>
 
-### Create flowchart
+### Create Flowchart
 
+Note that the flowchart in the manuscript (Figure 1) was created in R and then edited in PowerPoint. In PowerPoint a piechart was created and overlayed over the flowchart where the dashed circle is present. Additional notes were also added to annote the figure with information about reasons for participant discontinuation.   
+
+The code below creates the flowchart used as the base for Figure 1. Code is also presented to create a Pie Chart in R that depicts participant disposition status at each one month follow-up.     
+
+
+Flowchart 
 ```{r}
 DiagrammeR::grViz("
   digraph {
   
-  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6]
+  node [fontname = 'Arial', shape = rectangle, fixedsize = true, width = 1.7, height = .6]
   a [label = '@@1']
   b1 [label = '@@2']
   b2 [label = '@@3', color = crimson]
   c1 [label = '@@4']
   c2 [label = '@@5', color = crimson]
   
-  node [fontname = 'Times New Roman', shape = circle, style = dotted]
+  node [fontname = 'Arial', shape = circle, style = dotted]
   d1 [label = '@@6']
 
-  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6, style = solid]
+  node [fontname = 'Arial', shape = rectangle, fixedsize = true, width = 1.7, height = .6, style = solid]
   d2 [label = '@@7', color = crimson]
   
   a -> b1
@@ -154,44 +181,6 @@ n <- slices
 lbls <- str_c(lbls, '\n', pct, '% (n = ', n, ')')
 pie(slices, lbls, col = c("lavender", "lightgrey", "lightblue"),
    main="Participants with at least 1 month of data (N = 154)") 
-```
-
-<br>
-
-Create blank flowchart
-```{r}
-DiagrammeR::grViz("
-  digraph {
-  
-  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6]
-  a [label = '@@1']
-  b1 [label = '@@2']
-  b2 [label = '@@3', color = crimson]
-  c1 [label = '@@4']
-  c2 [label = '@@5', color = crimson]
-  
-  node [fontname = 'Times New Roman', shape = circle, style = dotted]
-  d1 [label = '@@6']
-
-  node [fontname = 'Times New Roman', shape = rectangle, fixedsize = true, width = 1.7, height = .6, style = solid]
-  d2 [label = '@@7', color = crimson]
-  
-  a -> b1
-  a -> b2
-  b1 -> c1
-  b1 -> c2
-  c1 -> d1
-  c1 -> d2
-  }
-  
-  [1]: str_c(' ')
-  [2]: str_c(' ') 
-  [3]: str_c(' ')
-  [4]: str_c(' ')
-  [5]: str_c(' ')
-  [6]: str_c(' ')
-  [7]: str_c(' ')
-  ", width = "600px") 
 ```
 
 <br>
