@@ -6,10 +6,19 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
 ---
 
-**Purpose: This file is the primary analysis script for the self-report acceptability data **
-**(acceptability.csv). This includes all figures, tables, and statistical analyses.**      
+<br>
+
+**Purpose: This file is the primary analysis script for the self-report acceptability data (acceptability.csv). This includes all figures, tables, and statistical analyses.**      
 
 
 ### Setup
@@ -63,6 +72,7 @@ add_global_label <- function(pwobj, Xlab = NULL, Ylab = NULL, Xgap = 0.03, Ygap 
 }
 ```
 
+----
 
 <br>
 
@@ -256,7 +266,7 @@ active_dis <- dislike_plot_data %>%
   geom_vline(aes(xintercept = means), dislike_plot_data %>% 
   filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
   group_by(measure) %>% 
-  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark red") +
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
   theme(text = element_text(size = 12))
 
@@ -276,7 +286,7 @@ passive_dis <- dislike_plot_data %>%
   geom_vline(aes(xintercept = means), dislike_plot_data %>% 
   filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
   group_by(measure) %>% 
-  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark blue") +
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") 
 
 dislike_plot <- wrap_plots(active_dis, passive_dis, ncol = 1)
@@ -426,7 +436,7 @@ willingness_active <- willingness_plot_data %>%
   geom_vline(aes(xintercept = means), willingness_plot_data %>% 
   filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
   group_by(measure) %>% 
-  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark red") +
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 
@@ -445,7 +455,7 @@ willingness_passive <- willingness_plot_data %>%
   geom_vline(aes(xintercept = means), willingness_plot_data %>% 
   filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
   group_by(measure) %>% 
-  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "dark blue") +
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 willingness_final_plot <- wrap_plots(willingness_active, willingness_passive, ncol = 1)

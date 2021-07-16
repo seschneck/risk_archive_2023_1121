@@ -3,7 +3,9 @@ title: "Supplemental Analyses"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
-  html_document
+  html_document:
+    toc: true 
+    toc_depth: 4
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
@@ -14,20 +16,25 @@ knit: (function(input, ...) {
   })
 ---
 
-Purpose: These are the supplemental figures, tables, and analyses for *Acceptability of Personal Sensing among People with Alcohol Use Disorder*.  
+Purpose: This file is the supplemental analysis script for *Acceptability of Personal Sensing among People with Alcohol Use Disorder*. It includes all supplemental figures, tables, and statistical analyses.
 
-
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(message = FALSE, warning = TRUE, echo = FALSE)
-options(knitr.kable.NA = '')
+### Setup
+```{css, echo = FALSE}
+pre, code {
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre !important; 
+  overflow-x: auto
+}
 ```
 
-
+Paths
 ```{r}
-path_burden <- "P:/studydata/risk/data_processed/burden"
-path_data <- "P:/studydata/risk/data_processed/shared"
+path_data <- "P:/studydata/risk/data_processed/burden"
+path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
+Packages and Sources
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(kableExtra)
@@ -38,118 +45,29 @@ library(rstatix)
 library(janitor)
 
 theme_set(theme_bw())
+options(knitr.kable.NA = '')
 ```
+
+
+### Read in data
+```{r}
+# self-report acceptability data
+data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols())
+```
+
+----
 
 <br>
 
-
-```{r warning = FALSE, fig.height=6, fig.width=8}
-burden <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols())
-
-burden_time <- burden %>% 
-  select(-contains("wristband")) %>% 
-  group_by(subid) %>% 
-  mutate(n_obs = n()) %>% 
-  filter(n_obs == 3) %>% 
-  # create time variable
-  arrange(date) %>%
-  mutate(time = row_number()) %>% 
-  ungroup()
+### Physiology Analysis
 
 
-dislike <- burden_time %>% 
-  select(contains("dislike")) %>% 
-  pivot_longer(everything(), "measure")
-interfere <- burden_time %>% 
-  select(contains("interfere")) %>% 
-  pivot_longer(everything(), "measure")
-oneyear <- burden_time %>% 
-  select(contains("1year")) %>% 
-  pivot_longer(everything(), "measure")
-logs <- burden_time %>% 
-  select(contains("all_logs")) %>% 
-  pivot_longer(everything(), "measure")
-sleep <- burden_time %>% 
-  select(contains("sleep")) %>% 
-  keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
-audio <- burden_time %>% 
-  select(contains("audio")) %>% 
-  keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
-# daily_1 <- burden_time %>% 
-#   select(contains("daily_survey_1")) %>% 
-#   keep(~is.numeric(.x)) %>% 
-#   pivot_longer(everything(), "measure")
-daily_4 <- burden_time %>% 
-  select(contains("daily_survey"), -daily_survey_1_1year) %>% 
-  keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
-location <- burden_time %>% 
-  select(contains("location")) %>% 
-  keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
-sms <- burden_time %>% 
-  select(contains("sms")) %>% 
-  keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
-# carry_phone <- burden_time %>% 
-#   select(contains("carrying_phone")) %>% 
-#   keep(~is.numeric(.x)) %>% 
-#   pivot_longer(everything(), "measure")
-
-burden_time_plot <- burden_time %>% 
-  select(time,
-         contains("interfere"),
-         contains("dislike"),
-         contains("1year")) %>% 
-  pivot_longer(sleep_interfere:all_logs_1year, "measure") %>% 
-  mutate(burden = case_when(measure %in% dislike$measure ~ "Dislike",
-                            measure %in% interfere$measure ~ "Interference",
-                            measure %in% oneyear$measure ~ "Willingness to Continue"),
-         burden = factor(burden, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
-  mutate(measure = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
-                                  measure %in% sleep$measure ~ "Sleep Quality",
-                                  measure %in% audio$measure ~ "Audio Check-in",
-                                  measure %in% daily_4$measure ~ "Ecological Momentary Assessment",
-                                  measure %in% location$measure ~ "Moment-by-Moment Geolocation",
-                                  measure %in% sms$measure ~ "Text Message Content")) 
-
-burden_time_plot %>% 
-  group_by(measure, time, burden) %>% 
-  # missing values due to two participants who didn't complete survey at time point 2
-  summarise(mean = mean(value, na.rm = TRUE)) %>% 
-  ggplot(aes(x = time, y = mean, group = measure, color = measure)) +
-  geom_point() +
-  geom_line() +
-  facet_wrap(~burden) +
-  theme_classic() +
-  scale_color_manual(values = c("dodgerblue4",  "skyblue3", "azure3", 
-                                "thistle1", "thistle3", "plum4")) +
-  scale_x_continuous(name = "Time Point", 
-                     breaks = c(1, 2, 3)) +
-  scale_y_continuous(name = "Mean Score", 
-                     breaks = c(-2, -1, 0, 1, 2), 
-                     limits = c(-2, 2)) +
-  labs(title = "Figure S1<br><br>Acceptability over Time by Personal Sensing Data Stream",
-       caption = "<i>Note:</i>  Participant ratings (<i>N</i> = 133) for each measure of acceptability at three different time points one-month <br>apart. Sleep monitoring N = 87. Each measure is on a 5-point bipolar scale anchored around a neutral/<br>ambivalent response of 0 (i.e., undecided) with higher values representing higher acceptability. Dashed line <br>represents neutral score.") +
-  theme(legend.title = element_blank(),
-        legend.text = element_markdown(),
-        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(),
-        plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
-  geom_hline(aes(yintercept = 0), linetype = "dashed", size = .3)
-```
-
-<br>
-
+We initially monitored participants physiology using an early version of the Empatica E4 wristband monitor. Due to a complicated sensing platform and software bugs we discontinued the wristband after nine participants. Below are the self-reported acceptability ratings (interference, dislike, willingness to continue for one year) for this sensing method from the nine participants who used it (Figure S1 from the manuscript). 
 
 ```{r fig.height = 6}
-burden_wrist <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
-  select(c(subid, date, contains("wristband"))) 
-
-wristband_descr <- burden_wrist %>% 
+# subset to physiology variables
+wristband_descr <- data %>% 
+  select(c(subid, date, contains("wristband"))) %>% 
   filter(!is.na(wristband_interfere)) %>%
   group_by(subid) %>% 
   arrange(desc(date)) %>% 
@@ -175,8 +93,8 @@ wrist_int <- wristband_descr %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 wrist_dis <- wristband_descr %>% 
   filter(measure == "Dislike") %>% 
@@ -195,8 +113,8 @@ wrist_dis <- wristband_descr %>%
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
 
 wrist_1yr <- wristband_descr %>% 
   filter(measure == "Willingness to Continue") %>% 
@@ -215,15 +133,15 @@ wrist_1yr <- wristband_descr %>%
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
 
 
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
 p_wrist +
  plot_annotation(
-   title = "Figure S2<br><br> Physiology Wristband Acceptability",
-  caption =  "<i>Note:</i> Sample size is 9. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score.</i>"
+   title = "Figure S1<br><br> Physiology Acceptability",
+  caption =  "<i>Note:</i> Sample size is 9. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
@@ -231,108 +149,130 @@ p_wrist +
         plot.subtitle = element_markdown(size = 12))
 ```
 
+----
 
 <br>
 
-```{r}
-burden_phone <- read_csv(file.path(path_burden, "burden.csv"), col_types = cols()) %>% 
-  select(c(subid, date, contains("carrying_phone"))) 
+### Time Analysis
 
-phone_descr <- burden_phone %>% 
-  filter(!is.na(carrying_phone_interfere)) %>%
+Create dataframe of only subids with three time points (N = 133).
+```{r}
+acceptability_time <- data %>% 
+  # filter out wristband and carrying_phone
+  select(-c(contains("wristband"), contains("phone"))) %>% 
   group_by(subid) %>% 
-  arrange(desc(date)) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
-  select("Interference" = carrying_phone_interfere, 
-         "Dislike" = carrying_phone_dislike, 
-         "Willingness to Continue" = carrying_phone_1year) %>% 
-  gather(key = "measure")
-
-phone_int <- phone_descr %>% 
-  filter(measure == "Interference") %>% 
-  mutate(value = factor(value, levels = c(-2:2),
-                        labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
-  ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#FFDEDE") +
-  facet_wrap(~measure) +
-  theme_classic() +
-  ylim(0, .7) +
-  labs(y = "Proportion",
-       x = NULL) +
-  scale_x_discrete(drop=FALSE) +
-    theme(legend.position = "none",
-        text = element_text(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
-
-phone_dis <- phone_descr %>% 
-  filter(measure == "Dislike") %>% 
-  mutate(value = factor(value, levels = c(-2:2),
-                        labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
-  ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#FFDEDE") +
-  facet_wrap(~measure) +
-  theme_classic() +
-  ylim(0, .7) +
-  labs(y = NULL,
-       x = NULL) +
-    theme(legend.position = "none",
-        text = element_text(),
-        axis.text.y =element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.line.y = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
-
-phone_1yr <- phone_descr %>% 
-  filter(measure == "Willingness to Continue") %>% 
-  mutate(value = factor(value, levels = c(-2:2),
-                        labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
-  ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#FFDEDE") +
-  facet_wrap(~measure) +
-  theme_classic() +
-  ylim(0, .7) +
-  labs(y = NULL,
-       x = NULL) +
-    theme(legend.position = "none",
-        text = element_text(),
-        axis.text.y=element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
-
-
-p_phone <- wrap_plots(phone_int, phone_dis, phone_1yr) 
-p_phone +
- plot_annotation(
-  title = "Figure S3<br><br> Carrying Phone Acceptability",
-  caption =  "<i>Note:</i> Sample size is 154. Solid line represents the mean and dashed line represents the neutral/ambivalent <br>score."
-) &
-  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(),
-        plot.title = element_markdown(size = 12),
-        plot.subtitle = element_markdown(size = 12))
+  mutate(n_obs = n()) %>% 
+  filter(n_obs == 3) %>% 
+  # create time variable
+  arrange(date) %>%
+  mutate(time = row_number()) %>% 
+  ungroup()
 ```
+
+The figure below is Figure S2 from the manuscript. We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
+
+```{r warning = FALSE, fig.height=6, fig.width=8}
+# create grouping variables to use for figure
+dislike <- acceptability_time %>% 
+  select(contains("dislike")) %>% 
+  pivot_longer(everything(), "measure")
+interfere <- acceptability_time %>% 
+  select(contains("interfere")) %>% 
+  pivot_longer(everything(), "measure")
+oneyear <- acceptability_time %>% 
+  select(contains("1year")) %>% 
+  pivot_longer(everything(), "measure")
+logs <- acceptability_time %>% 
+  select(contains("all_logs")) %>% 
+  pivot_longer(everything(), "measure")
+sleep <- acceptability_time %>% 
+  select(contains("sleep")) %>% 
+  keep(~is.numeric(.x)) %>% 
+  pivot_longer(everything(), "measure")
+audio <- acceptability_time %>% 
+  select(contains("audio")) %>% 
+  keep(~is.numeric(.x)) %>% 
+  pivot_longer(everything(), "measure")
+ema <- acceptability_time %>% 
+  select(contains("daily_survey"), -daily_survey_1_1year) %>% 
+  keep(~is.numeric(.x)) %>% 
+  pivot_longer(everything(), "measure")
+geolocation <- acceptability_time %>% 
+  select(contains("location")) %>% 
+  keep(~is.numeric(.x)) %>% 
+  pivot_longer(everything(), "measure")
+text_content <- acceptability_time %>% 
+  select(contains("sms")) %>% 
+  keep(~is.numeric(.x)) %>% 
+  pivot_longer(everything(), "measure")
+
+# prepare data for plot
+time_plot <- acceptability_time %>% 
+  select(time,
+         contains("interfere"),
+         contains("dislike"),
+         contains("1year")) %>% 
+  pivot_longer(sleep_interfere:all_logs_1year, "measure") %>% 
+  mutate(acceptability = case_when(measure %in% dislike$measure ~ "Dislike",
+                             measure %in% interfere$measure ~ "Interference",
+                             measure %in% oneyear$measure ~ "Willingness to Continue"),
+         acceptability = factor(acceptability, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
+  mutate(method = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
+                                  measure %in% sleep$measure ~ "Sleep Quality",
+                                  measure %in% audio$measure ~ "Audio Check-in",
+                                  measure %in% ema$measure ~ "EMA",
+                                  measure %in% geolocation$measure ~ "Geolocation",
+                                  measure %in% text_content$measure ~ "Text Message Content")) 
+
+
+time_plot %>% 
+  group_by(method, time, acceptability) %>% 
+  # missing values due to two participants who didn't complete survey at time point 2
+  summarise(mean = mean(value, na.rm = TRUE), .groups = "drop") %>% 
+  ggplot(aes(x = time, y = mean, group = method, color = method)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~acceptability) +
+  theme_classic() +
+  scale_color_manual(values = c("dodgerblue4",  "skyblue3", "azure3", 
+                                "thistle1", "thistle3", "plum4")) +
+  scale_x_continuous(name = "Time Point", 
+                     breaks = c(1, 2, 3)) +
+  scale_y_continuous(name = "Mean Score", 
+                     breaks = c(-2, -1, 0, 1, 2), 
+                     limits = c(-2, 2)) +
+  labs(title = "Figure S2<br><br>Acceptability over Time by Personal Sensing Data Stream",
+       caption = "<i>Note:</i>  Participant ratings (<i>N</i> = 133) for each measure of acceptability at three different time points one-month <br>apart. Sleep quality N = 87. Each measure is on a 5-point bipolar scale anchored around a neutral/<br>ambivalent response of 0 (i.e., undecided) with higher values representing higher acceptability. Dashed line <br>represents neutral score.") +
+  theme(legend.title = element_blank(),
+        legend.text = element_markdown(),
+        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
+        text = element_text(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
+  geom_hline(aes(yintercept = 0), linetype = "dashed", size = .3)
+```
+
 
 
 <br>
 
+-----
+
+### Analysis on willingness to use EMA one time daily
+
+Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S3 from the manuscript).   
+
 
 ```{r}
-burden_ema_1x <- burden %>% 
+# pull out data for 1x EMA
+ema_1x <- data %>% 
   select(subid, date, daily_survey_1_1year) %>% 
   group_by(subid) %>% 
   arrange(desc(date)) %>% 
   slice(1) %>% 
   ungroup()
 
-plot_ema_1x <- burden_ema_1x %>% 
+plot_ema_1x <- ema_1x %>% 
   rename(`Willingness to Continue for One Year` = daily_survey_1_1year) %>% 
   pivot_longer(`Willingness to Continue for One Year`, names_to = "measure") %>% 
   mutate(value = factor(value, levels = c(-2:2),
@@ -347,13 +287,13 @@ plot_ema_1x <- burden_ema_1x %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .4, color = "#787575") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4)
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "dark red") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 plot_ema_1x +
  plot_annotation(
-  title = "Figure S4<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
-  caption =  "<i>Note:</i> Sample size is 154. Solid line represents the mean and dashed line represents the neutral/ambivalent score."
+  title = "Figure S3<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
+  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score."
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
@@ -363,22 +303,22 @@ plot_ema_1x +
 
 <br>
 
-**One sample t-test of willingness to use 1 x daily EMA for 1 year compared to a neutral/ambivalent score**   
-*Acceptability ratings for a one time daily EMA were significantly higher than neutral, t(153) = 15.21, p < .001*   
+A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S3) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
+
 ```{r}
-m_ema_1x <- lm(daily_survey_1_1year ~ 1, data = burden_ema_1x)
-summary(m_ema_1x)
+model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
+summary(model_ema_1x)
 ```
 
 
 <br>
 
 
-**Paired sample t-test of willingess to use 4 x daily EMA for 1 year compared to 1 x daily EMA**   
-*Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001*  
+Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
+
 ```{r}
 # create long dataframe
-burden_ema_1x_and_4x <- burden %>% 
+ema_1x_and_4x <- data %>% 
   select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
   group_by(subid) %>% 
   arrange(desc(date)) %>% 
@@ -387,20 +327,27 @@ burden_ema_1x_and_4x <- burden %>%
   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
 
 # t-test
-m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = burden_ema_1x_and_4x)
+m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
 summary(m_ema_1x_and_4x)
 car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
 ```
 
  
 
-
+----
 
 <br>
 
+
+### Group differences between continued and discontinued participants
+
+We ran a series of t-tests to compare demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms in participants who continued vs. discontinued. Continued participants included all participants who were used in the study analyses (i.e., completed through first month followup; N = 154). Discontinued participants consisted of eligible participants who did not enroll or discontinued prior to the first month follow-up (N = 36).   
+
+Prepare data for analyses
 ```{r}
-screen <- read_csv(file.path(path_data, "screen.csv"), col_types = cols()) 
-disposition <- read_csv(file.path(path_burden, "disposition.csv"), col_types = cols()) 
+# read in additional data on participant dipsosition
+screen <- read_csv(file.path(path_shared, "screen.csv"), col_types = cols()) 
+disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols()) 
 
 # remove ineligible participants
 eligible_sample <- disposition %>%  
@@ -431,7 +378,7 @@ screen <- screen %>%
          employment = dem_6,
          income = dem_7,
          marrital_status = dem_8) %>% 
-  mutate(male = recode(sex, "Male" = 1, "Female" = 0),
+  mutate(male = dplyr::recode(sex, "Male" = 1, "Female" = 0),
          race = factor(race, levels = c("American Indian/Alaska Native", "Asian",
                                         "Black/African American", "Other/Multiracial",
                                         "White/Caucasian"), labels = c("American Indian or Alaska Native", "Asian",
@@ -474,21 +421,20 @@ screen <- screen %>%
                                        TRUE ~ 0),
          other_tx = case_when(other_tx == "Other" ~ 1,
                                        TRUE ~ 0),
-         med_for_aud = recode(med_for_aud, "No" = 0, "Yes" = 1)) %>% 
+         med_for_aud = dplyr::recode(med_for_aud, "No" = 0, "Yes" = 1)) %>% 
   # Assist
-  mutate(tobacco = recode(assist_1_1, "No" = 0, "Yes" = 1),
-         cannabis = recode(assist_1_2, "No" = 0, "Yes" = 1),
-         cocaine = recode(assist_1_3, "No" = 0, "Yes" = 1),
-         amphetamine = recode(assist_1_4, "No" = 0, "Yes" = 1),
-         inhalant = recode(assist_1_5, "No" = 0, "Yes" = 1),
-         sedative = recode(assist_1_6, "No" = 0, "Yes" = 1),
-         hallucinogen = recode(assist_1_7, "No" = 0, "Yes" = 1),
-         opiate = recode(assist_1_8, "No" = 0, "Yes" = 1)) %>% 
+  mutate(tobacco = dplyr::recode(assist_1_1, "No" = 0, "Yes" = 1),
+         cannabis = dplyr::recode(assist_1_2, "No" = 0, "Yes" = 1),
+         cocaine = dplyr::recode(assist_1_3, "No" = 0, "Yes" = 1),
+         amphetamine = dplyr::recode(assist_1_4, "No" = 0, "Yes" = 1),
+         inhalant = dplyr::recode(assist_1_5, "No" = 0, "Yes" = 1),
+         sedative = dplyr::recode(assist_1_6, "No" = 0, "Yes" = 1),
+         hallucinogen = dplyr::recode(assist_1_7, "No" = 0, "Yes" = 1),
+         opiate = dplyr::recode(assist_1_8, "No" = 0, "Yes" = 1)) %>% 
   # dsm5
-  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ dplyr::recode(., "No" = 0, "Yes" = 1))) %>% 
   # remove duplicate vars
-  select(-c(assist_1_1:assist_1_8), -sex) %>% 
-  select(subid, disposition, everything()) 
+  select(-c(assist_1_1:assist_1_8, sex))
 
 # combine variables
 screen_combined <- screen %>% 
@@ -511,9 +457,12 @@ screen_combined <- screen %>%
   ungroup() %>% 
   select(-c(age_first_drink:age_first_quit, lt_residential_tx:dsm5_11, tobacco:opiate, race,
             employment, marrital_status)) 
+```
 
-# t-tests
-screen_combined_long <- screen_combined %>%
+Run t-tests
+```{r}
+# pivot longer
+screen_combined_long <- screen_combined %>% 
   select(-subid) %>% 
   mutate(education = as.numeric(education)) %>% 
   pivot_longer(-disposition, names_to = "variables", values_to = "value")
@@ -521,30 +470,32 @@ screen_combined_long <- screen_combined %>%
 screen_combined_long %>%
   group_by(variables) %>%
   t_test(value ~ disposition) %>%
-  adjust_pvalue(method = "holm") %>%
-  add_significance() %>% 
   select(` ` = variables,
-         `Group 1` = group1,
-         `Group 2` = group2,
-         `N 1` = n1,
-         `N 2` = n2,
          t = statistic,
          df,
-         p,
-         `p adj` = p.adj,
-         `p adj sig` = p.adj.signif) %>% 
+         p) %>% 
   kbl(digits = 2,
-      align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
-      caption = "<b>Table S1<br><br>T-Tests with Holm-Bonferroni Correction to Compare Group Differences between Continued and Discontinued Participants</b>") %>% 
+      align = c("l", "c", "c", "c"),
+      caption = "<b>Table S1<br><br>Pairwise T-tests to Compare Group Differences between Continued (N = 154) and Discontinued (N = 36) Participants</b>") %>% 
   kable_classic(html_font = "Arial")
 ```
 
 
+-----
 
+<br>
+
+
+### Uncorrected pairwise comparisons among personal sensing data streams
+
+
+
+
+Prepare data for analyses
 ```{r}
 # dataframe of last survey
 # pull out last available sleep monitor data since this date will be earlier than last survey date for some
-burden_sleep <- burden %>% 
+last_sleep <- data %>% 
   select(-contains("wristband")) %>% 
   filter(!is.na(sleep_interfere)) %>% 
   group_by(subid) %>% 
@@ -554,67 +505,63 @@ burden_sleep <- burden %>%
   select(c(subid, starts_with("sleep_")))
   
 # pull out most recent survey for each subid
-burden_last <- burden %>% 
+last_data <- data %>% 
   select(-c(starts_with("sleep_"), contains("wristband"))) %>% 
   group_by(subid) %>% 
   arrange(desc(date)) %>% 
   slice(1) %>% 
   ungroup() %>% 
   # join with sleep data
-  full_join(burden_sleep, by = c("subid"))
+  full_join(last_sleep, by = c("subid"))
 ```
 
+
+Run pairwise comparisons
 ```{r}
-# run pairwise comparisons
-int_pair <- burden_last %>% 
-  select(`Daily Survey` = daily_survey_interfere,
+int_pair <- last_data %>% 
+  select(`EMA` = daily_survey_interfere,
          `Audio Check-in` = audio_checkin_interfere,
-         `Sleep Monitor` = sleep_interfere) %>%
+         `Sleep Quality` = sleep_interfere) %>%
   pivot_longer(cols = everything(), names_to = "signal") %>% 
   mutate(signal = factor(signal)) 
 
-# pairwise.t.test(int_pair$value, int_pair$signal, p.adj = "none") %>% 
-#   broom::tidy() %>% 
-#   rename(`Signal 1` = group1,
-#          `Signal 2` = group2,
-#          `$p$` = p.value) %>% 
-#   kbl() %>% 
-#   kable_classic(html_font = "Times new roman") 
+# uncomment to only look at comparisons within interference measure
+# pairwise.t.test(int_pair$value, int_pair$signal, p.adj = "none") 
 
-dis_pair <- burden_last %>% 
-  select(`Daily Survey` = daily_survey_dislike,
+dis_pair <- last_data %>% 
+  select(`EMA` = daily_survey_dislike,
          `Audio Check-in` = audio_checkin_dislike,
-         `Sleep Monitor` = sleep_dislike,
-         `Location` = location_dislike,
-         `Logs (SMS/call)` = all_logs_dislike,
-         `SMS Content` = sms_content_dislike) %>%
+         `Sleep Quality` = sleep_dislike,
+         `Geolocation` = location_dislike,
+         `Cellular Communication Logs` = all_logs_dislike,
+         `Text Message Content` = sms_content_dislike) %>%
   pivot_longer(cols = everything(), names_to = "signal") %>% 
   mutate(signal = factor(signal)) 
 
+# uncomment to only look at comparisons within dislike measure
 # pairwise.t.test(dis_pair$value, dis_pair$signal, p.adj = "none") 
 
-will_pair <- burden_last %>% 
-  select(`Daily Survey` = daily_survey_4_1year,
+will_pair <- last_data %>% 
+  select(`EMA` = daily_survey_4_1year,
          `Audio Check-in` = audio_checkin_1year,
-         `Sleep Monitor` = sleep_1year,
-         `Location` = location_1year,
-         `Logs (SMS/call)` = all_logs_1year,
-         `SMS Content` = sms_content_1year) %>%
+         `Sleep Quality` = sleep_1year,
+         `Geolocation` = location_1year,
+         `Cellular Communication Logs` = all_logs_1year,
+         `Text Message Content` = sms_content_1year) %>%
   pivot_longer(cols = everything(), names_to = "signal") %>% 
   mutate(signal = factor(signal)) 
 
+# uncomment to only look at comparisons within willingness measure
 # pairwise.t.test(will_pair$value, will_pair$signal, p.adj = "none") 
 ```
 
-
+Create table of p-values  
 ```{r}
 # format table
 tibble(
-  Measure = c("Ecological Momentary Assessment", "Sleep Quality",
-              "Ecological Momentary Assessment", "Sleep Quality", 
-              "Moment-by-Moment Geolocation", "Cellular Communication Logs", "Text Message Content",
-              "Ecological Momentary Assessment", "Sleep Quality",
-              "Moment-by-Moment Geolocation", "Cellular Communication Logs", "Text Message Content"),
+  Measure = c("EMA", "Sleep Quality",
+              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content",
+              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content"),
   "Audio Check-in" = c(
                        # interference
                        ".25", "< .001***", 
@@ -622,7 +569,7 @@ tibble(
                        "< .001***", "< .001***", "< .001***", ".001***", ".56", 
                        # willingness
                        ".47", ".46", ".14", ".42", ".96"), 
-  "Ecological Momentary Assessment" = c(
+  "EMA" = c(
                      # interference
                      NA, "< .001***", 
                      # Dislike
@@ -636,7 +583,7 @@ tibble(
                       NA, NA, ".59", ".15", "< .001***", 
                       # willingness
                       NA, NA, ".60", ".97", ".49"), 
-  "Moment-by-Moment Geolocation" = c(
+  "Geolocation" = c(
                  # interference
                  NA, NA,  
                  # dislike 
@@ -657,47 +604,9 @@ tibble(
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
   pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
   pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
-  footnote("Sample size for all personal sensing measures is 154 except for the sleep monitoring which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
+  footnote("Sample size for all personal sensing measures is 154 except for the sleep quality which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
 ```
 
-
-<br>
-
-
-
-
-
-```{r}
-# read in excel phone tracking sheet
-phones <- readxl::read_excel("P:/studydata/risk/administration/Participants/Technology Tracking/participant_phone_use_ALL.xlsx", range = "A1:F269") %>% 
-  rename(subid = `Sub ID`) %>% 
-  mutate(subid = as.numeric(subid)) %>% 
-  clean_names() 
-
-# glimpse(phones)
-
-# filter down to burden sample (n = 154)
-phones <- phones %>% 
-  filter(subid %in% burden$subid)
-
-# table
-# phones %>% 
-#   tabyl(phone_type)
-
-phones <- phones %>% 
-  mutate(phone = case_when(str_detect(phone_type, "Study") ~ "Study Phone",
-                           TRUE ~ "Own Phone"))
-
-phones %>% 
-  tabyl(phone) %>% 
-  kbl(caption = "<b>Table S3<br><br>Number and percentage of participants that use their own smartphone or study iphone</b>", digits = 2) %>% 
-  kable_classic(html_font = "Arial") 
-```
-
-
-
-
-<br>
 
 <br>
 

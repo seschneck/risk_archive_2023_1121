@@ -1,16 +1,28 @@
 ---
-title: "Acceptability Results"
+title: "Demographic Characteristics"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
-output: html_document
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
 ---
 
-Purpose: These are the primary analyses for the acceptability of personal sensing measures paper. 
 
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE)
-options(knitr.kable.NA = '')
-```
+<br>
+
+Purpose: This script creates the participant descriptive tables for the manuscript *Acceptability of Personal Sensing among People with Alcohol Use Disorder*.    
+
+
+### Setup
 
 ```{css, echo = FALSE}
 pre, code {
@@ -21,35 +33,43 @@ pre, code {
 }
 ```
 
+Paths
 ```{r}
-path_burden <- "/Volumes/private/studydata/risk/data_processed/burden"
-path_data <- "/Volumes/private/studydata/risk/data_processed/shared"
+path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
-
+Packages
 ```{r message = FALSE}
 library(tidyverse)
 library(kableExtra)
 library(janitor)
+
+options(knitr.kable.NA = '')
 ```
 
 
 
-##### Participant characteristics
+### Read in Data
 
 ```{r}
-screen <- read_csv(file.path(path_data, "screen.csv"), col_types = cols()) 
-visit_dates <- read_csv(file.path(path_data,"visit_dates.csv"), col_types = cols())
+screen <- read_csv(file.path(path_shared, "screen.csv"), col_types = cols()) 
+visit_dates <- read_csv(file.path(path_shared,"visit_dates.csv"), col_types = cols())
 
-# include only participants used in analyses (n = 154) - use visit dates
+# include only participants used in analyses (n = 154) - use visit dates to determine
 sample_fu1 <- visit_dates %>% 
   filter(!(is.na(followup_1)))
 screen <- screen %>% 
   filter(subid %in% sample_fu1$subid)
 ```
 
-```{r}
-# create demographic tibble for table
+<br>
+
+### Create Table 1
+
+Table 1 contains the demographics of our final analysis sample.   
+
+```{r message = FALSE}
+# Join demographics as tibble
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
             SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
@@ -116,15 +136,13 @@ dem <- screen %>%
   group_by(var) %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / sum(n)) * 100))
-```
 
-```{r}
 # display and format table
 dem %>% 
   kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
       digits = 1,
       align = c("l", "c", "c", "c", "c"),
-      caption = "<b>Table 2<br><br>Demographics</b>",
+      caption = "<b>Table 1<br><br>Demographics</b>",
       table.attr = "style='width:60%;'",
       escape = FALSE) %>% 
   row_spec(row = 0, align = "c") %>% 
@@ -138,8 +156,16 @@ dem %>%
   footnote("N = 154")
 ```
 
-```{r}
-# create alcohol use history tibble for table
+-----
+
+<br>
+
+### Create Table 2
+
+Table 2 contains descriptives of participants' alcohol use history and alcohol use disorder severity.  
+
+```{r message = FALSE}
+# combine AUH variables as tibble
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
             SD = sd(auh_1, na.rm = TRUE)) %>% 
@@ -318,11 +344,7 @@ auh <- screen %>%
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100)) 
-```
 
-<br>
-
-```{r}
 # display and format table
 auh %>%
   kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
@@ -334,10 +356,11 @@ auh %>%
   row_spec(row = 0, align = "c") %>% 
   kable_classic(html_font = "Times New Roman", position = "left") %>% 
   pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>% 
-  pack_rows("Types of Treatment", 6, 12, bold = FALSE) %>% 
+  pack_rows("Types of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>% 
   pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>% 
   pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>% 
   footnote("N = 154")
 ```
+
 
 <br>
