@@ -1,0 +1,138 @@
+---
+title: "Create lapse labels"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+---
+
+### Set up Environment
+
+Absolute paths
+```{r, paths}
+
+# path_admin <- "P:/administration"
+# path_lab_support <- "P:/toolboxes/lab_support"
+
+path_processed <- "P:/studydata/risk/data_processed/shared"
+path_raw <- "P:/studydata/risk/data_raw"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+# for data wrangling
+library(tidyverse)  # always need this
+library(vroom)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+# source(here(path_lab_support, "get_credentials.R"))
+```
+
+
+### Get Raw Data
+
+
+EMA lapse reports
+```{r}
+emam <- vroom(here(path_processed, "ema_morning.csv")) %>% 
+  rename_with(~ str_replace(.x, "emam_", "ema_"))
+
+
+emal <- vroom(here(path_processed, "ema_later.csv"))%>% 
+  rename_with(~ str_replace(.x, "emal_", "ema_"))
+
+ema <- bind_rows(emam, emal) %>% 
+  select(subid, start_date, end_date, utc, finished,
+         contains("ema_1"), -ema_10_1) %>% 
+  filter(ema_1 == "Yes")
+```
+
+Interview lapse reports
+```{r}
+interview <- vroom(here(path_raw, "additional_lapses.csv"))
+```
+
+### EDA for lapses
+
+Confirm with Sarah that all EMA lapses (even cleaned are in America/Chicago)
+Discuss with Sarah finished == 0, some with and some without lapse info
+
+#### EMA
+
+KENDRA TO DO
+
+
+#### Interview
+
+KENDRA TO DO
+
+### Create labels
+
+Merge lapse reports
+```{r}
+# KENDRA - I am deleted unfinished reports with no start time.
+# Not sure this will be our final decision but here for now
+ema <- ema %>% 
+  filter(!(finished == 0 & is.na(ema_1_1) & is.na(ema_1_2))) %>% 
+  select(-start_date, -end_date, -utc, -finished, -ema_1, -ema_1_5)
+         
+lapses <- interview %>% 
+  select(subid, ema_1_1, ema_1_2, ema_1_3, ema_1_4) %>% 
+  bind_rows(ema)
+```
+
+
+Timestamp lapses
+```{r}
+
+recode_military <- function (time_12hr) {
+    case_when(
+    time_12hr == "Midnight" ~ "00:00",
+    time_12hr == "1 AM" ~ "01:00",
+    time_12hr == "2 AM" ~ "02:00",
+    time_12hr == "3 AM" ~ "03:00",
+    time_12hr == "4 AM" ~ "04:00",
+    time_12hr == "5 AM" ~ "05:00",
+    time_12hr == "6 AM" ~ "06:00",
+    time_12hr == "7 AM" ~ "07:00",
+    time_12hr == "8 AM" ~ "08:00",
+    time_12hr == "9 AM" ~ "09:00",
+    time_12hr == "10 AM" ~ "10:00",
+    time_12hr == "11 AM" ~ "11:00",
+    time_12hr == "Noon" ~ "12:00",
+    time_12hr == "1 PM" ~ "13:00",
+    time_12hr == "2 PM" ~ "14:00",
+    time_12hr == "3 PM" ~ "15:00",
+    time_12hr == "4 PM" ~ "16:00",
+    time_12hr == "5 PM" ~ "17:00",
+    time_12hr == "6 PM" ~ "18:00",
+    time_12hr == "7 PM" ~ "19:00",
+    time_12hr == "8 PM" ~ "20:00",
+    time_12hr == "9 PM" ~ "21:00",
+    time_12hr == "10 PM" ~ "22:00",
+    time_12hr == "11 PM" ~ "23:00",
+    is.na(time_12hr) ~ NA_character_,
+    TRUE ~ "ERROR!")
+}
+
+lapses <- lapses %>% 
+  mutate(start_time = recode_military(ema_1_2),
+         end_time = recode_military(ema_1_4))
+```
+
