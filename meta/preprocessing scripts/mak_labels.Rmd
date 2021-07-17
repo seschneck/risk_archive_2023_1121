@@ -7,6 +7,12 @@ output:
     toc: true 
     toc_depth: 4
     code_folding: show
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "P:/studydata/risk/knits/shared"
+    )
+  })
 ---
 
 ### Set up Environment
@@ -15,8 +21,7 @@ Absolute paths
 ```{r, paths}
 
 # path_admin <- "P:/administration"
-# path_lab_support <- "P:/toolboxes/lab_support"
-
+path_lab_support <- "P:/toolboxes/lab_support"
 path_processed <- "P:/studydata/risk/data_processed/shared"
 path_raw <- "P:/studydata/risk/data_raw"
 ```
@@ -37,11 +42,12 @@ Packages for script
 # for data wrangling
 library(tidyverse)  # always need this
 library(vroom)
+library(janitor)
 ```
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-# source(here(path_lab_support, "get_credentials.R"))
+source(here(path_lab_support, "print_kbl.R"))
 ```
 
 
@@ -59,13 +65,23 @@ emal <- vroom(here(path_processed, "ema_later.csv"))%>%
 
 ema <- bind_rows(emam, emal) %>% 
   select(subid, start_date, end_date, utc, finished,
-         contains("ema_1"), -ema_10_1) %>% 
+         contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
   filter(ema_1 == "Yes")
+
+ema %>% print_kbl()
 ```
 
 Interview lapse reports
+
+* All reported in America/Chicago tz so dropped this variable
+* Times indicated only when clearly reported by participant based on notes
+* Source is both staff and EDA by Sarah.  Dropped this variable.
+* Retained notes to check any suspect reports
 ```{r}
-interview <- vroom(here(path_raw, "additional_lapses.csv"))
+interview <- vroom(here(path_raw, "additional_lapses.csv")) %>% 
+  select(-report_date, -ema_1_5, -time_zone, -source)
+
+interview %>% print_kbl()
 ```
 
 ### EDA for lapses
@@ -82,9 +98,12 @@ KENDRA TO DO
 
 KENDRA TO DO
 
-### Create labels
+### Create lapse inputs
 
+#### Make lapses
 Merge lapse reports
+
+* Deleted EMA reports that were from unfinished surveys and had NO info about lapse onset
 ```{r}
 # KENDRA - I am deleted unfinished reports with no start time.
 # Not sure this will be our final decision but here for now
@@ -100,7 +119,7 @@ lapses <- interview %>%
 
 Timestamp lapses
 ```{r}
-
+# To recode start and end times from EMA
 recode_military <- function (time_12hr) {
     case_when(
     time_12hr == "Midnight" ~ "00:00",
@@ -133,6 +152,27 @@ recode_military <- function (time_12hr) {
 
 lapses <- lapses %>% 
   mutate(start_time = recode_military(ema_1_2),
-         end_time = recode_military(ema_1_4))
+         end_time = recode_military(ema_1_4),
+         start_lapse = str_c(ema_1_1, " ", start_time),
+         end_lapse = str_c(ema_1_3, " ", end_time),
+         start_lapse = as_datetime(start_lapse, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         end_lapse = as_datetime(end_lapse, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         duration = difftime(end_lapse, start_lapse, unit = "hour"))
+```
+
+Parse ill-formed lapses
+```{r}
+
+```
+
+#### EDA lapses
+
+```{r}
+hist(as.numeric(lapses$duration))
+
+lapses %>% tabyl(duration)
+
+lapses <- lapses %>% 
+  mutate(start_lapse = if_else(duration < 0, NA_POSIXct_, start_lapse))
 ```
 
