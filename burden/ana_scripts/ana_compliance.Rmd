@@ -1,5 +1,5 @@
 ---
-title: "Descriptives for Compliance Measures"
+title: "Compliance"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
@@ -8,12 +8,20 @@ output:
     toc_depth: 3
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
 ---
 
 ### Notes
-Purpose: This script creates histograms and summary stats for all personal sensing compliance measures used in burden paper.     
+Purpose: This script calculates all measures of compliance cited in *Acceptability of Personal Sensing among People with Alcohol Use Disorder*.     
 
-Input:  
+Inputs:  
 * visit_dates.csv   
 * audio.csv   
 * ema_morning.csv  
@@ -23,12 +31,10 @@ Input:
 * sms_android.csv  
 * sms_ios.csv  
 * gps.rds  
+   
 
 
 ### Setup
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(message = FALSE)
-```
 
 ```{css, echo = FALSE}
 pre, code {
@@ -41,7 +47,7 @@ pre, code {
 
 Paths 
 ```{r}
-path_data <- "./analysis/shared/data"
+path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
 Packages and Source
@@ -57,30 +63,136 @@ library(patchwork)
 ```
 
 
-### Read in data
+### Read in Data
 
 ```{r}
-visit_dates <- read_csv(file.path(path_data, "visit_dates.csv"), col_types = cols())
-ema_m <- read_csv(file.path(path_data, "ema_morning.csv"), col_types = cols())
-ema_l <- read_csv(file.path(path_data, "ema_later.csv"), col_types = cols())
-audio <- read_csv(file.path(path_data, "audio.csv"), col_types = cols())
-# sms_android <- fread(file.path(path_data, "sms_android.csv")) # using fread because file is large
-# sms_ios <- fread(file.path(path_data, "sms_ios.csv")) # using fread to prevent crashing in knitting
-# voice_android <- fread(file.path(path_data, "voice_android.csv"))
-# voice_ios <- fread(file.path(path_data, "voice_ios.csv"))
-gps <- read_rds(file.path(path_data, "gps.rds"))
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
+ema_m <- read_csv(file.path(path_shared, "ema_morning.csv"), col_types = cols())
+ema_l <- read_csv(file.path(path_shared, "ema_later.csv"), col_types = cols())
+audio <- read_csv(file.path(path_shared, "audio.csv"), col_types = cols())
+gps <- read_rds(file.path(path_shared, "gps.rds"))
+
+# using vroom for large csv files
+sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols()) 
+sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols())  
+voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_types = cols())
+voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols())
 ```
 
-Filter visit dates down to enrolled participants and start and end study date
+Filter visit dates down to enrolled participants (N = 169). Study start and end dates will be used to filter data streams down to when participants were officially on study for compliance proportions.
 ```{r}
 visit_dates <- visit_dates %>% 
   filter(!is.na(start_study)) %>% 
-  select(subid, start_study, end_study) %>% 
-  glimpse()
+  # filter out subid who started and ended study on same day - not considered enrolled
+  filter(subid != 235) 
+```
+
+<br>
+
+
+### Compliance for Passive Data Streams 
+
+Check if data exists for every passive data stream for all participants. This will be used to 
+judge whether participants opted-in to passive data streams at least at some point during the study.    
+
+
+#### GPS
+
+`r nrow(gps %>% count(subid))` (`r round(nrow(gps %>% count(subid))/nrow(visit_dates)*100, 2)`%) of the enrolled subids (N = 169) have gps data   
+
+Enrolled subids with no gps data
+```{r}
+visit_dates %>% 
+  filter(!subid %in% gps$subid) 
+```
+
+<br>
+
+
+#### Cellular communication logs 
+
+Cellular communication logs could only be downloaded in person so the first opportunity to download logs was at follow-up 1.    
+Subset to subids who completed follow-up 1    
+
+`r nrow(visit_dates %>% filter(!is.na(followup_1)))` participants completed follow-up 1.  
+
+```{r}
+fu_1 <- visit_dates %>% 
+  filter(!is.na(followup_1))
+```
+
+<br>
+
+
+**Voice Logs**
+
+Get subids from IOS and android voice logs
+```{r}
+voice <- voice_android %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  select(subid) %>% 
+  full_join(voice_ios %>% mutate(subid = as.numeric(subid)) %>% select(subid), by = "subid")
+```
+
+`r nrow(voice %>% count(subid))` subids have voice call data.    
+
+* We have voice logs for 1 subid who never completed their follow-up 1 visit      
+According to notes: Subid 237 arrived to Follow-up 1 but asked to be discontinued before data was collected. They needed to leave shortly after their visit time started so unreported contacts locations and ID Battery were NOT collected. Call and SMS logs were collected at FU1 but numbers were not gone over with participant.
+
+<br>
+
+`r nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have voice log data.
+
+
+
+<br>
+
+**SMS Logs**
+ 
+Get subids from IOS and android SMS logs
+```{r}
+sms <- sms_android %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  select(subid) %>% 
+  full_join(sms_ios %>% mutate(subid = as.numeric(subid)) %>% select(subid), by = "subid") 
 ```
 
 
-### Audio
+`r nrow(sms %>% count(subid))` subids have sms data.   
+
+* We have SMS logs for subid 237 but they never completed their follow-up 1 visit.
+
+<br>
+
+`r nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have SMS data.
+
+<br>
+
+Missing SMS logs for 1 subid    
+According to Notes: Subject's SMS files are empty because the subject deleted all text messages before their study visit; They also did not text much.  
+```{r}
+fu_1 %>% 
+  filter(!subid %in% sms$subid)
+```
+
+
+
+<br>
+
+### Compliance for Active Data Streams
+
+Enrolled subids (N = 169) serves as the denominator for all compliance measures unless otherwise noted.
+
+#### Audio  
+
+`r nrow(audio %>% count(subid))` (`r round(nrow(audio %>% count(subid))/nrow(visit_dates)*100, 2)`%) subids have audio data   
+
+Enrolled subids with no audio data
+```{r}
+visit_dates %>% 
+  filter(!subid %in% as.numeric(audio$subid)) 
+```
+
 
 Remove duplicate audio check ins on same day and filter by start end date
 ```{r}
@@ -115,34 +227,55 @@ audio_days <- visit_dates %>%
                                 TRUE ~ days_study))
 ```
 
-Histogram
+Calculate mean compliance
 ```{r}
 mean_audio <- audio_days %>% 
   summarise(proportion_days = days_audio/days_study) %>% 
   summarise(mean = mean(proportion_days, na.rm = TRUE))
+```
 
+<br>
+
+On average participants (N = 169) completed `r round(mean_audio$mean, 2)` audio checkins each day they were on study. That is their overall compliance for a once daily audio check-in was `r round(mean_audio$mean, 2)*100`%.
+
+<br>
+
+Histogram
+```{r}
 audio_days %>% 
   summarise(proportion_days = days_audio/days_study) %>% 
   ggplot(aes(x = proportion_days)) +
   geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
   scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) +
   labs(y = "Frequency", x = "Proportion of study days with an audio check-in",
-       subtitle = "Audio Check-in (N = 169)") +
-  geom_vline(aes(xintercept = mean_audio$mean), size = .3) +
+       subtitle = "Audio Check-in") +
+  geom_vline(aes(xintercept = mean_audio$mean), size = .4) +
   theme_classic() +
-  theme(text = element_text(family = "Times New Roman")) 
+  theme(text = element_text()) 
 ```
 
+<br>
 
-### EMA
+#### EMA
 
-#### Days with at least 1 EMA
+Join morning and evening EMA datasets
 ```{r}
-ema_one_daily <- ema_m %>% 
+ema <- ema_m %>% 
   select(subid, start_date) %>% 
-  full_join(ema_l %>% select(subid, start_date)) %>% 
+  full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
   mutate(start_date = date(start_date),
          subid = as.numeric(subid)) %>% 
+  # Subid 55 re-enrolled as subid 61. These observations should not be considered. 
+  filter(subid != 55)
+```
+
+`r nrow(ema %>% count(subid))` (`r round(nrow(ema %>% count(subid))/nrow(visit_dates)*100, 2)`%) subids have ema data   
+
+<br>
+
+**Days with at least 1 EMA**
+```{r message = FALSE}
+ema_one_daily <- ema %>% 
   group_by(subid, start_date) %>% 
   slice(1)  %>% 
   full_join(visit_dates, by = "subid") %>% 
@@ -168,28 +301,38 @@ ema_days <- visit_dates %>%
                                 TRUE ~ days_study))
 ```
 
-Histogram
+Calculate Mean Proportion
 ```{r}
 mean_ema_days <- ema_days %>% 
   summarise(proportion_days = days_ema/days_study) %>% 
   summarise(mean = mean(proportion_days, na.rm = TRUE))
+```
 
+<br>
+
+On average participants (N = 169) complied with at least one daily EMA on `r round(mean_ema_days$mean, 2)*100`% of study days.
+
+<br>
+
+Histogram
+```{r warning = FALSE}
 ema_days %>% 
   summarise(proportion_days = days_ema/days_study) %>% 
   ggplot(aes(x = proportion_days)) +
   geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
   scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
   labs(y = "Frequency", x = "Proportion of study days with at least one EMA completed",
-       subtitle = "EMA - 1 x Daily (N = 169)") +
-  geom_vline(aes(xintercept = mean_ema_days$mean), size = .3) +
+       subtitle = "1 Time Daily EMA Compliance") +
+  geom_vline(aes(xintercept = mean_ema_days$mean), size = .4) +
   theme_classic()
 ```
 
 
+<br>
 
-#### Overall proportion of EMAs completed while on study
+**Overall proportion of EMAs completed while on study**
 
-```{r}
+```{r message = FALSE}
 ema_total <- ema_m %>% 
   select(subid, start_date) %>% 
   full_join(ema_l %>% select(subid, start_date)) %>% 
@@ -205,7 +348,7 @@ calculate proportion of total emas completed
 # total emas
 ema_total <- ema_total %>% 
   group_by(subid, start_date) %>% 
-  summarise(num_emas = n()) %>% 
+  summarise(num_emas = n(), .groups = "drop") %>% 
   ungroup() %>% 
   mutate(num_emas = case_when(num_emas > 4 ~ 4,
                               TRUE ~ as.numeric(num_emas))) %>% 
@@ -222,366 +365,36 @@ ema_total <- visit_dates %>%
                                 TRUE ~ days_study))
 ```
 
-Average number of EMA's completed per day
+Calculate average overall compliance
 ```{r}
 mean_ema <- ema_total %>% 
   summarise(proportion_ema = total_ema/days_study) %>% 
   summarise(mean = mean(proportion_ema, na.rm = TRUE))
 
-mean_ema
-```
-
-Histogram of proportion of total EMAs completed
-```{r}
 mean_ema_total <- ema_total %>% 
   summarise(proportion_ema = total_ema/(days_study * 4)) %>% 
   summarise(mean = mean(proportion_ema, na.rm = TRUE))
+```
 
+<br>
+
+Participants on average completed `r round(mean_ema, 2)` EMAs per day with an overall compliance of `r round(mean_ema_total, 2)*100`%.  
+
+<br>
+
+
+Histogram of proportion of total EMAs completed
+```{r warning = FALSE}
 ema_total %>% 
   summarise(proportion_ema = total_ema/(days_study * 4)) %>% 
   ggplot(aes(x = proportion_ema)) +
   geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
   scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
   labs(y = "Frequency", x = "Proportion of total EMA's completed while on study (max = 4 x's per day)",
-       subtitle = "EMA - Proportion of Total EMAs (N = 169)") +
-  geom_vline(aes(xintercept = mean_ema_total$mean), size = .3) +
+       subtitle = "Total EMA Compliance") +
+  geom_vline(aes(xintercept = mean_ema_total$mean), size = .4) +
   theme_classic()
 ```
 
 
-
-
-<!-- ### SMS logs -->
-
-<!-- #### proportion of study days with SMS data -->
-
-<!-- ```{r} -->
-<!-- sms_daily <- sms_android %>%  -->
-<!--   select(subid, date) %>%  -->
-<!--   full_join(sms_ios %>% select(subid, date)) %>%  -->
-<!--   mutate(date = date(date), -->
-<!--          subid = as.numeric(subid)) %>%  -->
-<!--   group_by(subid, date) %>%  -->
-<!--   slice(1)  %>%  -->
-<!--   full_join(visit_dates, by = "subid") %>%  -->
-<!--   # truncate by start and end date -->
-<!--   filter(date >= start_study & date < end_study) -->
-<!-- ``` -->
-
-<!-- calculate proportion days with sms data -->
-<!-- ```{r} -->
-<!-- # days with sms -->
-<!-- sms_daily <- sms_daily %>%  -->
-<!--   group_by(subid) %>%  -->
-<!--   summarise(days_sms = n()) %>%  -->
-<!--   ungroup() -->
-
-<!-- # days on study -->
-<!-- sms_daily <- visit_dates %>%  -->
-<!--   mutate(days_study = as.numeric(end_study - start_study)) %>%  -->
-<!--   full_join(sms_daily, by = "subid") %>%  -->
-<!--   mutate(days_sms = case_when(is.na(days_sms) ~ 0, -->
-<!--                                 TRUE ~ as.numeric(days_sms)), -->
-<!--          days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator (1 subid) -->
-<!--                                 TRUE ~ days_study)) -->
-<!-- ``` -->
-
-<!-- Histogram -->
-<!-- ```{r} -->
-<!-- mean_sms <- sms_daily %>%  -->
-<!--   summarise(proportion_days = days_sms/days_study) %>%  -->
-<!--   summarise(mean = mean(proportion_days, na.rm = TRUE)) -->
-
-<!-- sms_daily %>%  -->
-<!--   summarise(proportion_days = days_sms/days_study) %>%  -->
-<!--   ggplot(aes(x = proportion_days)) + -->
-<!--   geom_histogram(color = "black", fill = "dodgerblue4", binwidth = .05) + -->
-<!--   scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) + -->
-<!--   labs(y = "Frequency", x = "Proportion of study days with SMS data", -->
-<!--        subtitle = "SMS - Days with data (N = 169)") + -->
-<!--   geom_vline(aes(xintercept = mean_sms$mean), linetype = "dashed", size = .3) + -->
-<!--   theme_classic() -->
-<!-- ``` -->
-
-<!-- #### number of SMS messages received each day -->
-
-<!-- ```{r} -->
-<!-- sms_total <- sms_android %>%  -->
-<!--   select(subid, date) %>%  -->
-<!--   full_join(sms_ios %>% select(subid, date)) %>%  -->
-<!--   mutate(date = date(date), -->
-<!--          subid = as.numeric(subid)) %>%  -->
-<!--   full_join(visit_dates, by = "subid") %>%  -->
-<!--   # truncate by start and end date -->
-<!--   filter(date >= start_study & date < end_study) -->
-<!-- ``` -->
-
-<!-- calculate total SMS per day -->
-<!-- ```{r} -->
-<!-- # total SMS per day per subid -->
-<!-- sms_total <- sms_total %>%  -->
-<!--   group_by(subid, date) %>%  -->
-<!--   summarise(num_sms = n()) %>%  -->
-<!--   ungroup()  -->
-<!-- ``` -->
-
-<!-- histogram -->
-<!-- ```{r} -->
-<!-- sms_total %>%  -->
-<!--   # bring outliers to fence -->
-<!--   mutate(num_sms = case_when(num_sms > 200 ~ 200, -->
-<!--                              TRUE ~ as.numeric(num_sms))) %>%  -->
-<!--   ggplot(aes(x = num_sms)) + -->
-<!--   geom_histogram(color = "black", fill = "dodgerblue4") + -->
-<!--   labs(y = "Frequency", x = "Number of daily SMS messages per participant", -->
-<!--        subtitle = "SMS - Number of observations (N = 169)") + -->
-<!--   geom_vline(aes(xintercept = mean(num_sms)), linetype = "dashed", size = .3) + -->
-<!--   theme_classic() -->
-<!-- ``` -->
-
-
-<!-- ### Voice logs -->
-
-<!-- #### proportion of study days with voice log data -->
-
-<!-- ```{r} -->
-<!-- voice_daily <- voice_android %>%  -->
-<!--   select(subid, date) %>%  -->
-<!--   full_join(voice_ios %>% select(subid, date = Date)) %>%  -->
-<!--   mutate(date = date(date), -->
-<!--          subid = as.numeric(subid)) %>%  -->
-<!--   group_by(subid, date) %>%  -->
-<!--   slice(1)  %>%  -->
-<!--   full_join(visit_dates, by = "subid") %>%  -->
-<!--   # truncate by start and end date -->
-<!--   filter(date >= start_study & date < end_study) -->
-<!-- ``` -->
-
-<!-- calculate proportion days with voice data -->
-<!-- ```{r} -->
-<!-- # days with voice data -->
-<!-- voice_daily <- voice_daily %>%  -->
-<!--   group_by(subid) %>%  -->
-<!--   summarise(days_voice = n()) %>%  -->
-<!--   ungroup() -->
-
-<!-- # days on study -->
-<!-- voice_daily <- visit_dates %>%  -->
-<!--   mutate(days_study = as.numeric(end_study - start_study)) %>%  -->
-<!--   full_join(voice_daily, by = "subid") %>%  -->
-<!--   mutate(days_voice = case_when(is.na(days_voice) ~ 0, -->
-<!--                                 TRUE ~ as.numeric(days_voice)), -->
-<!--          days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator (1 subid) -->
-<!--                                 TRUE ~ days_study)) -->
-<!-- ``` -->
-
-<!-- Histogram -->
-<!-- ```{r} -->
-<!-- mean_voice <- voice_daily %>%  -->
-<!--   summarise(proportion_days = days_voice/days_study) %>%  -->
-<!--   summarise(mean = mean(proportion_days, na.rm = TRUE)) -->
-
-<!-- voice_daily %>%  -->
-<!--   summarise(proportion_days = days_voice/days_study) %>%  -->
-<!--   ggplot(aes(x = proportion_days)) + -->
-<!--   geom_histogram(color = "black", fill = "dodgerblue4", binwidth = .05) + -->
-<!--   scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) + -->
-<!--   labs(y = "Frequency", x = "Proportion of study days with voice call data", -->
-<!--        subtitle = "Voice - Proportion of days with data (N = 169)") + -->
-<!--   geom_vline(aes(xintercept = mean_voice$mean), linetype = "dashed", size = .3) + -->
-<!--   theme_classic() -->
-<!-- ``` -->
-
-<!-- #### number of voice calls each day -->
-
-<!-- ```{r} -->
-<!-- voice_total <- voice_android %>%  -->
-<!--   select(subid, date) %>%  -->
-<!--   full_join(voice_ios %>% select(subid, date = Date)) %>%  -->
-<!--   mutate(date = date(date), -->
-<!--          subid = as.numeric(subid)) %>%  -->
-<!--   full_join(visit_dates, by = "subid") %>%  -->
-<!--   # truncate by start and end date -->
-<!--   filter(date >= start_study & date < end_study) -->
-<!-- ``` -->
-
-<!-- calculate total voice calls per day -->
-<!-- ```{r} -->
-<!-- # total voice calls per day per subid -->
-<!-- voice_total <- voice_total %>%  -->
-<!--   group_by(subid, date) %>%  -->
-<!--   summarise(num_voice = n()) %>%  -->
-<!--   ungroup()  -->
-<!-- ``` -->
-
-<!-- histogram -->
-<!-- ```{r} -->
-<!-- voice_total %>%  -->
-<!--   # bring outliers to fence -->
-<!--   mutate(num_voice = case_when(num_voice > 50 ~ 50, -->
-<!--                              TRUE ~ as.numeric(num_voice))) %>% -->
-<!--   ggplot(aes(x = num_voice)) + -->
-<!--   geom_histogram(color = "black", fill = "dodgerblue4") + -->
-<!--   labs(y = "Frequency", x = "Number of daily voice calls per participant", -->
-<!--        subtitle = "Voice - Voice calls per day (N = 169)") + -->
-<!--   geom_vline(aes(xintercept = mean(num_voice)), linetype = "dashed", size = .3) + -->
-<!--   theme_classic() -->
-<!-- ``` -->
-
-### GPS data
-
-#### proportion of study days with GPS data
-
-```{r}
-gps_daily <- gps %>% 
-  select(subid, time) %>% 
-  mutate(date = date(time)) %>% 
-  group_by(subid, date) %>% 
-  slice(1)  %>% 
-  full_join(visit_dates, by = "subid") %>% 
-  # truncate by start and end date
-  filter(date >= start_study & date < end_study)
-```
-
-calculate proportion days with gps data
-```{r}
-# days with gps data
-gps_daily <- gps_daily %>% 
-  group_by(subid) %>% 
-  summarise(days_gps = n()) %>% 
-  ungroup()
-
-# days on study
-gps_daily <- visit_dates %>% 
-  mutate(days_study = as.numeric(end_study - start_study)) %>% 
-  full_join(gps_daily, by = "subid") %>% 
-  mutate(days_gps = case_when(is.na(days_gps) ~ 0,
-                                TRUE ~ as.numeric(days_gps)),
-         days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator (1 subid)
-                                TRUE ~ days_study))
-```
-
-Histogram
-```{r}
-mean_gps <- gps_daily %>% 
-  summarise(proportion_days = days_gps/days_study) %>% 
-  summarise(mean = mean(proportion_days, na.rm = TRUE),
-            median = median(proportion_days, na.rm = TRUE))
-
-gps_daily %>% 
-  summarise(proportion_days = days_gps/days_study) %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#DBF8FF", binwidth = .05) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) +
-  labs(y = "Frequency", x = "Proportion of study days with GPS data",
-       subtitle = "GPS - Days with data (N = 169)") +
-  geom_vline(aes(xintercept = mean_gps$mean), size = .3) +
-  theme_classic()
-```
-
-
-<!-- #### number of GPS observations recorded each day -->
-
-<!-- ```{r} -->
-<!-- gps_total <- gps %>%  -->
-<!--   select(subid, time) %>%  -->
-<!--   mutate(date = date(time)) %>%  -->
-<!--   full_join(visit_dates, by = "subid") %>%  -->
-<!--   # truncate by start and end date -->
-<!--   filter(date >= start_study & date < end_study) -->
-<!-- ``` -->
-
-<!-- calculate total gps obs per day -->
-<!-- ```{r} -->
-<!-- # total gps obs per day per subid -->
-<!-- gps_total <- gps_total %>%  -->
-<!--   group_by(subid, date) %>%  -->
-<!--   summarise(num_gps = n()) %>%  -->
-<!--   ungroup()  -->
-<!-- ``` -->
-
-<!-- histogram -->
-<!-- ```{r} -->
-<!-- gps_total %>%  -->
-<!--   # bring outliers to fence -->
-<!--   mutate(num_gps = case_when(num_gps > 1000 ~ 1000, -->
-<!--                              TRUE ~ as.numeric(num_gps))) %>% -->
-<!--   ggplot(aes(x = num_gps)) + -->
-<!--   geom_histogram(color = "black", fill = "dodgerblue4") + -->
-<!--   labs(y = "Frequency", x = "Number of daily GPS observations per participant", -->
-<!--        subtitle = "GPS - GPS observations per day (N = 169)") + -->
-<!--   geom_vline(aes(xintercept = mean(num_gps)), linetype = "dashed", size = .3) + -->
-<!--   theme_classic() -->
-<!-- ``` -->
-
-
-#### Plot
-
-```{r warning = FALSE}
-audio_plot <- audio_days %>% 
-  summarise(proportion_days = days_audio/days_study) %>% 
-  mutate(measure = "Days with Audio Check-in") %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  facet_wrap(~ measure) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) +
-  labs(y = "Frequency", x = "Proportion of days") +
-  geom_vline(aes(xintercept = mean_audio$mean), linetype = "solid", size = .3) +
-  theme_classic() +
-  theme(text = element_text(family = "Times New Roman")) 
-
-ema_1_plot <- ema_days %>% 
-  summarise(proportion_days = days_ema/days_study) %>% 
-  mutate(measure = "Days with at least 1 Daily Survey") %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  facet_wrap(~ measure) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
-  labs(y = NULL, x = "Proportion of days") +
-  geom_vline(aes(xintercept = mean_ema_days$mean), linetype = "solid", size = .3) +
-  theme_classic() +
-  theme(text = element_text(family = "Times New Roman"),
-        axis.text.y=element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y=element_blank()) 
-
-ema_total_plot <- ema_total %>% 
-  summarise(proportion_ema = total_ema/(days_study * 4)) %>%
-  mutate(measure = "Total Daily Surveys Completed") %>% 
-  ggplot(aes(x = proportion_ema)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  facet_wrap(~ measure) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
-  labs(y = NULL, x = "Proportion of surveys") +
-  geom_vline(aes(xintercept = mean_ema_total$mean), linetype = "solid", size = .3) +
-  theme_classic() +
-  theme(text = element_text(family = "Times New Roman"),
-        axis.text.y=element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y=element_blank()) 
-
-gps_plot_prop <- gps_daily %>% 
-  summarise(proportion_days = days_gps/days_study) %>% 
-  mutate(measure = "Days with Location Data") %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#DBF8FF", binwidth = .05) +
-  facet_wrap(~ measure) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) +
-  labs(y = NULL, x = "Proportion of days") +
-  geom_vline(aes(xintercept = mean_gps$mean), linetype = "solid", size = .3) +
-  theme_classic() +
-  theme(text = element_text(family = "Times New Roman"),
-        axis.text.y=element_blank(),
-        axis.line.y = element_blank(),
-        axis.ticks.y=element_blank()) 
-
-final_compliance <- wrap_plots(audio_plot, ema_1_plot, ema_total_plot, gps_plot_prop, nrow = 1)
-final_compliance
-```
-
-save plot
-```{r}
-# ggsave(plot = final_compliance,  "~/Desktop/compliance.png", width = 8, height = 3, units = "in", device = "png",  dpi = 1000)
-```
-
-
+<br>
