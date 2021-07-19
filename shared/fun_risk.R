@@ -3,15 +3,13 @@ create_lapse_labels <- function() {
   
 }
 
-get_study_dates <- function(visits) {
-  # Returns a tibble with useful info about study dates for all participants.
-  #   All date and dttm variables are in America/Chicago
+get_study_dates <- function(filename) {
+  # Returns a tibble with study start and end dates as dttms in central time
+  # Also indicates who completed through followup_1
   # Inputs: 
-  #   visits is the visit dates file
-
+  #   filename/path to the visit_dates file in processed data
   
-  
-  visits <- visits %>% 
+  visits <- vroom::vroom(filename)  %>% 
     rename(study_start = start_study, study_end = end_study) %>% 
     mutate(followup_complete = !is.na(followup_1),
            study_start = as_datetime(study_start),
@@ -21,7 +19,7 @@ get_study_dates <- function(visits) {
     select(subid, study_start, study_end, followup_complete)
 
   
-  return(dates)
+  return(visits)
 }
 
 get_lapse_hours <- function(subid, study_start, study_end, ema_end) {
