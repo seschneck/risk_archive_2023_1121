@@ -3,44 +3,23 @@ create_lapse_labels <- function() {
   
 }
 
-get_study_dates <- function(ema, visits) {
+get_study_dates <- function(visits) {
   # Returns a tibble with useful info about study dates for all participants.
   #   All date and dttm variables are in America/Chicago
   # Inputs: 
-  #   ema is tibble with all ema responses (morning and later)
   #   visits is the visit dates file
 
   
-  # confirm numeric subids in ema and visits tibbles for later joining
-  if(!is.numeric(ema$subid)) {
-    ema <- ema %>% 
-      mutate(subid = as.numeric(subid))
-  }
-  if(!is.numeric(visits$subid)) {
-    visits <- visits %>% 
-      mutate(subid = as.numeric(subid))
-  }
-  
-  ema <- ema %>% 
-    rename(ema_start = start_date, ema_end = end_date) %>% 
-    group_by(subid) %>% 
-    arrange(ema_start) %>% 
-    slice(c(1, n())) %>% 
-    mutate(ema_start = min(ema_start),
-           ema_end = max(ema_end),
-           ema_start = with_tz(ema_start, tz = "America/Chicago"),
-           ema_end = with_tz(ema_end, tz = "America/Chicago")) %>% 
-    slice(1) %>% 
-    ungroup() %>% 
-    select(subid, ema_start, ema_end)
   
   visits <- visits %>% 
-    mutate(followup_complete = !is.na(followup_1)) %>% 
-    rename(study_start = start_study, study_end = end_study)
-  
-  dates <- visits %>% 
-    left_join(ema, by = "subid") %>% 
-    relocate(subid, study_start, study_end, ema_start, ema_end)
+    rename(study_start = start_study, study_end = end_study) %>% 
+    mutate(followup_complete = !is.na(followup_1),
+           study_start = as_datetime(study_start),
+           study_start = force_tz(study_start, tz = "America/Chicago"),
+           study_end = as_datetime(study_end),
+           study_end = force_tz(study_end, tz = "America/Chicago")) %>% 
+    select(subid, study_start, study_end, followup_complete)
+
   
   return(dates)
 }
