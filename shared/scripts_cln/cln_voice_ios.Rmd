@@ -64,6 +64,13 @@ options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
 
+Relative Paths
+```{r warning = FALSE}
+library(here)
+ 
+path_log <- "shared/notes"
+```
+
 
 ### Read in data 
 
@@ -279,6 +286,65 @@ logs_ios <- logs_ios %>%
   glimpse()
 ```
 
+#### Clean with cleaning log
+cleaning function
+```{r}
+clean_logs <- function(d, log){
+  # recode_one log entries
+  log_recode_one <- dplyr::filter(log, log_action == "recode_one")
+
+  for (i in seq_along(log_recode_one$index)){
+
+    log_subid <- pluck(log_recode_one, "subid", i)
+    log_id <- pluck(log_recode_one, "unique_id", i)
+    log_address <- pluck(log_recode_one, "address", i)
+    log_var_name <- pluck(log_recode_one, "var_name", i)
+    log_new_value <- pluck(log_recode_one, "new_value", i)
+    log_old_value <- pluck(log_recode_one, "old_value", i)
+
+    # pull out row id
+    row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      # match on subid, date, phone number, and old value
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(get(log_var_name) == log_old_value) %>%
+      dplyr::filter(ZUNIQUE_ID == log_id) %>%
+      dplyr::filter(ZADDRESS == log_address) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    
+    # check that only one matching data row
+    if (length(row_id) != 1) {
+      stop("Rows matching subid: ", log_subid, " does not equal 1")
+    }
+
+    # make change to rowid
+    if (is.numeric(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.numeric(log_new_value)
+    if (is_character(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.character(log_new_value)
+    if (is.POSIXt(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as_datetime(log_new_value)
+
+  }
+  
+  return(d)
+}
+```
+
+read in log and summarize
+```{r}
+log <- vroom::vroom(here(path_log, "log_voice_ios.csv"), col_types = cols()) %>%
+  rowid_to_column("index") %>%
+  glimpse()
+
+# view log actions
+table(log$log_action)
+```
+
+clean data
+```{r}
+logs_ios <- logs_ios %>%
+  clean_logs(., log) %>%
+  glimpse()
+```
 
 
 ### EDA
@@ -307,39 +373,7 @@ Variables with 1040 missing values are all due to csv files not having these var
 
 #### Dates
 
-Dates range from `r min(logs_ios$ZDATE)` to `r max(logs_ios$ZDATE)`
-
-FIX: 2 dates are out of study range (2024) - not sure why 
-```{r}
-logs_ios %>% 
-  arrange(desc(ZDATE)) %>% 
-  head(50)
-```
-
-Both are from same participant on their first log  
-```{r}
-logs_ios %>% 
-  arrange(desc(ZDATE)) %>% 
-  slice(1:2) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
-  scroll_box(width = "100%")
-```
-
-
-look at raw log entries - date incorrectly encoded (UTC begins with 7 instead of 5) so no way to recover actual date.
-```{r message = FALSE}
-logs_163 <- read_sql("163")
-
-logs_163 %>% 
-  filter(log_file == "163_Voice_1.sql") %>% 
-  arrange(desc(ZDATE)) %>% 
-  select(subid, ZDATE, everything()) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(height = "500px", width = "100%")
-```
-
+Dates range from `r min(logs_ios$ZDATE, na.rm = TRUE)` to `r max(logs_ios$ZDATE, na.rm = TRUE)`
 
 
 #### Phone number (ZADDRESS)

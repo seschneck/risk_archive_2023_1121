@@ -103,31 +103,24 @@ options(tibble.width = Inf)
 ## Voice IOS logs
 
 ### Read in Data
-Manually specifying column types because for some reason it was reading ZNAME in as 
-logical and losing the little data available
+Read in voice IOS data and filter down to variables for meta
 ```{r}
-voice_ios <- read_csv(file.path(path_shared, "voice_ios.csv"), col_types = "iTiicicniiccncccccccTT") %>% 
+voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols()) %>% 
+  select(subid, zdate, zaddress, zduration, zanswered, zoriginated, zcalltype, zunique_id) %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
 
-FIX: 2 dates with year 2024 - change to NA and filter out
+Filter out log entries with missing dates
 ```{r}
 voice_ios %>% 
-  arrange(desc(zdate)) %>% 
-  head(5)  %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("striped", "condensed")) %>% 
-  row_spec(1:2, color = "red") %>% 
-  scroll_box(width = "100%")
-
+  filter(is.na(zdate))
 
 voice_ios <- voice_ios %>% 
-  mutate(zdate = case_when(date(zdate) == "2024-11-26" ~ as_datetime(NA),
-                           TRUE ~ zdate)) %>% 
   filter(!is.na(zdate))
 ```
+
 
 FIX: invalid numbers with semicolon     
 ```{r}
@@ -150,24 +143,16 @@ voice_ios <- voice_ios %>%
                               TRUE ~ zaddress))
 ```
 
-FIX: Replace RecentsNumberLocationNotFound with NA in location
+
+
+### Filter out duplicates
+
+Duplicates remain in dataset due to changes in read status. Not using this variable in meta so 
+removing identical entries.
+
 ```{r}
 voice_ios <- voice_ios %>% 
-  mutate(zlocation = case_when(zlocation == "<<RecentsNumberLocationNotFound>>"~ as.character(NA),
-                               TRUE ~ zlocation)) %>% 
-  glimpse()
-```
-
-### Filter out duplicate unique IDS 
-Duplicates due to changes in read status between log downloads   
-Will keep first occurrence of each log entry
-
-```{r}
-voice_ios <- voice_ios %>%
-  group_by(zunique_id, zdate) %>%
-  arrange(zdate) %>%
-  slice(1) %>%
-  ungroup() %>%
+  distinct() %>% 
   glimpse()
 ```
 
