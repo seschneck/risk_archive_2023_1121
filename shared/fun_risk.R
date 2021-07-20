@@ -1,24 +1,48 @@
+library(tidyverse)
+library(lubridate)
+library(vroom)
+
 create_lapse_labels <- function() {
   
   
 }
 
-get_study_dates <- function(filename) {
+get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Returns a tibble with study start and end dates as dttms in central time
-  # Also indicates who completed through followup_1
+  # Also indicates who completed through followup_1 and time of last completed ema
   # Inputs: 
-  #   filename/path to the visit_dates file in processed data
+  #   filename/path for processed visit_dates, and morning and later ema in processed data
   
-  visits <- vroom::vroom(filename)  %>% 
+  visits <- vroom(filename_visits)  %>% 
     rename(study_start = start_study, study_end = end_study) %>% 
     mutate(followup_complete = !is.na(followup_1),
            study_start = as_datetime(study_start),
            study_start = force_tz(study_start, tz = "America/Chicago"),
            study_end = as_datetime(study_end),
-           study_end = force_tz(study_end, tz = "America/Chicago")) %>% 
+           study_end = force_tz(study_end, tz = "America/Chicago"),
+           subid = as.numeric(subid)) %>% 
     select(subid, study_start, study_end, followup_complete)
 
+  emam <- vroom(filename_emam) %>% 
+    rename_with(~ str_replace(.x, "emam_", "ema_"))
   
+  emal <- vroom(filename_emal)%>% 
+    rename_with(~ str_replace(.x, "emal_", "ema_"))
+  
+  ema <- bind_rows(emam, emal) %>% 
+    filter(finished == 1) %>% 
+    mutate(subid = as.numeric(subid)) %>% 
+    select(subid, ema_end = start_date) %>% 
+    mutate(ema_end = with_tz(ema_end, tzone = "America/Chicago")) %>% # for easier checking
+    right_join((visits %>% select(subid, study_end)), by = "subid") %>% 
+    filter(ema_end <= study_end + days(2)) %>%   # only consider emas within two days as valid
+    group_by(subid) %>% 
+    arrange(desc(ema_end)) %>% 
+    slice(1)
+      
+    visits <- visits %>% 
+      left_join((ema %>% select(subid, ema_end)), by = "subid")
+
   return(visits)
 }
 
