@@ -6,7 +6,6 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
-    code_folding: show
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
@@ -15,12 +14,10 @@ knit: (function(input, ...) {
   })
 ---
 
-### Set up Environment
+### Set Up Environment
 
 Absolute paths
 ```{r, paths}
-
-# path_admin <- "P:/administration"
 path_lab_support <- "P:/toolboxes/lab_support"
 path_processed <- "P:/studydata/risk/data_processed/shared"
 path_raw <- "P:/studydata/risk/data_raw"
@@ -36,29 +33,54 @@ conflict_prefer("select", "dplyr")
 library(here)  # establish project directory consistently as working directory
 ```
 
+
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 
 # for data wrangling
-library(tidyverse)  # always need this
+library(tidyverse)
 library(vroom)
 library(janitor)
+library(lubridate)
 ```
+
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
 source(here(path_lab_support, "print_kbl.R"))
+source(here("shared/fun_risk.R"))
 ```
 
 
-### Get Raw Data
+### Study Dates/Times
 
+We will not predict lapses outside of study participation dates. Need info on:
+
+* Start and end dates for participation
+* Who completed followup_1 so that they have context
+* Time of the last EMA so we can know the definite window for no_lapse sampling.
+We can assume no_lapse sampling starts with study_start but it end with the earlier
+of study_end or ema_end (time of the last ema that we trust has valid data)
+
+
+```{r}
+dates <- get_study_dates(here(path_processed, "visit_dates.csv"),
+                         here(path_processed, "ema_morning.csv"),
+                         here(path_processed, "ema_later.csv")) %>% 
+  filter(followup_complete) %>% 
+  select(-followup_complete) %>% 
+  glimpse()
+
+dates %>% print_kbl()
+```
+
+
+### EMA lapses
 
 EMA lapse reports
-```{r}
+```{r, message=FALSE}
 emam <- vroom(here(path_processed, "ema_morning.csv")) %>% 
   rename_with(~ str_replace(.x, "emam_", "ema_"))
-
 
 emal <- vroom(here(path_processed, "ema_later.csv"))%>% 
   rename_with(~ str_replace(.x, "emal_", "ema_"))
@@ -66,10 +88,33 @@ emal <- vroom(here(path_processed, "ema_later.csv"))%>%
 ema <- bind_rows(emam, emal) %>% 
   select(subid, start_date, end_date, utc, finished,
          contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
-  filter(ema_1 == "Yes")
+  mutate(subid = as.numeric(subid)) %>% 
+  arrange(subid, start_date) %>% 
+  filter(ema_1 == "Yes") %>% 
+  glimpse()
+```
 
+#### EDA for EMA lapses
+
+KENDRA TO DO
+
+* Review notes from data cleaning for issues with remaining lapses
+* Confirm with Sarah that all EMA lapses (even cleaned are in America/Chicago)
+* Discuss with Sarah finished == 0, some with and some without lapse info
+* May need some more EDA before we remove variables in next code chunk
+
+
+#### Final formating
+```{r}
+ema <- ema %>% 
+  filter(!(finished == 0 & is.na(ema_1_1) & is.na(ema_1_2))) %>% # removed unfinished with no lapse info
+  select(-start_date, -end_date, -utc, -finished, -ema_1) %>% 
+  mutate(source = "ema")
+  
 ema %>% print_kbl()
 ```
+
+### Interview lapses
 
 Interview lapse reports
 
@@ -77,47 +122,43 @@ Interview lapse reports
 * Times indicated only when clearly reported by participant based on notes
 * Source is both staff and EDA by Sarah.  Dropped this variable.
 * Retained notes to check any suspect reports
-```{r}
+```{r, message=FALSE}
 interview <- vroom(here(path_raw, "additional_lapses.csv")) %>% 
-  select(-report_date, -ema_1_5, -time_zone, -source)
+  select(-report_date, -ema_1, -ema_1_5, -time_zone) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  arrange(subid) %>% 
+  glimpse()
+```
 
+#### EDA for inteview lapses
+
+KENDRA to do
+
+#### Final formating
+```{r}
+interview <- interview %>% 
+  select(-source, -notes) %>% 
+  mutate(source = "interview")  # use source to mean ema vs. interview
+    
 interview %>% print_kbl()
 ```
 
-### EDA for lapses
 
-Confirm with Sarah that all EMA lapses (even cleaned are in America/Chicago)
-Discuss with Sarah finished == 0, some with and some without lapse info
+### Merge and Process Lapses
 
-#### EMA
-
-KENDRA TO DO
-
-
-#### Interview
-
-KENDRA TO DO
-
-### Create lapse inputs
-
-#### Make lapses
-Merge lapse reports
-
-* Deleted EMA reports that were from unfinished surveys and had NO info about lapse onset
+Merge
 ```{r}
-# KENDRA - I am deleted unfinished reports with no start time.
-# Not sure this will be our final decision but here for now
-ema <- ema %>% 
-  filter(!(finished == 0 & is.na(ema_1_1) & is.na(ema_1_2))) %>% 
-  select(-start_date, -end_date, -utc, -finished, -ema_1, -ema_1_5)
-         
 lapses <- interview %>% 
-  select(subid, ema_1_1, ema_1_2, ema_1_3, ema_1_4) %>% 
   bind_rows(ema)
 ```
 
+Process timestamp of lapse
 
-Timestamp lapses
+* Calculate start_lapse and end_lapse as dttm when completed timestamp info available
+* retain character date and time stamps as check and also for lapses with incomplete info
+
+KENDRA - you will see that we seem to not have any lapses from a large number (2/3)
+of participants.  Check this carefully.
 ```{r}
 # To recode start and end times from EMA
 recode_military <- function (time_12hr) {
@@ -151,28 +192,168 @@ recode_military <- function (time_12hr) {
 }
 
 lapses <- lapses %>% 
-  mutate(start_time = recode_military(ema_1_2),
-         end_time = recode_military(ema_1_4),
-         start_lapse = str_c(ema_1_1, " ", start_time),
-         end_lapse = str_c(ema_1_3, " ", end_time),
-         start_lapse = as_datetime(start_lapse, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
-         end_lapse = as_datetime(end_lapse, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
-         duration = difftime(end_lapse, start_lapse, unit = "hour"))
+  mutate(lapse_start_time = recode_military(ema_1_2),
+         lapse_end_time = recode_military(ema_1_4),
+         lapse_start = str_c(ema_1_1, " ", lapse_start_time),
+         lapse_end = str_c(ema_1_3, " ", lapse_end_time),
+         lapse_start = as_datetime(lapse_start, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         lapse_end = as_datetime(lapse_end, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         duration = difftime(lapse_end, lapse_start, unit = "hour")) %>% 
+  select(subid, lapse_start_date = ema_1_1, lapse_start_time, lapse_start, lapse_end_date = ema_1_3, lapse_end_time, lapse_end, duration, source)
+
+length(unique(lapses$subid)) # 98 participants with some lapses (valid and invalid)
 ```
 
-Parse ill-formed lapses
+
+Now we:
+
+* Join lapses with study dates
+* `inner_join()` so we only have subids with lapses and with followup_complete
+* Filter out complete lapses that are outside of study participation dates
+* But retain lapses with missing partial timestamps b/c will be useful for excluding for no_lapse labels
 ```{r}
-
-```
-
-#### EDA lapses
-
-```{r}
-hist(as.numeric(lapses$duration))
-
-lapses %>% tabyl(duration)
+lapses <- lapses %>% 
+  inner_join(dates, by = "subid") %>% 
+  glimpse()  # 1371 lapses
 
 lapses <- lapses %>% 
-  mutate(start_lapse = if_else(duration < 0, NA_POSIXct_, start_lapse))
+  filter(lapse_start >= study_start | is.na(lapse_start)) %>% 
+  filter((lapse_end <= (study_end + days(1)) | is.na(lapse_end))) %>% # + days(1) sets time to midnight on study_end
+  select(-study_start, -study_end, ema_end) %>%   # can get this back later from dates or with get_study_dates()
+  arrange(subid, lapse_start) 
+
+nrow(lapses)  # 1357 lapses
+length(unique(lapses$subid))  # from 88 participants
 ```
+
+
+### Exclude Ill-formed Lapses
+
+We will track these because we want to exclude these lapses from our final list 
+of lapse observations.  We want an accurate label for positive class.  We will also 
+exclude these dates/times from samples of no-lapse class observations so that they 
+are as accurate as possible.
+
+
+* Extract lapses have no start time and date
+```{r}
+lapses <- lapses %>% 
+  mutate(exclude = FALSE,
+         exclude = if_else(is.na(lapse_start), TRUE, exclude), # no definitive start time
+         exclude = if_else(duration < 0, TRUE, exclude, exclude), # negative lapse duration
+         exclude = if_else(duration > 24, TRUE, exclude, exclude)) # clear break in duration between 19 - 25 hours
+```
+
+#### EDA
+
+KENDRA - check `lapses` more carefully.  Should any other lapses be excluded.  
+
+We also need to decide definitely what to do with lapses that have start but no end time.
+
+* Do we retain the two lapses below with start but no end time as lapses
+* Check EMA cleaning log to see why we lost the end times
+* What surrounding hours do we later exclude from no_lapse sampling (assume 24 hour lapse?)?
+* Let's discuss
+
+```{r}
+lapses %>% 
+  filter(is.na(lapse_end)) %>% 
+  print_kbl(height = NULL)
+```
+
+Valid vs. invalid lapses
+```{r}
+lapses %>% tabyl(exclude)   # 1311 lapses; 46 excluded
+```
+
+Unique participants
+```{r}
+lapses %>% 
+  filter(!exclude) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  length()    # valid lapses from 86 participants
+```
+
+View valid lapses
+```{r}
+lapses %>% 
+  filter(!exclude) %>% 
+  print_kbl()
+```
+
+Lapses per participant.  We need to decide what to do with overlapping lapses
+
+* See below
+* And do we retain participants who basically drink all the time?  Lets review
+once we combine overlapping lapses to see total time drinking
+```{r}
+lapses %>% 
+  filter(!exclude) %>% 
+  tabyl(subid) 
+
+lapses %>% 
+  filter(!exclude) %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  pull(n) %>% 
+  hist()
+
+lapses %>% 
+  filter(!exclude) %>% 
+  tabyl(subid) %>% 
+  pull(n) %>% 
+  hist(main = "Number of lapses", breaks = 90)
+
+# subid with many many lapses
+lapses %>% 
+  filter(!exclude) %>% 
+  tabyl(subid) %>% 
+  filter(n > 80) %>% 
+  pull(subid)
+
+lapses %>% 
+  filter(!exclude,
+         subid == 104 | subid == 128) %>% 
+  arrange(subid, lapse_start) %>% 
+  print_kbl()
+```
+
+
+Duration of lapses
+```{r}
+lapses %>% 
+  filter(!exclude) %>% 
+  pull(duration) %>% 
+  as.numeric() %>% 
+  hist(main = "Duration (hours)", breaks = 24)
+```
+
+
+Hour of Lapse Onset
+```{r}
+lapses %>% 
+  mutate(lapse_start_hour = str_split_fixed(lapse_start_time, ":", 2)[,1]) %>% 
+  pull(lapse_start_hour) %>% 
+  as.numeric() %>% 
+  hist(main = "Lapse Onset (hour)", breaks = 24)
+```
+
+
+Excluded Lapses
+```{r}
+lapses %>% 
+  filter(exclude) %>% 
+  print_kbl()
+```
+
+
+
+### Make labels
+
+
+
+
+create_labels
+needs, lapses, excluded, and dates as arguments
 
