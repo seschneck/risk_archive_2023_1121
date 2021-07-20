@@ -173,16 +173,6 @@ all_logs <- map_df(sql_subids$subid, ~read_sql(.)) %>%
 ```
 
 
-#### Remove duplicates
-```{r}
-all_logs <- all_logs %>% 
-  # don't match on log varaibles or variables that were new during study and not on all log versions
-  distinct(across(-c(log_file, created, modified, ck_sync_state, ck_record_id,
-                     ck_record_change_tag, destination_caller_id, sr_ck_sync_state,
-                     is_corrupt, sort_id)), .keep_all = TRUE) %>% 
-  glimpse()
-```
-
 
 #### Format date (UTC)
 
@@ -221,6 +211,17 @@ all_logs <- all_logs %>%
 
 
 <br>
+
+#### Remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  # don't match on log varaibles or variables that were new during study and not on all log versions
+  distinct(across(-c(log_file, created, modified, ck_sync_state, ck_record_id,
+                     ck_record_change_tag, destination_caller_id, sr_ck_sync_state,
+                     is_corrupt, sort_id)), .keep_all = TRUE) %>% 
+  glimpse()
+```
+
 
 
 

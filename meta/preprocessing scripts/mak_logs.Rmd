@@ -157,6 +157,8 @@ voice_ios <- voice_ios %>%
   glimpse()
 ```
 
+<br>
+
 
 ## Voice Android logs
 
@@ -201,46 +203,159 @@ voice_android <- voice_android %>%
 ```
 
 
+<br>
 
+## Join voice logs
+
+### Common voice log variables relevant to meta project
+
+- subid - participant identifier   
+- date - date and time of log entry    
+- number - raw phone number of other party  
+- duration - duration of call    
+- presentation - whether number was available, or blocked/unknown    
+- originated (incoming or outgoing)  
+- answered  
+- call_type - phone, facetime audio, facetime video
+
+
+### tidy android variables for merge
+```{r}
+voice_android %>% 
+  glimpse()
+```
+
+Create new variables to match IOS
+```{r}
+voice_android <- voice_android %>% 
+  rename(call_duration = duration) %>% 
+  mutate(call_originated = case_when( type == "Missed" ~ "Incoming",
+                                 type == "Voicemail" ~ "Incoming",
+                                 type == "Rejected" ~ "Incoming",
+                                 type == "Blocked" ~ "Incoming",
+                                 type == "Answered Externally" ~ "Incoming",
+                                 TRUE ~ type),
+         call_answered = case_when(type == "Incoming" ~ "Answered",
+                              is.na(type) ~ as.character(NA),
+                              TRUE ~ "Not Answered"),
+         call_type = "Phone") %>% 
+  glimpse()
+```
+
+
+### tidy ios variables for merge
+```{r}
+voice_ios %>% 
+  glimpse()
+
+voice_ios <- voice_ios %>% 
+  select(c(subid,
+           date = zdate,
+           call_answered = zanswered,
+           call_originated = zoriginated,
+           call_type = zcalltype,
+           call_duration = zduration,
+           number = zaddress)) %>% 
+  glimpse()
+```
+
+
+### Join
+join voice logs
+```{r}
+logs_voice <- voice_android %>% 
+  full_join(voice_ios,  by = c("subid", "number", "call_duration", "date", "call_originated", 
+                               "call_answered", "call_type")) %>% 
+  # add new variable to mark these are voice logs
+  mutate(log_type = "voice") %>% 
+  select(-type) %>% 
+  glimpse()
+```
+
+<br>
 
 ## SMS IOS logs
 
 ### Read in data
 ```{r}
-sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols()) %>% 
-  select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, is_prepared, chat_id) %>% 
+sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols()) %>%
+  # temporarily keeping text to filter out duplicates
+  select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, is_prepared, 
+  text, chat_id) %>% 
   glimpse()
 ```
 
-
-
 ### Filter out duplicates
 
-Remove duplicates
+FIX: Handle duplicates
 ```{r}
+dups <- sms_ios %>% 
+  add_count(subid, phone_number, date, text, is_delivered, is_from_me, is_sent, is_read, 
+            chat_id) %>% 
+  filter(n > 1) 
 
+dups %>% 
+  arrange(subid, chat_id, phone_number, date) %>%
+  tail(n = 500) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
 
 ### Group Messages
 
-Identify group messages - more than one number associated with a subid/chat_id group
+Identify group messages by more than one number associated with a subid/chat_id pair    
 
-
-FIX: Random checks seem to confirm these are group messages - need to do a deeper dive into them though
+Outgoing text messages have NA as the number if sent to more than one person, if a direct message number is recipient of sent message.   
 
 ```{r}
-sms_ios %>% 
+ios_groups <- sms_ios %>% 
+  filter(!is.na(chat_id)) %>% 
   group_by(subid, chat_id, phone_number) %>% 
   slice(1) %>% 
   group_by(subid, chat_id) %>% 
-  summarise(n = n()) %>% 
+  summarise(n = n(), .groups = "drop") %>% 
   arrange(desc(n)) %>% 
-  filter(n > 1) %>% 
+  filter(n > 1)  
+
+ios_groups %>%  
   print(n = Inf)
 ```
 
+
+`r nrow(ios_groups)` group chats identified.    
+
+Add a group variable
+```{r}
+ios_groups <- ios_groups %>%
+  mutate(is_group_message = 1)
+
+
+sms_ios <- sms_ios %>% 
+  left_join(ios_groups %>% select(-n), by = c("subid", "chat_id")) %>% 
+  mutate(is_group_message = case_when(is.na(is_group_message) ~ 0,
+                                      TRUE ~ is_group_message)) %>% 
+  glimpse()
+```
+
+check new variable
+```{r}
+table(sms_ios$is_group_message)
+```
+
+
+FIX: Check all chat_ids with NA values for any signs of group messages (i.e., outgoing messages to NA)    
+STILL NEED TO HANDLE
+```{r}
+sms_ios %>% 
+  filter(is.na(chat_id)) %>% 
+  filter(is.na(phone_number))
+```
+
+
+<br>
 
 
 ## SMS Android logs
@@ -252,13 +367,83 @@ sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types
   glimpse()
 ```
 
-### Clean errors identified in clean script EDA
+### Check for Duplicates 
 
-FIX: Handle numbers for group messages - default is many numbers separated by ~ (only outgoing messages?)
+### Group Messages
+
+FIX: Handle group messages - default is many numbers separated by ~ (only outgoing messages?)
 ```{r}
 
 ```
 
+<br>
+
+## Join SMS variables
+
+### Common voice log variables relevant to meta project  
+
+read = yes if sent or read status on incoming message  
+failed = yes if outgoing message not delivered
+message_type = outgoing if from_me else incoming
+group_message = yes if group message
+
+
+### tidy android variables for merge
+```{r}
+sms_android <- sms_android %>% 
+  rename(number = address,
+         message_read = read) %>% 
+  mutate(message_failed = if_else(type == "failed", "yes", "no"),
+         message_type = case_when(type == "sent" ~ "outgoing",
+                                  type == "draft" ~ "outgoing",
+                                  type == "failed" ~ "outgoing",
+                                  type == "inbox" ~ "incoming")) %>% 
+  select(-c(type)) %>% 
+  glimpse()
+```
+
+
+### tidy IOS variables for merge
+
+FIX: Will need to check all these new variables with extensive EDA to make sure they are accurate  
+
+
+```{r}
+sms_ios <- sms_ios %>% 
+  rename(number = phone_number) %>% 
+  mutate(message_read = case_when(is_read == 1 ~ "yes",
+                               is_from_me == 1 ~ "yes",
+                               TRUE ~ "no"),
+         message_failed = if_else(is_sent == 0, "yes", "no"),
+         message_type = case_when(is_sent == 1 ~ "outgoing",
+                                  is_from_me == 1 ~ "outgoing",
+                                  TRUE ~ "incoming")) %>% 
+  select(-c(is_delivered, is_from_me, is_sent, is_read, is_prepared, chat_id, text)) %>% 
+  glimpse()
+```
+
+
+### Join
+```{r}
+logs_sms <- sms_android %>%
+  full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", "message_type")) %>%
+  # add new variable to mark these are sms logs
+  mutate(log_type = "sms") %>%
+  glimpse()
+```
+
+<br>
+
+## Join SMS and Voice logs
+
+```{r}
+logs <- logs_voice %>%
+  full_join(logs_sms, by = c("subid", "date", "number", "log_type")) %>%
+  glimpse()
+```
+
+
+<br>
 
 ## Contacts
 
@@ -288,7 +473,7 @@ contacts <- contacts %>%
   filter(!is.na(phone_number))
 ```
 
-FIX: Duplicate entries for numbers
+FIX: Handle duplicate numbers
 ```{r}
 # Duplicate subid/phone number pairs
 duplicates <- contacts %>%
@@ -461,103 +646,14 @@ duplicates %>%
 
 
 
-## Join voice logs
-
-### Common voice log variables relevant to meta project
-
-- subid - participant identifier   
-- date - date and time of log entry    
-- number - raw phone number of other party  
-- duration - duration of call    
-- presentation - whether number was available, or blocked/unknown    
-- originated (incoming or outgoing)  
-- answered  
-- call_type - phone, facetime audio, facetime video
-
-
-### tidy android variables for merge
-```{r}
-voice_android %>% 
-  glimpse()
-```
-
-Create new variables to match IOS
-```{r}
-voice_android <- voice_android %>% 
-  mutate(originated = case_when( type == "Missed" ~ "Incoming",
-                                 type == "Voicemail" ~ "Incoming",
-                                 type == "Rejected" ~ "Incoming",
-                                 type == "Blocked" ~ "Incoming",
-                                 type == "Answered Externally" ~ "Incoming",
-                                 TRUE ~ type),
-         answered = case_when(type == "Incoming" ~ "Answered",
-                              is.na(type) ~ as.character(NA),
-                              TRUE ~ "Not Answered"),
-         call_type = "Phone") %>% 
-  glimpse()
-```
-
-
-### tidy ios variables for merge
-```{r}
-voice_ios %>% 
-  glimpse()
-
-voice_ios <- voice_ios %>% 
-  select(c(subid,
-           date = zdate,
-           answered = zanswered,
-           originated = zoriginated,
-           call_type = zcalltype,
-           duration = zduration,
-           number = zaddress)) %>% 
-  glimpse()
-```
-
-
-### Join
-join voice logs
-```{r}
-logs_voice <- voice_android %>% 
-  full_join(voice_ios,  by = c("subid", "number", "duration", "date", "originated", 
-                               "answered", "call_type")) %>% 
-  # add new variable to mark these are voice logs
-  mutate(log_type = "voice") %>% 
-  glimpse()
-```
 
 <br>
-
-
-## Join SMS variables
-
-### Common voice log variables relevant to meta project
-
-### tidy android variables for merge
-
-### tidy IOS variables for merge
-
-### Join
-```{r}
-# logs_sms <- sms_android %>% 
-#   full_join(sms_ios, by = c()) %>% 
-#   # add new variable to mark these are sms logs
-#   mutate(log_type = "sms") %>% 
-#   glimpse()
-# 
-# join SMS and voice logs
-logs <- logs_voice 
-# %>% 
-#   full_join(logs_sms, by = c()) %>% 
-#   glimpse()
-```
-
 
 
 ## Filter down to analysis sample (N = 154)
 Read in visit dates
 ```{r}
-visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols()) 
 
 study_sample <- visit_dates %>% 
   filter(!is.na(followup_1)) %>% 
@@ -581,7 +677,7 @@ contacts <- contacts %>%
 
 Clean numbers with function
 ```{r}
-logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = TRUE)
+logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
 ```
 
 ### Check unknown patterns for matches to contacts   
@@ -623,6 +719,7 @@ contacts_7_digits %>%
 Join numbers with log entries on number and subid and replace formatted number with contact number
 ```{r}
 logs <- logs %>% 
+  mutate(subid = as.numeric(subid)) %>% 
   left_join(contacts_7_digits %>% 
               select(subid, contact_number = phone_number, number = pattern), 
             by = c("subid", "number")) %>% 
@@ -663,8 +760,7 @@ glimpse(contacts)
 logs <- logs %>% 
   left_join(contacts %>% 
               select(-utc) %>% 
-              mutate(phone_number = as.character(phone_number),
-                     subid = as.character(subid)), 
+              mutate(phone_number = as.character(phone_number)), 
               by = c("subid", "number_formatted" = "phone_number")) %>% 
   glimpse()
 ```
@@ -682,20 +778,6 @@ logs %>%
 ```
 
 FIX: Remove street address, city, and state?
-
-
-contact name doesn't seem to be related to context variables/known contacts
-```{r}
-logs %>% 
-  filter(is.na(contact_name)) %>% 
-  tabyl(contact_type)
-
-logs %>% 
-  filter(!is.na(contact_name)) %>% 
-  tabyl(contact_type)
-```
-
-
 
 
 ## Write csv
