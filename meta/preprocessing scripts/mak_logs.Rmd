@@ -147,8 +147,9 @@ voice_ios <- voice_ios %>%
 
 ### Filter out duplicates
 
-Duplicates remain in dataset due to changes in read status. Not using this variable in meta so 
-removing identical entries.
+`r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to changes in read status. Not using this variable in meta so these are identical observations.     
+
+Remove duplicates
 
 ```{r}
 voice_ios <- voice_ios %>% 
@@ -161,22 +162,12 @@ voice_ios <- voice_ios %>%
 
 ### Read in data
 ```{r}
-voice_android <- read_csv(file.path(path_shared, "voice_android.csv"), col_types = "icnTccccTT") %>% 
+voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_types = cols()) %>% 
+  select(subid, number, duration, date, type, presentation) %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
-
-FIX: presentation value for blocked and unknown numbers    
-11 entries indicated number was shown when it was not - presentation should 3 for -1 
-numbers since the number was unknown by the network and 2 for -2 numbers since it was 
-blocked.
-```{r}
-voice_android <- voice_android %>% 
-  mutate(presentation = case_when(number == "-1" & presentation == "Displayed" ~ "Unknown",
-                                  number == "-2" & presentation == "Displayed" ~ "Blocked",
-                                  TRUE ~ as.character(presentation)))
-```
 
 FIX: invalid number with semicolon     
 ```{r}
@@ -209,14 +200,6 @@ voice_android <- voice_android %>%
                           TRUE ~ as.character(type)))
 ```
 
-FIX: Recode all blocked (-2) and unknown (-1) numbers to NA  
--1 = unknown number by network; -2 = blocked by user; changing to NA to reflect unknown 
-number; presentation variable provides this information as to whether call was blocked or unknown.
-```{r}
-voice_android <- voice_android %>% 
-  mutate(number = case_when(number == "-1" | number == "-2" ~ as.character(NA),
-                            TRUE ~ number))
-```
 
 
 
@@ -231,6 +214,11 @@ voice_android <- voice_android %>%
 
 ### Clean errors identified in clean script EDA
 
+FIX: Label #'s for group messages as group (default is NA)
+```{r}
+
+```
+
 
 ## SMS Android logs
 
@@ -240,6 +228,11 @@ voice_android <- voice_android %>%
 ```
 
 ### Clean errors identified in clean script EDA
+
+FIX: Label #'s for group messages as group (default is many numbers separated by ~)
+```{r}
+
+```
 
 
 ## Contacts
@@ -252,9 +245,9 @@ contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = "iccccc
 
 ### Clean errors identified in clean script EDA
 
-FIX: Recode unpleasant/mixed response for "How would you describe your typical experience 
+FIX: Invalid unpleasant/mixed response for "How would you describe your typical experience 
 with this person?"   
-Recoding as mixed for now - discuss with John
+Recode as mixed  
 ```{r}
 contacts <- contacts %>% 
   mutate(contact_experience = case_when(contact_experience == "Unpleasant/mixed" ~ "Mixed",
@@ -450,7 +443,6 @@ duplicates %>%
 - subid - participant identifier   
 - date - date and time of log entry    
 - number - raw phone number of other party  
-- contact_name   
 - duration - duration of call    
 - presentation - whether number was available, or blocked/unknown    
 - originated (incoming or outgoing)  
@@ -477,8 +469,6 @@ voice_android <- voice_android %>%
                               is.na(type) ~ as.character(NA),
                               TRUE ~ "Not Answered"),
          call_type = "Phone") %>% 
-  # remove unused variables
-  select(-c(log_file, created, modified, type, presentation)) %>% 
   glimpse()
 ```
 
@@ -495,7 +485,6 @@ voice_ios <- voice_ios %>%
            originated = zoriginated,
            call_type = zcalltype,
            duration = zduration,
-           contact_name = zname,
            number = zaddress)) %>% 
   glimpse()
 ```
@@ -505,8 +494,8 @@ voice_ios <- voice_ios %>%
 join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
-  full_join(voice_ios,  by = c("subid", "number", "duration", "date", "contact_name", 
-                               "originated", "answered", "call_type")) %>% 
+  full_join(voice_ios,  by = c("subid", "number", "duration", "date", "originated", 
+                               "answered", "call_type")) %>% 
   # add new variable to mark these are voice logs
   mutate(log_type = "voice") %>% 
   glimpse()
@@ -572,10 +561,7 @@ logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = TR
 
 ### Check unknown patterns for matches to contacts   
 
-FIX: How to handle group messages?
-```{r}
 
-```
 
 ### Pull area codes for 7 digit numbers from contacts
 ```{r message = FALSE}

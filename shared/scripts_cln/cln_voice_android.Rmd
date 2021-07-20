@@ -62,6 +62,13 @@ library(XML)
 library(xml2)
 ```
 
+Relative Paths
+```{r warning = FALSE}
+library(here)
+ 
+path_log <- "shared/notes"
+```
+
 
 ### Android Voice Logs (XML) 
 
@@ -182,6 +189,91 @@ all_logs %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
+#### Clean with cleaning log
+cleaning function
+```{r}
+clean_logs <- function(d, log){
+  # recode_one log entries
+  log_recode_one <- dplyr::filter(log, log_action == "recode_one")
+
+  for (i in seq_along(log_recode_one$index)){
+
+    log_subid <- pluck(log_recode_one, "subid", i)
+    log_date <- pluck(log_recode_one, "date", i)
+    log_number <- pluck(log_recode_one, "number", i)
+    log_var_name <- pluck(log_recode_one, "var_name", i)
+    log_new_value <- pluck(log_recode_one, "new_value", i)
+    log_old_value <- pluck(log_recode_one, "old_value", i)
+
+    # pull out row id
+    row_id <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      # match on subid, date, phone number, and old value
+      dplyr::filter(subid == log_subid) %>%
+      dplyr::filter(get(log_var_name) == log_old_value) %>%
+      dplyr::filter(date == log_date) %>%
+      dplyr::filter(number == log_number) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+    
+    # check that only one matching data row
+    if (length(row_id) != 1) {
+      stop("Rows matching subid: ", log_subid, " does not equal 1")
+    }
+
+    # make change to rowid
+    if (is.numeric(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.numeric(log_new_value)
+    if (is_character(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.character(log_new_value)
+    if (is.POSIXt(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as_datetime(log_new_value)
+
+  }
+  
+  # recode_all entries
+  log_recode_all <- dplyr::filter(log, log_action == "recode_all")
+
+  for (i in seq_along(log_recode_all$index)){
+
+    log_var_name <- pluck(log_recode_all, "var_name", i)
+    log_new_value <- pluck(log_recode_all, "new_value", i)
+    log_old_value <- pluck(log_recode_all, "old_value", i)
+
+    # pull out row ids that need to be recoded
+    row_ids <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(get(log_var_name) == log_old_value) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+
+    for (i in seq_along(row_ids)) {
+
+      if (is.numeric(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as.numeric(log_new_value)
+      if (is_character(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as.character(log_new_value)
+      if (is.POSIXt(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as_datetime(log_new_value)
+    }
+  }
+  
+  return(d)
+}
+```
+
+read in log and summarize
+```{r}
+log <- vroom::vroom(here(path_log, "log_voice_android.csv"), col_types = "ccccccccc") %>%
+  rowid_to_column("index") %>%
+  glimpse()
+
+# view log actions
+table(log$log_action)
+```
+
+clean data
+```{r}
+logs_android <- logs_android %>%
+  clean_logs(., log) %>%
+  glimpse()
+```
+
+
 
 #### Convert utc to date time     
 Check all dates encoded as 13 digit utc in milliseconds  
@@ -296,7 +388,7 @@ logs_android <- logs_android %>%
 
 #### phone number
 
-180 missing phone numbers   
+`r nrow(subset(logs_android, is.na(number)))` missing phone numbers   
 All numbers correctly show the number was blocked (presentation = 2) or unknown by network (presentation = 3).   
 ```{r}
 logs_android %>% 
@@ -304,7 +396,7 @@ logs_android %>%
   janitor::tabyl(presentation)
 ```
 
-Seems like some subids get more blocked calls than others - all 180 missing numbers belong to 24 subids   
+Seems like some subids get more blocked calls than others - all belong to 30 subids   
 ```{r}
 logs_android %>% 
   filter(is.na(number)) %>% 
@@ -323,42 +415,6 @@ logs_android %>%
 
 <br>
 
-*Note: Blocked and unknown numbers often show up as -1 and -2.*    
-
-* For the most part -1 and -2 numbers seem to be related to blocked calls where -1 = unknown number by network and -2 = blocked number by caller.    
-* This information should be able to be retrieved from the presention variable where 2 = number blocked by user and 3 = number not specified or unknown by network      
-
-FIX: -1 and -2 numbers should be NA - correct in cleaning script or log?       
-  
-We might lose info on a few cases where presentation was 1 meaning number shown.     
-FIX: Presentation as 1 is incorrect on 11 blocked calls, fix this in cleaning log?  
-```{r}
-logs_android %>% 
-  filter(number == -1) %>% 
-  janitor::tabyl(presentation)
-
-logs_android %>% 
-  filter(number == -2) %>% 
-  janitor::tabyl(presentation)
-```
- 
-All calls were incoming, missed, or rejected (info obtained from type variable)   
-```{r}
-logs_android %>% 
-  filter(number == -1 & presentation == 1) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
-
-logs_android %>% 
-  filter(number == -2 & presentation == 1) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
-```
-
-
-<br>
 
 
 Non-US country codes 
