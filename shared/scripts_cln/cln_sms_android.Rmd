@@ -204,7 +204,7 @@ clean_logs <- function(d, log){
       dplyr::filter(address == log_address) %>%
       select(row_number) %>%
       unlist(use.names = FALSE)
-    }
+    
     
     # check that only one matching data row
     if (length(row_id) != 1) {
@@ -215,8 +215,34 @@ clean_logs <- function(d, log){
     if (is.numeric(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.numeric(log_new_value)
     if (is_character(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as.character(log_new_value)
     if (is.POSIXt(d[[row_id, log_var_name]])) d[[row_id, log_var_name]] <- as_datetime(log_new_value)
+}
+ 
+  # recode_all entries
+  log_recode_all <- dplyr::filter(log, log_action == "recode_all")
 
+  for (i in seq_along(log_recode_all$index)){
+
+    log_var_name <- pluck(log_recode_all, "var_name", i)
+    log_new_value <- pluck(log_recode_all, "new_value", i)
+    log_old_value <- pluck(log_recode_all, "old_value", i)
+
+    # pull out row ids that need to be recoded
+    row_ids <- d %>%
+      mutate(row_number = as.numeric(rownames(d))) %>%
+      dplyr::filter(get(log_var_name) == log_old_value) %>%
+      select(row_number) %>%
+      unlist(use.names = FALSE)
+
+    for (i in seq_along(row_ids)) {
+
+      if (is.numeric(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as.numeric(log_new_value)
+      if (is_character(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as.character(log_new_value)
+      if (is.POSIXt(d[[row_ids[i], log_var_name]])) d[[row_ids[i], log_var_name]] <- as_datetime(log_new_value)
+    }
+  }
   
+  
+   
   return(d)
 }
 ```
@@ -441,55 +467,6 @@ all_logs %>%
 * 4 = temporary state of outbox (ultimately ends up in sent or failed)   
 * 5 = failed  
 
-Type 19's all belong to one subid and contain alerts   
-FIX: should be incoming/type 1?
-```{r}
-all_logs %>% 
-  filter(type == "19") %>% 
-  select(subid, address, body)
-```
-
-Check type for other alerts
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "alert") | str_detect(address, "Alert") | str_detect(address, "Amber")) %>% 
-  select(address, contact_name, type) %>% 
-  print(n = Inf)
-```
-
-
-Type -1 may signify an outgoing message to a group of people - but not consistent
-https://www.ijser.org/researchpaper/Identification-of-Fake-SMS-generated-using-Android-Applications-in-Android-Devices.pdf
-```{r}
-all_logs %>% 
-  filter(type == -1) %>% 
-  count(contact_name) %>% 
-  print(n = Inf)
-```
-
-Check for other group messages    
-All group messages are type -1 or NA
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "~")) %>% 
-  count(type)
-```
-
-Type -1 responses all belong to 6 subids. Their type of Android may be creating variables not consistent with other subids.
-```{r}
-all_logs %>% 
-  filter(!type %in% c(1:5, NA)) %>% 
-  count(subid)
-```
-
-However 37 subids have group messages
-```{r}
-all_logs %>% 
-  filter(str_detect(address, "~")) %>% 
-  count(subid)
-```
-
-FIX: Due to inconsistent coding likely will want to recode type -1 as NA and use address column to identify group messages   
 
 Type 3 is drafts  
 ```{r}
