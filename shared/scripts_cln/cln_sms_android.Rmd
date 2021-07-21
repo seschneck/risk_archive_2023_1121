@@ -655,7 +655,11 @@ all_logs <- all_logs %>%
 
 ### Write csv
 ```{r}
-write_csv(all_logs, file.path(path_shared, "sms_android.csv")) %>% glimpse()
+all_logs %>% 
+  # keep only unique rows across retained variables
+  distinct(across(-c(log_file, created, modified))) %>% 
+  write_csv(file.path(path_shared, "sms_android.csv")) %>% 
+  glimpse()
 ```
 
 **Note: date saved as UTC**
