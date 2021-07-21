@@ -91,6 +91,7 @@ ema <- bind_rows(emam, emal) %>%
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid, start_date) %>% 
   filter(ema_1 == "Yes") %>% 
+  select(-ema_1) %>% 
   glimpse()
 ```
 
@@ -108,7 +109,7 @@ KENDRA TO DO
 ```{r}
 ema <- ema %>% 
   filter(!(finished == 0 & is.na(ema_1_1) & is.na(ema_1_2))) %>% # removed unfinished with no lapse info
-  select(-start_date, -end_date, -utc, -finished, -ema_1) %>% 
+  select(-start_date, -end_date, -utc, -finished) %>% 
   mutate(source = "ema")
   
 ema %>% print_kbl()
