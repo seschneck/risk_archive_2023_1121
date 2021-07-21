@@ -1,20 +1,65 @@
 ---
 title: "Acceptability of Personal Sensing among People with Alcohol Use Disorder"
-date: "`r lubridate::today()`"
+shorttitle        : "Personal Sensing"
+
 author: 
-  - "Kendra Wyant"
-  - "Hannah Moshontz"
-  - "John J. Curtin"
+  - name          : "Kendra Wyant"
+    affiliation   : "1"
+  - name          : "Hannah Moshontz"
+    affiliation   : "1"
+  - name          : "John J. Curtin"
+    affiliation   : "1"
+    corresponding : yes 
+    address       : "1202 West Johnson St, Madison, WI 53706"
+    email         : "jjcurtin@wisc.edu"
+
 affiliation:
-    institution: "University of Wisconsin - Madison"
+  - id            : "1"
+    institution   : "Department of Psychology, University of Wisconsin - Madison"
+
+
 authornote: |
-  Enter author notes here. Each new line herein must be indented, like this line.
-keywords: "keywords"
-wordcount: "X"
-abstract: |
-  This is the paper abstract.
+  Enter author note here. 
   
-  It consists of two paragraphs.
+  Each new line herein must be indented, like this line.
+
+abstract: |
+  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+  
+  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
+  
+  One sentence clearly stating the **general problem** being addressed by  this particular study.
+  
+  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
+  
+  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
+  
+  One or two sentences to put the results into a more **general context**.
+  
+  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
+  
+  <!-- https://tinyurl.com/ybremelq -->
+  
+keywords          : "keywords"
+wordcount         : "X"
+
+bibliography      : ["references.bib"]
+
+floatsintext      : no
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+linenumbers       : no
+mask              : no
+draft             : no
+
+documentclass     : "apa6"
+classoption       : "man"
+output            : papaja::apa6_pdf
+# geometry: margin=.5in
+# fontsize: 11pt
+header-includes:
+  - \raggedbottom
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
@@ -23,18 +68,11 @@ knit: (function(input, ...) {
       "/Volumes/private/studydata/risk/manuscripts/burden")
     )
   })
-output: 
-  pdf_document:
-    keep_tex: true
-    fig_caption: true
-    indent: true
-geometry: margin=.5in
-fontsize: 11pt
-header-includes:
-    - \usepackage{setspace}\doublespacing
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
+library("papaja")
+r_refs("references.bib")
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
@@ -47,12 +85,13 @@ We can provide global feedback to each other here too.
 -->
 
 
-# Introduction
 
 This is the first paragraph
 
 This is the second paragraph.  It is longer and contains a few sentences to
 see how things will look when the line wraps.
+
+\newpage  <!-- demo use of LaTeXex for finer control in pdf-->
 
 # Method
 
@@ -81,32 +120,50 @@ We report retention and attrition of all eligible participants at various stages
 
 ## Procedure
 
-We collected the study data between 2017 – 2019 as part of a larger grant-funded parent project (RO1 AA024391). The sample size was determined based on power analyses for the aims of that project.  We used all available participants for this study.  Participants completed five study visits over the course of approximately three months. Participants first attended a screening visit where we determined eligibility, obtained informed consent, and collected self-report measures of individual differences (e.g., demographics, alcohol use history). We scheduled eligible and consented participants to enroll in the study approximately one week later. During this enrollment visit, we collected additional self-report and interview measures. Participants completed an additional three follow-up visits that occurred about every 30 days.  We collected self-report and interview measures and downloaded cellular communications logs (text message and phone call) at these visits. Finally, we collected various raw data streams (e.g., geolocation, cellular communication logs, ecological momentary assessments) using personal sensing to monitor participants throughout the three-month study period.  A full description of the procedure and data collected at each visit can be found at the study’s OSF page [https://osf.io/cjsvk ].   
+We collected the study data between 2017 – 2019 as part of a larger grant-funded parent project (RO1 AA024391). The sample size was determined based on power analyses for the aims of that project.  We used all available participants for this study.  Participants completed five study visits over the course of approximately three months. Participants first attended a screening visit where we determined eligibility, obtained informed consent, and collected self-report measures of individual differences (e.g., demographics, alcohol use history). We scheduled eligible and consented participants to enroll in the study approximately one week later. During this enrollment visit, we collected additional self-report and interview measures. Participants completed an additional three follow-up visits that occurred about every 30 days.  We collected self-report and interview measures and downloaded cellular communications logs (text message and phone call) at these visits. Finally, we collected various raw data streams (e.g., geolocation, cellular communication logs, ecological momentary assessments) using personal sensing to monitor participants throughout the three-month study period.  A full description of the procedure and data collected at each visit can be found at the study’s OSF page (https://osf.io/cjsvk).   
 
 ## Personal Sensing
 
 Personal sensing methods can be coarsely classified as active or passive.  Active personal sensing requires active effort from the participant to provide the raw data streams whereas passive personal sensing data are collected automatically (either asynchronously or continuously) with little to no effort required by the participant.  Our study obtained several active signals that varied somewhat in the amount of effort required by the participant.  Specifically, we used active methods to collect ecological momentary assessments, daily audio check-ins, sleep quality, and selected physiology.  We used primarily passive methods to collect moment-by-moment geolocation, cellular communications logs, and text message content.  More detail about each raw data stream collected by personal sensing is provided below.
 
-**Audio Check-in**.  Participants recorded a diary-style audio response on their smartphone to an open-ended prompt each day following a reminder from us that was sent via text message.  They responded to the prompt (“How are you feeling about your recovery today?”), which stayed the same throughout the entire study.  We instructed them that their responses should be approximately 15-30 seconds in duration.  These recordings were sent to us by text message.
+### Audio Check-in 
 
-**Ecological Momentary Assessments (EMA)**. Participants completed a brief EMA four times each day following reminders from us that were sent by text message.  These text messages included a link to a Qualtrics survey that was optimized for completion on their smartphone. All four EMAs included items that asked about any alcohol use that had not yet been reported, current affective state (pleasantness and arousal), greatest urge to drink alcohol since the last EMA, any pleasant or positive events and any hassles or stressful events that occurred since the last EMA, any exposure to risky situations (i.e., people, places, or things) since the last EMA. The first EMA each day asked an additional three questions about how likely participants were to encounter a risky situation, encounter a stressful event, and drink alcohol in the upcoming week. The first and last EMAs of the day were scheduled within one hour of participants’ typical wake and sleep times. The other two EMAs were each scheduled randomly within the first and second halves of the participants’ typical day.  All EMAs were separated from each other by at least one hour.   
+Participants recorded a diary-style audio response on their smartphone to an open-ended prompt each day following a reminder from us that was sent via text message.  They responded to the prompt (“How are you feeling about your recovery today?”), which stayed the same throughout the entire study.  We instructed them that their responses should be approximately 15-30 seconds in duration.  These recordings were sent to us by text message.
 
-**Sleep Quality**.  We collected information about participants’ sleep duration, timing, and overall quality with a Beddit sleep monitor (Beddit Oy Inc., Espoo, Finland) that was placed in their beds and connected to their smartphones.  We used an early version of the sleep monitor that required participants to actively start and stop the monitor when they entered and exited their bed each night and morning, respectively. These data are available on only approximately 87 participants because Beddit Oy was acquired by Apple Inc. during data collection for this study.  Apple discontinued cloud support for data collection with the sleep monitor in November 2018, which prevented its further use for our remaining participants.   
+### Ecological Momentary Assessments (EMA)
 
-**Physiology**. We continuously monitored participants’ physiology (heart rate, electrodermal activity, skin temperature) using an early version of the Empatica E4 wristband monitor (by Empatica Inc., Boston, MA).  However, this early version did not adequately support Bluetooth streaming of data to the cloud.  Instead, participants had to manually connect the wristband each night to a tablet we provided to upload their data.  This and other software bugs made use of the wristband too complicated for many participants. Therefore, we discontinued use of the wristband after collected data from nine participants.  Given this small sample size, we did not include the wristband in our primary analyses.  We do provide self-reported acceptability ratings for this signal from this small sample in Multimedia Appendix 2 (Figure S1).
+Participants completed a brief EMA four times each day following reminders from us that were sent by text message.  These text messages included a link to a Qualtrics survey that was optimized for completion on their smartphone. All four EMAs included items that asked about any alcohol use that had not yet been reported, current affective state (pleasantness and arousal), greatest urge to drink alcohol since the last EMA, any pleasant or positive events and any hassles or stressful events that occurred since the last EMA, any exposure to risky situations (i.e., people, places, or things) since the last EMA. The first EMA each day asked an additional three questions about how likely participants were to encounter a risky situation, encounter a stressful event, and drink alcohol in the upcoming week. The first and last EMAs of the day were scheduled within one hour of participants’ typical wake and sleep times. The other two EMAs were each scheduled randomly within the first and second halves of the participants’ typical day.  All EMAs were separated from each other by at least one hour.   
 
-**Geolocation**. We continuously collected participants’ moment-by-moment geolocation using location services on their smartphones in combination with commercial software that accessed these geolocation data and saved them in the cloud.  At the start of the study, we used the Moves app (developed by ProtoGeo Oy, Helsinki, Finland).  However, Facebook acquired ProtoGeo Oy and shut down use of the Moves app in July 2018.  At this point, we switched to using the FollowMee GPS tracking mobile app (FollowMee LLC, Murphy, TX).  Measurement of geolocation required only initial installation of the app by the participants.  Subsequent measurement and transfer of the data to the cloud was completed automatically with no input or effort by the participant.  Both apps allowed participants to temporarily disable location sharing if they deemed it necessary for short periods of time.
+### Sleep Quality
 
-**Cellular Communication Logs**. We collected cellular communication logs that include meta-data about smartphone communications involving both text messages and phone calls.  For each communication entry, these logs include the phone number of the other party, the type of call or message (i.e., incoming, outgoing, missed, rejected), the name of the party if listed in the phone contacts, the date and time the message or call occurred, whether the log entry was read (text messages only), and the duration of the call (voice calls only). These data are saved passively on the phone with no additional input or effort on the part of the participant.  We downloaded these logs from participants’ phones at each one-month follow-up visit. Participants were informed that they could delete any text message or voice call log entries prior to the download if they desired.
+We collected information about participants’ sleep duration, timing, and overall quality with a Beddit sleep monitor (Beddit Oy Inc., Espoo, Finland) that was placed in their beds and connected to their smartphones.  We used an early version of the sleep monitor that required participants to actively start and stop the monitor when they entered and exited their bed each night and morning, respectively. These data are available on only approximately 87 participants because Beddit Oy was acquired by Apple Inc. during data collection for this study.  Apple discontinued cloud support for data collection with the sleep monitor in November 2018, which prevented its further use for our remaining participants.   
+
+### Physiology
+
+We continuously monitored participants’ physiology (heart rate, electrodermal activity, skin temperature) using an early version of the Empatica E4 wristband monitor (by Empatica Inc., Boston, MA).  However, this early version did not adequately support Bluetooth streaming of data to the cloud.  Instead, participants had to manually connect the wristband each night to a tablet we provided to upload their data.  This and other software bugs made use of the wristband too complicated for many participants. Therefore, we discontinued use of the wristband after collected data from nine participants.  Given this small sample size, we did not include the wristband in our primary analyses.  We do provide self-reported acceptability ratings for this signal from this small sample in Multimedia Appendix 2 (Figure S1).
+
+### Geolocation
+
+We continuously collected participants’ moment-by-moment geolocation using location services on their smartphones in combination with commercial software that accessed these geolocation data and saved them in the cloud.  At the start of the study, we used the Moves app (developed by ProtoGeo Oy, Helsinki, Finland).  However, Facebook acquired ProtoGeo Oy and shut down use of the Moves app in July 2018.  At this point, we switched to using the FollowMee GPS tracking mobile app (FollowMee LLC, Murphy, TX).  Measurement of geolocation required only initial installation of the app by the participants.  Subsequent measurement and transfer of the data to the cloud was completed automatically with no input or effort by the participant.  Both apps allowed participants to temporarily disable location sharing if they deemed it necessary for short periods of time.
+
+### Cellular Communication Logs
+
+We collected cellular communication logs that include meta-data about smartphone communications involving both text messages and phone calls.  For each communication entry, these logs include the phone number of the other party, the type of call or message (i.e., incoming, outgoing, missed, rejected), the name of the party if listed in the phone contacts, the date and time the message or call occurred, whether the log entry was read (text messages only), and the duration of the call (voice calls only). These data are saved passively on the phone with no additional input or effort on the part of the participant.  We downloaded these logs from participants’ phones at each one-month follow-up visit. Participants were informed that they could delete any text message or voice call log entries prior to the download if they desired.
 Text Message Content. We also collected the message content from participants’ text messages on their smartphone. As with the logs, content from individual text messages is saved passively on the phone with no additional input or effort on the part of the participant.  We downloaded text message content at each one-month follow-up visit and participants could delete text messages prior to the download.  Note that we did not have a parallel method to gain access to phone call content.  Thus, we had meta-data from communication logs for both text messages and phone calls but had content of the communication only for text messages.
 
 ## Measures
 
-**Individual Differences**.  We collected demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms at the screening visit (see surveys in Multimedia Appendix 1).  
-	
-**Behavioral Acceptability**.  Coarse assessment of the acceptability of the personal sensing methods can be made based on participants’ behaviors.  Specifically, we assessed three categories of behavior.  First, we assessed participants’ choices about their participation in the study at various stages in the study procedure (e.g., consent, enrollment, data collection) and their reasons for discontinuation when available.  Second, we assessed their choice to opt-in to provide data associated with each personal sensing method.  Participants were allowed to participate in the study without opting-in to any specific personal sensing method other than EMA.  Instead, they were paid a monthly bonus for each sensing method they chose to opt-in to that ranged from $10-$25.  Finally, for a subset of the active measures (EMAs, daily audio check-ins), we assess their compliance with providing those raw data streams for up to three months of study participation.
+### Individual Differences
 
-**Self-reported Acceptability**.  To assess participants’ subjective experience of the acceptability of the personal sensing methods in this study, they rated each method on three acceptability relevant dimensions (see Acceptability Survey in Multimedia Appendix 1).  Specifically, participants were asked to indicate how much they agreed with each of the following three statements on a five-point bipolar scale (strongly disagree, disagree, undecided, agree, strongly agree) for the personal sensing signals:
+We collected demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms at the screening visit (see surveys in Multimedia Appendix 1).  
+	
+### Behavioral Acceptability
+
+Coarse assessment of the acceptability of the personal sensing methods can be made based on participants’ behaviors.  Specifically, we assessed three categories of behavior.  First, we assessed participants’ choices about their participation in the study at various stages in the study procedure (e.g., consent, enrollment, data collection) and their reasons for discontinuation when available.  Second, we assessed their choice to opt-in to provide data associated with each personal sensing method.  Participants were allowed to participate in the study without opting-in to any specific personal sensing method other than EMA.  Instead, they were paid a monthly bonus for each sensing method they chose to opt-in to that ranged from $10-$25.  Finally, for a subset of the active measures (EMAs, daily audio check-ins), we assess their compliance with providing those raw data streams for up to three months of study participation.
+
+### Self-reported Acceptability
+
+To assess participants’ subjective experience of the acceptability of the personal sensing methods in this study, they rated each method on three acceptability relevant dimensions (see Acceptability Survey in Multimedia Appendix 1).  Specifically, participants were asked to indicate how much they agreed with each of the following three statements on a five-point bipolar scale (strongly disagree, disagree, undecided, agree, strongly agree) for the personal sensing signals:
 1.	[Personal sensing method name] interfered with my daily activities   
 2.	I disliked [Personal sensing method name]
 3.	I would be willing to use [Personal sensing method name] for one year to help with my recovery
@@ -116,9 +173,13 @@ The interference item was collected only for the active methods because they pas
 ## Data Analytic Strategy
 We conducted all analyses in R version 4.0.3 [66] using RStudio [67] and the tidyverse ecosystem of packages [68]. 
 
-**Behavioral Acceptability**.  We provide descriptive data on participants’ choices about their participation in the study at various stages in the study procedure (e.g., consent, enrollment, data collection).  We provide both coarse and more granular tabulation of their reasons for discontinuation when available.  We report the percentages of participants who opted-in to provide us with the raw data streams we collected via personal sensing.  We also report compliance measures for two of the active personal sensing methods (EMAs and daily audio check-ins). Formal measures of compliance could not be calculated for geolocation, cellular communication log, and sleep quality because it was not possible to distinguish between missing data due to compliance (e.g., deleting phone calls or messages, turning off location services on the phone, failing to start sleep monitoring at bedtime) and valid reasons (no calls made during the day, no movement, erratic sleep patterns)
+### Behavioral Acceptability
 
-**Self-reported Acceptability**.  Participants responded to the three self-report items related to acceptability (interference, dislike, and willingness to use for one year) on a five-point bipolar scale (strongly disagree, disagree, undecided, agree, strongly agree).  We retained these ordinal labels for visual display of these data in figures but ordered the labels such that higher scores represent greater acceptability (i.e., strongly agree for willingness to use for one year and strongly disagree for interference and dislike.  For analyses, we recoded these items to a numeric scale ranging from -2 to 2 with 0 representing the neutral (undecided) midpoint and higher scores representing greater acceptability.
+We provide descriptive data on participants’ choices about their participation in the study at various stages in the study procedure (e.g., consent, enrollment, data collection).  We provide both coarse and more granular tabulation of their reasons for discontinuation when available.  We report the percentages of participants who opted-in to provide us with the raw data streams we collected via personal sensing.  We also report compliance measures for two of the active personal sensing methods (EMAs and daily audio check-ins). Formal measures of compliance could not be calculated for geolocation, cellular communication log, and sleep quality because it was not possible to distinguish between missing data due to compliance (e.g., deleting phone calls or messages, turning off location services on the phone, failing to start sleep monitoring at bedtime) and valid reasons (no calls made during the day, no movement, erratic sleep patterns)
+
+### Self-reported Acceptability
+
+Participants responded to the three self-report items related to acceptability (interference, dislike, and willingness to use for one year) on a five-point bipolar scale (strongly disagree, disagree, undecided, agree, strongly agree).  We retained these ordinal labels for visual display of these data in figures but ordered the labels such that higher scores represent greater acceptability (i.e., strongly agree for willingness to use for one year and strongly disagree for interference and dislike.  For analyses, we recoded these items to a numeric scale ranging from -2 to 2 with 0 representing the neutral (undecided) midpoint and higher scores representing greater acceptability.
 
 Participants responded to these items at each monthly follow-up visit.  Therefore, participants had up to three responses for each item depending on when they ended their participation. We analyzed their last available response in our primary analyses to allow us to include all participants and to represent their final perception of each personal sensing signal.  However, mean responses across each time point remained relatively constant for all signals (see Figure S2 in Multimedia Appendix 2). 
 
@@ -129,3 +190,17 @@ Finally, we conducted two analyses to examine the consistency of perceptions acr
 # Results
 
 # Discussion
+
+
+
+\newpage
+
+# References
+
+\begingroup
+\setlength{\parindent}{-0.5in}
+\setlength{\leftskip}{0.5in}
+
+<div id="refs" custom-style="Bibliography"></div>
+\endgroup
+
