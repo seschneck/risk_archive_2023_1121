@@ -150,8 +150,8 @@ voice_ios <- voice_ios %>%
 
 `r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to changes in read status. Not using this variable in meta (no android version of read variable) so these are identical observations.     
 
-Remove duplicates
-
+Remove duplicates   
+FIX: Check every duplicate
 ```{r}
 voice_ios <- voice_ios %>% 
   distinct() %>% 
@@ -364,7 +364,9 @@ sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types
   glimpse()
 ```
 
-### Check for Duplicates 
+### Check for Duplicates    
+
+FIX: Need to handle in clean script   
 ```{r}
 dups <- sms_android %>%
   add_count(subid, address, date, text, type, read) %>%
@@ -562,6 +564,7 @@ dup_contacts <- contacts %>%
   arrange(subid, phone_number) 
 ```
 
+
 <br>
 
 Duplicate 1: Subid 33   
@@ -714,7 +717,7 @@ dup_contacts %>%
 
 Clean numbers with function
 ```{r}
-logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
+# logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
 ```
 
 <br>
@@ -759,7 +762,7 @@ logs <- logs %>%
               select(subid, contact_number = phone_number, number = pattern), 
             by = c("subid", "number")) %>% 
   mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
-                                      TRUE ~ number_formatted)) %>% 
+                                      TRUE ~ number)) %>% 
   glimpse()
 ```
 

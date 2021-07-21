@@ -494,7 +494,10 @@ all_logs %>%
 
 FIX: Use vroom instead of write_csv? write_csv is slow
 ```{r}
-write_csv(all_logs, file.path(path_shared, "sms_ios.csv")) %>% 
+all_logs %>% 
+  # keep only unique rows across retained variables
+  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
+  write_csv(file.path(path_shared, "sms_ios.csv")) %>% 
   glimpse()
 ```
 
