@@ -105,7 +105,7 @@ options(tibble.width = Inf)
 ### Read in Data
 Read in voice IOS data and filter down to variables for meta
 ```{r}
-voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols()) %>% 
+voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols()) %>%
   select(subid, zdate, zaddress, zduration, zanswered, zoriginated, zcalltype, zunique_id) %>% 
   glimpse()
 ```
@@ -122,7 +122,8 @@ voice_ios <- voice_ios %>%
 ```
 
 
-FIX: invalid numbers with semicolon     
+FIX: invalid numbers with semicolon      
+Look into why semicolon might exist?
 ```{r}
 voice_ios %>% 
   filter(str_detect(zaddress, ";")) %>% 
@@ -165,13 +166,14 @@ voice_ios <- voice_ios %>%
 ### Read in data
 ```{r}
 voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_types = cols()) %>% 
-  select(subid, number, duration, date, type, presentation) %>% 
+  select(subid, number, duration, date, type) %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
 
 FIX: invalid number with semicolon     
+Look into why semicolon might exist?
 ```{r}
 voice_android %>% 
   filter(str_detect(number, ";")) %>% 
@@ -185,7 +187,7 @@ voice_android <- voice_android %>%
                             TRUE ~ number))
 ```
 
-FIX: invalid duration value of -4   
+Fix invalid duration value of -4   
 Duration cannot be negative; changing to NA since no way of knowing actual duration
 ```{r}
 voice_android <- voice_android %>% 
@@ -193,7 +195,7 @@ voice_android <- voice_android %>%
                               TRUE ~ duration))
 ```
 
-FIX: invalid type values   
+Fix invalid type values   
 8 subids produced invalid numbers for type variable. Changing these numbers to NA since 
 we have no way of determining correct value.
 ```{r}
@@ -213,10 +215,12 @@ voice_android <- voice_android %>%
 - date - date and time of log entry    
 - number - raw phone number of other party  
 - duration - duration of call    
-- presentation - whether number was available, or blocked/unknown    
 - originated (incoming or outgoing)  
 - answered  
 - call_type - phone, facetime audio, facetime video
+
+other ideas:
+blocked call? (presentation variable for android)
 
 
 ### tidy android variables for merge
@@ -239,6 +243,7 @@ voice_android <- voice_android %>%
                               is.na(type) ~ as.character(NA),
                               TRUE ~ "Not Answered"),
          call_type = "Phone") %>% 
+  select(-type) %>% 
   glimpse()
 ```
 
@@ -255,7 +260,7 @@ voice_ios <- voice_ios %>%
            call_originated = zoriginated,
            call_type = zcalltype,
            call_duration = zduration,
-           number = zaddress)) %>% 
+           number = zaddress)) %>%
   glimpse()
 ```
 
@@ -268,7 +273,6 @@ logs_voice <- voice_android %>%
                                "call_answered", "call_type")) %>% 
   # add new variable to mark these are voice logs
   mutate(log_type = "voice") %>% 
-  select(-type) %>% 
   glimpse()
 ```
 
@@ -287,19 +291,19 @@ sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols(
 
 ### Filter out duplicates
 
-FIX: Handle duplicates
+FIX: Handle duplicates in clean script
 ```{r}
-dups <- sms_ios %>% 
-  add_count(subid, phone_number, date, text, is_delivered, is_from_me, is_sent, is_read, 
-            chat_id) %>% 
-  filter(n > 1) 
-
-dups %>% 
-  arrange(subid, chat_id, phone_number, date) %>%
-  tail(n = 500) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+# dups <- sms_ios %>% 
+#   add_count(subid, phone_number, date, text, is_delivered, is_from_me, is_sent, is_read, 
+#             chat_id) %>% 
+#   filter(n > 1) 
+# 
+# dups %>% 
+#   arrange(subid, chat_id, phone_number, date) %>%
+#   tail(n = 500) %>% 
+#   kbl() %>% 
+#   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+#   scroll_box(width = "100%", height = "500px")
 ```
 
 
@@ -330,19 +334,19 @@ ios_groups %>%
 Add a group variable
 ```{r}
 ios_groups <- ios_groups %>%
-  mutate(is_group_message = 1)
+  mutate(message_is_group = "yes")
 
 
 sms_ios <- sms_ios %>% 
   left_join(ios_groups %>% select(-n), by = c("subid", "chat_id")) %>% 
-  mutate(is_group_message = case_when(is.na(is_group_message) ~ 0,
-                                      TRUE ~ is_group_message)) %>% 
+  mutate(message_is_group = case_when(is.na(message_is_group) ~ "no",
+                                      TRUE ~ message_is_group)) %>% 
   glimpse()
 ```
 
 check new variable
 ```{r}
-table(sms_ios$is_group_message)
+table(sms_ios$message_is_group)
 ```
 
 
@@ -350,8 +354,7 @@ FIX: Check all chat_ids with NA values for any signs of group messages (i.e., ou
 STILL NEED TO HANDLE
 ```{r}
 sms_ios %>% 
-  filter(is.na(chat_id)) %>% 
-  filter(is.na(phone_number))
+  filter(is.na(chat_id))
 ```
 
 
@@ -363,18 +366,57 @@ sms_ios %>%
 ### Read in data
 ```{r}
 sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols()) %>% 
-  select(subid, address, date, type, read) %>% 
+  # keep text message content in for filtering out duplicates
+  select(subid, address, date, type, text = body, read) %>% 
   glimpse()
 ```
 
 ### Check for Duplicates 
+```{r}
+dups <- sms_android %>%
+  add_count(subid, address, date, text, type, read) %>%
+  filter(n > 1)
+
+dups %>%
+  arrange(subid, address, date, text) %>%
+  tail(n = 500) %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>%
+  scroll_box(width = "100%", height = "500px")
+```
+
 
 ### Group Messages
 
-FIX: Handle group messages - default is many numbers separated by ~ (only outgoing messages?)
+Identify group messages 
 ```{r}
+sms_android %>% 
+  filter(str_detect(address, "~")) %>% 
+  select(address)
 
+# Note that type is NA for group messages
+sms_android %>% 
+  filter(str_detect(address, "~")) %>% 
+  tabyl(type)
 ```
+
+Add group variable
+```{r}
+sms_android <- sms_android %>% 
+  mutate(message_is_group = case_when(str_detect(address, "~") ~ "yes", 
+                                      TRUE ~ "no")) %>% 
+  glimpse()
+
+tabyl(sms_android$message_is_group)
+```
+
+Change numbers to NA (to be consistent with IOS)
+```{r}
+sms_android <- sms_android %>% 
+  mutate(address = case_when(str_detect(address, "~") ~ as.character(NA), 
+                                      TRUE ~ address))
+```
+
 
 <br>
 
@@ -384,7 +426,7 @@ FIX: Handle group messages - default is many numbers separated by ~ (only outgoi
 
 read = yes if sent or read status on incoming message  
 failed = yes if outgoing message not delivered
-message_type = outgoing if from_me else incoming
+message_type = outgoing if from_me else incoming (type is NA for android group messages)
 group_message = yes if group message
 
 
@@ -398,15 +440,12 @@ sms_android <- sms_android %>%
                                   type == "draft" ~ "outgoing",
                                   type == "failed" ~ "outgoing",
                                   type == "inbox" ~ "incoming")) %>% 
-  select(-c(type)) %>% 
+  select(-c(text, type)) %>% 
   glimpse()
 ```
 
 
 ### tidy IOS variables for merge
-
-FIX: Will need to check all these new variables with extensive EDA to make sure they are accurate  
-
 
 ```{r}
 sms_ios <- sms_ios %>% 
@@ -424,9 +463,13 @@ sms_ios <- sms_ios %>%
 
 
 ### Join
+
+FIX: Will need to check all these new variables with extensive EDA to make sure they are accurate  
+
 ```{r}
 logs_sms <- sms_android %>%
-  full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", "message_type")) %>%
+  full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", 
+                            "message_type", "message_is_group")) %>%
   # add new variable to mark these are sms logs
   mutate(log_type = "sms") %>%
   glimpse()
@@ -439,6 +482,8 @@ logs_sms <- sms_android %>%
 ```{r}
 logs <- logs_voice %>%
   full_join(logs_sms, by = c("subid", "date", "number", "log_type")) %>%
+  select(subid, date, number, log_type, everything()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
   glimpse()
 ```
 
@@ -476,15 +521,15 @@ contacts <- contacts %>%
 FIX: Handle duplicate numbers
 ```{r}
 # Duplicate subid/phone number pairs
-duplicates <- contacts %>%
+dup_contacts <- contacts %>%
   group_by(subid, phone_number) %>%
   summarise(n = n(), .groups = "drop") %>%
   dplyr::filter(n > 1)
 
-print(duplicates, n = Inf)
+print(dup_contacts, n = Inf)
 ```
 
-`r nrow(duplicates)` duplicates to handle  
+`r nrow(dup_contacts)` duplicates to handle  
 
 Duplicate 1: Subid 24  
 Differs only on one context variable - may be two different parents but no way to know 
@@ -492,18 +537,18 @@ which they are speaking to.
 JOHN: Change contact_drink_future to NA?  
 UPDATE: This subid does not make it to followup 1 so these entries will be filtered out.
 ```{r}
-duplicates <- contacts %>%
-  dplyr::filter(phone_number %in% duplicates$phone_number & subid %in% duplicates$subid) %>%
+dup_contacts <- contacts %>%
+  dplyr::filter(phone_number %in% dup_contacts$phone_number & subid %in% dup_contacts$subid) %>%
   arrange(subid, phone_number) 
 
-duplicates %>%
+dup_contacts %>%
   slice(1:2)
 ```
 
 Duplicate 2: Subid 33   
 Differs only on contact type - keep first entry
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(3:4)
 
 contacts <- contacts %>% 
@@ -515,14 +560,14 @@ Differs on two context variable and address
 JOHN: Keep first entry but with updated address? We probably don't need address for this 
 study or maybe just state for feature engineering (out of state calls).
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(5:6)
 ```
 
 Duplicate 4: Subid 97  
 Keep first entry - Although Other Phone might be a more accurate phone_type description
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(7:8)
 
 contacts <- contacts %>% 
@@ -533,14 +578,14 @@ Duplicate 5: Subid 104
 Differs on one context variable and updates address  
 JOHN: Keep first entry with address added to it?
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(9:10)
 ```
 
 Duplicate 6: Subid 109  
 Keep first entry
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(11:12)
 
 contacts <- contacts %>% 
@@ -550,30 +595,30 @@ contacts <- contacts %>%
 Duplicate 7: Subid 110  
 JOHN: Keep 2nd entry?
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(13:14)
 ```
 
 Duplicate 8-9: Subid 117   
 JOHN: These 2 are really conflicting - not sure how to handle
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(15:16)
 
-duplicates %>%
+dup_contacts %>%
   slice(17:18)
 ```
 
 Duplicate 10: Subid 119
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(19:20)
 ```
 
 Duplicate 11: Subid 139   
 Keep 2nd entry
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(21:22)
 
 contacts <- contacts %>% 
@@ -583,7 +628,7 @@ contacts <- contacts %>%
 Duplicate 12: Subid 143   
 Keep 1st entry
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(23:24)
 
 contacts <- contacts %>% 
@@ -593,7 +638,7 @@ contacts <- contacts %>%
 Duplicate 13: Subid 240   
 Only change is updated address - Keep 2nd entry 
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(25:26)
 
 contacts <- contacts %>% 
@@ -603,7 +648,7 @@ contacts <- contacts %>%
 Duplicate 14-17: Subid 248  
 14 differs on only one variable - keep 1st entry  
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(27:28)
 
 contacts <- contacts %>% 
@@ -613,13 +658,13 @@ contacts <- contacts %>%
 15 differs on three variables some are probably important (drinker vs. nondrinker)   
 JOHN: How to handle?
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(29:30)
 ```
 
 16 differs on only one variable - keep 1st entry  
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(31:32)
 
 contacts <- contacts %>% 
@@ -629,7 +674,7 @@ contacts <- contacts %>%
 17 differs on 3 variables   
 JOHN: How to handle?
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(33:34)
 ```
 
@@ -637,10 +682,10 @@ Duplicate 18-19: Subid 269
 These differ quite a bit - makes me wonder how much we can trust either entry.  
 JOHN: How to handle?
 ```{r}
-duplicates %>%
+dup_contacts %>%
   slice(35:36)
 
-duplicates %>%
+dup_contacts %>%
   slice(37:38)
 ```
 
@@ -682,6 +727,8 @@ logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FA
 
 ### Check unknown patterns for matches to contacts   
 
+FIX: print warnings and look for matches to contacts   
+Still need to handle
 
 
 ### Pull area codes for 7 digit numbers from contacts
@@ -768,16 +815,32 @@ logs <- logs %>%
 
 ## Contacts without log entries
 
+FIX: Check contacts without log entries in case of typos    
+Still need to handle
+```{r}
+
+```
+
 
 ## EDA
 
-Missing data
+Missing data   
+FIX: Remove street address, city, and state?
 ```{r}
 logs %>%
   naniar::miss_var_summary()
 ```
 
-FIX: Remove street address, city, and state?
+
+
+
+### EDA on call and text message variables
+
+FIX: Still need to handle
+```{r}
+
+```
+
 
 
 ## Write csv

@@ -173,7 +173,10 @@ all_logs <- map_df(xml_subids$subid, ~read_xml(.)) %>%
 
 ```{r}
 all_logs <- all_logs %>%
-  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
+  # if participant changes contact's name it will backdate the name and the next log
+  # download will think this is a new entry if we don't exclude contact_name for filtering duplicates.
+  distinct(across(-c(log_file, created, modified, service_center, contact_name)), 
+           .keep_all = TRUE) %>% 
   glimpse()
 ```
 
