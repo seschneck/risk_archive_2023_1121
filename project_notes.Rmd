@@ -1,6 +1,5 @@
 ---
-title: "Parent Project and Study notes for RISK"
-author: "John Curtin"
+title: "Project and Study notes for RISK"
 date: "`r lubridate::today()`"
 output: 
   html_document:
@@ -9,14 +8,16 @@ output:
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
-      output_dir = "P:/studydata/risk/knits/shared"
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk", 
+      "/Volumes/private/studydata/risk")
     )
   })
 ---
 
-## Project Level Notes
+# Project Level Notes
 
-### Why Lapse?
+## Why Lapse?
 
 There are a number of clear reasons to build models to predict lapse rather than 
 relapse:
@@ -35,7 +36,7 @@ Digital therapeutics could intervene to minimize the impact of any AVE.
 may support more healthy drinking that is less likely to result in a relapse or other
 harm.
 
-### Lapse Labels {#general_labels}
+## Lapse Labels {#general_labels}
 
 We use lapses reported by EMA and directly to study staff during visits.  
 
@@ -62,9 +63,9 @@ We use lapses reported by EMA and directly to study staff during visits.
     only the date (mostly from staff reports)
     * 24 + 3 hours after lapse onsets when no lapse end was reported
   
-### Prediction Models
+## Prediction Models
 
-#### Prediction Lead Time
+### Prediction Lead Time
 
 We will predict lapse onset using 1 hour precision.  We will have *lapse* (minority class)
 and *no_lapse* (majority class) cases.  
@@ -98,50 +99,91 @@ a week into the future, we may need to drop lapses in the first two weeks.)
 John is leaning toward dropping the first week of data from the study to allow for features
 based on up to a week of raw data preceding the observation of the outcome
 
-#### Algorithm Considerations
+### Algorithm Considerations
 
 
-#### Resampling Choices
+### Resampling Choices
 
 
-## Burden Study Notes
 
-Kendra is leading this study.  Hannah is a co-author
+# Burden Study Notes
 
-Target journal is *The Journal of Medical Internet Research*
+This study focuses on the acceptability of various personal sensing methods 
+to research participants with alcohol use disorder.
 
-## Meta Study Notes
+## Paper info
 
-This study focuses on the use of cellular communications meta data (logs) to predict
-lapses.
+**Authors**: Wyant, Moshontz, Curtin
 
-Kendra is leading this project
+**Target journal**: *The Journal of Medical Internet Research*
 
-## Geolocation Study Notes
+# Meta Study Notes
 
-Currently collaborating with computer scientists at Georgia Tech
+This study focuses on the use of cellular communications meta data (logs) to 
+predict lapses.
+
+## Paper info
+
+**Authors**: TBD.   
+
+Tentative is Wyant, Sant'ana, Curtin
+
+
+
+# Geolocation Study Notes
+
+This study will focus on the use of geolocation data to predict lapses.  It will
+likely also include the use of stable individual differences as these may prove 
+to be important moderators of the location - lapse relationships
+
+
+## Paper Info
+
+**Authors**: TBD.   
+
+Srijan Kumar (srijan@gatech.edu) and Gaurav Verma (gverma9@gatech.edu) are collaborators
+from Georgia Tech who are taking the lead at this point in modeling.
 
 Hannah will be a co-author given her contributions to processing raw geolocation 
-data.  Her specific role is TBD based on future discussions and level of involvement
-with Georgia Tech in analysis, writing, etc.
+data.  Her specific role is TBD based on future discussions and level of 
+involvement with Georgia Tech in analysis, writing, etc.  
 
-## Full Cellular Communications Study Notes
 
-There will be a follow-up to Kendra's FYP that also uses NLP on text messages.
+
+
+# Full Cellular Communications Study Notes
+
+This will be a follow-up to Kendra's FYP that also uses NLP on text messages.
 Currently, this is planned as a second study (independent of Kendra's FYP) unless
 the meta data prove insufficient by themselves for reasonable prediction.
 
+## Paper Info
+
+**Authors** TBD
+
 Kendra will be a co-author given her role in processing the communications data.
-Currently, she will have option to lead study (first author) assuming timely progress, etc.
+Currently, John has reserved the option for her to lead study (first author) 
+assuming timely progress, etc.
 
-## Audio Check-ins Study
+# Audio Check-ins Study
 
-A good, focused NLP project.   Also interesting because of past research on journaling
-in addiction
+A good, focused NLP project.   Also interesting because of past research on 
+journaling in addiction
 
-## Stressor-use Replication Study
+## Paper Info
 
-Can replicate either the focus on stressors or all pleasant and unpleasant events
-from EMA as predictors of lapse.
+A student of Dhavan's will be involved in this study.  John has discussed a role for
+Susan as well.  
 
+
+# Stressor-use Replication Study
+ 
+May focus on conceptual replication of either the stressor-use or the 
+pleasant/unpleasant stressor studies from NRT
+
+## Paper Info
+
+Sarah has expressed interest in this study.  Gaylen should be included given her 
+role in stressor-use.  Ali may be involved depending on her involvement in 
+pleasant stressors study.
 
