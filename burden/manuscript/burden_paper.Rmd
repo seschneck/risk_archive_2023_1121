@@ -45,8 +45,8 @@ wordcount         : "X"
 
 bibliography      : ["references.bib"]
 
-floatsintext      : no
-figurelist        : no
+floatsintext      : yes
+figurelist        : yes
 tablelist         : no
 footnotelist      : no
 linenumbers       : no
@@ -71,27 +71,73 @@ knit: (function(input, ...) {
 ---
 
 ```{r setup, include = FALSE}
+library(here)
 library("papaja")
-r_refs("references.bib")
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
 
 <!--Comments
 
-Here are all our general notes about the paper
+JJC notes on personal sensing terms
+  Personal sensing is a method
+  Raw data (streams)
+  We derive measures from the raw data
+  Measures can be predictors or outcomes
+  They are generally measures of constructs or objective behaviors/events
+  We use platforms that consist of hardware (sensors, storage) and software (apps)
 
-We can provide global feedback to each other here too.
 -->
 
 
 
-This is the first paragraph
+## Personal Sensing
+Personal sensing is a longitudinal method for in situ (embedded in the context of day to day lives) data collection  [1,2]. It involves the process of sensing raw data streams (e.g., sensor or log data) via a personal sensing platform and forming measures  (e.g., geolocation, cellular communications, physiology) to be used as indicators for constructs which can be outcomes or predictors depending on the research or clinical goals.
 
-This is the second paragraph.  It is longer and contains a few sentences to
-see how things will look when the line wraps.
+A personal sensing platform consists of all hardware (e.g., smartphone, wearable sensor) and software (e.g., apps, cloud storage, API access) needed for the generation and retrieval of raw data streams. A platform can be limited to sensing a single raw data stream or it can be flexible enough to capture multiple sources of data.
 
-\newpage  <!-- demo use of LaTeXex for finer control in pdf-->
+Personal sensing can be coarsely categorized as active or passive in terms of effort. Active methods require frequent (i.e., at least daily) interactions with the personal sensing platform and as such place more effort on the individual using the platform. Passive methods require minimal interactions (i.e., installing an app and setting permissions once) with the personal sensing platform and operate passively in the background.
+
+Importantly, a personal sensing method can be active in different places. One example is during data generation. An EMA method is active at this point in that it requires individuals to generate the data via self-report.  On the other hand, a method for sensing geolocation is passive in that people do not need to input their location. Another place where a method can be active is at the point where the researcher or clinician needs to access or retrieve the data. In this case raw data streams that are automatically uploaded to cloud storage would be considered passive, but manual uploads would be considered active. 
+
+Additionally, two personal sensing methods may sense the same raw data stream but differ in activeness. In our study, our method for sensing sleep quality and duration was active (i.e., participants had to interact with the platform to turn it on each night and off each morning). As technology advances, we can easily imagine a sleep monitoring method that is more passive (e.g., a one-time installment of a blue tooth enabled sensor under the mattress). Thus, while the activeness of the raw data stream is relatively stable, there may be room for improving the personal sensing platform and ultimately reducing burden on the individual using the sensing platform.
+
+Personal sensing methods are gaining popularity in the field of clinical psychology where early detection of and monitoring for mental health symptoms enables treatment and intervention [1,3]. Researchers have begun to identify measures indicative of various mental health constructs including social anxiety [4], depression [5–10], bipolar disorder [11–13], schizophrenia [14–17], and substance use [18–22] from these signals. 
+
+The potential predictive power of these methods could have direct implications for clinical settings [3,23]. Reliable identification of mental health constructs  could facilitate more effective screening. Screening from passively collected data can eliminate self-report bias. Removing the need for an office visit can improve the reach of mental health screening services. Additionally, personal sensing methods can provide a continuous stream of real-time data to inform a screening outcome instead of relying on information collected during a single office visit [24].  
+
+The ability to predict the presence or absence of these constructs prospectively can also open the door for more efficient monitoring. Current treatment approaches lack the necessary resources required for long-term monitoring of symptom onset and overall mental health stability. Yet detecting a symptom lapse early on could have benefits for both an patient’s prognosis [25,26] and overall cost [27,28]. Additionally, mental health disorders are not static states [29]. Someone might be stable for months or years before re-experiencing symptoms [30,31]. Integrating personal sensing methods into clinical settings may be one way to improve the reach of treatment resources and may allow for intervention prior to a full symptom relapse.
+
+## Acceptability
+Using one or more personal sensing methods in clinical settings requires that people accept their use and will sustain the behaviors they require. For example, using personal sensing methods to detect increasing severity of symptoms will not work if interferes with people’s daily lives or if people simply dislike the signal . 
+
+Two key aspects of personal sensing methods that may affect their acceptability are the sensitivity of the data being collected [32,33], and the active effort required by the individual [34,35]. Importantly, these two dimensions explicitly differ from one personal sensing measure to the next. For example, text message content monitoring is completely passive, requiring no active effort from the participant, but the data are highly sensitive. On the other hand, an EMA method may ask generic questions that are not perceived to be sensitive, but the high level of effort required (e.g., lengthy questionnaire, high prompt frequency) may be too burdensome. As a result, acceptability of personal sensing methods may be best assessed at the individual level of the measure being sensed.  
+
+Sensitivity of information may be an especially salient concern when working with clinical populations. Public opinion often holds a stigmatizing view of mental health disorders [36–39]. As a result, people may fear that their employer or peers will become aware of their diagnosis. These fears can become further compounded when illicit factors like drug use are involved. A negative opinion by neighbors or consequences at work are often cited reasons for not seeking treatment for substance use [40,41]. Thus, the type and sensitivity of data that a personal sensing method collects may be an important contributor to the acceptability of that measure.
+
+This component of sensitivity, however, can be difficult to quantify. It is possible to vary within group and within measure. For example, it is expected that some people will be more private than others. Some people may not feel comfortable sharing any information or they may only feel comfortable sharing information under certain contexts. Additionally, a single personal sensing measure could be viewed as having different degrees of sensitivity depending on the specific information it is collecting. An EMA that asks participants about their mood compared to drug-related behaviors is likely going to be seen as less sensitive. A study using focus-groups to assess reactions to a hypothetical personal-sensing smartphone application in a sample of men who use methamphetamine and are living with HIV found that participants expressed privacy concerns with both location and self-reported drug use information citing fears of legal consequences and unintentional disclosure of their drug use or HIV status to family and friends. [32]. Thus, the threshold of what level of sensitivity is acceptable is not easy to operationalize. Instead, these individual and group differences may be reflected as a strong dislike for a particular measure or perhaps a willingness to use the measure for several weeks as a paid research participant but an unwillingness to continue using the measure in other settings (e.g., as a recovery plan with a clinician) or for longer durations (e.g., one year).
+
+As mentioned, personal sensing methods also differ in the level of active effort needed from the participant for data collection. Daily or more frequent self-report surveys (e.g., EMA) delivered to the participant’s smartphone are active in nature, requiring substantial involvement. In contrast, background monitoring of cellular communications, location, or other sensor or log data are passive signals that are collected automatically with minimal to no engagement needed from the individual. 
+
+Not surprisingly, much of what we know about how active effort plays into the acceptability of personal sensing measures revolves around applications of EMA methods. People have been shown to be able to comply with relatively intensive EMA protocols (e.g., 5-6 daily prompts over several weeks) when the survey is brief (1-3 minutes) [35,42]. Studies assessing user experience and associated burden with EMA in both clinical and non-clinical populations suggest participants perceive EMA to be an acceptable signal [43–47]. However, these studies all assessed user experience over short periods of participation (2-4 weeks).
+
+EMA studies that stretch over longer durations often infer acceptability from EMA compliance [48]. While this is likely a contributing factor for acceptability, on its own it may be a poor indicator. Conflicting findings have been found in studies manipulating the active effort an EMA protocol requires. For example, increases in prompt frequencies and questionnaire length have both been shown to be related to increased subjective burden, but only questionnaire length resulted in decreased compliance [35,43]. Other studies, including a meta-analysis of EMA compliance in people with substance use disorders, found that assessed burden did not influence compliance [49,50]. However, missing data from non-compliance is not the only way bias can be introduced into the data. Data provided irrespective of burden could result in hurried or careless response patterns likely due to study fatigue [35,51]. For example, when reimbursement is structured around compliance rates, participants may answer questions from memory or strategically answer items to avoid follow-up questions and shorten the length of the survey [52]. 
+
+Overall, compliance tends to be low in substance using populations and even lower for people with a clinical diagnosis of a substance use disorder [44,46,50,53]. The meta-analysis of substance use studies reported a pooled compliance rate of 75% [50]. This falls below the traditionally accepted compliance threshold of at least 80% [50,54]. Additionally, persons with substance use disorders may find highly active personal sensing signals, like EMA, less acceptable over longer periods. In a four-week study where participants completed four daily EMAs to document alcohol use, researchers reported a steep drop in compliance in week four despite consistently low assessment burden [46]. These findings highlight the potential challenges of implementing personal sensing protocols in substance use populations and the need to examine personal sensing acceptability over longer durations of time.
+
+We know far less about compliance and overall acceptability with more passive personal sensing measures. Preliminary research suggests passive personal sensing signals may be acceptable [44,55–57]. However, these studies focused on a single personal sensing measure or used aggregate acceptability ratings across multiple personal sensing measures. This makes it difficult to parse out differences across measures that may vary in active effort and sensitivity. 
+
+Other studies have created hypothetical scenarios to gauge whether participants are willing to share passively collected data and found decent acceptability rates [58–60]. These rates are limited in their informativeness, however, because participants knew the question was hypothetical. A more accurate measure would be to look at metrics of enrollment and retention in a study that uses passive personal sensing measures in addition to self-report. 
+
+## Our Study
+Previous work assessing acceptability have been conducted in different settings and are difficult to generalize and compare across studies. Our study examines the acceptability of various personal sensing measures   individually and in the same context. That is, we present reactions to using various personal sensing measures from participants with alcohol use disorder (AUD). Participants engaged daily with various personal sensing measures that differed in both the activeness of the measure (e.g., four-time daily EMA vs. location tracking) and the sensitivity of the information being collected (e.g., sleep log data vs. text message content) for up to three months. 
+
+Our study focuses on individuals with moderate to severe AUD. As suggested earlier, personal sensing methods offer an opportunity for long-term monitoring in real-time. People with AUD may especially benefit from such monitoring. Unfortunately, in EMA studies, compliance rates have been shown to be lower for participants who report more alcohol use overall [61]. However, little is known about other measures of acceptability or compliance rates regarding more passive measures. 
+
+Additionally, we characterize acceptability across a range of subjective and objective measures instead of relying on a single proxy. Specifically, we evaluate self-reported ratings on how much participants dislike a personal sensing measure  , how much it interfered with their daily activities, and whether they would be willing to continue using the measure for a year in addition to observed behaviors related to participation and compliance. 
+
+This multi-faceted characterization of acceptability combined with the wide array of personal sensing measures assessed will expand the current literature which predominantly focuses on EMA. Our study is the first that we know of to evaluate the perceived acceptability for a series of personal sensing measures covering a broad range of the active-passive continuum from participants actually using all of the measures. These analyses may help researchers and clinicians evaluate whether certain personal sensing measures will be accepted in substance use populations.
+
 
 # Method
 
@@ -108,15 +154,24 @@ We recruited participants in early recovery (1 – 8 weeks of abstinence) from A
 4. were abstinent from alcohol for at least one week but no longer than two months, 
 5. were willing to use a single smartphone (their personal phone or one provided by us) while enrolled in the study. 
 
-We also excluded participants if they exhibited severe symptoms of psychosis or paranoia .  All procedures were approved by the University of Wisconsin-Madison Institutional Review Board. 
+We also excluded participants if they exhibited severe symptoms of psychosis or paranoia.  All procedures were approved by the University of Wisconsin-Madison Institutional Review Board. 
 
 We assessed eligibility and exclusion criteria using a brief phone screen followed by a more detailed in person screening visit. One hundred and ninety-two participants met criteria for enrollment. Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later.  Fifteen participants discontinued prior to the first follow-up visit at one month.  The remaining 154 participants provided study measures for one (N = 14), two (N = 7) or three (N = 133) months.  We provide a study participation flow chart in Figure 1.
 
-<!-- INSERT FIGURE HERE-->
- 
-Figure 1. Flowchart of participant retention over the course of the three-month study. 
+<!-- FIX: Need to generate this figure by code-->
+<!-- FIX: I can't get text references to work.  This hacky solution works as long as we don't need special formating
+in the figure caption
+See: http://frederikaust.com/papaja_man/tips-and-tricks.html#text-references-->
+```{r}
+fig_caption_1 <- "Flowchart of participant retention over the course of the three-month study. This figure displays retention and attrition of all eligible participants at various stages from consent though study completion.  It also display the reasons for attrition categorized as due to acceptability, other reasons, or unknown.  We present additional detail on reasons for attrition in Table 3."
+```
 
-We report retention and attrition of all eligible participants at various stages from consent though study completion.  We categorized reasons for attrition as due to acceptability, other reasons, or unknown.  We present additional detail on reasons for attrition in Figure 3. 
+```{r fig.cap = fig_caption_1}
+knitr::include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), 
+                        dpi = 150)
+```
+
+
 
 ## Procedure
 
@@ -189,7 +244,422 @@ Finally, we conducted two analyses to examine the consistency of perceptions acr
 
 # Results
 
+## Participant Characteristics
+One hundred and fifty-four participants completed at least one monthly follow-up visit and provided self-report acceptability ratings for interference, dislike, and willingness to use for one year. These participants serve as our primary sample for our analyses. Table 1 presents demographic information these participants.  Table 2 characterizes alcohol use and AUD-relevant information for these participants. We compared demographics and AUD information for participants who were included in the analyses vs. eligible participants who did not provide study measures (i.e., did not enroll or discontinued prior to the first month follow-up; N = 36 ) and found no significant differences (see Multimedia Appendix 2 for more detail on these analyses). 
+
+<!-- Insert table 1 by code
+Table 1
+
+Demographic Characteristics for the Sample
+
+	%	M (SD)
+Age		41.0 (11.9)
+
+Sex		
+     Female	50.0%	
+     Male	50.0%	
+
+Race		
+     American Indian/Alaska Native	1.9%	
+     Asian	1.3%	
+     Black/African American	5.2%	
+     White	87.0%	
+     Multiracial or not listed	4.5%	
+
+Hispanic, Latino, or Spanish Origin		
+     Yes	2.6%	
+     No	97.4%	
+
+Education		
+     Less than high school or GED degree	0.6%	
+     High school or GED	9.7%	
+     Some college	27.9%	
+     2-Year degree	9.1%	
+     College degree	37.7%	
+     Advanced degree	14.9%	
+
+Employment		
+     Employed full-time	46.8%	
+     Employed part-time	17.5%	
+     Full-time student	4.5%	
+     Homemaker	0.6%	
+     Disabled	4.5%	
+     Retired	5.2%	
+     Unemployed	12.3%	
+     Temporarily laid off or on leave	1.9%	
+     Other, not otherwise specified	6.5%	
+		
+Income		34,233 (31,543)
+		
+Marital Status		
+     Never married	44.8%	
+     Married	21.4%	
+     Divorced	29.2%	
+     Separated	3.2%	
+     Widowed	1.3%	
+
+Note: N = 154 participants
+
+-->
+
+
+<!-- Insert Table 2 by code
+Table 2
+
+Alcohol Related Characteristics for the Sample
+
+	%	M (SD)
+AUD Milestones		
+     Age of first drink		14.6 (2.9)
+     Age of regular drinking		19.5 (6.5)
+     Age at which drinking became problematic		27.9 (9.6)
+     Age of first quit attempt		31.6 (10.4)
+		
+Number of Quit Attempts		9.1 (31.1)
+		
+Types of Treatment (more than 1 possible)		
+     Long-term residential (6+ mos.)	5.2%	
+     Short-term residential (< 6 mos.)	33.1%	
+     Outpatient	50.0%	
+     Individual counseling	64.9%	
+     Group counseling	42.2%	
+     Alcoholics Anonymous/Narcotics Anonymous	62.3%	
+     Other	26.6%	
+		
+Received Medication for AUD		
+     Yes	40.3%	
+     No	59.7%	
+		
+AUD DSM-5 Symptom Count		8.9 (1.9)
+		
+Lifetime Drug Use 		
+     Tobacco products (cigarettes, chewing tobacco, cigars, etc.)	79.2%	
+     Cannabis (marijuana, pot, grass, hash, etc.)	85.1%	
+     Cocaine (coke, crack, etc.)	55.8%	
+     Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)	52.6%	
+     Inhalants (nitrous, glue, petrol, paint thinner, etc.)	23.4%	
+     Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)	46.8%	
+     Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)	57.1%	
+     Opioids (heroin, morphine, methadone, codeine, etc.)	42.2%	
+
+Note: N = 154 participants
+
+-->
+
+
+## Behavioral Measures of Acceptability
+
+### Participation
+
+Figure 1 shows participant attrition/discontinuation at each phase of the study. Of the 192 eligible participants at screening, only one did not consent after hearing the details of the study. Enrollment occurred during a second visit one week later. A total of 169 participants completed enrollment. 
+
+Study phases where we lost eligible participants are highlighted in red in Figure 1. In addition, we coarsely tabulated participants stated reasons for discontinuation as due to acceptability, other reasons, or unknown in this figure.  Eleven participants (5.7%)   were lost due to acceptability-relevant causes (e.g., no longer interested, non-compliance with data, or citing study demands as too burdensome). Other reasons for discontinuation not related to the acceptability of the signals include circumstances such as moving or no longer wishing to abstain from alcohol. It should be noted that thirty-one participants (16.1%) were lost to follow-up such that we had no information about their reasons for discontinuation.   We provide more granular tabulation of these reasons for discontinuation in Table 3. 
+<!-- Denominator for above percentages is 192-->
+
+### Opt-In and Compliance
+
+All participants  (100%)   opted-in to provide data for all personal sensing methods.  Daily compliance rates were relatively high for EMAs such that 94% of participants completed at least one of the four EMAs every day. On average, participants completed 3.1 EMAs every day. The overall compliance rate for all requested EMAs was 77%. Participants’ completion rate for the daily audio check-in was 53%. That is, of their total days on study, participants completed an audio check-in on approximately half of them. 
+
+<!-- Insert Table 3 here by code 
+Table 3
+Reasons for Discontinuation…
+A.	Prior to Completing Enrollment
+	N	%
+Health concerns	1	0.05
+No longer has transportation	1	0.05
+No longer interested	3	0.14
+Rescheduled multiple times before cancelling/no showing	6	0.29
+Unknown	10	0.48
+Total	21	1.00
+Note: These participants are depicted as “Not Enrolled” in Figure 1. Bolded rows represent acceptability-related discontinuation.
+
+B.	Prior to Completing First Month Follow-up
+	N	%
+Family crisis	1	0.06
+No longer sober or no longer wishes to abstain from alcohol	5	0.31
+No longer interested	1	0.06
+Noncompliance with providing data	1	0.06
+Rescheduled multiple times before cancelling/no showing	4	0.25
+Unknown	4	0.25
+Total	16	1.00
+Note: These participants are depicted as “Discontinued” in Figure 1. Bolded rows represent acceptability-related discontinuation.
+
+C.	After Completing First Month Follow-up
+	N	%
+Cell service shut off	3	0.14
+Cited study demands as too burdensome	1	0.05
+No longer sober or no longer wishes to abstain from alcohol	3	0.14
+Moved out of state	2	0.10
+No longer interested	3	0.14
+Noncompliance with providing data	2	0.10
+Rescheduled multiple times before cancelling/no showing	4	0.19
+Unknown	3	0.14
+Total	21	1.00
+Note: These participants are depicted as “Participated through 1st month follow-up” or “Participated through 2nd month follow-up” in Figure 1. Bolded rows represent acceptability-related discontinuation.
+-->
+
+## Self-reported Acceptability 
+
+### Interference
+
+Figure 2 shows the distribution of participant responses to the self-reported acceptability item about interference. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it. One sample t-tests revealed that each mean interference score (depicted as the solid red line) was significantly more acceptable than 0 (gray dashed line indicating undecided). Table 4 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, interference ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.31 - .53]. 
+
+### Dislike.  
+
+Figure 3 shows the distribution of participant responses to the self-reported acceptability item about dislike by personal sensing data stream and amount of active effort required to collect it. One sample t-tests revealed that each mean dislike score was significantly more acceptable than 0.  Table 5 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the dislike ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.35 - .48]. 
+
+We also assessed the effect of active effort on dislike ratings (Figure 4). We conducted a paired samples t-test to compare the average dislike for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) methods. Participants did not different significantly in their dislike of active vs. passive methods, t(153) = 1.21, p = .23, d = .10. 
+
+### Willingness to Use for One Year
+
+Figure 5 shows the distribution of participant responses to the self-reported acceptability item about willingness to use for one year for each personal sensing data stream. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0. Table 6 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
+
+We also assessed the effect of active effort on willingness ratings (Figure 6). We conducted a paired samples t-test of average the average willingness to use for one year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals.  Participants reported higher acceptability with respect to willingness for passive data streams (M = 0.84, SD = 1.0 ) relative to active data streams (M = 0.69, SD = 1.1), Ft(1, 153) = 4.502.12, p = .04, d = .17.
+<!-- Review/update (by code) number of decimal places for self report measures.   One should be appropriate.  
+All statistics (p values, ts, r should be reported to 2 decimal places)
+-->
+
+<!-- Does \n work in figure caption.  Work on this caption a bit more-->
+```{r}
+fig_2_caption <- "Interference Ratings by Personal Sensing Data Stream.\n Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
+```
+<!-- Insert figure 2 by code here-->
+
+<!-- Does \n work in figure caption.  Work on this caption a bit more-->
+```{r}
+fig_3_caption <- "Dislike Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+```
+<!-- Insert figure 3 by code here-->
+
+<!-- Does \n work in figure caption.  Work on this caption a bit more-->
+```{r}
+fig_4_caption <- "Average Dislike by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+```
+<!-- Insert figure 4 by code here-->
+
+
+<!-- Does \n work in figure caption.  Work on this caption a bit more-->
+```{r}
+fig_5_caption <- "Willingness to Use for One Year Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+```
+<!-- Insert figure 5 by code here-->
+
+<!-- Does \n work in figure caption.  Work on this caption a bit more-->
+```{r}
+fig_6_caption <- "Average Willingness to Continue for One Year by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for one year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+```
+<!-- Insert figure 6 by code here-->
+
+
+<!-- Insert Table 4 by code
+Table 4
+
+Bivariate and Univariate Statistics for Interference by Personal Sensing Data Stream
+
+	1	2	N	M	SD	t	d
+Active							
+     1. Audio Check-in	-		154	0.78	1.07	9.05*	0.73
+     2. EMA	.42*	-	154	0.91	0.99	11.37*	0.92
+     3. Sleep MonitoringQuality	-.06	.24*	87	1.38	0.87	14.86*	1.59
+
+Notes:  Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants (N), mean and standard deviation (M, SD), t-statistic (t) and Cohen’s d Effect size (d) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability.  Active methods are displayed in red and passive methods are displayed in blue.
+* p < .05
+-->
+
+
+<!-- Insert table 5 by code
+
+Table 5
+
+Bivariate and Univariate Statistics for Dislike by Personal Sensing Data Stream
+
+	1	2	3	4	5	N	M	SD	t	d
+Active										
+     1. Audio Check-in	-					154	0.51	1.28	4.91*	0.40
+     2. EMA	.57*	-				154	0.95	0.92	12.92*	1.04
+     3. Sleep Quality	.25*	.26*	-			87	1.10	1.09	9.45*	1.01
+Passive										
+     4. Geolocation	.31*	.36*	.41*	-		154	1.03	0.94	13.51*	1.09
+     5. Cellular Communication
+         Logs	.22*	.25*	.33*	.67*	-	154	0.90	0.97	11.45*	0.92
+     6. Text Message Content	.34*	.28*	.19	.62*	.69*	154	0.58	1.18	6.07*	0.49
+
+Notes:  Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants (N), mean and standard deviation (M, SD), t-statistic (t) and Cohen’s d Effect size (d) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue.
+* p < .05
+--> 
+
+
+<!-- Insert table 6 by code
+
+Table 6
+
+Bivariate and Univariate Statistics for Willingness to Use for One Year by Personal Sensing Data Stream
+
+	1	2	3	4	5	N	M	SD	t	d
+Active										
+     1. Audio Check-in	-					154	0.73	1.28	7.09*	0.57
+     2. EMA	.44*	-				154	0.64	1.22	6.47*	0.52
+     3. Sleep Quality	.44*	.41*	-			87	0.85	1.28	6.19*	0.66
+Passive										
+     4. Geolocation	.51*	.48*	.53*	-		154	0.94	1.18	9.83*	0.79
+     5. Cellular Communication 
+         Logs	.47*	.47*	.47*	.65*	-	154	0.84	1.07	9.76*	0.79
+     6. Text Message Content	.47*	.39*	.37*	.60*	.84*	154	0.74	1.12	8.21*	0.66
+
+Notes:  Initial columns represent bivariate correlations among signals. Final columns represent the number of participants (N), mean acceptability score (M), standard deviation (SD), and t statistic (t) and Cohen’s d Effect size (d) for a one sample t-test centered around a neutral/ambivalent score of 0 on a 5-point bipolar scale. Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue.
+* p < .05
+-->
+
+
+
 # Discussion
+
+## Behavioral Acceptability
+
+Overall, participants showed behaviors consistent with acceptance of our personal sensing methods. Only one participant did not consent to the study and all enrolled participants agreed to provide us their raw data streams for each of the actively (EMA, audio check-in, sleep) and passively (geolocation, cellular communication logs, text message content) sensed measures.  
+
+Participants were willing to opt-in to all passive methods despite the sensitive nature of the raw data streams being collected. Participants concerned about sharing passively sensed data would likely have had these concerns from the beginning (i.e., resulting in not consenting or not opting-in to sensitive personal sensing methods). As a result, any drop-out is likely more indicative of burden from personal sensing methods higher in active effort then from measures high in sensitivity.
+
+Behavioral acceptability was a bit more nuanced for our active methods. Compliance differed based on active effort and type of personal sensing measure. Participants had low overall compliance for the audio check-in. If this type of personal sensing method is desirable, researchers and clinicians may find better compliance with less frequent prompts (i.e., less than daily). Participants did moderately well with overall compliance for the four-time daily EMA (77%). This falls below the 80% recommended compliance rate but is quite typical when working with substance use populations [50,54]. We also note that our study is longer than the average EMA study (spanning three months instead of 2-4 weeks) and this could account for a lower compliance rate. As a result, we can imagine compliance being even lower if participants were asked to provide EMA data for one year. Participants were able to comply with one-time daily EMA at high rates (94%). Thus, fewer prompts may be needed to maintain high compliance rates over longer durations.    
+
+## Self-reported Acceptability
+
+With respect to the self-reported measures of acceptability (interference, dislike, willingness to use for one year), all personal sensing methods were rated to be on the acceptable side of neutral. So, it appears participants found these methods to be acceptable (or at least not unacceptable). More importantly, these findings suggest participants are willing to use these methods for up to a year if it is helping their recovery. 
+
+We found mild differences in self-reported acceptability for active and passive personal sensing methods. Active and passive methods were viewed equally acceptable in terms of disliking the methods. For willingness to use the methods for one year, we found a significant, but weak, effect. Participants reported they were more willing to use passive methods. This difference is not surprising. Methods requiring high active effort from the participant can be burdensome making it difficult to maintain long-term engagement with the personal sensing platform. 
+
+This self-reported difference in willingness to use active and passive methods was further reflected in compliance. Despite participants self-reporting the audio check-in to be acceptable, we found poor daily compliance. Likewise, we found EMA compliance to much higher if the threshold was lowered to a one-time daily method. Additionally, when asked about a one-time daily method, participants self-reported that they would much more likely to use a one-time daily EMA method compared to a four-time EMA method for one year.
+
+Finally, across active and passive measures, we did see some agreement in terms of self-reported acceptability. ICC scores ranging from .42 - .52 suggest some shared variance across measures. However, there was also some individual variation from one measure to the next .  <!-- Kendra: Not entirely sure how to frame this-->
+
+## Active Effort and Sensitivity
+
+We labeled our personal sensing methods as active or passive based on the amount of active effort our specific methods required. Small changes in a personal sensing method can shift where it falls on this active-passive continuum. For example, an EMA method will never be passive but by altering the length or prompt frequency it may become more or less active. On the other hand, our measure of sleep was on the low side of the active continuum, but with advances in technology passive methods for sensing sleep duration and quality now exist. Thus, our labels may not necessarily generalize to other methods collecting the same types of raw data streams.
+
+We determined it would not be appropriate to group methods by where they fall on the high-low sensitivity continuum. Sensitivity cannot be defined by the personal sensing method alone. It is highly contextual depending on factors such as characteristics and preferences of the person providing their data, who is receiving the data (e.g., researcher, clinician, health insurance), and what it is being used for [70]. It is also dynamic so that a certain set of circumstances may be acceptable for sharing sensitive information at one point (e.g., when someone is stable in their recovery), but not at a later point (e.g., when someone is in the middle of a series of lapses or a relapse). 
+
+In our own sample we saw individual variation in how participants felt about the sensitivity of their data in free-response comments.
+
+<!-- The --- Participant should be single spaced after the quote for all  of these quotes-->
+
+> “I don't mind it at all. It's sort of nice to know I'm being monitored” 
+
+> `r tufte::quote_footer("--- Participant 047")`
+
+> “I am concerned with data privacy and felt uncomfortable having my location actively tracked” 
+
+> `r tufte::quote_footer("--- Participant 196")`
+
+
+Individuals may experience privacy differently in their day to day lives. People belonging to historically marginalized groups may find it more difficult to achieve privacy in their daily life [71]. Relatedly, our participants are in recovery for AUD. For some, there may be high costs (e.g., legal consequences, or loss of job, relationships, or health insurance) if information related to their recovery (e.g., frequent lapses) gets in the wrong hands. As a result, personal experiences may affect how much one values privacy and as a result whether one would be willing to provide sensitive data streams.
+
+Researchers and clinicians should consider these factors when designing their personal sensing method. For example, in theory the one-time daily audio check-in that could be completed at any point during the day and only had to be 30 seconds in length should require less effort then a four-time daily EMA that was to be completed when prompted. When examining our participants’ free-text comments about their experience with the different methods, we found that many said it was difficult to find a private place to record their audio check-in. 
+
+> “It takes time out of your day where you have to completely switch locations just so you can do it in private. I don't like that people could hear me and the topic wherever and whenever so I stopped using it” 
+
+> `r tufte::quote_footer("--- Participant 018")`
+
+> “Sometimes I wouldn't be able to do it because I was with people too much which was frustrating” [participant 037].
+
+> `r tufte::quote_footer("--- Participant 037")`
+
+This lack of privacy compounded with the nature of their check-in (i.e., their recovery) likely contributed to the poor daily compliance. So, if obtaining a free response commentary (i.e., the content of the audio check-in) each day was crucial to our research goals it might have been in our better interest to provide participants with an alternate response format (e.g., typed text). On the other hand, if it was more important to get data related to vocal inflection, pace, and other information extracted from audio data, a less than daily prompt with reminders might be more effective. 
+
+##Theoretical Framework
+
+Whether someone finds a personal sensing method acceptable ultimately comes down costs, benefits, and trust [34,72,73]. Our study only looks at acceptability related to cost (time and privacy). However, it is important that we also consider benefits and trust.
+
+### Benefits
+
+Participants in our study received minimum benefits. Benefits included financial compensation for their time and possible gratification for their contribution to a risk prediction algorithm with the aim to help other people in recovery for AUD and from the self-reflection required for some of the daily tasks (audio check-in, EMA). 
+
+Research suggests that privacy concerns about personal sensing methods may be mitigated by the perceived value of the sensing platform [2,34]. Free response comments from our participants support this.
+
+> “As long as my personal information was secure and only shared by study staff, and its collection could help in my recovery, I'm comfortable with it” 
+
+> `r tufte::quote_footer("--- Participant 189")`
+
+> “I felt all right having my location tracked. If it were used in a way to keep me from relapsing my feeling about it would be even more positive” 
+
+> `r tufte::quote_footer("--- Participant 016")`
+
+As a result, individuals may find the personal sensing methods more acceptable if they were also receiving treatment through the application or receiving other benefits from using the application (e.g., resources, personalized notifications).
+
+### Trust
+
+In our study, trust levels were high. We had several protections in place to keep participants’ data confidential and we thoroughly explained them during the consent process. Additionally, participants came into our lab for their monthly visit where they often built report with a limited number of study staff. Participant comments suggest this trust influenced their perceived acceptability of our sensing methods. 
+
+> “Invasive in theory, no problems actually because of confidentiality” 
+
+> `r tufte::quote_footer("--- Participant 193")`
+
+> “I trusted the study group to not use my personal information for any other use” 
+
+> `r tufte::quote_footer("--- Participant 166")`
+
+It is not surprising that trust plays an integral role in a person’s acceptance of these methods. We know form the literature who people are sharing their personal sensing data with matters [33,34,60,74,75]. Focus group studies suggest that people are most comfortable sharing data anonymously with researchers and with their doctor, and least comfortable sharing information with family members, electronic health record databases, and third party apps and websites [33,74,75]. This suggests trust is most closely related to trust that the information will be kept confidential. 
+
+## Ethics
+
+Acceptability of personal sensing methods should not be taken as minimizing the sensitive nature of these data. In fact, we use the term personal sensing to make explicit how personal and sensitive these data are [1]. Personal sensing has the potential to seep into almost every aspect of an individual’s world. Research and applications using personal sensing methods must only be done with appropriate protections in place.
+
+Our participants generally felt comfortable providing these data to us. We had the strictest possible measures in place to keep their data safe and as a result they trusted us.  One of these safeguards, a certificate of confidentiality, protects research participants by preventing forced disclosure of any identifying information. However, this is unique to the research context. Implementing personal sensing platforms in applied settings could potentially put the end user at risk [76]. Companies and third-party applications could be subpoenaed and required to disclose sensitive information to be used as ammunition in a custody case or as evidence in a criminal trial. Likewise, a company might be providing a patient’s healthcare data to both their provider and their health insurance company resulting in higher insurance premiums or dropped coverage. This risk is not lost on the people being asked to provide their data and control over who can access their data and unauthorized secondary use of that information are often cited concerns [34,70].  
+
+The current study assesses the acceptability of personal sensing methods that start with the collection of raw data streams and end with indicators for constructs. The likely next step is to use these indicators as inputs into a statistical algorithm to create a predictive machine learning model. Predictive models built on personal sensing data can be valuable in clinical areas such as risk prediction, mental health screening and diagnosis, and treatment matching. However, to benefit the patient it is critical that these models are trained on large and diverse samples of participants. <!-- Kendra: Elaborate why this is important and harmful consequences if not done-->    
+
+Controlling who gets access to personal sensing data, preventing conflicts of interest, and creating equitable and fair machine learning models are only some of the ethical concerns that must be addressed before personal sensing methods can be implemented.  
+
+## Feasibility
+
+Acceptability of personal sensing methods is only the first step in using such methods in applied settings. It must also be feasible to implement a personal sensing platform or series of personal sensing methods. In other words, it must be possible to do in a convenient, realistic, and sustainable way. Feasibility of applying personal sensing methods can be broken down into feasibility for the participant, client, or patient and feasibility for the researcher, provider, or clinician.
+
+### Participant, client, or patient
+
+The primary feasibility concern on the user side of personal sensing is the ability to access the personal sensing platform and implement it into their daily routine.
+
+The minimum technology needed for access to a personal sensing platform (e.g., an app) is a smartphone. While this may have been a large financial burden in the past, today there are more affordable options. Smartphone ownership is estimated to be at about 81% of the population and is not much lower in substance use populations and low socio-economic groups [77,78]. 
+
+Not only do people generally have the requisite technology needed to access personal sensing platforms, but they are also willing to sustain interaction with personal sensing methods for long durations of time. We found participants accepted the personal sensing methods and were able to incorporate them into their daily lives with little interference. Additionally, most participants were willing to use these methods for one year to help their recovery. This is valuable in that they are reporting this after already having used these methods daily for about three months. So, they are using these methods and willing to continue using them for longer periods of time. This potential for sustained engagement with a personal sensing platform is promising if we are to ultimately use such methods in the real world.
+
+### Researcher, provider, or clinician
+
+Feasibility concerns on the data collection end revolve mostly around the technology. These include technical difficulties, expense, and churn with companies.
+
+We started out with three platforms (physiology wristband, sleep monitor, and study iPhone) and experienced varying levels of technological difficulties with each. Most notably we had to stop providing the Empatica E4 physiology wristband to participants almost immediately because it was too difficult to retrieve the data. The physiology wristband did not support Bluetooth streaming of data to the cloud and participants were required to manually upload the data each day on a study tablet. This process soon proved to be too burdensome, and it was too difficult to trouble shoot software problems that came up during the data upload process.
+
+Expense must also be considered when evaluating feasibility of personal sensing methods. Had we continued using the physiology wristband we would have been providing participants with two pieces of hardware (wristband and tablet) to collect a single data stream. Early participants were also offered a study iPhone if they did not have an eligible smartphone (Android or IOS). This can be expensive and discouraging. However, as technology improves, we see how more can be done with a smartphone as a single all-encompassing personal sensing platform. Additionally, many people now own a smartphone. We stopped offering study smartphones because so many people already had one. Only six participants were given a study iPhone and five  participants were screened out for not having an eligible phone. It then seems that personal sensing technology is becoming more accessible and affordable as time goes on.
+
+One unexpected issue we faced was the high churn rate of companies. In just our two-year data collection period, we had to discontinue use of sleep monitor platform and our geolocation tracking app. The company that ran the sleep monitor platform, Beddit Oy, was bought out by Apple about halfway through the study. Apple discontinued cloud support and we were unable to continue accessing sleep monitor data. Additionally, the app we were using for geolocation tracking (Moves) was acquired and shut down by Facebook. As a result, we had to switch to a completely different app (FollowMee) mid-study.
+
+While this churn is difficult in the middle of data collection, it does signal the fast rate of technology development and improvement. Some of our active measures, like sleep and physiology can now be done much more passively. Free response comments from participants about using the sleep monitor illustrate how a seemingly passive raw data stream (sleep) can still be active.
+
+> “Would be better if it would just connect automatically” 
+
+> `r tufte::quote_footer("--- Participant 021")`
+
+> “There were problems with the sleep monitor in that I was not able to activate the monitor when I was going to sleep” 
+
+> `r tufte::quote_footer("--- Participant 001")`
+
+> “Sometimes it recorded all night but when I pressed I'm up there was no data recorded” [participant 053].
+
+> `r tufte::quote_footer("--- Participant 053")`
+
+> “Would have to wake up to use” 
+
+> `r tufte::quote_footer("--- Participant 056")`
+
+## Limitations and Future Directions
+
+There are many underlying factors that influence people’s view of personal sensing measures. Highly active measures may only be tolerable within short time frames. Personal data may differ in their perceived sensitivity from individual to individual and group to group. As such our study offers an initial insight into the acceptability of personal sensing methods. Future studies should use longer study durations (i.e., one year) and recruit nationally representative samples.
+
+Our study also only generalizes to our specific personal sensing methods. Although we do not expect general self-reported acceptability about the types of raw data streams to change, different methods may increase or reduce user burden resulting in shifts of behavioral acceptability (i.e., compliance and retention). For example, participants were more willing to use passive personal sensing measures for one year compared to active measures. In clinical applications we may expect individuals to be engaging with these methods for years. Thus, it is important to test newer and more passive personal sensing methods as they become available. 
+
+Finally, acceptability is not limited to perceived costs but is an exercise of weighing costs, benefits, and trust. Future research should directly measure benefits (e.g., with self-report) and manipulate how the data is benefiting the participant (e.g., incorporating it into treatment). Trust should also be examined by applying this research to other contexts (e.g., who is receiving the data, what level of relationship exists between participant and data collector). It is critical we understand the entire framework of personal sensing acceptability if we are to implement these methods in real treatment settings.
+
+## Conclusion 
+
+
 
 
 
