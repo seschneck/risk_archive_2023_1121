@@ -89,7 +89,8 @@ ema <- bind_rows(emam, emal) %>%
   select(subid, start_date, end_date, utc, finished,
          contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
   mutate(subid = as.numeric(subid)) %>% 
-  arrange(subid, start_date) %>% 
+  arrange(subid, start_date) 
+
   filter(ema_1 == "Yes") %>% 
   select(-ema_1) %>% 
   glimpse()
@@ -227,6 +228,39 @@ nrow(lapses)  # 1357 lapses
 length(unique(lapses$subid))  # from 88 participants
 ```
 
+Fix midnight reporting error.   Many participants considered midnight the same date 
+as a few hours before when, in fact, midnight starts the next date.  We can see these
+among the negative lapse reports.  Look at the many with `lapse_end_time` == "00:00"
+
+```{r}
+lapses %>% filter(duration < 0) %>% 
+  arrange(lapse_end_time) %>% 
+  print_kbl
+```
+
+It is a reasonable assumption/solution to fix dates for these errors.  John believes
+this will salvage more correct lapses vs. dropping them and not likely include many
+incorrect lapses.  
+
+* We add one day `lapse_end`
+* We update `lapse_end_date` to be based on the new `lapse_end`.  This is fine 
+for the reports we changed and those we didnt.  However, we dot update `lapse_end_date`
+if `lapse_end` was missing (b/c of a missing `lapse_end_time`)
+* We update `duration`
+
+```{r}
+lapses <- lapses %>% 
+  mutate(lapse_end = if_else(duration < 0 & duration > -24 & lapse_end_time == "00:00",
+                             lapse_end + days(1), lapse_end, lapse_end),
+         lapse_end_date = if_else(is.na(lapse_end), 
+                                  lapse_end_date, format(lapse_end, "%m-%d-%Y")),
+         duration = difftime(lapse_end, lapse_start, units = "hours"))
+
+
+```
+
+
+
 
 ### Exclude Ill-formed Lapses
 
@@ -245,6 +279,25 @@ lapses <- lapses %>%
          exclude = if_else(duration > 24, TRUE, exclude, exclude)) # clear break in duration between 19 - 25 hours
 ```
 
+And now we need to handle valid lapses that are overlapping.  We will merge them.
+I did this after excluding above so that we didn't merge valid and invalid lapses.
+If we don't trust a lapse report, we can't tell is should be merged.
+```{r}
+nrow(lapses)  # 1357 total lapses prior to merge
+
+lapses <- merge_lapses(lapses)
+
+nrow(lapses)  # 1200 total lapses after merge
+
+sum(lapses$lapse_cnt)  # we have accounted for all original reports in the merged reports
+```
+
+Exclude any new lapses > 24 hours that aren't yet excluded
+```{r}
+lapses <- lapses %>% 
+  mutate(exclude = if_else(duration > 24, TRUE, exclude, exclude)) 
+```
+
 #### EDA
 
 KENDRA - check `lapses` more carefully.  Should any other lapses be excluded.  
@@ -254,7 +307,7 @@ We also need to decide definitely what to do with lapses that have start but no 
 * Do we retain the two lapses below with start but no end time as lapses
 * Check EMA cleaning log to see why we lost the end times
 * What surrounding hours do we later exclude from no_lapse sampling (assume 24 hour lapse?)?
-* Let's discuss
+* Let's discuss and make final decision pending your EDA
 
 ```{r}
 lapses %>% 
@@ -264,7 +317,7 @@ lapses %>%
 
 Valid vs. invalid lapses
 ```{r}
-lapses %>% tabyl(exclude)   # 1311 lapses; 46 excluded
+lapses %>% tabyl(exclude)   # 1169 lapses; 31 excluded
 ```
 
 Unique participants
@@ -291,14 +344,8 @@ once we combine overlapping lapses to see total time drinking
 ```{r}
 lapses %>% 
   filter(!exclude) %>% 
-  tabyl(subid) 
-
-lapses %>% 
-  filter(!exclude) %>% 
-  group_by(subid) %>% 
-  count() %>% 
-  pull(n) %>% 
-  hist()
+  tabyl(subid) %>% 
+  arrange(desc(n))
 
 lapses %>% 
   filter(!exclude) %>% 
@@ -310,14 +357,8 @@ lapses %>%
 lapses %>% 
   filter(!exclude) %>% 
   tabyl(subid) %>% 
-  filter(n > 80) %>% 
+  filter(n > 60) %>% 
   pull(subid)
-
-lapses %>% 
-  filter(!exclude,
-         subid == 104 | subid == 128) %>% 
-  arrange(subid, lapse_start) %>% 
-  print_kbl()
 ```
 
 
@@ -351,6 +392,17 @@ lapses %>%
 
 
 ### Make labels
+```{r}
+# THere are issues with 204.   They are missing lapses reported by interview.  But they also
+#stopped doing any ema by 5/17 even though their study end date was 6/13.
+
+# probably need to drop them for lapse analyses for anything after 5/17.  Probably
+# also need to add in their reported lapses at follow-up 2.   OR we drop them at the end of follow-up 1
+# or wherever their ema gets sketchy
+
+# THere are also issues with 180.   The interview lapses are not credible for onset time.  Those need to be exluded
+# Need to check on the date that are reported by EMA.  There are some notes in the log.
+```
 
 
 
