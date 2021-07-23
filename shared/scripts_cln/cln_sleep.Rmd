@@ -10,10 +10,11 @@ editor_options:
   chunk_output_type: console
 ---
 
-### Notes
+### Code Status
 
 THIS SCRIPT IS INCOMPLETE.   IT WILL BE UPDATED IF/WHEN WE USE SLEEP DATA.
 
+### Notes
 
 Purpose: This script aggregates the sleep monitor data from the raw JSON files and does light EDA.    
 
@@ -22,14 +23,6 @@ Inputs:
 
 
 ### Setup
-```{css, include = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
-```
 
 Paths 
 ```{r}
@@ -105,7 +98,6 @@ all_sleep <- map_df(subids$subid, ~read_sleep(.)) %>%
   glimpse()
 ```
 
-<br>
 
 ### Trouble shooting  
 
@@ -145,7 +137,7 @@ read_json(file.path(path_raw, "136/136_sleep.json")) %>%
   kable_styling()
 ```
 
-<br>
+
 
 ### EDA 
 
@@ -230,7 +222,7 @@ sleep <- sleep %>%
 
 ### Write csv
 ```{r}
-write_csv(sleep, file.path(path_out, "sleep.csv")) %>% 
-  glimpse()
+# write_csv(sleep, file.path(path_out, "sleep.csv")) %>% 
+#   glimpse()
 ```
 
