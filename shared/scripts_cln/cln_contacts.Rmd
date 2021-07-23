@@ -16,6 +16,17 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code status
+
+Kendra, update notes on status here
+
+
+To fix:
+
+* Some duplicates represent errors in data/poor data quality (2 entries on same date with discrepant answers) and some are not errors (updating address, home phone number belongs to 2 parents, etc.).  FIX: Need to handle at study-level
+* See this note below: FIX: unpleasant/mixed is not a valid response option - error, but not enough info to resolve? (note entry in log)
+* See this  note below: Some duplicates represent errors in data/poor data quality (2 entries on same date with discrepant answers) and some are not errors (updating address, home phone number belongs to 2 parents, etc.)     FIX: Need to handle at study-level
+
 ### Notes
 Purpose: This file reads in all individual excel contact files from participants' raw data folders and creates an aggregate data file. Light EDA is also included as part of this cleaning script.   
 
@@ -26,15 +37,6 @@ Output:
 contacts.csv  
 
 ### Setup
-
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
-```
 
 Absolute Paths 
 ```{r}
@@ -105,9 +107,6 @@ subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>%
 contacts <- map_df(subids$subid, ~read_contacts(.)) %>% 
   glimpse()
 ```
-
-
-<br>
 
 
 ### Clean data from log
@@ -318,7 +317,6 @@ contacts <- contacts %>%
 
 `r nrow(contacts) - nrow(contacts_wide)` new rows added   
 
-<br>
 
 
 ### EDA
@@ -410,8 +408,6 @@ contacts %>%
 ```
 
 
-<br>
-
 #### Missing data
 
 Convert text string NA's to NA
@@ -434,8 +430,6 @@ log %>%
   scroll_box(width = "100%")
 ```
 
-
-<br>
 
 
 3 missing contact type values, despite full context information available
@@ -489,7 +483,6 @@ contacts %>%
 ```
 
 
-<br>
 
 #### contact type
 
@@ -498,7 +491,6 @@ contacts %>%
   tabyl(contact_type)
 ```
 
-<br>
 
 #### Phone numbers
 
@@ -643,7 +635,6 @@ visit_dates %>%
   dplyr::filter(subid == 87)
 ```
 
-<br>
 
 #### Monthly visit
 NOTE: monthly visit means participant visits home of contact at least monthly
@@ -674,7 +665,6 @@ contacts %>%
   count(!is.na(street_address))
 ```
 
-<br>
 
 #### Context variables
 
@@ -708,7 +698,6 @@ contacts %>%
   scroll_box(width = "100%")
 ```
 
-<br>
 
 #### Other Distributions
 
@@ -757,12 +746,8 @@ contacts %>%
 ```
 
 
-<br>
-
 ### Write CSV
 ```{r}
 write_csv(contacts, file.path(path_shared, "contacts.csv")) %>%
   glimpse()
 ```
-
-<br>
