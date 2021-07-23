@@ -1,11 +1,8 @@
 library(tidyverse)
 library(lubridate)
 library(vroom)
+library(foreach)
 
-create_lapse_labels <- function() {
-  
-  
-}
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Returns a tibble with study start and end dates as dttms in central time
@@ -46,6 +43,44 @@ get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   return(visits)
 }
 
+merge_lapses <- function(lapses) {
+# merges lapses that are overlapping
+# used with df containing all participants
+    
+  lapses <- lapses %>% 
+    arrange(subid, lapse_start) %>% 
+    mutate(lapse_cnt = 1)
+  
+  i <- 2
+  while(i <= nrow(lapses)) {
+    
+    if(lapses$subid[[i]] == lapses$subid[[i-1]] && 
+       !lapses$exclude[[i]] && !lapses$exclude[[i-1]] &&
+       !is.na(lapses$lapse_start[[i]]) && !is.na(lapses$lapse_end[[i-1]]) &&
+       lapses$lapse_start[[i]] <= lapses$lapse_end[[i-1]]) {
+      
+      lapses$lapse_end[[i-1]] <- lapses$lapse_end[[i]]
+      lapses$lapse_end_time[[i-1]] <- lapses$lapse_end_time[[i]]
+      lapses$lapse_end_date[[i-1]] <- lapses$lapse_end_date[[i]]
+      
+      lapses$lapse_cnt[[i-1]] = lapses$lapse_cnt[[i-1]] + 1
+      
+      lapses <- lapses %>% 
+        slice(-i)
+      
+    } else {
+      i <- i + 1
+    }
+    
+  }
+  
+  lapses <- lapses %>% 
+    mutate(duration = difftime(lapse_end, lapse_start, units = "hours"))
+  
+  return(lapses)
+}
+
+
 get_lapse_hours <- function(subid, study_start, study_end, ema_end) {
   # Returns a tibble for one subject with columns for subid (numeric) and 
   #   lapse_hour (dttm).  
@@ -57,8 +92,7 @@ get_lapse_hours <- function(subid, study_start, study_end, ema_end) {
   
   hour_start <- study_start %>% 
     as_datetime() %>% # forces as UTC
-    force_tz(tz = "America/Chicago") %>% # set to America/Chicago with same hour
-    `+`(days(1)) 
+    force_tz(tz = "America/Chicago") # set to America/Chicago with same hour
   
   # calculate hour_end in three steps
   study_end <- study_end %>% 
@@ -75,4 +109,35 @@ get_lapse_hours <- function(subid, study_start, study_end, ema_end) {
     relocate(subid)
   
   return(lapse_hours)
+}
+
+get_lapse_labels <- function(lapses, dates) {
+  
+  subids <- unique(dates$subid)
+  
+  labels <- dates %>% 
+    select(subid, study_start, study_end, ema_end) %>% 
+    pmap_dfr(~get_lapse_hours(..1, ..2, ..3, ..4)) %>% 
+    mutate(lapse = FALSE,
+           no_lapse = TRUE)
+  
+  
+  valid_lapses <- lapses %>% 
+    filter(!exclude)
+  
+  for (i in 1:nrow(valid_lapses)) {
+    lapse_subid <- valid_lapses$subid[[i]]
+    lapse_hour <- valid_lapses$lapse_start[[i]]
+    
+    row_index <- which(labels$subid == lapse_subid & labels$hour == lapse_hour)
+    
+    if (length(row_index == 1)) {
+      labels$lapse[row_index] <- TRUE
+    } else{
+      message(i)
+    }
+  }
+
+  
+  
 }
