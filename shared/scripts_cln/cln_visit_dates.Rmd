@@ -1,14 +1,30 @@
 ---
 title: "Cleaning Script for Study Visit Dates"
-author: "John Curtin with updates by Hannah Moshontz (Updated by Kendra Wyant 3-10-21)"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+author: "John Curtin, Hannah Moshontz, Kendra Wyant"
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
     toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+To update or fix:
+
+* Note KW: EMA data will also be brought in later to perform EDA on start and end study dates.  
+* FIX: Note survey end date for subid 201 is 6/6/2019 and not 6/7/2019 - updated visits date to 6/6 from 6/7 in log but may want to discuss
+* FIX: Not sure why subid 2 started surveys on intake date
 
 ### Notes
 Purpose: aggregates, cleans, and tidys visit date files   
@@ -22,9 +38,6 @@ Guidelines for visit dates:
 * End study dates are roughly 90 days after study start. For participants who discontinue the study with a clear date noted, end date will be discontinuation date. For participants who passively discontinue, end study date will be amended to their last EMA or last completed study visit (whichever is later). An exception to this rule will be if it appears that the last EMA was sporadic and not indicative that they were consistently providing data up until this EMA. In these situations we will evaluate on a case to case basis what the correct end date should be.   
 **Note: Last EMA is determined by cleaned EMA file - due to how critical it is that the end date is correct we decided to use clean data instead of our usual restriction to raw data for cleaning**       
 * All imputed end dates are documented in end date EDA.  
-
-
-<br>
 
 
 Inputs:
@@ -60,15 +73,41 @@ Path data
 
 ### Setup
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
+Absolute Paths 
+```{r absolute_paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_data <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"},
+
+        # IOS paths
+        Darwin = {
+          path_data <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"}
+        )
+```
+
+Relative paths
+```{r}
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
 
 Packages and Source
 ```{r, message = FALSE, warning = FALSE}
@@ -78,13 +117,6 @@ library(readxl)  # read excel file
 library(naniar) # missing data
 library(lubridate)
 library(kableExtra)
-```
-
-Paths 
-```{r}
-path_raw <- "raw_data"
-path_log <- "analysis/shared/notes"
-path_data <- "analysis/shared/data"
 ```
 
 ### Open and merge files
@@ -102,7 +134,7 @@ read_file <- function(filepath) {
   return(data)
 }
 
-visit_dates <- list.files(file.path(path_raw), 
+visit_dates <- list.files(here(path_raw), 
            pattern = "VisitDates.xlsx", #this accommodates folders without visit dates
            recursive = TRUE, 
            full.names = TRUE) %>% 
@@ -149,7 +181,7 @@ clean_log <- function(..., log){
 
 Clean visit dates
 ```{r}
-log <- read_csv(file.path(path_log, "log_visit_dates.csv"), col_types = cols())
+log <- read_csv(here(path_log, "log_visit_dates.csv"), col_types = cols())
 
 visit_dates <- add_subs(visit_dates, log)
 
@@ -173,28 +205,28 @@ Note KW: EMA data will also be brought in later to perform EDA on start and end 
 
 Will compare visit dates against raw uncleaned survey end dates
 ```{r}
-screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
-intake <- read_csv(file.path(path_raw, 'qualtrics/intake.csv'), col_types = cols())
-screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
-followup_12 <- read_csv(file.path(path_raw, 'qualtrics/followup_12.csv'), col_types = cols())
-followup_3 <- read_csv(file.path(path_raw, 'qualtrics/followup_3.csv'), col_types = cols())
+screen <- read_csv(here(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+intake <- read_csv(here(path_raw, 'qualtrics/intake.csv'), col_types = cols())
+screen <- read_csv(here(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+followup_12 <- read_csv(here(path_raw, 'qualtrics/followup_12.csv'), col_types = cols())
+followup_3 <- read_csv(here(path_raw, 'qualtrics/followup_3.csv'), col_types = cols())
 ```
 
 cleaned session form end dates, raw_notes, survey logs, and google calendar will provide info to resolve discrepancies
 ```{r}
-session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
-session_intake <- read_csv(file.path(path_data, 'session_intake.csv'), col_types = cols())
-session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
-session_followup_12 <- read_csv(file.path(path_data, 'session_followup_12.csv'), col_types = cols())
-session_followup_3 <- read_csv(file.path(path_data, 'session_followup_3.csv'), col_types = cols())
+session_screen <- read_csv(here(path_data, 'session_screen.csv'), col_types = cols())
+session_intake <- read_csv(here(path_data, 'session_intake.csv'), col_types = cols())
+session_screen <- read_csv(here(path_data, 'session_screen.csv'), col_types = cols())
+session_followup_12 <- read_csv(here(path_data, 'session_followup_12.csv'), col_types = cols())
+session_followup_3 <- read_csv(here(path_data, 'session_followup_3.csv'), col_types = cols())
 
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols())
-cal <- ical::ical_parse_df(file.path(path_raw, "gcal_risk.ics"))
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols())
+cal <- ical::ical_parse_df(here(path_raw, "gcal_risk.ics"))
 
-log_screen <- read_csv(file.path(path_log, "log_screen.csv"), col_types = cols())
-log_intake <- read_csv(file.path(path_log, "log_intake.csv"), col_types = cols())
-log_followup_12 <- read_csv(file.path(path_log, "log_followup_12.csv"), col_types = cols())
-log_followup_3 <- read_csv(file.path(path_log, "log_followup_3.csv"), col_types = cols())
+log_screen <- read_csv(here(path_log, "log_screen.csv"), col_types = cols())
+log_intake <- read_csv(here(path_log, "log_intake.csv"), col_types = cols())
+log_followup_12 <- read_csv(here(path_log, "log_followup_12.csv"), col_types = cols())
+log_followup_3 <- read_csv(here(path_log, "log_followup_3.csv"), col_types = cols())
 ```
 
 load google calendar function
@@ -377,9 +409,6 @@ session_screen %>%
 ```
 
 
-<br>
-
-
 ### Intake
 
 #### Check subids with intake visit
@@ -470,8 +499,6 @@ log_intake %>%
   kable_styling()
 ```
 
-
-<br>
 
 
 ### Followup 1
@@ -626,7 +653,6 @@ notes %>%
   kable_styling()
 ```
 
-<br>
 
 ### Followup 2
 
@@ -731,7 +757,6 @@ followup_2 %>%
               select(visit_date = followup_2, subid))
 ```
 
-<br>
 
 ### followup 3/final visit
 
@@ -841,14 +866,13 @@ log_followup_3 %>%
   kable_styling()
 ```
 
-<br>
 
 ## EDA for cleaned start and end study dates
 
 Read in EMA data
 ```{r}
-ema_morning <- read_csv(file.path(path_data, "ema_morning.csv"), col_types = cols()) 
-ema_later <- read_csv(file.path(path_data, "ema_later.csv"), col_types = cols()) 
+ema_morning <- read_csv(here(path_data, "ema_morning.csv"), col_types = cols()) 
+ema_later <- read_csv(here(path_data, "ema_later.csv"), col_types = cols()) 
 ```
 
 Create df of days with at least one ema for each subid
@@ -1159,7 +1183,7 @@ gg_miss_upset(visit_dates)
 
 ## Write CSV
 ```{r}
-write_csv(visit_dates, file.path(path_data, "visit_dates.csv")) %>% 
+write_csv(visit_dates, here(path_data, "visit_dates.csv")) %>% 
   glimpse()
 ```
 

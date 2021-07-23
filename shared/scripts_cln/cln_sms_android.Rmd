@@ -1,11 +1,11 @@
 ---
 title: "Andriod/SMS Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -17,6 +17,11 @@ knit: (function(input, ...) {
     )
   })
 ---
+
+### Code Status
+
+KENDRA, update here
+
 
 ### Notes
 Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
@@ -32,13 +37,10 @@ etc. for as many sms xml logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -55,6 +57,23 @@ switch (Sys.info()[['sysname']],
 ```
 
 
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
@@ -65,13 +84,6 @@ library(XML)
 library(xml2)
 ```
 
-Relative Paths
-```{r}
-library(here)
-
-path_log <- "shared/notes"
-```
-
 ### Android SMS Logs (XML) 
 
 #### Create function to read in subid logs
@@ -80,17 +92,17 @@ path_log <- "shared/notes"
 read_xml <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to XML logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.xml')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           
           # xml code adapted from Susan's fun_database script
           # use read_html instead of read_xml to avoid problem with emojis in contacts
-          xml <- xml_children(read_html(file.path(path)))
+          xml <- xml_children(read_html(here(path)))
  
           # fix for problem with nested list after switching to read_html()
           while (length(xml) == 1) {
@@ -135,7 +147,7 @@ read_xml <- function(subid) {
 ```{r}
 get_xml_ids <- function(subid) {
     log <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
@@ -659,7 +671,7 @@ all_logs %>%
   # keep only unique rows across retained variables
   distinct(., across(c(subid, address, date, type, body, read, status, locked,
                        date_sent, contact_name)), .keep_all = TRUE) %>% glimpse()
-  write_csv(file.path(path_shared, "sms_android.csv")) %>% 
+  write_csv(here(path_shared, "sms_android.csv")) %>% 
   glimpse()
 ```
 

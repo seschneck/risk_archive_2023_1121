@@ -1,7 +1,7 @@
 ---
 title: "Andriod/Voice Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
@@ -18,6 +18,11 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+Kendra, update this
+
+
 ### Notes
 Purpose: This script contains code to open and merge all voice log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
  
@@ -30,13 +35,9 @@ etc. for as many voice xml logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -53,6 +54,23 @@ switch (Sys.info()[['sysname']],
 ```
 
 
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
@@ -60,13 +78,6 @@ library(kableExtra)
 library(lubridate)
 library(XML)
 library(xml2)
-```
-
-Relative Paths
-```{r warning = FALSE}
-library(here)
- 
-path_log <- "shared/notes"
 ```
 
 
@@ -78,17 +89,17 @@ path_log <- "shared/notes"
 read_xml <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.xml')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           
           # xml code adapted from Susan's fun_database script
           # use read_html instead of read_xml to avoid problem with emojis in contacts
-          xml <- xml_children(read_html(file.path(path)))
+          xml <- xml_children(read_html(here(path)))
  
           # fix for problem with nested list after switching to read_html()
           while (length(xml) == 1) {
@@ -605,7 +616,7 @@ logs_android %>%
 
 ### Write csv
 ```{r}
-write_csv(logs_android, file.path(path_shared, "voice_android.csv")) %>% glimpse()
+write_csv(logs_android, here(path_shared, "voice_android.csv")) %>% glimpse()
 ```
 
 **Note: dates saved as UTC**

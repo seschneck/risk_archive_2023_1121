@@ -1,11 +1,11 @@
 ---
 title: "IOS/Voice Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -18,6 +18,10 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+Kendra, update this
+
 ### Notes
 Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
 
@@ -29,13 +33,10 @@ etc. for as many voice sql logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -52,6 +53,12 @@ switch (Sys.info()[['sysname']],
 ```
 
 
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
@@ -64,12 +71,6 @@ options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
 
-Relative Paths
-```{r warning = FALSE}
-library(here)
- 
-path_log <- "shared/notes"
-```
 
 
 ### Read in data 
@@ -80,13 +81,13 @@ path_log <- "shared/notes"
 read_sql <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.sql')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           log_db <- dbConnect(RSQLite::SQLite(), path)
           
           log <- dbGetQuery(log_db,'select * from ZCALLRECORD')
@@ -185,14 +186,14 @@ logs_ios <- all_logs %>%
 ```{r}
 read_csv <- function(subid) {
     logs <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.xls')) {
-          path <- file.path(path_raw, subid, file)
-          log <- readxl::read_excel(file.path(path)) %>% 
+          path <- here(path_raw, subid, file)
+          log <- readxl::read_excel(here(path)) %>% 
             mutate(subid = subid,
                    # convert to character for merging
                    Number = as.character(Number),
@@ -774,7 +775,7 @@ logs_ios <- logs_ios %>%
 logs_ios <- logs_ios %>% 
   janitor::clean_names()
 
-write_csv(logs_ios, file.path(path_shared, "voice_ios.csv")) %>% 
+write_csv(logs_ios, here(path_shared, "voice_ios.csv")) %>% 
   glimpse()
 ```
 

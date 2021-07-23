@@ -1,11 +1,11 @@
 ---
 title: "IOS/SMS Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -17,6 +17,11 @@ knit: (function(input, ...) {
     )
   })
 ---
+
+### Code Status
+
+KENDRA, update here
+
 
 ### Notes
 Purpose: This script contains code to open and merge all SMS log files in SQL format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
@@ -33,13 +38,10 @@ etc. for as many sms sql logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -53,6 +55,23 @@ switch (Sys.info()[['sysname']],
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"})
+```
+
+
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -73,7 +92,7 @@ library(janitor)
 read_sql <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     
@@ -81,7 +100,7 @@ read_sql <- function(subid) {
       
       for(file in log_files) {
         if(str_detect(file,'.sql')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           log_db <- dbConnect(RSQLite::SQLite(), path)
           # uncomment below to see all available tables
           # dbListTables(log_db)
@@ -137,7 +156,7 @@ read_sql <- function(subid) {
 ```{r}
 get_sql_ids <- function(subid) {
     log <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
@@ -497,7 +516,7 @@ FIX: Use vroom instead of write_csv? write_csv is slow
 all_logs %>% 
   # keep only unique rows across retained variables
   distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
-  write_csv(file.path(path_shared, "sms_ios.csv")) %>% 
+  write_csv(here(path_shared, "sms_ios.csv")) %>% 
   glimpse()
 ```
 
