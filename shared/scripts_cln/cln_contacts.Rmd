@@ -40,6 +40,11 @@ Output:
 
 ### Setup
 
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
 Absolute Paths 
 ```{r}
 switch (Sys.info()[['sysname']],
@@ -105,7 +110,7 @@ subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>%
 ```
 
 ### Read in data and glimpse
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts <- map_df(subids$subid, ~read_contacts(.)) %>% 
   glimpse()
 ```
@@ -245,7 +250,7 @@ clean_contacts <- function(d, log){
 ```
 
 read in log and summarize
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 log <- read_csv(here(path_log, "log_contacts.csv"), col_types = cols()) %>%
   rowid_to_column("index") %>%
   glimpse()
@@ -267,7 +272,7 @@ log %>%
 ```
 
 clean data
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts <- contacts %>%
   clean_contacts(., log) %>%
   glimpse()
@@ -276,7 +281,7 @@ contacts <- contacts %>%
 
 ### tidy data
 Tidy variable names
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts <- contacts %>%
   clean_names() %>%
   glimpse()
@@ -290,7 +295,7 @@ contacts %>%
 ```
 
 Check how many entries have more than one number
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts_wide <- contacts
 
 n_numbers <- contacts %>% 
@@ -309,7 +314,7 @@ n_numbers %>%
 
 pivot longer and reorder variables   
 We expect to have an additional `r sum(n_numbers$n_numbers) - nrow(contacts_wide)` rows added to the data frame, which is the total sum of numbers (`r sum(n_numbers$n_numbers)`) minus the number of contacts/rows in wide tibble (`r nrow(contacts_wide)`).
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts <- contacts %>%
   pivot_longer(home_phone:other_phone2, names_to = "phone_type", values_to = "phone_number") %>%
   filter(!is.na(phone_number)) %>%
@@ -326,13 +331,13 @@ contacts <- contacts %>%
 #### Check for missing contact files
 
 Read in visit dates
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols()) %>% 
   glimpse()
 ```
 
 **170 participants completed intake visit**
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 visit_dates %>% 
   filter(!is.na(intake))
 ```
@@ -340,7 +345,7 @@ visit_dates %>%
 **We have contact information for `r length(unique(contacts$subid))` subids.**     
 
 **Subids 8 and 235 completed intake but do not have a contacts file**     
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>%
   select(subid, notes_general)
 
@@ -356,7 +361,7 @@ notes %>%
 
 
 **Subid 67 has contacts but never completed intake/started study** (leaving contacts in because they will be filtered out at the study-level depending on final sample)
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 intake <- visit_dates %>%
   filter(!is.na(intake))
 contacts %>%
@@ -374,7 +379,7 @@ notes %>%
 
 #### Check for duplicate entries
 9 entries were identical on every variable except UTC - these are filtered out
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 glimpse(contacts)
 
 # filter out identical entries
@@ -384,7 +389,7 @@ contacts <- contacts %>%
 ```
 
 Duplicate numbers and discrepancies still exist.  
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 # count duplicate numbers listed for each subid
 duplicates <- contacts %>%
   group_by(subid, phone_number) %>%
@@ -393,14 +398,14 @@ duplicates <- contacts %>%
 ```
 
 `r nrow(duplicates)` subid/phone_number duplicates   
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 print(duplicates, n = Inf)
 ```
 
 Some duplicates represent errors in data/poor data quality (2 entries on same date with discrepant answers) and some are not errors (updating address, home phone number belongs to 2 parents, etc.)     
 
 FIX: Need to handle at study-level
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(phone_number %in% duplicates$phone_number & subid %in% duplicates$subid) %>%
   arrange(subid, phone_number) %>%
@@ -418,12 +423,12 @@ contacts <- contacts %>%
   naniar::replace_with_na_if(.predicate = is.character, condition = ~.x == "NA")
 ```
 
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 naniar::miss_var_summary(contacts)
 ```
 
 1 Missing phone number noted in cleaning log
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 log %>% 
   filter(subid == 81, log_action == "note") %>% 
   select(subid, log_action, notes) %>% 
@@ -435,7 +440,7 @@ log %>%
 
 
 3 missing contact type values, despite full context information available
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(is.na(contact_type)) %>%
   kbl() %>%
@@ -446,7 +451,7 @@ contacts %>%
 
 Check if numbers with missing contact type have duplicate entries   
 Only one entry for each number
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 missing_type <- contacts %>%
   filter(is.na(contact_type)) %>% 
   select(phone_number) %>% 
@@ -460,7 +465,7 @@ contacts %>%
 
 
 Most missing context variables are self, other or spam entries - still a considerable amount of missing values for co-workers and family-other
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(is.na(recovery)) %>%
   filter(contact_type != "Self" & contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
@@ -471,7 +476,7 @@ contacts %>%
 
 Check if duplicate entries for these numbers exist  
 No duplicates exist
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 missing_context <- contacts %>%
   filter(is.na(recovery)) %>%
   filter(contact_type != "Self" & contact_type != "Irrelevant/Spam" & contact_type != "Other") %>%
@@ -488,7 +493,7 @@ contacts %>%
 
 #### contact type
 
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   tabyl(contact_type)
 ```
@@ -497,7 +502,7 @@ contacts %>%
 #### Phone numbers
 
 Raw number format
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(!is.na(phone_number)) %>%
   select(phone_number) %>%
@@ -505,14 +510,14 @@ contacts %>%
 ```
 
 Check for non-numeric characters
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(str_detect(phone_number, "[[:space:][:punct:][:alpha:]]")) %>%
   select(phone_number)
 ```
 
 Numbers not 10 digits
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   select(subid, phone_number, contact_type) %>%
   filter(str_length(phone_number) != 10) %>%
@@ -520,7 +525,7 @@ contacts %>%
 ```
 
 Filter out short codes
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   select(subid, phone_number, contact_type) %>%
   filter(str_length(phone_number) != 10) %>%
@@ -529,7 +534,7 @@ contacts %>%
 ```
 
 Check country code on these numbers
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 numbers <- contacts %>%
   filter(str_length(phone_number) != 10) %>%
   filter(str_length(phone_number) != 5 & str_length(phone_number) != 6) %>%
@@ -553,7 +558,7 @@ valid_country_code
 
 Check area code for all 10 digit numbers
 Print numbers without valid area code
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 numbers <- contacts %>%
   filter(str_length(phone_number) == 10) %>%
   select(phone_number) %>%
@@ -569,7 +574,7 @@ for (i in 1:length(numbers)) {
 ```
 
 `r length(not_valid_area_code)` out of `r length(numbers)` 10 digit numbers don't have a valid North American area code.
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(phone_number %in% not_valid_area_code) %>%
   select(subid, phone_number, contact_type) %>%
@@ -585,7 +590,7 @@ numbers <- contacts %>%
 
 
 `r length(numbers)` are known contacts
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(phone_number %in% numbers) %>%
   select(subid, phone_number, contact_type) %>%
@@ -594,7 +599,7 @@ contacts %>%
 
 
 Check if any are international numbers
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 valid_country_code <- NULL
 
 for (i in 1:length(not_valid_area_code)) {
@@ -607,7 +612,7 @@ valid_country_code
 ```
 
 Since 47 number is a 10 digit number check to see if it appears in logs
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 # read in voice and SMS logs
 voice_logs <- read_csv(file.path(path_shared, "voice_android.csv"), col_types = "icnTccccTT") 
 sms_logs <- read_csv(file.path(path_shared, "sms_android.csv"), col_types = "icicTiccccciiicccTT") 
@@ -632,7 +637,7 @@ logs_76 %>%
 * 49 is the country code for Germany but there are too few digits 
 
 subid 87 never made it to followup 1 so no logs to check the 49 number
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 visit_dates %>% 
   filter(subid == 87)
 ```
@@ -640,14 +645,14 @@ visit_dates %>%
 
 #### Monthly visit
 NOTE: monthly visit means participant visits home of contact at least monthly
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   tabyl(monthly_visit)
 ```
 
 Should have been gathering addresses when monthly_visit = yes
 We have addresses for all but 11 of the contacts who participants visited monthly
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(monthly_visit == "Yes") %>%
   count(!is.na(street_address))
@@ -661,7 +666,7 @@ contacts %>%
 
 Locations for other contacts
 We only have 6 address for contacts that don't have monthly_visit as yes
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(monthly_visit == "No" | is.na(monthly_visit)) %>%
   count(!is.na(street_address))
@@ -670,7 +675,7 @@ contacts %>%
 
 #### Context variables
 
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   tabyl(contact_drank_past)
 
@@ -691,7 +696,7 @@ contacts %>%
 ```
 
 FIX: unpleasant/mixed is not a valid response option - error, but not enough info to resolve? (note entry in log)
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   filter(contact_experience == "Unpleasant/mixed") %>%
   kbl() %>%
@@ -705,7 +710,7 @@ contacts %>%
 
 Number of contacts per subid
 NOTE: this should be interpreted as number of unique phone numbers per participant since this plot is not accounting for the fact that contacts could have more than one number (e.g., home, cell, work)
-```{r, attr.output='style="max-height: 500px;"', message=FALSE}
+```{r, message=FALSE}
 contacts %>%
   group_by(subid) %>%
   summarise(n_contacts = length(unique(phone_number))) %>%
@@ -718,7 +723,7 @@ contacts %>%
 ```
 
 Min, max, and average number of contacts per subid
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 contacts %>%
   group_by(subid) %>%
   summarise(n_contacts = length(unique(phone_number))) %>%
@@ -728,7 +733,7 @@ contacts %>%
 ```
 
 Number of contacts per subid faceted by spam vs not spam
-```{r, attr.output='style="max-height: 500px;"', message=FALSE}
+```{r, message=FALSE}
 contacts %>%
   mutate(spam = case_when(contact_type == "Irrelevant/Spam" ~ "spam",
                           TRUE ~ "known contact")) %>%
@@ -749,7 +754,7 @@ contacts %>%
 
 
 ### Write CSV
-```{r, attr.output='style="max-height: 500px;"'}
+```{r}
 write_csv(contacts, file.path(path_shared, "contacts.csv")) %>%
   glimpse()
 ```

@@ -1,15 +1,28 @@
 ---
 title: "Clean and process the raw qualtrics intake"
 author: "John Curtin and Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
   toc: true 
 toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
-  
+
+### Code Status
+
+Kendra, update this notes
+
+
 ### Notes
 Purpose: This file does cleaning and basic processing of the qualtrics intake survey.
 
@@ -36,27 +49,45 @@ Creates file in path_out
 
 
 ### Setup
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(results = "hold",  message = FALSE)
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
+Absolute Paths 
+```{r absolute_paths}
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_in <- "P:/studydata/risk/data_raw/qualtrics"
+          path_out <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_in <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
 ```
 
-
-Paths 
+Relative paths
 ```{r}
-path_in <- "raw_data/qualtrics"
-path_out <- "analysis/shared/data"
-path_log <- "analysis/shared/notes" 
-path_raw <- "raw_data"
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -67,8 +98,7 @@ library(janitor)
 library(kableExtra)
 library(psych)
 
-
-source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
    
 ### Intake survey
@@ -78,7 +108,7 @@ Load survey and remove unused variables
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
 ```{r}
-intake <- read_csv(file.path(path_in, 'intake.csv'), col_types = cols())  %>% 
+intake <- read_csv(here(path_in, 'intake.csv'), col_types = cols())  %>% 
   select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
             RecipientEmail, ExternalDataReference, Status,
             LocationLatitude, LocationLongitude, LocationAccuracy, DataType,
@@ -90,7 +120,7 @@ intake <- read_csv(file.path(path_in, 'intake.csv'), col_types = cols())  %>%
 
 Open and summarize data log
 ```{r}
-log_intake <- read_csv(file.path(path_log, "log_intake.csv"), col_types = cols()) %>% 
+log_intake <- read_csv(here(path_log, "log_intake.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -171,7 +201,6 @@ intake %>%
 
 - This matches the number of intake session forms (170)  
 
-<br>
 
 ##### Dates and Times
 
@@ -200,20 +229,21 @@ intake %>%
 
 no helpful info from notes on subids with a 2 hour difference    
 ```{r}
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general)
+
 subs_2hrs <- intake %>% 
   select(subid, start_date, end_date, utc) %>% 
   mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
   mutate(diff = difftime(utc, start_date, units = "mins")) %>% 
   filter(diff > 120)
+
 notes %>% 
   filter(subid %in% subs_2hrs$subid) %>% 
   kbl() %>% 
   kable_styling()
 ```
 
-<br>
 
 
 **Time difference in start and end date**  
@@ -242,8 +272,6 @@ notes %>%
   kbl() %>% 
   kable_styling()
 ```
-
-<br>
 
 
 
@@ -483,5 +511,5 @@ Save final clean data.  Variables will open with proper class on next load of da
 intake %>% 
   select(-utc) %>% 
   glimpse() %>% 
-  write_csv(file.path(path_out, "intake.csv")) 
+  write_csv(here(path_out, "intake.csv")) 
 ```

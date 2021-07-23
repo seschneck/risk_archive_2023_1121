@@ -8,8 +8,26 @@ output:
 toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
-  
+
+### Code Status
+
+Kendra, update this
+
+
+To fix:
+
+* See this note below:  FIX: start and end date are correct but time is not correct.  
+* see this note below:  FIX: 2 people put over 30 days for how many days they spent at work, school, or volunteering in the last 30 days. Both participants completed the study.  
+
 ### Notes
 Purpose: This file does cleaning and basic processing of the qualtrics follow-up 12 survey.
 
@@ -19,12 +37,9 @@ Opens data file in path_in
 
 * followup_12.csv
 
-Opens log file in path_log  
+Opens log file and raw notes in path_log  
 
 * log_followup_12.csv
-
-Opens notes in path_raw  
-
 * raw_notes.csv  
 
 Output:  
@@ -35,27 +50,46 @@ Creates file in path_out
 
 
 ### Setup
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(results = "hold",  message = FALSE)
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
+Absolute Paths 
+```{r absolute_paths}
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_in <- "P:/studydata/risk/data_raw/qualtrics"
+          path_out <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"
+          path_raw <- "P:/studydata/risk/data_raw"},
+
+        # IOS paths
+        Darwin = {
+          path_in <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/toolboxes/lab_support"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"}
+        )
 ```
 
-
-Paths 
+Relative paths
 ```{r}
-path_in <- "raw_data/qualtrics"
-path_out <- "analysis/shared/data"
-path_log <- "analysis/shared/notes" 
-path_raw <- "raw_data"
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -67,8 +101,9 @@ library(kableExtra)
 library(psych)
 
 
-source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
+
 
 ### Followup 12 survey
 
@@ -77,10 +112,10 @@ Load surveys, join, and remove unused variables
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
 ```{r}
-main12 <- read_csv(file.path(path_in, 'followup_12.csv'), col_types = cols())  
-burden_sleep <- read_csv(file.path(path_in, 'followup_12_beddit_burden.csv'), col_types = cols())  %>% 
+main12 <- read_csv(here(path_in, 'followup_12.csv'), col_types = cols())  
+burden_sleep <- read_csv(here(path_in, 'followup_12_beddit_burden.csv'), col_types = cols())  %>% 
   select(ResponseID, RBM_5, RBM_6, RBM_7, RBM_8) 
-burden_empatica <- read_csv(file.path(path_in, 'followup_12_empatica_burden.csv'), col_types = cols()) %>% 
+burden_empatica <- read_csv(here(path_in, 'followup_12_empatica_burden.csv'), col_types = cols()) %>% 
   select(ResponseID, RBM_1, RBM_2, RBM_3, RBM_4) 
 
 fu12 <- left_join(main12,burden_empatica, by = "ResponseID") %>% 
@@ -97,7 +132,7 @@ fu12 <- left_join(main12,burden_empatica, by = "ResponseID") %>%
 
 Open and summarize log
 ```{r}
-log_fu12 <- read_csv(file.path(path_log, "log_followup_12.csv"), col_types = cols()) %>% 
+log_fu12 <- read_csv(here(path_log, "log_followup_12.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>%
   glimpse()
 ```
@@ -262,9 +297,11 @@ The participant was sent a survey link to complete the ID F1&F2 Battery. She was
 
 4 subids with different day for UTC and start time
 ```{r}
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general)
+
 subs_diff_day <- c(11, 27, 34, 201)
+
 notes %>% 
   filter(subid %in% subs_diff_day) %>% 
   kbl() %>% 
@@ -273,14 +310,16 @@ notes %>%
 
 Other subids with over 2 hour time gap between UTC and start time
 ```{r}
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general)
+  
 subs_2_hrs <- fu12 %>% 
   select(subid, start_date, end_date, utc) %>% 
   mutate(utc = lubridate::as_datetime(utc, tz = "utc")) %>% 
   mutate(diff = round(difftime(utc, start_date, units = "mins")), 0) %>% 
   filter(diff > 120) %>% 
   filter(!subid %in% subs_diff_day)
+
 notes %>% 
   filter(subid %in% subs_2_hrs$subid) %>% 
   kbl() %>% 
@@ -313,8 +352,6 @@ notes %>%
 ```
 
 
-<br>
-
 
 ##### Missing values
 
@@ -335,7 +372,7 @@ missing rbm_1 through rbm_4 (wristband burden data) are due to most participants
 **Subid 42 is missing burden and WHO-ASSIST measures from their FU 1 visit**  
 
 ```{r}
-notes <- read_csv(file.path(path_raw, "raw_notes.csv"), col_types = cols()) %>% 
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general)
 notes %>% 
   filter(subid == 42) %>% 
@@ -594,5 +631,5 @@ Save final clean data.  Variables will open with proper class on next load of da
 fu12 %>% 
   select(-utc) %>% 
   glimpse() %>% 
-  write_csv(file.path(path_out, "followup_12.csv")) 
+  write_csv(here(path_out, "followup_12.csv")) 
 ```

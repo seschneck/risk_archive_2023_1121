@@ -1,15 +1,28 @@
 ---
 title: "Session Screen Clean File"
 author: "Kendra Wyant w/ updates by John"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
-    code_folding: show
     toc: true 
-    toc_depth: 3
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+Kendra, update this
+
+
 
 ### Notes
 This script creates a single csv file from the three raw data session screen files. Uses cleaning function to clean according to data log. Includes file merging and minimal variable renaming (only to merge files with inconsistent names).    
@@ -26,26 +39,46 @@ Inputs:
 Output:  
 
 * session_screen.csv  
+### Setup
 
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(message = FALSE)
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+Absolute Paths 
+```{r absolute_paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_in <- "P:/studydata/risk/data_raw/qualtrics"
+          path_out <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_in <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
 ```
 
-Paths
+Relative paths
 ```{r}
-path_in <- "./raw_data/qualtrics"
-path_out <- "./analysis/shared/data"
-path_log <- "./analysis/shared/notes"
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages
@@ -55,20 +88,20 @@ library(lubridate)
 library(janitor)
 library(kableExtra)
 
-source('/Volumes/private/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
 
 
 ### Read in session screen csvs
 
 ```{r}
-session_1 <- read_csv(file.path(path_in, "session_screen_v1.csv"), col_types = cols()) %>% 
+session_1 <- read_csv(here(path_in, "session_screen_v1.csv"), col_types = cols()) %>% 
   rename(subid = SFSR_3, response_id = ResponseID) %>% 
   glimpse()
-session_2 <- read_csv(file.path(path_in, "session_screen_v2.csv"), col_types = cols()) %>% 
+session_2 <- read_csv(here(path_in, "session_screen_v2.csv"), col_types = cols()) %>% 
   rename(subid = SFSR_3, response_id = ResponseID) %>% 
   glimpse() 
-session_3 <- read_csv(file.path(path_in, "session_screen_v3.csv"), col_types = cols()) %>% 
+session_3 <- read_csv(here(path_in, "session_screen_v3.csv"), col_types = cols()) %>% 
   rename(subid = Q89, response_id = ResponseID) %>% 
   glimpse()
 ```
@@ -79,15 +112,15 @@ session_3 <- read_csv(file.path(path_in, "session_screen_v3.csv"), col_types = c
 Open data logs
 
 ```{r}
-log_1 <- read_csv(file.path(path_log, "log_session_screen_v1.csv"), col_types = cols())  %>% 
+log_1 <- read_csv(here(path_log, "log_session_screen_v1.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
 
-log_2 <- read_csv(file.path(path_log, "log_session_screen_v2.csv"), col_types = cols()) %>% 
+log_2 <- read_csv(here(path_log, "log_session_screen_v2.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 
-log_3 <- read_csv(file.path(path_log, "log_session_screen_v3.csv"), col_types = cols()) %>% 
+log_3 <- read_csv(here(path_log, "log_session_screen_v3.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -637,7 +670,7 @@ kabyl(q76_1) %>%
 
 #### write csv
 ```{r}
-write_csv(screen_session, file.path(path_out, "session_screen.csv"))
+write_csv(screen_session, here(path_out, "session_screen.csv"))
 ```
 
 
