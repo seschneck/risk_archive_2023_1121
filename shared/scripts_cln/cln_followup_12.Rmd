@@ -20,13 +20,17 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+These data have been almost fully cleaned (2 outstanding fixes below). EDA has been done on all survey variables.    
+
+**For studies using start or end times, you will likely want to do more EDA. All dates are accurate, but timing may need to be explored further (i.e., fix #1 below).**   
 
 
-To fix:
+Outstanding Fixes:
 
-* See this note below:  FIX: start and end date are correct but time is not correct.  
-* see this note below:  FIX: 2 people put over 30 days for how many days they spent at work, school, or volunteering in the last 30 days. Both participants completed the study.  
+* Subid 11 has correct date for their followup 2 survey but an incorrect time - According to visit dates followup 2 visit was on 9-28-2017. Start and end time are 12 minutes apart and at 11:00 pm. No info in notes as to why this time is off. This is documented as a note entry in the cleaning log.
+
+* For the question "how many days they spent at work, school, or volunteering in the last 30 days?" Subid 66 put 40 and subid 269 put 175. Max value should be 30. These are documented as a note entry in the cleaning log.       
+
 
 ### Notes
 Purpose: This file does cleaning and basic processing of the qualtrics follow-up 12 survey.
@@ -281,19 +285,25 @@ fu12 %>%
 
 **4 subids UTC date does not match start date**  
 
-FIX: start and end date are correct but time is not correct.  
+*It appears the timing for this survey got messed up somehow. Date is correct but not time*
+
 * 11 UTC = 2017-09-29 00:06:56; start_date = 2017-09-28 23:06:16; end_date = 2017-09-28 23:18:13  
 According to visit dates followup 2 visit was on 9-28-2017. Start and end time are 12 minutes apart and at 11:00 pm. UTC follows same pattern (almost 1 hour exactly after start time) but pushes it past midnight so day is different.   
 
-*These 3 below will be fine since we will likely use end time for predictors*   
+
+*These surveys were completed at home. It appears UTC is correct start time and end date is correct end time. We will likely use end time for predictors*    
 
 * 27 UTC = 2018-01-22 17:44:48; start_date = 2018-01-19 17:01:08; end_date = 2018-01-22 18:05:28  
 UTC is correct - Participant completed the Followup 1& 2 ID battery on 1/22/2018 via the link at home as she was unable to make it into the lab for her second follow-up due to car issues. UTC is likely start time and end_date is likely end time.    
+
 * 34 UTC = 2018-02-23 01:06:10; start_date = 2018-02-22 21:43:11; end_date = 2018-02-23 01:18:11  
 According to notes, participant missed Follow Up 2 appointment. Filled out the Follow Up 2 ID Battery via email on 2/22/18. UTC is likely start time and end_date is likely end time.   
 
 * 201 UTC = 2019-06-07 03:41:56; start_date = 2019-06-05 16:16:29; end_date = 2019-06-07 03:01:27  
-The participant was sent a survey link to complete the ID F1&F2 Battery. She was unable to come in for her F2 appointment. She completed the F1&F2 ID battery on 6/7/19. UTC is likely start time (plus 1 hour for BST tz) and end_date is likely end time.    
+The participant was sent a survey link to complete the ID F1&F2 Battery. She was unable to come in for her F2 appointment. She completed the F1&F2 ID battery on 6/7/19. UTC is likely start time (plus 1 hour for BST tz) and end_date is likely end time.   
+
+
+ 
 
 4 subids with different day for UTC and start time
 ```{r}
@@ -530,13 +540,15 @@ fu12 %>%
             mean = mean(as.numeric(mam_15), na.rm = TRUE))
 ```
 
+
+2 people put over 30 days for how many days they spent at work, school, or volunteering in the last 30 days. Both participants completed the study. 
 ```{r}
 fu12 %>% 
   filter(as.numeric(mam_15) > 30) %>% 
   select(subid, mam_15)
 ```
 
-FIX: 2 people put over 30 days for how many days they spent at work, school, or volunteering in the last 30 days. Both participants completed the study.  
+ 
 
 Has your religion or spirituality helped support your recovery within the past 30 days
 ```{r}
