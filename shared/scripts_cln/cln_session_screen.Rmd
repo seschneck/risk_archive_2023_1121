@@ -20,8 +20,14 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+These data are almost fully cleaned (1 outstanding fix below) and checked with EDA.        
 
+**Reminder that session forms are considered notes not data.**      
+**For this reason times on start and end dates may not have accurate precision.**  
+
+Outstanding Fix:  
+
+* Not sure what response option "1" is for referral_source variable, it is not on the qualtrics survey and all other response options are accounted for. If you plan to use this variable, you will need to further dig into this.   
 
 
 ### Notes
@@ -39,6 +45,7 @@ Inputs:
 Output:  
 
 * session_screen.csv  
+
 ### Setup
 
 Chunk Defaults
@@ -82,7 +89,7 @@ library(here)  # establish project directory consistently as working directory
 ```
 
 Packages
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
@@ -356,8 +363,22 @@ session_3 <- session_3 %>%
 
 ```{r}
 screen_session <- session_1 %>% 
-  full_join(session_2) %>% 
-  full_join(session_3) %>% 
+  full_join(session_2, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "sfsr_4", "finished", "sfsr_5", "sfsr_6", 
+                              "sfsr_7", "sfsr_8", "sfsr_9", "sfsr_34", "sfsr_35", 
+                              "sfsr_36", "sfsr_38", "sfsr_39", "sfsr_40", "sfsr_41", 
+                              "sfsr_10_1_1", "sfsr_10_2_1", "sfsr_10_3_1", "sfsr_11", 
+                              "sfsr_12", "sfsr_13", "sfsr_14", "sfsr_15", "sfsr_16", 
+                              "sfsr_17", "sfsr_18", "sfsr_19", "sfsr_26", "sfsr_27", 
+                              "sfsr_28", "sfsr_28_text", "sfsr_29", "sfsr_30")) %>% 
+  full_join(session_3,  by = c("response_id", "subid", "start_date", "end_date", 
+                               "sfsr_4", "finished", "sfsr_5", "sfsr_6", "sfsr_7", 
+                               "sfsr_8", "sfsr_9", "sfsr_34", "sfsr_35", "sfsr_36", 
+                               "sfsr_38", "sfsr_39", "sfsr_40", "sfsr_41", "sfsr_10_1_1", 
+                               "sfsr_10_2_1", "sfsr_10_3_1", "sfsr_11", "sfsr_12", 
+                               "sfsr_13", "sfsr_14", "sfsr_15", "sfsr_16", "sfsr_17", 
+                               "sfsr_18", "sfsr_19", "sfsr_26", "sfsr_27", "sfsr_28", 
+                               "sfsr_28_text", "sfsr_29", "sfsr_30")) %>% 
   glimpse()
 
 rm(session_1, session_2, session_3)
@@ -383,9 +404,6 @@ All timezones in UTC
 screen_session %>% 
   select(start_date, end_date) %>% 
   map(tz)
-
-print(screen_session$start_date)
-print(screen_session$end_date)
 ```
 
 UTC values that do not fall within range of start_date to end_date
@@ -403,7 +421,7 @@ screen_session %>%
   filter(date(utc) != date(start_date))
 ```
 
-**Screen session form V3 does not have UTC variable (N = 202)**
+Screen session form V3 does not have UTC variable (N = 201)
 
 Available UTCs all match start date (1 hour ahead for some in months June - October).  
 Subid 23 has UTC that follows same pattern (1 hour ahead of start date), however, start_date time listed as 11:20 pm so UTC crosses over into next day. Time likely incorrect, but according to enrollment db the date is correct (20-17-2017).    
@@ -434,11 +452,14 @@ Missing subids
 screen_session %>% 
   filter(is.na(subid)) %>% 
   kbl %>% 
-  kable_classic()
+  kable_classic() %>% 
+  scroll_box(width = "100%")
 ```
 
-FIX: 7 entirely blank surveys - only have start and end time and response_id  
-Filter out until instructed to handle differently 
+
+7 entirely blank surveys - only have start and end time and response_id    
+Without subid these are not useful   
+Filter out blank surveys   
 ```{r}
 screen_session <- screen_session %>% 
   filter(!is.na(subid))
@@ -457,7 +478,7 @@ screen_session %>%
 
 Nothing else appears problematic in missing data.     
 * Missing sfsr_5 (time arrived) values indicate no-shows   
-* Missing 202 utc variables because session form version 3 did not have it as a variable.  
+* Missing 201 utc variables because session form version 3 did not have it as a variable.  
 
 Reasons for missing data include:  
 * participants discontinuing or being withdrawn due to eligibility reasons before completing session  
@@ -480,14 +501,15 @@ kabyl <- compose(
 
 
 
-Before I begin describing the study, can you please tell me how you heard about the study? 
+Before I begin describing the study, can you please tell me how you heard about the study?    
+Not sure what response option "1" is, it is not on the qualtrics survey and all response options are accounted for
 ```{r}
 kabyl(referral_source) %>% 
   add_header_above(c("Before I begin describing the study, can you please tell me how you heard about the study?" = 4),
                    align = "l")
 ```
 
-FIX: Not sure what response option "1" is, it is not on the qualtrics survey and all response options are accounted for  
+  
 
 Name of clinic or other text response for referral
 ```{r}
@@ -517,13 +539,14 @@ kabyl(sfsr_6_text) %>%
                    align = "l")
 ```
 
-Will participant continue with study today? 
+Will participant continue with study today?   
+The three No's were discontinued due to major concerns during screening.  
 ```{r}
 kabyl(sfsr_9) %>% 
   add_header_above(c("Will participant continue with study today?" = 4),
                    align = "l")
 ```
-The three No's were discontinued due to major concerns during screening.  
+
 
 <br>
 
@@ -670,7 +693,8 @@ kabyl(q76_1) %>%
 
 #### write csv
 ```{r}
-write_csv(screen_session, here(path_out, "session_screen.csv"))
+write_csv(screen_session, here(path_out, "session_screen.csv")) %>% 
+  glimpse()
 ```
 
 
