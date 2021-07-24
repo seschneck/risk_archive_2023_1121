@@ -98,7 +98,6 @@ path_log <- "shared/notes"
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
@@ -143,7 +142,7 @@ visit_dates <- list.files(here(path_raw),
 
 ### Clean by log
 
-Functions
+####Functions
 ```{r}
 # function to add any subids in log not already in visit dates
 add_subs <- function(dates, log){
@@ -175,11 +174,75 @@ clean_log <- function(..., log){
 }
 ```
 
-
-Clean visit dates
+#### Read in cleaning log and EDA on log
 ```{r}
-log <- read_csv(here(path_log, "log_visit_dates.csv"), col_types = cols())
+log <- read_csv(here(path_log, "log_visit_dates.csv"), col_types = cols()) %>% 
+  glimpse()
+```
 
+`r nrow(log)` dates recoded entries.  
+
+Variables recoded
+```{r}
+log %>% 
+  tabyl(var_name)
+```
+
+Start study recodes   
+```{r}
+log %>% 
+    filter(var_name == "StartStudy") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Screen recodes   
+Most entries were to add subids who completed screen but did not complete intake. 
+```{r}
+log %>% 
+  filter(var_name == "Screen") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Intake recodes   
+```{r}
+log %>% 
+  filter(var_name == "Intake") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Followup visit recodes   
+```{r}
+log %>% 
+  filter(var_name %in% c("Followup1", "Followup2", "FinalVisit")) %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+End study recodes    
+Most of these entries were imputed for passively discontinued participants (the process for how these decisions were reached are all documented in the end study EDA section of this script)
+```{r}
+log %>% 
+  filter(var_name == "EndStudy") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+
+#### Clean visit dates
+```{r}
 visit_dates <- add_subs(visit_dates, log)
 
 visit_dates <- visit_dates %>%
@@ -190,9 +253,9 @@ visit_dates <- visit_dates %>%
 ```
 
 
-## EDA for cleaned visit dates
+### EDA for cleaned visit dates
 
-EDA notes - KW:   
+Notes for how I approached EDA are below - KW     
 
 * The original visit date will be compared to the uncleaned **raw survey** end date. Where there are discrepancies we will look at the cleaned session form dates, google calendar, and notes for a resolution.  
 * Since the surveys are uncleaned we will also check the **cleaning logs** for the surveys in case there are any blatant errors in dates that have already been resolved or documented.   
