@@ -1,0 +1,189 @@
+---
+title: "Project and Study notes for RISK"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk", 
+      "/Volumes/private/studydata/risk")
+    )
+  })
+---
+
+# Project Level Notes
+
+## Why Lapse?
+
+There are a number of clear reasons to build models to predict lapse rather than 
+relapse:
+
+* Lapses are clearly defined and have a precise onset.  Relapse does not.
+
+* Lapses are necessary for relapse.  You cannot lapse without a relapse.  
+
+* Lapses will *often* precede relapse.  You may have a string of small lapses before
+full relapse. This may give some cushion to intervene before relapse
+
+* Lapses can produce a abstinence violation effect (AVE).  AVEs can lead to relapse.
+Digital therapeutics could intervene to minimize the impact of any AVE.
+
+* Lapse prediction allows for harm reduction.  If a lapse is predicted, digital therapeutics
+may support more healthy drinking that is less likely to result in a relapse or other
+harm.
+
+## Lapse Labels {#general_labels}
+
+We use lapses reported by EMA and directly to study staff during visits.  
+
+* These lapses have a start and end time record with one hour precision.  
+* We want cases with accurate labels (`lapse` and `no_lapse`).  
+* For *lapse* cases:
+  * We filter out lapse reports that are unusable (no specific start time).  
+  * We also filter lapses that are suspect because they have negative duration 
+  or very long duration (currently > 24 hours.  
+  * This results in a list of valid lapses with onsets reported by date and hour.
+
+* For *no_lapse* cases:
+  * We don't need all hours that are not lapse onsets b/c that would yield VERY 
+  unbalanced labels and there is diminishing benefit from additional negative cases.  
+  * We can instead sample from the hours where participant was not drinking
+  * Currently thinking 9:1 for no_lapse:lapse (10% minority class) or 14:1 (6.67%)
+  or 19:1 (5%).  I lean toward 19:1.  This will get us a LOT of negative cases.  
+  We can the consider   models trained with all cases or resampling classes using 
+  upsample, downsample, and SMOTE.
+  * We want accurate negative cases.   To do this we filter out: 
+    * All hours within a valid lapse period
+    * 3 hours (current value; open for discussion) before or after a valid lapse period
+    * Full day (and 3 hours before/after) for excluded lapse reports that listed 
+    only the date (mostly from staff reports)
+    * 24 + 3 hours after lapse onsets when no lapse end was reported
+  
+## Prediction Models
+
+### Prediction Lead Time
+
+We will predict lapse onset using 1 hour precision.  We will have *lapse* (minority class)
+and *no_lapse* (majority class) cases.  
+
+We could consider *drinking* cases as a third category of outcome but currently 
+the benefits don't seem to outweigh the added cost of complexity.  
+
+We will build true prediction models that use features derived from raw data 
+available BEFORE the outcome observation time.  
+
+We will consider models that vary in how far ahead they predict
+
+* 1 hour
+* 6 hours
+* 1 day
+* 3 days
+cases
+
+The first two prediction lead times serve primarily harm reduction or interventions
+that might be effective immediately (distraction, urge surfing, etc)
+
+The latter lead times provide a longer intervention window.  With a longer window, 
+there is more time and a greater diversity of interventions that can be implemented
+
+We could consider a 7 day lead time for prediction but this will likely result in too 
+much data loss.   To build a model with a specific lead time, we need will need to drop 
+cases that occur at the start of the study within the lead time AND the time window for
+feature engineering (e.g., if we calculate features over the last week and are predicting
+a week into the future, we may need to drop lapses in the first two weeks.)
+
+John is leaning toward dropping the first week of data from the study to allow for features
+based on up to a week of raw data preceding the observation of the outcome
+
+### Algorithm Considerations
+
+
+### Resampling Choices
+
+
+
+# Burden Study Notes
+
+This study focuses on the acceptability of various personal sensing methods 
+to research participants with alcohol use disorder.
+
+## Paper info
+
+**Authors**: Wyant, Moshontz, Curtin
+
+**Target journal**: *The Journal of Medical Internet Research*
+
+# Meta Study Notes
+
+This study focuses on the use of cellular communications meta data (logs) to 
+predict lapses.
+
+## Paper info
+
+**Authors**: TBD.   
+
+Tentative is Wyant, Sant'ana, Curtin
+
+
+
+# Geolocation Study Notes
+
+This study will focus on the use of geolocation data to predict lapses.  It will
+likely also include the use of stable individual differences as these may prove 
+to be important moderators of the location - lapse relationships
+
+
+## Paper Info
+
+**Authors**: TBD.   
+
+Srijan Kumar (srijan@gatech.edu) and Gaurav Verma (gverma9@gatech.edu) are collaborators
+from Georgia Tech who are taking the lead at this point in modeling.
+
+Hannah will be a co-author given her contributions to processing raw geolocation 
+data.  Her specific role is TBD based on future discussions and level of 
+involvement with Georgia Tech in analysis, writing, etc.  
+
+
+
+
+# Full Cellular Communications Study Notes
+
+This will be a follow-up to Kendra's FYP that also uses NLP on text messages.
+Currently, this is planned as a second study (independent of Kendra's FYP) unless
+the meta data prove insufficient by themselves for reasonable prediction.
+
+## Paper Info
+
+**Authors** TBD
+
+Kendra will be a co-author given her role in processing the communications data.
+Currently, John has reserved the option for her to lead study (first author) 
+assuming timely progress, etc.
+
+# Audio Check-ins Study
+
+A good, focused NLP project.   Also interesting because of past research on 
+journaling in addiction
+
+## Paper Info
+
+A student of Dhavan's will be involved in this study.  John has discussed a role for
+Susan as well.  
+
+
+# Stressor-use Replication Study
+ 
+May focus on conceptual replication of either the stressor-use or the 
+pleasant/unpleasant stressor studies from NRT
+
+## Paper Info
+
+Sarah has expressed interest in this study.  Gaylen should be included given her 
+role in stressor-use.  Ali may be involved depending on her involvement in 
+pleasant stressors study.
+
