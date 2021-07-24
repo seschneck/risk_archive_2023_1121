@@ -20,7 +20,10 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+These data are fully cleaned and checked with EDA.        
+
+**Reminder that session forms are considered notes not data.**      
+**For this reason times on start and end dates may not have accurate precision.**   
 
 ### Notes
 This script creates a single csv file from the three raw data session intake files. Uses cleaning function to clean according to data log. Includes file merging and minimal variable renaming.    
@@ -83,7 +86,7 @@ library(here)  # establish project directory consistently as working directory
 
 
 Packages
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
@@ -96,13 +99,13 @@ source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ### Read in session intake csvs
 
 ```{r}
-session_1 <- read_csv(here(path_in, "session_intake_v1.csv")) %>% 
+session_1 <- read_csv(here(path_in, "session_intake_v1.csv"), col_types = cols()) %>% 
   rename(subid = SFIR_3, response_id = ResponseID) %>% 
   glimpse()
-session_2 <- read_csv(here(path_in, "session_intake_v2.csv")) %>% 
+session_2 <- read_csv(here(path_in, "session_intake_v2.csv"), col_types = cols()) %>% 
   rename(subid = SFIR_3, response_id = ResponseID) %>% 
   glimpse()
-session_3 <- read_csv(here(path_in, "session_intake_v3.csv")) %>% 
+session_3 <- read_csv(here(path_in, "session_intake_v3.csv"), col_types = cols()) %>% 
   rename(subid = SFIR_3, response_id = ResponseID) %>% 
   glimpse()
 ```
@@ -113,15 +116,15 @@ session_3 <- read_csv(here(path_in, "session_intake_v3.csv")) %>%
 open data logs
 
 ```{r}
-log_1 <- read_csv(here(path_log, "log_session_intake_v1.csv"))  %>% 
+log_1 <- read_csv(here(path_log, "log_session_intake_v1.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
 
-log_2 <- read_csv(here(path_log, "log_session_intake_v2.csv")) %>% 
+log_2 <- read_csv(here(path_log, "log_session_intake_v2.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 
-log_3 <- read_csv(here(path_log, "log_session_intake_v3.csv")) %>% 
+log_3 <- read_csv(here(path_log, "log_session_intake_v3.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -385,8 +388,25 @@ session_3 <- session_3 %>%
 
 ```{r}
 intake_session <- session_1 %>% 
-  full_join(session_2) %>% 
-  full_join(session_3) %>% 
+  full_join(session_2,  by = c("response_id", "subid", "start_date", "end_date", 
+                               "utc", "finished", "sfir_4", "sfir_5_1_1", "sfir_5_2_1", 
+                               "sfir_5_3_1", "sfir_6", "sfir_9", "sfir_10", "sfir_11", 
+                               "sfir_16", "sfir_17", "sfir_20", "sfir_21", "q112", 
+                               "q113", "q115", "sfir_46", "sfir_32", "sfir_33", 
+                               "sfir_34", "sfir_35", "sfir_36", "sfir_37", "sfir_38", 
+                               "sfir_39", "sfir_40", "sfir_41", "sfir_42", "sfir_47", 
+                               "sfir_48", "sfir_49", "sfir_50", "sfir_51", "sfir_52", 
+                               "sfir_55", "sfir_56", "sfir_57", "sfir_58")) %>% 
+  full_join(session_3, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "sfir_4", "sfir_5_1_1", "sfir_5_2_1", 
+                              "sfir_5_3_1", "sfir_6", "sfir_9", "sfir_10", "sfir_11", 
+                              "sfir_16", "sfir_17", "sfir_20", "sfir_21", "sfir_46", 
+                              "sfir_32", "sfir_33", "sfir_34", "sfir_35", "sfir_36", 
+                              "sfir_37", "sfir_38", "sfir_39", "sfir_40", "sfir_41", 
+                              "sfir_42", "sfir_47", "sfir_48", "sfir_49", "sfir_50", 
+                              "sfir_51", "sfir_52", "sfir_55", "sfir_56", "sfir_57", 
+                              "sfir_58", "sfir_7", "sfir_8", "sfir_14", "sfir_28", 
+                              "sfir_29", "sfir_30", "sfir_31")) %>% 
   glimpse()
 
 rm(session_1, session_2, session_3)
@@ -415,9 +435,6 @@ All timezones in UTC
 intake_session %>% 
   select(start_date, end_date) %>% 
   map(tz)
-
-print(intake_session$start_date)
-print(intake_session$end_date)
 ```
 
 UTC values that do not fall within range of start_date to end_date
@@ -469,16 +486,12 @@ intake_session %>%
   scroll_box(width = "100%")
 ```
 
+Missing UTC for subid 1  
 ```{r}
 intake_session %>% 
-  filter(is.na(utc)) %>% 
-  kbl() %>% 
-  kable_classic() %>% 
-  scroll_box(width = "100%")
+  filter(is.na(utc)) 
 ```
 
-
-FIX: Missing UTC for subid 1  
 
 Nothing else appears problematic in missing data.    
 
@@ -506,7 +519,7 @@ kabyl(sfir_6) %>%
                    align = "l")
 ```
 
-FIX: For survey version 2 and 3 it was not assumed that if participant drank since screen visit that it was automatically less than 7 days since last drink. Only the two subids labeled as Yes (or less than 7 days...) were not able to continue according to next survey item (q197).  
+Note: For survey version 2 and 3 it was not assumed that if participant drank since screen visit that it was automatically less than 7 days since last drink. Only the two subids labeled as Yes (or less than 7 days...) were not able to continue according to next survey item (q197).  
 
 Is the participant able to continue the session?
 ```{r}
@@ -576,7 +589,8 @@ kabyl(sfir_56) %>%
 
 write csv
 ```{r}
-write_csv(intake_session, here(path_out, "session_intake.csv"))
+write_csv(intake_session, here(path_out, "session_intake.csv")) %>% 
+  glimpse()
 ```
 
 
