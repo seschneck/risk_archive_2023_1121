@@ -675,7 +675,7 @@ all_logs <- all_logs %>%
 all_logs %>% 
   # keep only unique rows across retained variables
   distinct(., across(c(subid, address, date, type, body, read, status, locked,
-                       date_sent, contact_name)), .keep_all = TRUE) %>% glimpse()
+                       date_sent, contact_name)), .keep_all = TRUE) %>% 
   write_csv(here(path_shared, "sms_android.csv")) %>% 
   glimpse()
 ```
