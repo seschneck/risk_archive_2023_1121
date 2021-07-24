@@ -20,7 +20,11 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+This script fully cleans the android voice logs with EDA.   
+
+Outstanding issue to fix at study level:   
+* One voice call has duration of -4 (invalid duration)   
+* 8 subids have invalid type values. Online forums suggest that “some flavours of Android return haphazard integers.”     
 
 
 ### Notes
@@ -470,7 +474,7 @@ logs_android %>%
 
 #### duration
 
-FIX: one call duration is -4 seconds
+Fix: one call duration is -4 seconds
 ```{r}
 psych::describe(logs_android$duration)
 
@@ -619,6 +623,5 @@ logs_android %>%
 write_csv(logs_android, here(path_shared, "voice_android.csv")) %>% glimpse()
 ```
 
-**Note: dates saved as UTC**
 
 <br>
