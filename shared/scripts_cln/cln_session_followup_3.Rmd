@@ -21,7 +21,9 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+These data are fully cleaned and checked with EDA.        
+
+**If using time variables may want to do a deeper dive into EDA on these.**     
 
 
 ### Notes
@@ -83,7 +85,7 @@ library(here)  # establish project directory consistently as working directory
 ```
 
 Packages
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
@@ -96,16 +98,16 @@ source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ### Read in session screen csvs
 
 ```{r}
-session_1 <- read_csv(here(path_in, "session_followup_3_v1.csv")) %>%
+session_1 <- read_csv(here(path_in, "session_followup_3_v1.csv"), col_types = cols()) %>%
   rename(subid = SSFU3_3, response_id = ResponseID) %>% 
   glimpse()
-session_2 <- read_csv(here(path_in, "session_followup_3_v2.csv")) %>% 
+session_2 <- read_csv(here(path_in, "session_followup_3_v2.csv"), col_types = cols()) %>% 
   rename(subid = SSFU3_3, response_id = ResponseID) %>% 
   glimpse()
-session_3 <- read_csv(here(path_in, "session_followup_3_v3.csv")) %>% 
+session_3 <- read_csv(here(path_in, "session_followup_3_v3.csv"), col_types = cols()) %>% 
   rename(subid = SSFU3_3, response_id = ResponseID) %>% 
   glimpse()
-session_4 <- read_csv(here(path_in, "session_followup_3_v4.csv")) %>% 
+session_4 <- read_csv(here(path_in, "session_followup_3_v4.csv"), col_types = cols()) %>% 
   rename(subid = SSFU3_3, response_id = ResponseID) %>% 
   glimpse()
 ```
@@ -113,7 +115,7 @@ session_4 <- read_csv(here(path_in, "session_followup_3_v4.csv")) %>%
 ###  Clean and merge
 
 ```{r}
-log_1 <- read_csv(here(path_log, "log_session_followup_3_v1.csv"))  %>% 
+log_1 <- read_csv(here(path_log, "log_session_followup_3_v1.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -329,9 +331,28 @@ session_4 <- session_4 %>%
 ### Merge data sets
 ```{r}
 fu_3 <- session_1 %>% 
-  full_join(session_2) %>% 
-  full_join(session_3) %>% 
-  full_join(session_4) %>% 
+  full_join(session_2, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "sffu3_4", "sffu3_5", "sffu3_12", 
+                              "sffu3_13", "sffu3_14", "sffu3_15", "sffu3_16", "q37", 
+                              "sffu3_23", "sffu3_24", "sffu3_25", "sffu3_26", 
+                              "sffu3_27", "sffu3_28", "sffu3_29", "sffu3_30", 
+                              "sffu3_31", "sffu3_32", "sffu3_33", "sffu3_34")) %>% 
+  full_join(session_3, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "sffu3_4", "sffu3_5", "sffu3_12", 
+                              "sffu3_13", "sffu3_14", "sffu3_15", "sffu3_16", 
+                              "sffu3_23", "sffu3_24", "sffu3_25", "sffu3_26", 
+                              "sffu3_27", "sffu3_28", "sffu3_29", "sffu3_30", 
+                              "sffu3_31", "sffu3_32", "sffu3_33", "sffu3_34", 
+                              "sffu3_6", "sffu3_7", "sffu3_19", "sffu3_20")) %>% 
+  full_join(session_4,  by = c("response_id", "subid", "start_date", "end_date", 
+                               "finished", "sffu3_4", "sffu3_5", "sffu3_12", 
+                               "sffu3_13", "sffu3_14", "sffu3_15", "sffu3_16", 
+                               "sffu3_23", "sffu3_24", "sffu3_25", "sffu3_26", 
+                               "sffu3_27", "sffu3_28", "sffu3_29", "sffu3_30", 
+                               "sffu3_31", "sffu3_32", "sffu3_33", "sffu3_34", 
+                               "sffu3_6", "sffu3_7", "sffu3_19", "sffu3_20", 
+                               "sffu3_8", "sffu3_9", "sffu3_10", "sffu3_11", 
+                               "sffu3_17", "sffu3_18", "sffu3_21", "sffu3_22")) %>% 
   glimpse()
 
 rm(session_1, session_2, session_3)
@@ -406,8 +427,8 @@ All participants are missing values for sffu3_13, sffu3_26, sffu3_28, sffu3_34, 
 
 Missing ssfu3_4 (time arrived) values represent no shows.  
 
-FIX: Subid 1 had their own version of followup 3 and no UTC was on the survey as a variable.  
-FIX: 149 and and 166 also missing UTC variables
+Subid 1 had their own version of followup 3 and no UTC was on the survey as a variable.  
+Subids 149 and and 166 also missing UTC variables
 
 Nothing else appears problematic in missing data, however not all variables were checked with fine tooth comb.   
 
@@ -554,7 +575,8 @@ scroll_box(height = "500px")
 ### Save
 
 ```{r}
-write_csv(fu_3, here(path_out, "session_followup_3.csv"))
+write_csv(fu_3, here(path_out, "session_followup_3.csv")) %>% 
+  glimpse()
 ```
 
 
