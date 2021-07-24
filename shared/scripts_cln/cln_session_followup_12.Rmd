@@ -20,7 +20,11 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Kendra, update this
+Data are almost fully cleaned (see outstanding fix below). EDA on all variables.   
+
+Outstanding fix:   
+
+* More EDA needed on time component of start and end date. This may not be necessary since these are session forms (treated as notes). Still, I have done light EDA on time. However, if you plan to use these variables as data in your study you will want to further explore them.   
 
 
 ### Notes
@@ -83,7 +87,7 @@ library(here)  # establish project directory consistently as working directory
 ```
 
 Packages
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
@@ -96,13 +100,13 @@ source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ### Read in session screen csvs
 
 ```{r}
-session_1 <- read_csv(here(path_in, "session_followup_12_v1.csv")) %>%
+session_1 <- read_csv(here(path_in, "session_followup_12_v1.csv"), col_types = cols()) %>%
   rename(subid = Q4, response_id = ResponseID) %>% 
   glimpse()
-session_2 <- read_csv(here(path_in, "session_followup_12_v2.csv")) %>% 
+session_2 <- read_csv(here(path_in, "session_followup_12_v2.csv"), col_types = cols()) %>% 
   rename(subid = Q4, response_id = ResponseID) %>% 
   glimpse()
-session_3 <- read_csv(here(path_in, "session_followup_12_v3.csv")) %>% 
+session_3 <- read_csv(here(path_in, "session_followup_12_v3.csv"), col_types = cols()) %>% 
   rename(subid = SSFU_4, response_id = ResponseID) %>% 
   glimpse()
 ```
@@ -111,10 +115,10 @@ session_3 <- read_csv(here(path_in, "session_followup_12_v3.csv")) %>%
 
 Open logs
 ```{r}
-log_1 <- read_csv(here(path_log, "log_session_followup_12_v1.csv"))  %>% 
+log_1 <- read_csv(here(path_log, "log_session_followup_12_v1.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
-log_2 <- read_csv(here(path_log, "log_session_followup_12_v2.csv"))  %>% 
+log_2 <- read_csv(here(path_log, "log_session_followup_12_v2.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -309,8 +313,20 @@ session_3 <- session_3 %>%
 ### Merge data sets
 ```{r}
 fu_12_session <- session_1 %>% 
-  full_join(session_2) %>% 
-  full_join(session_3) %>% 
+  full_join(session_2, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "ssfu_2", "ssfu_5", "ssfu_6", 
+                              "q22", "q23", "ssfu_11", "ssfu_12", "ssfu_13", 
+                              "ssfu_14", "ssfu_15", "q35", "q36", "ssfu_20", 
+                              "ssfu_21", "ssfu_22", "ssfu_25", "ssfu_26", "ssfu_27", 
+                              "ssfu_28", "ssfu_29", "ssfu_30", "ssfu_33", "ssfu_34", 
+                              "ssfu_35", "ssfu_36", "ssfu_40")) %>% 
+  full_join(session_3, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "ssfu_2", "ssfu_5", "ssfu_6", 
+                              "ssfu_11", "ssfu_12", "ssfu_13", "ssfu_14", "ssfu_15", 
+                              "ssfu_20", "ssfu_21", "ssfu_22", "ssfu_25", "ssfu_26", 
+                              "ssfu_27", "ssfu_28", "ssfu_29", "ssfu_30", "ssfu_33", 
+                              "ssfu_34", "ssfu_35", "ssfu_36", "ssfu_40", "ssfu_7", 
+                              "ssfu_8", "ssfu_19")) %>% 
   glimpse()
 
 rm(session_1, session_2, session_3)
@@ -327,9 +343,6 @@ All timezones in UTC
 fu_12_session %>% 
   select(start_date, end_date) %>% 
   map(tz)
-
-print(fu_12_session$start_date)
-print(fu_12_session$end_date)
 ```
 
 UTC values that do not fall within range of start_date to end_date
@@ -394,7 +407,7 @@ fu_12_session %>%
 Missing ssfu_5 (time arrived) values represent no shows documented.  
 ssfu_10 ("If no please explain below (interview form updated)") and ssfu_17 ("If no please explain below (ema form updated)") was blank for all participants.   
 
-FIX: subid 98 has a completely blank FU 2 session form other than arrival time. No notes why.  
+subid 98 has a completely blank FU 2 session form other than arrival time. No notes why.  
 
 Nothing else appears problematic in missing data.  
 
@@ -554,7 +567,8 @@ fu_12_session %>%
 ### Save
 
 ```{r}
-write_csv(fu_12_session, here(path_out, "session_followup_12.csv"))
+write_csv(fu_12_session, here(path_out, "session_followup_12.csv")) %>% 
+  glimpse()
 ```
 
 
