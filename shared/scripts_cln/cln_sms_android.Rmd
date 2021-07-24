@@ -20,7 +20,14 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-KENDRA, update here
+This script almost fully cleans sms android logs (see outstanding fixes below). EDA on all variables.   
+
+Outstanding Fixes:   
+
+* Check/handle non-identical duplicates (KW working on this)    
+* Update encoding of text content so that emojis are properly encoded   
+* Check blank text messages are actually blank in logs or if encoding error   
+* Date sent not showing consistently as 13 digit unix time stamp    
 
 
 ### Notes
@@ -402,7 +409,6 @@ all_logs %>%
 
 Compare two date entries for discrepancies    
 Readable date for 3 entries are 1 hour off. May be due to traveling?   
-FIX: Doesn't look like 60 minute difference?
 ```{r}
 all_logs %>% 
   mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
@@ -451,7 +457,6 @@ all_logs %>%
 #### text content
 
 Random sample of truncated text content    
-FIX: Not seeing many emojis - may have accidently been stripped, working on solution.
 ```{r}
 all_logs %>% 
   select(body) %>% 
@@ -675,6 +680,5 @@ all_logs %>%
   glimpse()
 ```
 
-**Note: date saved as UTC**
 
 <br>
