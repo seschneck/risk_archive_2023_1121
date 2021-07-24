@@ -20,11 +20,7 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-To update or fix:
-
-* Note KW: EMA data will also be brought in later to perform EDA on start and end study dates.  
-* FIX: Note survey end date for subid 201 is 6/6/2019 and not 6/7/2019 - updated visits date to 6/6 from 6/7 in log but may want to discuss
-* FIX: Not sure why subid 2 started surveys on intake date
+These data are fully cleaned and processed with this script. EDA is extensive and uses multiple data sources as checks. No outstanding issues.  
 
 ### Notes
 Purpose: aggregates, cleans, and tidys visit date files   
@@ -50,6 +46,7 @@ Path raw
 * followup_12.csv      
 * followup_3.csv        
 * raw_notes.csv    
+* gcal_risk.ics      
 
 Path log  
 
@@ -195,11 +192,14 @@ visit_dates <- visit_dates %>%
 
 ## EDA for cleaned visit dates
 
-The original visit date will be compared to the raw uncleaned survey end date. Where there are discrepancies we will look at the cleaned session form dates and notes for a resolution.  
+EDA notes - KW:   
 
-Note KW: not using raw session form dates since these files are not in a single aggregate file. Due to the data having already been cleaned, the session forms will be used as a note file to help us resolve discrepancies whereas the raw survey dates will be used directly in the EDA to locate errors and discrepancies.  
-
-Note KW: EMA data will also be brought in later to perform EDA on start and end study dates.  
+* The original visit date will be compared to the uncleaned **raw survey** end date. Where there are discrepancies we will look at the cleaned session form dates, google calendar, and notes for a resolution.  
+* Since the surveys are uncleaned we will also check the **cleaning logs** for the surveys in case there are any blatant errors in dates that have already been resolved or documented.   
+* not using raw session form dates since these files are not in a single aggregate file. Due to the data having already been cleaned, the **processed session forms** will be used as a note file to help us resolve visit date discrepancies whereas the raw survey dates will be used directly in the EDA to locate errors and discrepancies.  
+* Since the **google calendar** was not intended to be data when study staff were using it, it will be used as another note file to help resolve visit date discrepancies that arise.   
+* **Processed EMA** data will be used to perform EDA on the start and end study dates.  
+* **Raw notes** will be used to provide context to the discrepancies and decisions to resolve when available.   
 
 ### Import supporting data
 
@@ -258,7 +258,7 @@ dup_subs <- visit_dates %>%
 naniar::miss_var_summary(visit_dates)
 ```
 
-Note KW: 37 missing start, end, and intake dates are all confirmed to be subids who completed screen but did not complete intake - this could be due to screening ineligible, not showing up to intake, or leaving intake before completing visit.  
+Note: 37 missing start, end, and intake dates are all confirmed to be subids who completed screen but did not complete intake - this could be due to screening ineligible, not showing up to intake, or leaving intake before completing visit.  
 
 Check date ranges for each variable  
 No odd dates stand out
@@ -701,7 +701,6 @@ notes %>%
 ```
 
 These are survey end dates for 3 at home surveys.  
-FIX: Note survey end date for subid 201 is 6/6/2019 and not 6/7/2019 - updated visits date to 6/6 from 6/7 in log but may want to discuss
 ```{r}
 followup_2 %>% 
   filter(subid %in% c(27, 34, 201)) %>% 
@@ -754,11 +753,11 @@ followup_2 %>%
   select(-response_id) %>%
   full_join(session_dates, by = "subid") %>%
   full_join(visit_dates %>% filter(subid %in% unresolved_subs$subid) %>% 
-              select(visit_date = followup_2, subid))
+              select(visit_date = followup_2, subid), by = "subid")
 ```
 
 
-### followup 3/final visit
+### Followup 3/Final visit
 
 #### Check subids with followup 3 visit
 
@@ -837,7 +836,9 @@ followup_3 %>%
   filter(subid %in% followup_3_discrep$subid) %>%
   select(-c(response_id, finished)) %>%
   full_join(session_dates, by = "subid") %>%
-  full_join(visit_dates %>% filter(subid %in% followup_3_discrep$subid) %>% select(visit_date = final_visit, subid))
+  full_join(visit_dates %>% 
+              filter(subid %in% followup_3_discrep$subid) %>% 
+              select(visit_date = final_visit, subid), by = "subid")
 ```
 
 notes
@@ -930,8 +931,9 @@ ema_daily %>%
 * subid 48 was supposed to start study two days after intake, but they started EMA day after intake  
 * subid 62 - due to an error they didn't start receiving surveys until 5/19/2018 when they were supposed to start receiving them on 5/18/2018.  
 * subid 185 - As of 02/21/2019 the participant was still not registered for the Randomized surveys. As of 02/22/2019 the participant was registered and began responding to Randomized surveys.  
+* subid 204 - poor EMA compliance throughout duration of study.   
 
-FIX: Not sure why subid 2 started surveys on intake date
+None of these other discrepancies are alarming (all +/- 1 day from start_study day)
 
 
 
