@@ -22,12 +22,14 @@ knit: (function(input, ...) {
 
 These data are not fully cleaned. In this script I have documented all the information I have found so far about what the different variables are and what potential issues might exist.    
 
-**KW is still actively working on this script.**   
-
-Note:   
+Outstanding Fixes:   
 
 * This file not ready for analysis on text content. Emojis may not be properly encoded in aggregated csv file, still working on how to extract them from the SQL files and will update.   
 * I have not completed full EDA on every variable. I am still trying to figure out what most of these mean. Focus is on variables relevant for meta study.    
+* Duplicates appear to exist due to how group messages are handled. Same date, text, number but message_id, guid, other_handle, and other unique message identifiers seem to differ.   
+
+
+
 
 
 ### Notes
@@ -251,23 +253,22 @@ all_logs <- all_logs %>%
 
 ### EDA
 
+Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
+
+Max date looks good - min date must be due to someone having old messages.   
+
+
 `r length(unique(all_logs$subid))` subids had SQL sms data logs read in.   
 
 sql file detected for subid 9 but not read in     
 NOTE: 3 logs exist but no observations in logs
-```{r}
+```{r message = FALSE}
 sql_subids %>% 
   filter(!subid %in% all_logs$subid)
 
 subid_9 <- read_sql("009") %>% 
   glimpse()
 ```
-
-
-
-Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
-
-Max date looks good - min date must be due to someone having old messages.   
 
 
 #### missing data
@@ -356,25 +357,18 @@ all_logs <- all_logs %>%
   select(-ck_record_id)
 ```
 
-ck_record_change_tag
-FIX: not sure yet what this is
+ck_record_change_tag - not sure yet what this is
 ```{r}
 all_logs %>% 
   filter(!is.na(ck_record_change_tag)) %>% 
   count(ck_record_change_tag) %>% 
   head(n = 10)
-
-all_logs %>% 
-  filter(ck_record_change_tag == 100) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
 ```
 
 destination_caller_id
-This is just the subid's phone number or apple id account that they make calls through - dont need
+This is just the subid's phone number or apple id account that they make calls through - dont need    
+Not just outgoing calls have value
 ```{r}
-# Not just outgoing calls have value
 all_logs %>% 
   filter(!is.na(destination_caller_id)) %>% 
   tabyl(is_from_me)
@@ -419,7 +413,7 @@ all_logs %>%
 
 Duplicate messages still exist   
 Same message, but variables such as row_id, handle_id, version, account, etc. differ   
-FIX: Duplicates from group messages?
+FIX: Duplicates likely from group messages
 ```{r}
 duplicate_guids <- all_logs %>% 
   count(guid) %>% 
@@ -451,9 +445,9 @@ all_logs %>%
 
 #### ID (phone number)
 
-`r nrow(subset(all_logs, is.na(phone_number)))` missing phone numbers
+`r nrow(subset(all_logs, is.na(phone_number)))` missing phone numbers   
 
-Fix: most missing numbers are sent messages to a group chat.   
+Most missing numbers are sent messages to a group chat.    
 Chat Id is a way to see thread of group messages.  
 
 ```{r}
@@ -504,7 +498,7 @@ tabyl(all_logs$group_action_type)
 
 #### Text message content
 
-Some messages look blank but have a unicode object replacement character   
+Some messages look blank but have a unicode object replacement character      
 FIX: Does this mean an image or object was sent via text?
 ```{r}
 all_logs %>% 
@@ -525,5 +519,4 @@ all_logs %>%
   glimpse()
 ```
 
-Note: all dates exported as UTC
 
