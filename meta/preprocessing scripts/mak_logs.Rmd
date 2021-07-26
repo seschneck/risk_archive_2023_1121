@@ -301,15 +301,16 @@ logs_voice <- voice_android %>%
 ### Read in data
 ```{r}
 sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols()) %>%
-  # temporarily keeping text to filter out duplicates
+  # temporarily keeping text and log_file to filter out duplicates
   select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, is_prepared, 
-  text, chat_id) %>% 
+  text, chat_id, log_file) %>% 
   glimpse()
 ```
 
+
 ### Filter out duplicates
 
-`r nrow(sms_ios) - nrow(distinct(sms_ios))` duplicates exist in dataset.  
+`r nrow(sms_ios) - nrow(distinct(sms_ios %>% select(-log_file)))` duplicates exist in dataset.  
 
 Check all duplicates    
 Duplicates appear to exist due to how group messages are handled. Same date, text, number but message_id, guid, other_handle, and other unique message identifiers seem to differ. These variables are not relevant for meta.      
@@ -317,6 +318,7 @@ Duplicates appear to exist due to how group messages are handled. Same date, tex
 sms_ios_full <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols())
 
 dup_sms_ios <- sms_ios %>% 
+  select(-log_file) %>% 
   count(across(subid:chat_id)) %>% 
   filter(n > 1)
 
@@ -335,7 +337,21 @@ sms_ios_full %>%
 Remove duplicates
 ```{r}
 sms_ios <- sms_ios %>% 
-  distinct()
+  distinct(across(-log_file), .keep_all = TRUE)
+```
+
+
+### Handle non-identical duplicates do to changes in read status
+
+Keep 2nd entry 
+```{r}
+sms_ios <- sms_ios %>% 
+  group_by(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_prepared,
+           text, chat_id) %>% 
+  arrange(desc(log_file)) %>% 
+  slice(1) %>% 
+  # remove log_file variable
+  select(-log_file)
 ```
 
 
@@ -397,14 +413,15 @@ sms_ios %>%
 ### Read in data
 ```{r}
 sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols()) %>% 
-  # keep text message content in for filtering out duplicates
-  select(subid, address, date, type, text = body, read) %>% 
+  # keep text message content and log_file in for filtering out duplicates
+  select(subid, address, date, type, text = body, read, log_file) %>% 
   glimpse()
 ```
 
+
 ### Filter out Duplicates    
 
-`r nrow(sms_android) - nrow(distinct(sms_android))` duplicates exist in dataset.  
+`r nrow(sms_android) - nrow(distinct(sms_android %>% select(-log_file)))` duplicates exist in dataset.  
 
 Check all duplicates    
 ```{r}
@@ -428,7 +445,21 @@ sms_android_full %>%
 Remove duplicates
 ```{r}
 sms_android <- sms_android %>% 
-  distinct()
+  distinct(across(-log_file), .keep_all = TRUE) 
+```
+
+
+
+### Handle non-identical duplicates do to changes in read status
+
+Keep 2nd entry 
+```{r}
+sms_android <- sms_android %>% 
+  group_by(subid, address, date, type, text) %>% 
+  arrange(desc(log_file)) %>% 
+  slice(1) %>% 
+  # remove log_file variable
+  select(-log_file)
 ```
 
 
@@ -510,8 +541,6 @@ sms_ios <- sms_ios %>%
 
 ### Join
 
-FIX: Will need to check all these new variables with extensive EDA to make sure they are accurate  
-
 ```{r}
 logs_sms <- sms_android %>%
   full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", 
@@ -590,7 +619,11 @@ contacts <- contacts %>%
   filter(!is.na(phone_number))
 ```
 
+
+
+
 ### Handle duplicate numbers 
+
 ```{r}
 # Duplicate subid/phone number pairs
 dup_contacts <- contacts %>%
@@ -609,7 +642,7 @@ dup_contacts <- contacts %>%
   filter(n == 2) 
 ```
 
-<br>
+
 
 Duplicate 1: Subid 33   
 Differs only on contact type - keep first entry   
@@ -675,7 +708,6 @@ contacts <- contacts %>%
 
 Duplicate 6: Subid 110  
 Keep 2nd entry - Both entries completed on same day.   
-FIX: try to find subids cell phone number
 ```{r}
 dup_contacts %>%
   slice(11:12)
@@ -800,7 +832,7 @@ contacts <- contacts %>%
 
 
 
-<br>
+
 
 
 ## Clean numbers
@@ -810,7 +842,8 @@ Clean numbers with function
 # logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
 ```
 
-<br>
+
+
 
 ### Pull area codes for 7 digit numbers from contacts
 ```{r message = FALSE}
@@ -871,7 +904,8 @@ logs <- logs %>%
   select(-contact_number)
 ```
 
-<br>
+
+
 
 ## Join logs with contacts on formatted number
 ```{r}
@@ -886,7 +920,8 @@ logs <- logs %>%
   glimpse()
 ```
 
-<br>
+
+
 
 ## Contacts without log entries
 
@@ -896,23 +931,24 @@ Still need to handle
 
 ```
 
-<br>
+
 
 ## Check unknown patterns for matches to contacts   
 
 FIX: print warnings and look for matches to contacts   
 Still need to handle
 
-<br>
+
 
 ## Other EDA
 
-Missing data   
-FIX: Remove street address, city, and state?
+Missing data    
+Remove street address, city, and state?
 ```{r}
 logs %>%
   naniar::miss_var_summary()
 ```
+
 
 
 EDA on call and text message variables
@@ -922,7 +958,7 @@ FIX: Still need to handle
 
 ```
 
-<br>
+
 
 
 ## Write csv
@@ -931,7 +967,7 @@ write_csv(logs, file.path(path_meta, "meta_logs.csv")) %>%
   glimpse()
 ```
 
-<br>
+
 
 
 
