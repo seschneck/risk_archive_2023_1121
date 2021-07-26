@@ -24,7 +24,7 @@ This script almost fully cleans sms android logs (see outstanding fixes below). 
 
 Outstanding Fixes:   
 
-* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. See end of file for more information.      
+* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. I correct for this at end of script, but more exploration should be done as to why this happened.      
 * Update encoding of text content so that emojis are properly encoded   
 * Check blank text messages are actually blank in logs or if encoding error   
 * Date sent not showing consistently as 13 digit unix time stamp    
@@ -750,5 +750,21 @@ all_logs %>%
 ```
 
 
+Remove trailing white space from subid 2's messages and remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  mutate(body = case_when(subid == "002" ~ str_trim(body),
+                          TRUE ~ body)) %>% 
+  distinct(across(-c(log_file, modified, created)), .keep_all = TRUE)
+```
 
+`r (nrow(all_logs_in) - nrow(all_logs))` duplicates removed.     
+
+
+### Re-write csv
+```{r}
+all_logs %>% 
+  write_csv(here(path_shared, "sms_android.csv")) %>% 
+  glimpse()
+```
 
