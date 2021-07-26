@@ -24,7 +24,7 @@ This script almost fully cleans sms android logs (see outstanding fixes below). 
 
 Outstanding Fixes:   
 
-* Check/handle non-identical duplicates (KW working on this)    
+* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. I correct for this at end of script, but more exploration should be done as to why this happened.      
 * Update encoding of text content so that emojis are properly encoded   
 * Check blank text messages are actually blank in logs or if encoding error   
 * Date sent not showing consistently as 13 digit unix time stamp    
@@ -669,16 +669,102 @@ all_logs <- all_logs %>%
 ```
 
 
+### Final check for duplicates
+
+keep only unique rows across retained variables
+```{r}
+all_logs <- all_logs %>% 
+  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) 
+```
+
+Check for non-identical duplicates
+```{r}
+dup_logs <- all_logs %>% 
+  count(across(c(subid, address, date, type, body))) %>% 
+  filter(n > 1)
+```
+
+`r nrow(dup_logs)` duplicates exist due to change in read or locked status or group messages with discrepant date sent 
+```{r}
+all_logs %>% 
+  left_join(dup_logs, by = c("subid", "address", "date", "type", "body", "read")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
 
 ### Write csv
 ```{r}
 all_logs %>% 
-  # keep only unique rows across retained variables
-  distinct(., across(c(subid, address, date, type, body, read, status, locked,
-                       date_sent, contact_name)), .keep_all = TRUE) %>% 
   write_csv(here(path_shared, "sms_android.csv")) %>% 
   glimpse()
 ```
 
 
-<br>
+
+### Trouble shooting duplicates that appear after csv file is written and then read back in
+
+```{r}
+all_logs_in <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+Check for non-identical duplicates
+```{r}
+dups <- all_logs_in %>% 
+  count(across(-c(log_file, created, modified))) 
+
+all_logs_in %>%
+  left_join(dups, by = c("subid", "address", "date", "type", "body", "service_center", 
+                         "read", "status", "locked", "date_sent", "contact_name")) %>% 
+  filter(n > 1) %>% 
+  arrange(subid, date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+All duplicate issues are from subid 2
+```{r}
+dups %>% 
+  filter(n > 1) %>% 
+  count(subid)
+```
+
+Check original data   
+Appears to be a problem where subid 2 has their text content being read in with different numbers of trailing spaces
+```{r}
+options(tibble.width = Inf)
+
+all_logs %>% 
+  filter(subid == "002" & address == "6084386316" & type == "sent" & str_detect(body, "OMG yes!"))
+
+all_logs %>% 
+  filter(subid == "002" & address == "6083325736" & type == "inbox" & str_detect(body, "certainly help"))
+
+all_logs %>% 
+  filter(subid == "002" & address == "6082161412" & type == "sent" & str_detect(body, "I love not seeing you for three whole days."))
+```
+
+
+Remove trailing white space from subid 2's messages and remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  mutate(body = case_when(subid == "002" ~ str_trim(body),
+                          TRUE ~ body)) %>% 
+  distinct(across(-c(log_file, modified, created)), .keep_all = TRUE)
+```
+
+`r (nrow(all_logs_in) - nrow(all_logs))` duplicates removed.     
+
+
+### Re-write csv
+```{r}
+all_logs %>% 
+  write_csv(here(path_shared, "sms_android.csv")) %>% 
+  glimpse()
+```
+
