@@ -24,30 +24,28 @@ Still need to look into missing chat_id values, unmatched number patterns, and e
 
 
 ### Notes
-Purpose: This script does further cleaning and pre-processing on the voice and SMS 
-logs specifically for meta study. It outputs a single clean log file joined with the 
-cleaned contact variables ready for feature engineering in the meta project.    
+Purpose: This script does further cleaning and pre-processing on the voice and SMS logs specifically for meta study. It outputs a single clean log file joined with the cleaned contact variables ready for feature engineering in the meta project.    
 
 Preprocessing steps:   
 
 1. Handle any identified errors/anomalies in clean scripts    
-
 2. Join logs on common variables    
-
 3. Filter down to analysis sample (N = 154; participants who completed followup 1)    
-
 4. Format numbers to match contacts and join with context variables   
-
 5. EDA on numbers and check for contacts not in logs     
 
+
 Inputs:  
+
 - voice_ios.csv    
 - voice_android.csv   
 - sms_ios.csv   
 - sms_android.csv  
 - contacts.csv    
 
+
 Output:   
+
 - meta_logs.csv   
 
 ### Setup
@@ -129,9 +127,6 @@ voice_ios <- voice_ios %>%
 
 Numbers with a wait (;)       
 A wait tells the phone to wait for action by the user (tapping a button) before dialing the next sequence of numbers. A wait in a phone number is denoted by a semi-colon ; for example: 222-222-2222;12345.    
-
-In this case, the phone would dial 222-222-2222, wait for the user to tap (as shown in the image below for iOS and Android), and then dial 12345.   
-
 ```{r}
 voice_ios %>% 
   filter(str_detect(zaddress, ";")) %>% 
@@ -156,10 +151,12 @@ voice_ios <- voice_ios %>%
 
 ### Filter out duplicates
 
-`r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to updates made to log entries between visits (e.g., read).   
+`r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to updates made to log entries between visits (e.g., read status).   
+
+Note: there is no read variable for android voice logs so we cannot use this variable.   
 
 Check all duplicates    
-Duplicates vary on variable changed - doesn't matter for meta since we are not using the variables that were changed 
+All duplicates have an update to z_opt variable suggesting something happened in between log downloads. Does not appear relevant for meta project so can filter out duplicates.   
 ```{r}
 voice_ios_full <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols())
 
@@ -196,22 +193,19 @@ voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_t
 
 ### Clean errors identified in clean script EDA
 
-FIX: invalid number with semicolon     
-Look into why semicolon might exist?
+Remove number after semicolon (wait indicator)
 ```{r}
 voice_android %>% 
   filter(str_detect(number, ";")) %>% 
   select(subid, number)
-```
-  
-Unclear what number after semicolon is. Keeping US number before semicolon as number.
-```{r}
+
 voice_android <- voice_android %>% 
   mutate(number = case_when(number == "+1-385-262-3849;418173518#" ~ "3852623849",
                             TRUE ~ number))
 ```
+  
 
-Fix invalid duration value of -4   
+invalid duration value of -4   
 Duration cannot be negative; changing to NA since no way of knowing actual duration
 ```{r}
 voice_android <- voice_android %>% 
@@ -219,7 +213,7 @@ voice_android <- voice_android %>%
                               TRUE ~ duration))
 ```
 
-Fix invalid type values   
+invalid type values   
 8 subids produced invalid numbers for type variable. Changing these numbers to NA since 
 we have no way of determining correct value.
 ```{r}
@@ -229,6 +223,7 @@ voice_android <- voice_android %>%
 ```
 
 ### Check duplicates   
+
 No duplicates
 ```{r}
 voice_android %>% 
@@ -246,9 +241,9 @@ voice_android %>%
 - subid - participant identifier   
 - date - date and time of log entry    
 - number - raw phone number of other party   
-- duration - duration of call    
-- originated (incoming or outgoing)   
-- answered   
+- originated - incoming or outgoing    
+- call_duration - duration of call  
+- call_answered - answered or not answered     
 
 
 ### tidy android variables for merge
@@ -292,6 +287,7 @@ voice_ios <- voice_ios %>%
 
 
 ### Join
+
 join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
@@ -351,7 +347,9 @@ sms_ios <- sms_ios %>%
 
 ### Handle non-identical duplicates do to changes in read status
 
-Keep 2nd entry 
+Both ios and android have a read variable for sms logs. Will retain this variable for meta study.   
+
+Keep 2nd entry for read discrepancies
 ```{r}
 sms_ios <- sms_ios %>% 
   group_by(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_prepared,
@@ -405,11 +403,79 @@ table(sms_ios$message_is_group)
 ```
 
 
-FIX: Check all chat_ids with NA values for any signs of group messages (i.e., outgoing messages to NA)    
-STILL NEED TO HANDLE
+Check all chat_ids with NA values for any signs of group messages   
+
+Outgoing messages to chats should have number as NA   
+Outgoing messages should have date_read == 0
+
 ```{r}
-sms_ios %>% 
-  filter(is.na(chat_id))
+sms_ios_full %>%
+  filter(is.na(chat_id)) %>% 
+  filter(date_read == 0) %>% 
+  tabyl(is_from_me)
+
+sms_ios_full %>% 
+  filter(!is.na(chat_id)) %>% 
+  filter(date_read == 0) %>% 
+  tabyl(is_from_me)  
+
+# date delivered is also 0 suggesting these were outgoing despite is_from_me being 0
+sms_ios_full %>% 
+  filter(!is.na(chat_id)) %>% 
+  filter(date_read == 0) %>% 
+  filter(is_from_me == 0)  %>% 
+  tabyl(date_delivered)
+
+sms_ios_full %>% 
+  filter(!is.na(chat_id)) %>% 
+  filter(date_read == 0) %>% 
+  filter(handle_id == 0)  %>% 
+  tabyl(phone_number)
+
+sms_ios_full %>% 
+  filter(is.na(phone_number)) %>% 
+  tabyl(handle_id)
+
+sms_ios_full %>% 
+  filter(is.na(chat_id)) %>%
+  count(subid, phone_number) %>% 
+  arrange(desc(n))
+```
+
+Type might indicate multiple recipients?
+```{r}
+sms_ios_full %>% 
+  left_join(sms_ios) %>% 
+  filter(message_is_group == "yes") %>% 
+  tabyl(type)
+
+sms_ios_full %>% 
+  left_join(sms_ios) %>% 
+  filter(message_is_group == "no") %>% 
+  tabyl(type)
+```
+
+error variable
+```{r}
+sms_ios_full %>% 
+  tabyl(error)
+
+sms_ios_full %>% 
+  filter(error != 0) %>% 
+  tabyl(is_from_me, error)
+
+sms_ios_full %>% 
+  filter(error != 0 & is_from_me == 1) %>% 
+  tabyl(is_delivered)
+
+sms_ios_full %>% 
+  filter(error != 0 & is_from_me == 1) %>% 
+  tabyl(is_sent)
+```
+
+```{r}
+sms_ios_full %>% 
+  tabyl(is_emote)
 ```
 
 

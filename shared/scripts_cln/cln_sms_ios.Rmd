@@ -89,7 +89,7 @@ read_sql <- function(subid) {
           handle <- dbGetQuery(log_db,'select ROWID, id from handle')
           chat_message_join <- dbGetQuery(log_db,'select chat_id, message_id from chat_message_join')
           # below is table that can be used to link all numbers associated with group chat
-          # chat_handle_join <- dbGetQuery(log_db,'select * from chat_handle_join')
+          chat_handle_join <- dbGetQuery(log_db,'select * from chat_handle_join')
           
           # rename keys for joining tables to be more clear and reduce duplicate names
           message <- message %>% 
@@ -105,6 +105,12 @@ read_sql <- function(subid) {
           # join with chat id
           log <- log %>% 
             left_join(chat_message_join, by = "message_id")
+          
+          # join with chat_handle to count number of people in chat
+          log <- log %>% 
+            left_join(chat_handle_join %>% 
+            group_by(chat_id) %>% 
+            summarise(n = n()), by = "chat_id")
           
           # Add subid and log information to dataframe
           log <- log %>% 
