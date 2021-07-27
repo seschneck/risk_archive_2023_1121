@@ -1,0 +1,109 @@
+### Notes
+
+This file does not need to be knit.  It produces an RMD file at the root of the
+RISK study folder.  This Rmd file can be viewed in RStudio or another markdown
+reader.
+
+### Set up Environment
+
+Absolute paths
+```{r, paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_knits <- "P:/studydata/risk/"},
+
+        # IOS paths
+        Darwin = {
+          path_knits <- "/Volumes/private/studydata/risk/"}
+        )
+```
+
+Relative paths
+```{r}
+path_logs <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+# for data wrangling
+library(tidyverse)  # always need this
+```
+
+
+### First Code Section
+```{r}
+filename <- here("staff_notes.Rmd")
+unlink(filename)  # delete if file already exists b/c cat() appends
+```
+
+Add YAML
+```{r}
+cat("---\n", file = filename, append = TRUE)
+cat("title: 'Staff Notes'\n", file = filename, append = TRUE)
+cat("author: 'John Curtin'\n", file = filename, append = TRUE)
+cat("date: '`r lubridate::today()`'\n", file = filename, append = TRUE)
+cat("output:\n", file = filename, append = TRUE) 
+cat("  html_document:\n", file = filename, append = TRUE)
+cat("    toc: true\n", file = filename, append = TRUE) 
+cat("    toc_depth: 4\n", file = filename, append = TRUE)
+cat("knit: (function(input, ...) {\n", file = filename, append = TRUE)
+cat("    rmarkdown::render(\n", file = filename, append = TRUE)
+cat("      input,\n", file = filename, append = TRUE)
+cat("      output_dir = dplyr::if_else(Sys.info()[['sysname']] == 'Windows',\n", file = filename, append = TRUE)
+cat("      'P:/studydata/risk',\n", file = filename, append = TRUE) 
+cat("      '/Volumes/private/studydata/risk')\n", file = filename, append = TRUE)
+cat("    )\n", file = filename, append = TRUE) 
+cat("  })\n", file = filename, append = TRUE) 
+cat("---\n", file = filename, append = TRUE)
+cat("\n\n", file = filename, append = TRUE)
+```
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
+
+Add Header description to Rmd
+```{r}
+cat("# General Information\n\n", file = filename, append = TRUE)
+cat("This Rmd is created using the `raw_notes.csv` file that is saved in `shared\\notes` 
+    in the repo. The script that creates this Rmd is `mak_rmd_notes.Rmd` and it saved in 
+    `shared\\scripts_mak` in the repo\n\n", file = filename, append = TRUE)
+cat("# Participant Notes\n\n", file = filename, append = TRUE)
+```
+
+Get notes from `raw_notes.csv`
+```{r}
+notes <- read_csv(here(path_logs, "raw_notes.csv"))
+```
+
+Loop through subjects
+```{r}
+for (i in 1:nrow(notes)){
+  message(i)
+  cat("## ", str_pad(notes$subid[[i]], 3, "left", "0"), "\n\n", sep = "",  file = filename, append = TRUE)
+  if (!is.na(notes$notes_general[[i]])) cat("*", notes$notes_general[[i]], "\n", file = filename, append = TRUE)
+  if (!is.na(notes$notes_gps[[i]])) cat("*", notes$notes_gps[[i]], "\n", file = filename, append = TRUE)
+  if (!is.na(notes$notes_ema[[i]])) cat("*", notes$notes_ema[[i]], "\n", file = filename, append = TRUE)
+  if (!is.na(notes$notes_sms[[i]])) cat("*", notes$notes_sms[[i]], "\n", file = filename, append = TRUE)
+  if (!is.na(notes$notes_beddit[[i]])) cat("*", notes$notes_beddit[[i]], "\n", file = filename, append = TRUE)
+  if (!is.na(notes$notes_other_tech[[i]])) cat("*", notes$notes_other_tech[[i]], "\n", file = filename, append = TRUE)
+  cat("\n\n", file = filename, append = TRUE)
+}
+```
