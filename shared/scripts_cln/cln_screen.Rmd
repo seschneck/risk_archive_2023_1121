@@ -22,7 +22,12 @@ knit: (function(input, ...) {
 
 These data are fully cleaned. EDA on all variables. 
 
-**Start and end times all have accurate dates. No obvious timing errors but there is variation in time taken to complete survey. Will want to further explore timing component of start and end date variables if using these in your study.**    
+### Conclusions 
+
+* Start and end times all have accurate dates. No obvious timing errors but there is variation in time taken to complete survey (see bullets below). Will want to further explore timing component of start and end date variables if using these in your study.    
+* Subids 9 and 187 have start and end dates less than 15 minutes apart due to these being corrected to match utc via cleaning log.   
+* 5 subids have start and end time difference of more than 3 hours apart. Only subid 155 has notes explaining the long survey. However, other 4 may be due to the survey not getting closed out until the entire screen session was over.   
+* UTC unix time stamp is actually in British Summer Time which loses an hour during daylight savings.   
 
   
 ### Notes
@@ -283,7 +288,7 @@ screen %>%
 - Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).  
 - A check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.) 
 - 11 subids with a time difference of more than 70 minutes between start date and utc.  
-- 7 subids look particularly problematic with more than a 2 hour time difference.  
+- 7 subids with more than a 2 hour time difference.  
 
 No info from notes on subids with a 2 hour difference  
 ```{r}
