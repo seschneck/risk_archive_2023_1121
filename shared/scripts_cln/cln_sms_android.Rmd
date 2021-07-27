@@ -688,7 +688,7 @@ dup_logs <- all_logs %>%
 `r nrow(dup_logs)` duplicates exist due to change in read or locked status or group messages with discrepant date sent 
 ```{r}
 all_logs %>% 
-  left_join(dup_logs, by = c("subid", "address", "date", "type", "body", "read")) %>% 
+  left_join(dup_logs, by = c("subid", "address", "date", "type", "body")) %>% 
   filter(!is.na(n)) %>% 
   arrange(subid, date) %>% 
   kbl() %>% 
