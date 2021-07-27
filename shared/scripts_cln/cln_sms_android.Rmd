@@ -20,20 +20,21 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-This script almost fully cleans sms android logs (see outstanding fixes below). EDA on all variables.   
+This script almost fully cleans sms android logs. EDA on all variables. See conclusions below for outstanding issues to address.     
 
-Outstanding Fixes:   
+### Conclusions   
 
-* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. I correct for this at end of script, but more exploration should be done as to why this happened.      
-* Update encoding of text content so that emojis are properly encoded   
-* Check blank text messages are actually blank in logs or if encoding error   
-* Date sent not showing consistently as 13 digit unix time stamp    
+* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. I correct for this at end of script, but more exploration should be done as to why this happened.   
+* This file is not ready for analyses with text content.    
+* Update encoding of text content so that emojis are properly encoded.   
+* All group messages are NA for text content - I think this is because group messages are MMS not SMS. Need to confirm in raw xml file.      
+* Check if other blank text messages are actually blank in logs or if encoding error (i.e., emojis not parsing).   
+* Date sent not showing consistently as 13 digit unix time stamp.    
 
 
 ### Notes
-Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a project-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
 
-**Note: File not ready for analysis on text content. Emojis are accidently stripped in the aggregated csv file (may result in blank messages), still working on how to extract them from the xml files and will update.**    
 
 
 Inputs:   
