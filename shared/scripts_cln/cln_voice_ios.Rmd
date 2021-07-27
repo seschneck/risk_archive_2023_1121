@@ -36,11 +36,15 @@ The following variables have been fully cleaned:
 * zservice_provider    
 
 
-*Note that many variables have 1040 missing values. These missing values are a result of some log entries at the end being in csv format instead of sql and having limited information/variables to work with.*    
+### Conclusions
+
+* Many variables have 1040 missing values. These missing values are a result of some log entries at the end being in csv format instead of sql and having limited information/variables to work with.     
+* A wait tells the phone to wait for action by the user (tapping a button) before dialing the next sequence of numbers. A wait in a phone number is denoted by a semi-colon ; for example: 222-222-2222;12345. Waits are not addressed in this project level clean script.      
+* Two log entries are missing the date. Their SQL file had an invalid unix time stamp and we were unable to extract the date.    
 
 
 ### Notes
-Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
+Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a project-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
 
 Inputs:   
 [subid]_Voice_1.sql  
