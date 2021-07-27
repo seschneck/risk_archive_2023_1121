@@ -16,31 +16,41 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+Code is almost fully complete. Data in output can be trusted but more exploration should be done to ensure we are not missing any contact/log entry pairings.    
+
+
+### Conclusions
+
+* Still need to print warnings with extract number function and look for any missed patterns for cleaning. Purpose would be to make sure we match all instances of known contacts in logs to context variables.   
+* More work could be done to understand what duplicates mean in SMS files. Likely won't affect meta project though.    
+* To run extract number on all logs combined it must run over night. I have the function currently set to run on each of the 4 logs separately before joining them together for now.   
+  
+
 ### Notes
-Purpose: This script does further cleaning and pre-processing on the voice and SMS 
-logs specifically for meta study. It outputs a single clean log file joined with the 
-cleaned contact variables ready for feature engineering in the meta project.    
+Purpose: This script does further cleaning and pre-processing on the voice and SMS logs specifically for meta study. It outputs a single clean log file joined with the cleaned contact variables ready for feature engineering in the meta project.    
 
 Preprocessing steps:   
 
 1. Handle any identified errors/anomalies in clean scripts    
-
 2. Join logs on common variables    
-
 3. Filter down to analysis sample (N = 154; participants who completed followup 1)    
-
 4. Format numbers to match contacts and join with context variables   
+5. EDA on numbers/variables and check for contacts not in logs     
 
-5. EDA on numbers and check for contacts not in logs     
 
 Inputs:  
+
 - voice_ios.csv    
 - voice_android.csv   
 - sms_ios.csv   
 - sms_android.csv  
 - contacts.csv    
 
+
 Output:   
+
 - meta_logs.csv   
 
 ### Setup
@@ -61,14 +71,12 @@ switch (Sys.info()[['sysname']],
         Windows = {
           path_shared <- "P:/studydata/risk/data_processed/shared"
           path_meta <- "P:/studydata/risk/data_processed/meta"
-          # temporary directory to use check country code function not merged into production version
-          path_lab_support <- "C:/Users/kpaquette2/lab_support"},
+          path_lab_support <- "P:/toolboxes/lab_support"},
         # IOS paths
         Darwin = {
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-          # temporary directory to use check country code function not merged into production version
-          path_lab_support <- "~/lab_support"})
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"})
 ```
 
 Packages for lab workflow 
@@ -89,7 +97,7 @@ library(readxl)
 library(lubridate)
 library(janitor)
 
-source(file.path(path_lab_support, "fun_phone_numbers.R"))
+source(here(path_lab_support, "fun_phone_numbers.R"))
 ```
 
 Global Settings
@@ -105,7 +113,7 @@ options(tibble.width = Inf)
 ### Read in Data
 Read in voice IOS data and filter down to variables for meta
 ```{r}
-voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols()) %>%
+voice_ios <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = cols()) %>%
   select(subid, zdate, zaddress, zduration, zanswered, zoriginated, zunique_id) %>% 
   glimpse()
 ```
@@ -122,15 +130,15 @@ voice_ios <- voice_ios %>%
 ```
 
 
-FIX: invalid numbers with semicolon      
-Look into why semicolon might exist?
+Numbers with a wait (;)       
+A wait tells the phone to wait for action by the user (tapping a button) before dialing the next sequence of numbers. A wait in a phone number is denoted by a semi-colon ; for example: 222-222-2222;12345.    
 ```{r}
 voice_ios %>% 
   filter(str_detect(zaddress, ";")) %>% 
   select(subid, zaddress)
 ```
 
-Unclear what number after semicolon is. Keeping US number before semicolon as number.
+Keeping US number before semicolon as number.
 ```{r}
 voice_ios <- voice_ios %>% 
   mutate(zaddress = case_when(zaddress == "608-663-3926;206" ~ "608-663-3926",
@@ -148,47 +156,68 @@ voice_ios <- voice_ios %>%
 
 ### Filter out duplicates
 
-`r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to changes in read status. Not using this variable in meta (no android version of read variable) so these are identical observations.     
+`r nrow(voice_ios) - nrow(distinct(voice_ios))` duplicates remain in dataset due to updates made to log entries between visits (e.g., read status).   
 
-Remove duplicates   
-FIX: Check all duplicates in clean script
+Note: there is no read variable for android voice logs so we cannot use this variable.   
 
+Check all duplicates    
+All duplicates have an update to z_opt variable suggesting something happened in between log downloads. Does not appear relevant for meta project so can filter out duplicates.   
 ```{r}
-voice_ios <- voice_ios %>% 
-  distinct() %>% 
-  glimpse()
+voice_ios_full <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = cols())
+
+dup_voice_ios <- voice_ios %>% 
+  count(across(subid:zunique_id)) %>% 
+  filter(n > 1)
+
+voice_ios_full %>% 
+  left_join(dup_voice_ios, by = c("subid", "zdate", "zaddress", "zduration", "zanswered", "zoriginated", "zunique_id")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, zdate) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
-<br>
+
+Remove duplicates
+```{r}
+voice_ios <- voice_ios %>% 
+  distinct()
+```
+
+
+### Clean numbers
+
+Clean numbers with function
+```{r}
+voice_ios$number_formatted <- map_chr(voice_ios$number, extract_number)
+```
 
 
 ## Voice Android logs
 
 ### Read in data
 ```{r}
-voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_types = cols()) %>% 
+voice_android <- vroom::vroom(here(path_shared, "voice_android.csv"), col_types = cols()) %>% 
   select(subid, number, duration, date, type) %>% 
   glimpse()
 ```
 
 ### Clean errors identified in clean script EDA
 
-FIX: invalid number with semicolon     
-Look into why semicolon might exist?
+Remove number after semicolon (wait indicator)
 ```{r}
 voice_android %>% 
   filter(str_detect(number, ";")) %>% 
   select(subid, number)
-```
-  
-Unclear what number after semicolon is. Keeping US number before semicolon as number.
-```{r}
+
 voice_android <- voice_android %>% 
   mutate(number = case_when(number == "+1-385-262-3849;418173518#" ~ "3852623849",
                             TRUE ~ number))
 ```
+  
 
-Fix invalid duration value of -4   
+invalid duration value of -4   
 Duration cannot be negative; changing to NA since no way of knowing actual duration
 ```{r}
 voice_android <- voice_android %>% 
@@ -196,7 +225,7 @@ voice_android <- voice_android %>%
                               TRUE ~ duration))
 ```
 
-Fix invalid type values   
+invalid type values   
 8 subids produced invalid numbers for type variable. Changing these numbers to NA since 
 we have no way of determining correct value.
 ```{r}
@@ -205,8 +234,23 @@ voice_android <- voice_android %>%
                           TRUE ~ as.character(type)))
 ```
 
+### Check duplicates   
 
-<br>
+No duplicates
+```{r}
+voice_android %>% 
+  count(across(subid:type)) %>% 
+  filter(n > 1)
+```
+
+
+### Clean numbers
+
+Clean numbers with function
+```{r}
+voice_android$number_formatted <- map_chr(voice_android$number, extract_number)
+```
+
 
 ## Join voice logs
 
@@ -214,14 +258,10 @@ voice_android <- voice_android %>%
 
 - subid - participant identifier   
 - date - date and time of log entry    
-- number - raw phone number of other party  
-- duration - duration of call    
-- originated (incoming or outgoing)  
-- answered  
-
-
-other ideas:
-blocked call? (presentation variable for android)
+- number - raw phone number of other party   
+- originated - incoming or outgoing    
+- call_duration - duration of call  
+- call_answered - answered or not answered     
 
 
 ### tidy android variables for merge
@@ -234,15 +274,15 @@ Create new variables to match IOS
 ```{r}
 voice_android <- voice_android %>% 
   rename(call_duration = duration) %>% 
-  mutate(originated = case_when( type == "Missed" ~ "Incoming",
-                                 type == "Voicemail" ~ "Incoming",
-                                 type == "Rejected" ~ "Incoming",
-                                 type == "Blocked" ~ "Incoming",
-                                 type == "Answered Externally" ~ "Incoming",
+  mutate(originated = case_when( type == "Missed" ~ "incoming",
+                                 type == "Voicemail" ~ "incoming",
+                                 type == "Rejected" ~ "incoming",
+                                 type == "Blocked" ~ "incoming",
+                                 type == "Answered Externally" ~ "incoming",
                                  TRUE ~ type),
-         call_answered = case_when(type == "Incoming" ~ "Answered",
+         call_answered = case_when(type == "incoming" ~ "answered",
                               is.na(type) ~ as.character(NA),
-                              TRUE ~ "Not Answered")) %>% 
+                              TRUE ~ "not answered")) %>% 
   select(-type) %>% 
   glimpse()
 ```
@@ -257,14 +297,17 @@ voice_ios <- voice_ios %>%
   select(c(subid,
            date = zdate,
            call_answered = zanswered,
-           originated = zoriginated,
            call_duration = zduration,
            number = zaddress)) %>%
+  mutate(originated = case_when(zoriginated == "Incoming" ~ "incoming",
+                                zoriginated == "Outgoing" ~ "outgoing",
+                                TRUE ~ zoriginated)) %>% 
   glimpse()
 ```
 
 
 ### Join
+
 join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
@@ -281,107 +324,171 @@ logs_voice <- voice_android %>%
 
 ### Read in data
 ```{r}
-sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols()) %>%
-  # temporarily keeping text to filter out duplicates
-  select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, is_prepared, 
-  text, chat_id) %>% 
+sms_ios <- vroom::vroom(here(path_shared, "sms_ios.csv"), col_types = cols()) %>% 
+  # temporarily keeping text and log_file to filter out duplicates
+  select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, 
+         is_prepared, n_people_in_chat, text, chat_id, log_file) %>% 
   glimpse()
 ```
 
+
 ### Filter out duplicates
 
-FIX: Handle duplicates in clean script    
+`r nrow(sms_ios) - nrow(distinct(sms_ios %>% select(-log_file)))` duplicates exist in dataset.  
+
+Check all duplicates    
 ```{r}
-# dups <- sms_ios %>%
-#   add_count(subid, phone_number, date, text, is_delivered, is_from_me, is_sent, is_read,
-#             chat_id) %>%
-#   filter(n > 1)
+sms_ios_full <- vroom::vroom(here(path_shared, "sms_ios.csv"), col_types = cols())
+
+dup_sms_ios <- sms_ios %>% 
+  select(-log_file) %>% 
+  count(across(subid:chat_id)) %>% 
+  filter(n > 1)
+
+dup_sms_ios <- sms_ios_full %>% 
+  left_join(dup_sms_ios, by = c("subid", "phone_number", "date", "is_delivered", 
+                                "is_from_me", "is_sent", "is_read", "is_prepared",
+                                "n_people_in_chat", "text", "chat_id")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, date)
 ```
 
+Duplicates not related to group messages    
+Many of these are on the same log so I am unclear as to why there are duplicates with different message_id and guid's. For purposes of meta project these are identical on the relevant variables. So I will not investigate further at the moment.   
+```{r}
+dup_sms_ios %>% 
+  filter(n_people_in_chat == 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Some duplicates appear to exist due to how group messages are handled. Same date, text, number but message_id, guid, other_handle, and other unique message identifiers seem to differ. These variables are not relevant for meta.  
+```{r}
+dup_sms_ios %>% 
+  filter(n_people_in_chat > 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Most duplicates are missing a chat_id but they appear to have the same pattern seen with duplicates related to group messages.    
+```{r}
+dup_sms_ios %>% 
+  filter(is.na(n_people_in_chat)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Remove duplicates
+```{r}
+sms_ios <- sms_ios %>% 
+  distinct(across(-log_file), .keep_all = TRUE)
+```
+
+
+### Handle non-identical duplicates do to changes in read status
+
+Both ios and android have a read variable for sms logs. Will retain this variable for meta study.   
+
+Keep 2nd entry for read discrepancies
+```{r}
+sms_ios <- sms_ios %>% 
+  group_by(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_prepared,
+           n_people_in_chat, text, chat_id) %>% 
+  arrange(desc(log_file)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # remove log_file variable
+  select(-log_file)
+```
 
 
 ### Group Messages
 
-Identify group messages by more than one number associated with a subid/chat_id pair    
-
-Outgoing text messages have NA as the number if sent to more than one person, if a direct message number is recipient of sent message.   
-
+create group message variable    
+log entries with missing chat_id will have to be set to NA since there was no way to count number of phone numbers associated with a chat.
 ```{r}
-ios_groups <- sms_ios %>% 
-  filter(!is.na(chat_id)) %>% 
-  group_by(subid, chat_id, phone_number) %>% 
-  slice(1) %>% 
-  group_by(subid, chat_id) %>% 
-  summarise(n = n(), .groups = "drop") %>% 
-  arrange(desc(n)) %>% 
-  filter(n > 1)  
-
-ios_groups %>%  
-  print(n = Inf)
-```
-
-
-`r nrow(ios_groups)` group chats identified.    
-
-Add a group variable
-```{r}
-ios_groups <- ios_groups %>%
-  mutate(message_is_group = "yes")
-
-
 sms_ios <- sms_ios %>% 
-  left_join(ios_groups %>% select(-n), by = c("subid", "chat_id")) %>% 
-  mutate(message_is_group = case_when(is.na(message_is_group) ~ "no",
-                                      TRUE ~ message_is_group)) %>% 
+  mutate(message_is_group = case_when(n_people_in_chat > 1 ~ "yes",
+                                      n_people_in_chat == 1 ~ "no",
+                                      TRUE ~ as.character(NA))) %>% 
   glimpse()
 ```
 
+
+
+Note: IOS outgoing text messages have NA as the number if sent to more than one person.
+
+
 check new variable
 ```{r}
-table(sms_ios$message_is_group)
+tabyl(sms_ios$message_is_group)
 ```
 
+### Clean numbers
 
-FIX: Check all chat_ids with NA values for any signs of group messages (i.e., outgoing messages to NA)    
-STILL NEED TO HANDLE
+Clean numbers with function
 ```{r}
-sms_ios %>% 
-  filter(is.na(chat_id))
+sms_ios$number_formatted <- map_chr(sms_ios$number, extract_number)
 ```
-
-
-<br>
 
 
 ## SMS Android logs
 
 ### Read in data
 ```{r}
-sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols()) %>% 
-  # keep text message content in for filtering out duplicates
-  select(subid, address, date, type, text = body, read) %>% 
+sms_android <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+  # keep text message content and log_file in for filtering out duplicates
+  select(subid, address, date, type, text = body, read, log_file) %>% 
   glimpse()
 ```
 
-### Check for Duplicates 
+
+### Filter out Duplicates    
+
+`r nrow(sms_android) - nrow(distinct(sms_android %>% select(-log_file)))` duplicates exist in dataset.  
+
+Check all duplicates    
+Not clear what caused duplicate but they are identical on all meta relevant variables so not going to investigate further at the moment. 
 ```{r}
-dups <- sms_android %>%
-  add_count(subid, address, date, text, type, read) %>%
+sms_android_full <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+  rename(text = body)
+
+dup_sms_android <- sms_android %>% 
+  count(across(subid:read)) %>% 
   filter(n > 1)
 
-dups %>%
-  arrange(subid, address, date, text) %>%
-  kbl() %>%
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>%
+sms_android_full %>% 
+  left_join(dup_sms_android, by = c("subid", "address", "date", "type", "text", "read")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
   scroll_box(width = "100%", height = "500px")
 ```
 
-Filtering out `r nrow(dups)` identical log entries.   
-FIX: Will do deeper dive into these to see how they were missed in the clean script.   
+
+Remove duplicates
 ```{r}
 sms_android <- sms_android %>% 
-  distinct(.) %>% 
-  glimpse()
+  distinct(across(-log_file), .keep_all = TRUE) 
+```
+
+
+
+### Handle non-identical duplicates do to changes in read status
+
+Keep 2nd entry 
+```{r}
+sms_android <- sms_android %>% 
+  group_by(subid, address, date, type, text) %>% 
+  arrange(desc(log_file)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # remove log_file variable
+  select(-log_file)
 ```
 
 
@@ -392,41 +499,46 @@ Identify group messages
 sms_android %>% 
   filter(str_detect(address, "~")) %>% 
   select(address)
-
-# Note that type is NA for group messages
-sms_android %>% 
-  filter(str_detect(address, "~")) %>% 
-  tabyl(type)
 ```
+
+count number of people in group messages (# of ~ + 1) 
+```{r}
+sms_android <- sms_android %>% 
+  mutate(message_n_people = str_count(address, "~") + 1) %>% 
+  glimpse()
+```
+
 
 Add group variable
 ```{r}
 sms_android <- sms_android %>% 
-  mutate(message_is_group = case_when(str_detect(address, "~") ~ "yes", 
-                                      TRUE ~ "no")) %>% 
+  mutate(message_is_group = case_when(str_detect(address, "~") ~ "yes",
+                                      !str_detect(address, "~") ~ "no",
+                                      TRUE ~ as.character(NA))) %>% 
   glimpse()
 
 tabyl(sms_android$message_is_group)
 ```
 
-Change numbers to NA (to be consistent with IOS)
+
+### Clean numbers
+
+Clean numbers with function
 ```{r}
-sms_android <- sms_android %>% 
-  mutate(address = case_when(str_detect(address, "~") ~ as.character(NA), 
-                                      TRUE ~ address))
+sms_android$number_formatted <- map_chr(sms_android$number, extract_number)
 ```
 
 
-<br>
 
 ## Join SMS variables
 
 ### Common voice log variables relevant to meta project  
 
-read = yes if sent or read status on incoming message  
-failed = yes if outgoing message not delivered    
+message_read = yes if sent or read status on incoming message  
+message_failed = yes if outgoing message not delivered    
 originated = outgoing if from_me else incoming (type is NA for android group messages)    
-group_message = yes if group message   
+message_is_group = yes if group message  
+message_n_people = number of people in message thread
 
 
 ### tidy android variables for merge
@@ -448,11 +560,13 @@ sms_android <- sms_android %>%
 
 ```{r}
 sms_ios <- sms_ios %>% 
-  rename(number = phone_number) %>% 
+  rename(number = phone_number, 
+         message_n_people = n_people_in_chat) %>% 
   mutate(message_read = case_when(is_read == 1 ~ "yes",
                                is_from_me == 1 ~ "yes",
                                TRUE ~ "no"),
-         message_failed = if_else(is_sent == 0, "yes", "no"),
+         message_failed = case_when(is_sent == 0 & is_from_me == 1 ~ "yes",
+                                    TRUE ~ "no"),
          originated = case_when(is_sent == 1 ~ "outgoing",
                                   is_from_me == 1 ~ "outgoing",
                                   TRUE ~ "incoming")) %>% 
@@ -463,18 +577,17 @@ sms_ios <- sms_ios %>%
 
 ### Join
 
-FIX: Will need to check all these new variables with extensive EDA to make sure they are accurate  
-
 ```{r}
 logs_sms <- sms_android %>%
   full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", 
-                            "originated", "message_is_group")) %>%
+                            "originated", "message_is_group", "message_n_people")) %>%
   # add new variable to mark these are sms logs
   mutate(log_type = "sms") %>%
   glimpse()
 ```
 
-<br>
+
+
 
 ## Join SMS and Voice logs
 
@@ -486,13 +599,13 @@ logs <- logs_voice %>%
   glimpse()
 ```
 
-<br> 
+
 
 Filter down to analysis sample (N = 154)   
 
 Read in visit dates
 ```{r}
-visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols()) 
+visit_dates <- read_csv(here(path_shared, "visit_dates.csv"), col_types = cols()) 
 
 study_sample <- visit_dates %>% 
   filter(!is.na(followup_1)) %>% 
@@ -506,13 +619,14 @@ logs <- logs %>%
 ```
 
 
-<br>
+
+
 
 ## Contacts
 
 ### Read in Data
 ```{r}
-contacts <- read_csv(file.path(path_shared, "contacts.csv"), col_types = "icccccccccccccc") %>% 
+contacts <- read_csv(here(path_shared, "contacts.csv"), col_types = "icccccccccccccc") %>% 
   glimpse()
 ```
 
@@ -543,7 +657,11 @@ contacts <- contacts %>%
   filter(!is.na(phone_number))
 ```
 
+
+
+
 ### Handle duplicate numbers 
+
 ```{r}
 # Duplicate subid/phone number pairs
 dup_contacts <- contacts %>%
@@ -562,24 +680,14 @@ dup_contacts <- contacts %>%
   filter(n == 2) 
 ```
 
-<br>
 
-Duplicate 1: Subid 33   
-Differs only on contact type - keep first entry   
-```{r}
-dup_contacts %>%
-  slice(1:2)
 
-contacts <- contacts %>% 
-  filter(!(subid == 33 & utc == 1519146600 & phone_number == 6088735039))
-```
-
-Duplicate 2: Subid 86
+Duplicate 1: Subid 86
 Differs on two context variable and address   
 Keep first entry but with updated address
 ```{r}
 dup_contacts %>%
-  slice(3:4)
+  slice(1:2)
 
 contacts <- contacts %>% 
   mutate(street_address = case_when(subid == 86 & utc == "1531924200" & phone_number == "6304275562" ~ 
@@ -594,157 +702,108 @@ contacts <- contacts %>%
   filter(!(subid == 86 & utc == 1534779600 & phone_number == 6304275562))
 ```
 
-Duplicate 3: Subid 97  
-Differs only on contact type
+
+Duplicate 2: Subid 104  
+This is an interesting one because it looks like they stopped frequently visiting a family member (monthly visit variable).   
+Keep first entry
+```{r}
+dup_contacts %>%
+  slice(3:4)
+
+contacts <- contacts %>% 
+  filter(!(subid == 104 & utc == 1537991280 & phone_number == 6084693159))
+```
+
+Duplicate 3: Subid 109  
 Keep first entry 
 ```{r}
 dup_contacts %>%
   slice(5:6)
 
 contacts <- contacts %>% 
-  filter(!(subid == 97 & utc == 1537889400 & phone_number == 6086433393))
+  filter(!(subid == 109 & utc == 1542036600 & phone_number == 6305611375))
 ```
 
-Duplicate 4: Subid 104  
-This is an interesting one because it looks like they stopped frequently visiting a family member (monthly visit variable).   
-Keep first entry
+Duplicate 4: Subid 110  
+Keep 2nd entry - Both entries completed on same day.   
 ```{r}
 dup_contacts %>%
   slice(7:8)
 
 contacts <- contacts %>% 
-  filter(!(subid == 104 & utc == 1537991280 & phone_number == 6084693159))
+  filter(!(subid == 110 & utc == 1534531200 & phone_number == 4148819604))
 ```
 
-Duplicate 5: Subid 109  
-Keep first entry 
+Duplicate 5-6: Subid 117   
+These 2 are really conflicting - removing context entries since we can discern which is correct
 ```{r}
 dup_contacts %>%
   slice(9:10)
 
-contacts <- contacts %>% 
-  filter(!(subid == 109 & utc == 1542036600 & phone_number == 6305611375))
-```
-
-Duplicate 6: Subid 110  
-Keep 2nd entry - Both entries completed on same day.   
-FIX: try to find subids cell phone number
-```{r}
 dup_contacts %>%
   slice(11:12)
-
-contacts <- contacts %>% 
-  filter(!(subid == 110 & utc == 1534531200 & phone_number == 4148819604))
-```
-
-Duplicate 7-8: Subid 117   
-These 2 are really conflicting - removing context entries since we can discern which is correct
-```{r}
-dup_contacts %>%
-  slice(13:14)
-
-dup_contacts %>%
-  slice(15:16)
 
 contacts <- contacts %>% 
   filter(!(subid == 117 & phone_number == 6085987543)) %>% 
   filter(!(subid == 117 & phone_number == 919811021816))
 ```
 
-Duplicate 9: Subid 119  
-Keep 2nd entry with context variables
-```{r}
-dup_contacts %>%
-  slice(17:18)
 
-contacts <- contacts %>% 
-  filter(!(subid == 119 & utc == 1540397820 & phone_number == 6082398865))
-```
-
-Duplicate 10: Subid 139   
-Keep first entry
-```{r}
-dup_contacts %>%
-  slice(19:20)
-
-contacts <- contacts %>% 
-  filter(!(subid == 139 & utc == 1548171000 & phone_number == 6082137652))
-```
-
-Duplicate 11: Subid 143   
-Keep 1st entry
-```{r}
-dup_contacts %>%
-  slice(21:22)
-
-contacts <- contacts %>% 
-  filter(!(subid == 143 & utc == 1541790000 & phone_number == 6082828270))
-```
-
-Duplicate 12: Subid 240   
+Duplicate 7: Subid 240   
 Only change is updated address   
 Keep first entry since this was address 2/3 months on study   
 ```{r}
 dup_contacts %>%
-  slice(23:24)
+  slice(13:14)
 
 contacts <- contacts %>% 
   filter(!(subid == 240 & utc == 1566831600 & phone_number == 9204509643))
 ```
 
-Duplicate 13-16: Subid 248  
-13 differs on only one variable - keep 1st entry  
+Duplicate 8-11: Subid 248  
+8 differs on only one variable - keep 1st entry  
 ```{r}
 dup_contacts %>%
-  slice(25:26)
+  slice(15:16)
 
 contacts <- contacts %>% 
   filter(!(subid == 248 & utc == 1568314800 & phone_number == 6084452342))
 ```
 
-14 differs on three variables some are probably important (drinker vs. nondrinker)   
+9 differs on three variables some are probably important (drinker vs. nondrinker)   
 Keep first entry 
 ```{r}
 dup_contacts %>%
-  slice(27:28)
+  slice(17:18)
 
 contacts <- contacts %>% 
   filter(!(subid == 248 & utc == 1568314800 & phone_number == 6086695757))
 ```
 
-15 differs on only one variable - keep 1st entry  
+10 differs on only one variable - keep 1st entry  
 ```{r}
 dup_contacts %>%
-  slice(29:30)
+  slice(19:20)
 
 contacts <- contacts %>% 
   filter(!(subid == 248 & utc == 1568314800 & phone_number == 6088432572))
 ```
 
-16 differs on 3 variables   
+11 differs on 3 variables   
 Keep first entry
 ```{r}
 dup_contacts %>%
-  slice(31:32)
+  slice(21:22)
 
 contacts <- contacts %>% 
   filter(!(subid == 248 & utc == 1568314800 & phone_number == 9062815847))
 ```
 
-Duplicate 17-18: Subid 269   
+Duplicate 12: Subid 269   
 Keep first entry
 ```{r}
 dup_contacts %>%
-  slice(33:34)
-
-contacts <- contacts %>% 
-  filter(!(subid == 269 & utc = 1573150500 & phone_number == 6083473760))
-```
-
-Keep 1st entry
-```{r}
-dup_contacts %>%
-  slice(35:36)
+  slice(23:24)
 
 contacts <- contacts %>% 
   filter(!(subid == 269 & utc == 1575567600 & phone_number == 6309131339))
@@ -753,19 +812,7 @@ contacts <- contacts %>%
 
 
 
-<br>
-
-
-## Clean numbers
-
-Clean numbers with function
-```{r}
-# logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
-```
-
-<br>
-
-### Pull area codes for 7 digit numbers from contacts
+### Use contacts to find area codes for 7 digit numbers in logs
 ```{r message = FALSE}
 numbers_7_digits <- logs %>% 
   filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
@@ -797,7 +844,7 @@ contacts_7_digits %>%
   tabyl(area_code)
 ```
 
-Join numbers with log entries on number and subid and replace formatted number with contact number
+Join numbers with log entries on number and subid and replace formatted number with contact number    
 ```{r}
 logs <- logs %>% 
   mutate(subid = as.numeric(subid)) %>% 
@@ -805,8 +852,7 @@ logs <- logs %>%
               select(subid, contact_number = phone_number, number = pattern), 
             by = c("subid", "number")) %>% 
   mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
-                                      # FIX: change number to number_formatted when using extract number function
-                                      TRUE ~ number)) %>% 
+                                      TRUE ~ number_formatted)) %>% 
   glimpse()
 ```
 
@@ -824,7 +870,8 @@ logs <- logs %>%
   select(-contact_number)
 ```
 
-<br>
+
+
 
 ## Join logs with contacts on formatted number
 ```{r}
@@ -839,43 +886,136 @@ logs <- logs %>%
   glimpse()
 ```
 
-<br>
+
 
 ## Contacts without log entries
 
-FIX: Check contacts without log entries in case of typos in contacts file    
-Still need to handle
 ```{r}
-
+contacts %>% 
+  filter(!phone_number %in% logs$number_formatted)
 ```
 
-<br>
+
 
 ## Check unknown patterns for matches to contacts   
 
-FIX: print warnings and look for matches to contacts   
-Still need to handle
+HANDLE: print warnings and look for possible missed matches to contacts    
 
-<br>
+
 
 ## Other EDA
 
-Missing data   
-FIX: Remove street address, city, and state?
+`r length(unique(logs$subid))` subids have voice and/or sms logs.   
+
+Missing data    
 ```{r}
 logs %>%
   naniar::miss_var_summary()
 ```
 
-
-EDA on call and text message variables
-
-FIX: Still need to handle
+Removing addresses since too many missing data
 ```{r}
-
+logs <- logs %>% 
+  select(-c(street_address, city, state)) %>% 
+  glimpse()
 ```
 
-<br>
+High percentage of missing call answered and duration variables due to the majority of the logs being text message logs.   
+log type
+```{r}
+tabyl(logs$log_type)
+```
+
+originated
+```{r}
+tabyl(logs$originated)
+```
+
+call duration
+```{r}
+logs %>% 
+  filter(log_type == "voice") %>% 
+  summarise(min = min(call_duration, na.rm = TRUE),
+            mean = mean(call_duration, na.rm = TRUE),
+            max = max(call_duration, na.rm = TRUE))
+```
+
+call answered
+```{r}
+logs %>% 
+  filter(log_type == "voice") %>% 
+  tabyl(call_answered)
+```
+
+message read
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_read)
+```
+
+message is group
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_is_group)
+```
+
+Number of people in message thread
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  summarise(min = min(message_n_people, na.rm = TRUE),
+            mean = mean(message_n_people, na.rm = TRUE),
+            max = max(message_n_people, na.rm = TRUE))
+```
+
+message failed   
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_failed)
+```
+
+contact type
+```{r}
+tabyl(logs$contact_type)
+```
+
+contact has drinken with subid in past
+```{r}
+tabyl(logs$contact_drank_past)
+```
+
+Contact drinking status
+```{r}
+tabyl(logs$drink_status)
+```
+
+Contact would drink in front of subid in future
+```{r}
+tabyl(logs$contact_drink_future)
+```
+
+Contact is in recovery
+```{r}
+tabyl(logs$recovery)
+```
+
+Contact is supportive of participant's recovery
+```{r}
+tabyl(logs$support_status)
+```
+
+Level of pleasantness or unpleasantness of interactions with this contact
+```{r}
+tabyl(logs$contact_experience)
+```
+
+Whether participant visits this contact's home monthly
+```{r}
+tabyl(logs$monthly_visit)
+```
 
 
 ## Write csv
@@ -884,7 +1024,7 @@ write_csv(logs, file.path(path_meta, "meta_logs.csv")) %>%
   glimpse()
 ```
 
-<br>
+
 
 
 
