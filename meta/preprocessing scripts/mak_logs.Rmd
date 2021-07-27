@@ -17,12 +17,16 @@ knit: (function(input, ...) {
 ---
 
 ### Code Status
-Still need to look into unmatched number patterns, and perform eda on all retained variables.   
+
+Code is almost fully complete. Data in output can be trusted but more exploration should be done to ensure we are not missing any contact/log entry pairings.    
 
 
 ### Conclusions
 
-* More work could be done to understand what duplicates mean.   
+* Still need to print warnings with extract number function and look for any missed patterns for cleaning. Purpose would be to make sure we match all instances of known contacts in logs to context variables.   
+* More work could be done to understand what duplicates mean in SMS files. Likely won't affect meta project though.    
+* To run extract number on all logs combined it must run over night. I have the function currently set to run on each of the 4 logs separately before joining them together for now.   
+  
 
 ### Notes
 Purpose: This script does further cleaning and pre-processing on the voice and SMS logs specifically for meta study. It outputs a single clean log file joined with the cleaned contact variables ready for feature engineering in the meta project.    
@@ -33,7 +37,7 @@ Preprocessing steps:
 2. Join logs on common variables    
 3. Filter down to analysis sample (N = 154; participants who completed followup 1)    
 4. Format numbers to match contacts and join with context variables   
-5. EDA on numbers and check for contacts not in logs     
+5. EDA on numbers/variables and check for contacts not in logs     
 
 
 Inputs:  
@@ -182,6 +186,13 @@ voice_ios <- voice_ios %>%
 ```
 
 
+### Clean numbers
+
+Clean numbers with function
+```{r}
+voice_ios$number_formatted <- map_chr(voice_ios$number, extract_number)
+```
+
 
 ## Voice Android logs
 
@@ -233,7 +244,13 @@ voice_android %>%
 ```
 
 
-<br>
+### Clean numbers
+
+Clean numbers with function
+```{r}
+voice_android$number_formatted <- map_chr(voice_android$number, extract_number)
+```
+
 
 ## Join voice logs
 
@@ -257,15 +274,15 @@ Create new variables to match IOS
 ```{r}
 voice_android <- voice_android %>% 
   rename(call_duration = duration) %>% 
-  mutate(originated = case_when( type == "Missed" ~ "Incoming",
-                                 type == "Voicemail" ~ "Incoming",
-                                 type == "Rejected" ~ "Incoming",
-                                 type == "Blocked" ~ "Incoming",
-                                 type == "Answered Externally" ~ "Incoming",
+  mutate(originated = case_when( type == "Missed" ~ "incoming",
+                                 type == "Voicemail" ~ "incoming",
+                                 type == "Rejected" ~ "incoming",
+                                 type == "Blocked" ~ "incoming",
+                                 type == "Answered Externally" ~ "incoming",
                                  TRUE ~ type),
-         call_answered = case_when(type == "Incoming" ~ "Answered",
+         call_answered = case_when(type == "incoming" ~ "answered",
                               is.na(type) ~ as.character(NA),
-                              TRUE ~ "Not Answered")) %>% 
+                              TRUE ~ "not answered")) %>% 
   select(-type) %>% 
   glimpse()
 ```
@@ -280,9 +297,11 @@ voice_ios <- voice_ios %>%
   select(c(subid,
            date = zdate,
            call_answered = zanswered,
-           originated = zoriginated,
            call_duration = zduration,
            number = zaddress)) %>%
+  mutate(originated = case_when(zoriginated == "Incoming" ~ "incoming",
+                                zoriginated == "Outgoing" ~ "outgoing",
+                                TRUE ~ zoriginated)) %>% 
   glimpse()
 ```
 
@@ -408,6 +427,12 @@ check new variable
 tabyl(sms_ios$message_is_group)
 ```
 
+### Clean numbers
+
+Clean numbers with function
+```{r}
+sms_ios$number_formatted <- map_chr(sms_ios$number, extract_number)
+```
 
 
 ## SMS Android logs
@@ -483,13 +508,6 @@ sms_android <- sms_android %>%
   glimpse()
 ```
 
-check counts
-```{r}
-sms_android %>% 
-  filter(str_detect(address, "~")) %>% 
-  select(address, message_n_people) 
-```
-
 
 Add group variable
 ```{r}
@@ -503,14 +521,21 @@ tabyl(sms_android$message_is_group)
 ```
 
 
+### Clean numbers
+
+Clean numbers with function
+```{r}
+sms_android$number_formatted <- map_chr(sms_android$number, extract_number)
+```
+
 
 
 ## Join SMS variables
 
 ### Common voice log variables relevant to meta project  
 
-read = yes if sent or read status on incoming message  
-failed = yes if outgoing message not delivered    
+message_read = yes if sent or read status on incoming message  
+message_failed = yes if outgoing message not delivered    
 originated = outgoing if from_me else incoming (type is NA for android group messages)    
 message_is_group = yes if group message  
 message_n_people = number of people in message thread
@@ -540,7 +565,8 @@ sms_ios <- sms_ios %>%
   mutate(message_read = case_when(is_read == 1 ~ "yes",
                                is_from_me == 1 ~ "yes",
                                TRUE ~ "no"),
-         message_failed = if_else(is_sent == 0, "yes", "no"),
+         message_failed = case_when(is_sent == 0 & is_from_me == 1 ~ "yes",
+                                    TRUE ~ "no"),
          originated = case_when(is_sent == 1 ~ "outgoing",
                                   is_from_me == 1 ~ "outgoing",
                                   TRUE ~ "incoming")) %>% 
@@ -786,17 +812,7 @@ contacts <- contacts %>%
 
 
 
-## Clean numbers
-
-Clean numbers with function
-```{r}
-# logs$number_formatted <- map_chr(logs$number, extract_number, print_warning = FALSE)
-```
-
-
-
-
-### Pull area codes for 7 digit numbers from contacts
+### Use contacts to find area codes for 7 digit numbers in logs
 ```{r message = FALSE}
 numbers_7_digits <- logs %>% 
   filter(str_detect(number, "^[1-9]") & nchar(number) == 7) %>% 
@@ -829,7 +845,6 @@ contacts_7_digits %>%
 ```
 
 Join numbers with log entries on number and subid and replace formatted number with contact number    
-*fix statement in code*
 ```{r}
 logs <- logs %>% 
   mutate(subid = as.numeric(subid)) %>% 
@@ -837,8 +852,7 @@ logs <- logs %>%
               select(subid, contact_number = phone_number, number = pattern), 
             by = c("subid", "number")) %>% 
   mutate(number_formatted = case_when(!is.na(contact_number) ~ as.character(contact_number),
-                                      # FIX: change number to number_formatted when using extract number function
-                                      TRUE ~ number)) %>% 
+                                      TRUE ~ number_formatted)) %>% 
   glimpse()
 ```
 
@@ -874,89 +888,133 @@ logs <- logs %>%
 
 
 
-
 ## Contacts without log entries
 
-FIX: Check contacts without log entries in case of typos in contacts file    
-Still need to handle
 ```{r}
-
+contacts %>% 
+  filter(!phone_number %in% logs$number_formatted)
 ```
 
 
 
 ## Check unknown patterns for matches to contacts   
 
-FIX: print warnings and look for matches to contacts   
-Still need to handle
+HANDLE: print warnings and look for possible missed matches to contacts    
 
 
 
 ## Other EDA
 
+`r length(unique(logs$subid))` subids have voice and/or sms logs.   
+
 Missing data    
-Remove street address, city, and state?
 ```{r}
 logs %>%
   naniar::miss_var_summary()
 ```
 
-
-
-EDA on call and text message variables    
-
-error variable
+Removing addresses since too many missing data
 ```{r}
-sms_ios_full %>% 
-  tabyl(error)
-
-sms_ios_full %>% 
-  filter(error != 0) %>% 
-  tabyl(is_from_me, error)
-
-sms_ios_full %>% 
-  filter(error != 0 & is_from_me == 1) %>% 
-  tabyl(is_delivered)
-
-sms_ios_full %>% 
-  filter(error != 0 & is_from_me == 1) %>% 
-  tabyl(is_sent)
+logs <- logs %>% 
+  select(-c(street_address, city, state)) %>% 
+  glimpse()
 ```
 
-Outgoing messages should have date_read == 0
-
+High percentage of missing call answered and duration variables due to the majority of the logs being text message logs.   
+log type
 ```{r}
-sms_ios_full %>%
-  filter(is.na(chat_id)) %>% 
-  filter(date_read == 0) %>% 
-  tabyl(is_from_me)
+tabyl(logs$log_type)
+```
 
-sms_ios_full %>% 
-  filter(!is.na(chat_id)) %>% 
-  filter(date_read == 0) %>% 
-  tabyl(is_from_me)  
+originated
+```{r}
+tabyl(logs$originated)
+```
 
-# date delivered is also 0 suggesting these were outgoing despite is_from_me being 0
-sms_ios_full %>% 
-  filter(!is.na(chat_id)) %>% 
-  filter(date_read == 0) %>% 
-  filter(is_from_me == 0)  %>% 
-  tabyl(date_delivered)
+call duration
+```{r}
+logs %>% 
+  filter(log_type == "voice") %>% 
+  summarise(min = min(call_duration, na.rm = TRUE),
+            mean = mean(call_duration, na.rm = TRUE),
+            max = max(call_duration, na.rm = TRUE))
+```
 
-sms_ios_full %>% 
-  filter(!is.na(chat_id)) %>% 
-  filter(date_read == 0) %>% 
-  filter(handle_id == 0)  %>% 
-  tabyl(phone_number)
+call answered
+```{r}
+logs %>% 
+  filter(log_type == "voice") %>% 
+  tabyl(call_answered)
+```
 
-sms_ios_full %>% 
-  filter(is.na(phone_number)) %>% 
-  tabyl(handle_id)
+message read
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_read)
+```
 
-sms_ios_full %>% 
-  filter(is.na(chat_id)) %>%
-  count(subid, phone_number) %>% 
-  arrange(desc(n))
+message is group
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_is_group)
+```
+
+Number of people in message thread
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  summarise(min = min(message_n_people, na.rm = TRUE),
+            mean = mean(message_n_people, na.rm = TRUE),
+            max = max(message_n_people, na.rm = TRUE))
+```
+
+message failed   
+```{r}
+logs %>% 
+  filter(log_type == "sms") %>% 
+  tabyl(message_failed)
+```
+
+contact type
+```{r}
+tabyl(logs$contact_type)
+```
+
+contact has drinken with subid in past
+```{r}
+tabyl(logs$contact_drank_past)
+```
+
+Contact drinking status
+```{r}
+tabyl(logs$drink_status)
+```
+
+Contact would drink in front of subid in future
+```{r}
+tabyl(logs$contact_drink_future)
+```
+
+Contact is in recovery
+```{r}
+tabyl(logs$recovery)
+```
+
+Contact is supportive of participant's recovery
+```{r}
+tabyl(logs$support_status)
+```
+
+Level of pleasantness or unpleasantness of interactions with this contact
+```{r}
+tabyl(logs$contact_experience)
+```
+
+Whether participant visits this contact's home monthly
+```{r}
+tabyl(logs$monthly_visit)
 ```
 
 
