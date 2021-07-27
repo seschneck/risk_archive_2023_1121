@@ -190,7 +190,7 @@ voice_ios <- voice_ios %>%
 
 Clean numbers with function
 ```{r}
-voice_ios$number_formatted <- map_chr(voice_ios$number, extract_number)
+voice_ios$number_formatted <- map_chr(voice_ios$zaddress, extract_number)
 ```
 
 
@@ -259,6 +259,7 @@ voice_android$number_formatted <- map_chr(voice_android$number, extract_number)
 - subid - participant identifier   
 - date - date and time of log entry    
 - number - raw phone number of other party   
+- formatted_number - number formatted to match contacts   
 - originated - incoming or outgoing    
 - call_duration - duration of call  
 - call_answered - answered or not answered     
@@ -296,12 +297,17 @@ voice_ios %>%
 voice_ios <- voice_ios %>% 
   select(c(subid,
            date = zdate,
+           originated = zoriginated,
            call_answered = zanswered,
            call_duration = zduration,
-           number = zaddress)) %>%
-  mutate(originated = case_when(zoriginated == "Incoming" ~ "incoming",
-                                zoriginated == "Outgoing" ~ "outgoing",
-                                TRUE ~ zoriginated)) %>% 
+           number = zaddress,
+           number_formatted)) %>%
+  mutate(originated = case_when(originated == "Incoming" ~ "incoming",
+                                originated == "Outgoing" ~ "outgoing",
+                                TRUE ~ originated)) %>% 
+  mutate(call_answered = case_when(call_answered == "Not Answered" ~ "not answered",
+                                   call_answered == "Answered" ~ "answered",
+                                   TRUE ~ call_answered)) %>% 
   glimpse()
 ```
 
@@ -312,7 +318,7 @@ join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
   full_join(voice_ios,  by = c("subid", "number", "call_duration", "date", "originated", 
-                               "call_answered")) %>% 
+                               "call_answered", "number_formatted")) %>% 
   # add new variable to mark these are voice logs
   mutate(log_type = "voice") %>% 
   glimpse()
@@ -431,7 +437,7 @@ tabyl(sms_ios$message_is_group)
 
 Clean numbers with function
 ```{r}
-sms_ios$number_formatted <- map_chr(sms_ios$number, extract_number)
+sms_ios$number_formatted <- map_chr(sms_ios$phone_number, extract_number)
 ```
 
 
@@ -525,7 +531,7 @@ tabyl(sms_android$message_is_group)
 
 Clean numbers with function
 ```{r}
-sms_android$number_formatted <- map_chr(sms_android$number, extract_number)
+sms_android$number_formatted <- map_chr(sms_android$address, extract_number)
 ```
 
 
@@ -580,7 +586,7 @@ sms_ios <- sms_ios %>%
 ```{r}
 logs_sms <- sms_android %>%
   full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", 
-                            "originated", "message_is_group", "message_n_people")) %>%
+                            "originated", "message_is_group", "message_n_people", "number_formatted")) %>%
   # add new variable to mark these are sms logs
   mutate(log_type = "sms") %>%
   glimpse()
@@ -856,7 +862,7 @@ logs <- logs %>%
   glimpse()
 ```
 
-Log entries with contact matches
+7-digit Log entries with contact matches
 ```{r}
 logs %>% 
   filter(!is.na(contact_number)) %>% 
