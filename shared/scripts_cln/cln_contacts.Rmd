@@ -21,9 +21,12 @@ knit: (function(input, ...) {
 Contacts data are fully cleaned and EDA has been performed on all variables.   
 
 
-Outstanding issue to address at study level:
+### Conclusions
 
-* 12 Duplicate contact numbers exist. These numbers do not have identical context variables so this script retains all data for parent project. These duplicates will need to be addressed at the study-level.   
+* 12 Duplicate contact numbers exist. These numbers do not have identical context variables so this script retains all data at parent project level. These duplicates will need to be addressed at the study-level.   
+* Subids 8 and 235 completed intake but do not have a contacts file. Subid 67 did not finish intake but does have a contacts file.   
+* 1 missing phone number. This is not an error. Subid 81 has a spouse/partner who is incarcerated. They call frequently from an unknown/blocked number. Not removing from parent project contacts file since this contact also includes a frequently visited location and it may be possible to link log entries based on incoming unknown numbers and IL location.   
+* All US numbers are 10 digits with no country code. Out-of-country numbers include country code but no other dialing prefixes.   
 
 
 ### Notes
@@ -615,8 +618,8 @@ valid_country_code
 Since 47 number is a 10 digit number check to see if it appears in logs
 ```{r}
 # read in voice and SMS logs
-voice_logs <- read_csv(file.path(path_shared, "voice_android.csv"), col_types = "icnTccccTT") 
-sms_logs <- read_csv(file.path(path_shared, "sms_android.csv"), col_types = "icicTiccccciiicccTT") 
+voice_logs <- vroom::vroom(here(path_shared, "voice_android.csv"), col_types = "icnTccccTT") 
+sms_logs <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = "icTcccccccccTT") 
 
 logs_76 <- voice_logs %>% 
   filter(subid == 76) %>% 
