@@ -16,6 +16,13 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+Still need to look into missing chat_id values, unmatched number patterns, and eda on all variables.   
+
+
+### Conclusions
+
+
 ### Notes
 Purpose: This script does further cleaning and pre-processing on the voice and SMS 
 logs specifically for meta study. It outputs a single clean log file joined with the 
@@ -61,14 +68,12 @@ switch (Sys.info()[['sysname']],
         Windows = {
           path_shared <- "P:/studydata/risk/data_processed/shared"
           path_meta <- "P:/studydata/risk/data_processed/meta"
-          # temporary directory to use check country code function not merged into production version
-          path_lab_support <- "C:/Users/kpaquette2/lab_support"},
+          path_lab_support <- "P:/toolboxes/lab_support"},
         # IOS paths
         Darwin = {
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-          # temporary directory to use check country code function not merged into production version
-          path_lab_support <- "~/lab_support"})
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"})
 ```
 
 Packages for lab workflow 
@@ -122,15 +127,18 @@ voice_ios <- voice_ios %>%
 ```
 
 
-FIX: invalid numbers with semicolon      
-Look into why semicolon might exist?
+Numbers with a wait (;)       
+A wait tells the phone to wait for action by the user (tapping a button) before dialing the next sequence of numbers. A wait in a phone number is denoted by a semi-colon ; for example: 222-222-2222;12345.    
+
+In this case, the phone would dial 222-222-2222, wait for the user to tap (as shown in the image below for iOS and Android), and then dial 12345.   
+
 ```{r}
 voice_ios %>% 
   filter(str_detect(zaddress, ";")) %>% 
   select(subid, zaddress)
 ```
 
-Unclear what number after semicolon is. Keeping US number before semicolon as number.
+Keeping US number before semicolon as number.
 ```{r}
 voice_ios <- voice_ios %>% 
   mutate(zaddress = case_when(zaddress == "608-663-3926;206" ~ "608-663-3926",
