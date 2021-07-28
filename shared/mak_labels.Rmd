@@ -16,7 +16,7 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-In progress.   There are still some errors to explore or correct before we have
+In progress.   There are still some errors in the raw EMA and interview data to explore or correct before we have
 a set of accurate lapses and periods to exclude for no_lapse observations
 
 ### Set Up Environment
@@ -80,7 +80,7 @@ dates %>% print_kbl()
 ```
 
 
-### EMA lapses
+### EMA Lapses
 
 EMA lapse reports
 ```{r, message=FALSE}
@@ -110,7 +110,7 @@ KENDRA TO DO
 * May need some more EDA before we remove variables in next code chunk
 
 
-#### Final formating
+#### Final EMA Processing
 ```{r}
 ema <- ema %>% 
   filter(!(finished == 0 & is.na(ema_1_1) & is.na(ema_1_2))) %>% # removed unfinished with no lapse info
@@ -120,7 +120,7 @@ ema <- ema %>%
 ema %>% print_kbl()
 ```
 
-### Interview lapses
+### Interview Lapses
 
 Interview lapse reports
 
@@ -136,11 +136,11 @@ interview <- vroom(here(path_raw, "additional_lapses.csv")) %>%
   glimpse()
 ```
 
-#### EDA for inteview lapses
+#### EDA for Inteview Lapses
 
 KENDRA to do
 
-#### Final formating
+#### Final Interview Processing
 ```{r}
 interview <- interview %>% 
   select(-source, -notes) %>% 
@@ -161,7 +161,7 @@ lapses <- interview %>%
 Process timestamp of lapse
 
 * Calculate start_lapse and end_lapse as dttm when completed timestamp info available
-* retain character date and time stamps as check and also for lapses with incomplete info
+* retain character date and timestamps as check and also for lapses with incomplete info
 
 KENDRA - you will see that we seem to not have any lapses from a large number (2/3)
 of participants.  Check this carefully.
@@ -413,12 +413,6 @@ lapses %>%
 
 #### Get valid observations of lapse and no_lapse
 
-
-
-
-
-
-
 Get valid lapse and no_lapse observations by hour
 
 * tibble includes all hours for each subject starting on midnight on day 2 through
@@ -428,7 +422,7 @@ the end of study (or last ema, whichever is earlier)
 These periods are excluded if there are with +-3 hours of a valid lapse period, or similar
 periods around invalid lapse reports.  see function for more detail
 ```{r}
-valid_observations <- get_lapse_labels(lapses, dates) %>% 
+labels_all <- get_lapse_labels(lapses, dates) %>% 
   glimpse()
 ```
 
@@ -436,34 +430,69 @@ valid_observations <- get_lapse_labels(lapses, dates) %>%
 
 #### EDA
 
-Check `valid_observations` carefully
+Check `all_labels` carefully
 
 ```{r}
-valid_observations %>% nrow()
+labels_all %>% nrow()
 
-valid_observations %>% 
+labels_all %>% 
   pull(lapse) %>% 
   sum()  # 1137!
 
-valid_observations %>% 
+labels_all %>% 
   pull(no_lapse) %>% 
   sum()  # 298973 (hard to know what is correct here)
 
-sum(valid_observations$lapse & valid_observations$no_lapse)  # 0!
+sum(labels_all$lapse & labels_all$no_lapse)  # 0!
 
-sum(!valid_observations$lapse & !valid_observations$no_lapse)  # 10102 (should be non-zero.  Hard to know correct value)
+sum(!labels_all$lapse & !labels_all$no_lapse)  # 10102 (should be non-zero.  Hard to know correct value)
 
 1137 + 298973 + 10102  # 310212!
 ```
 
 
-#### Get final labels 
+#### Get Final Labels 
 
 Will use all lapses and a proportion of no_lapses
 
 ```{r}
-
+labels_05 <- sample_labels(labels_all, .05, 19690127) %>% 
+  glimpse()
 ```
 
 
+#### EDA on Final Labels
+
+```{r}
+labels_05 %>% tabyl(label)
+
+labels_05 %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  length()
+
+labels_05 %>% tabyl(subid)
+
+labels_05 %>% tabyl(subid, label)
+```
+
+
+Consider number of valid labels vs. total number of hours on study for each subid
+
+consider correlation between n lapse vs. no_lapse
+
+
+Need to save valid_observations and labels
+
+Labels may be best made in a study script?   Not sure
+
+### Save
+
+```{r}
+labels_05 %>% 
+  write_csv(here(path_processed, "labels_05.csv"))
+
+labels_all %>% 
+  write_csv(here(path_processed, "labels_all.csv"))
+```
 

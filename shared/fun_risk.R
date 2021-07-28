@@ -245,8 +245,24 @@ get_lapse_labels <- function(lapses, dates) {
 } 
 
 
-sample_labels <- function(valid_observations) {
+sample_labels <- function(valid_labels, p_lapse, seed) {
   
+  set.seed(seed)
   
+  lapses <- valid_labels %>% 
+    filter(lapse) %>% 
+    mutate(label = "lapse") %>% 
+    select(subid, hour, label)
+  
+  n_no_lapse <- nrow(lapses) * ((1 / p_lapse) - 1)
+  
+  no_lapses <- valid_labels %>% 
+    filter(no_lapse) %>% 
+    mutate(label = "no_lapse") %>% 
+    select(subid, hour, label) %>% 
+    sample_n(n_no_lapse)
+
+  labels <- lapses %>% 
+    bind_rows(no_lapses)
   
 }
