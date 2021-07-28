@@ -189,7 +189,7 @@ voice_ios <- voice_ios %>%
 ### Clean numbers
 
 Clean numbers with function
-```{r}
+```{r cache = TRUE}
 voice_ios$number_formatted <- map_chr(voice_ios$zaddress, extract_number)
 ```
 
@@ -247,7 +247,7 @@ voice_android %>%
 ### Clean numbers
 
 Clean numbers with function
-```{r}
+```{r cache = TRUE}
 voice_android$number_formatted <- map_chr(voice_android$number, extract_number)
 ```
 
@@ -438,7 +438,7 @@ tabyl(sms_ios$message_is_group)
 ### Clean numbers
 
 Clean numbers with function
-```{r}
+```{r cache = TRUE}
 sms_ios$number_formatted <- map_chr(sms_ios$phone_number, extract_number)
 ```
 
@@ -532,7 +532,7 @@ tabyl(sms_android$message_is_group)
 ### Clean numbers
 
 Clean numbers with function
-```{r}
+```{r cache = TRUE}
 sms_android$number_formatted <- map_chr(sms_android$address, extract_number)
 ```
 
@@ -729,7 +729,7 @@ dup_contacts %>%
   slice(5:6)
 
 contacts <- contacts %>% 
-  filter(!(subid == 109 & utc == 1542036600 & phone_number == 6305611375))
+  filter(!(subid == 109 & utc == 1537819200 & phone_number == 6305611375))
 ```
 
 Duplicate 4: Subid 110  
@@ -1028,11 +1028,9 @@ tabyl(logs$monthly_visit)
 
 ## Write csv
 ```{r}
-write_csv(logs, file.path(path_meta, "meta_logs.csv")) %>% 
-  glimpse()
+write_csv(logs, here(path_meta, "meta_logs.csv")) %>% 
+  glimpse() 
 ```
-
-
 
 
 
