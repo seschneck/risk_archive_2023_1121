@@ -36,7 +36,7 @@ Digital therapeutics could intervene to minimize the impact of any AVE.
 may support more healthy drinking that is less likely to result in a relapse or other
 harm.
 
-## Lapse Labels {#general_labels}
+## Lapse Labels
 
 We use lapses reported by EMA and directly to study staff during visits.  
 
@@ -61,8 +61,14 @@ We use lapses reported by EMA and directly to study staff during visits.
     * 3 hours (current value; open for discussion) before or after a valid lapse period
     * Full day (and 3 hours before/after) for excluded lapse reports that listed 
     only the date (mostly from staff reports)
-    * 24 + 3 hours after lapse onsets when no lapse end was reported
-  
+    * 24 + 3 hours after lapse onsets when no lapse end was reported.
+
+
+## Feature Engineering
+
+Write individual feature functions.  These functions map over labels
+They  take subid and `label_hour` (to map over) and `lead_time` and `period_duration` and data (full raw data with all subjects and all times but selected down to just relevant columns).   These functions call Kendra filter by lead_time, subid, and period duration.   These functions apply the same feature function to all columns in data.  These functions name the resulting feature columns based on raw data, `lead_time`, `period_duration` and feature function.   These functions can be used in a pipe inside of `bind_col()`  different `data` can be passed into different maps if needed (to handle different raw data or different columns).  
+
 ## Prediction Models
 
 ### Prediction Lead Time
