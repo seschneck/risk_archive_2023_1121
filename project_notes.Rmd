@@ -40,12 +40,12 @@ harm.
 
 We use lapses reported by EMA and directly to study staff during visits.  
 
-* These lapses have a start and end time record with one hour precision.  
+* These lapses have a start and end time recorded with one hour precision.  
 * We want cases with accurate labels (`lapse` and `no_lapse`).  
 * For *lapse* cases:
   * We filter out lapse reports that are unusable (no specific start time).  
   * We also filter lapses that are suspect because they have negative duration 
-  or very long duration (currently > 24 hours.  
+  or very long duration (currently > 24 hours).  
   * This results in a list of valid lapses with onsets reported by date and hour.
 
 * For *no_lapse* cases:
@@ -103,6 +103,12 @@ based on up to a week of raw data preceding the observation of the outcome
 
 
 ### Resampling Choices
+
+
+## Dates and Times
+
+All times are saved in UTC.   However, when we work with times, we mutate to America/Chicago.
+Dates are mutated to dttm and then set to midnight on that date.
 
 
 
