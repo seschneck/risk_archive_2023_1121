@@ -324,7 +324,7 @@ logs_voice <- voice_android %>%
   glimpse()
 ```
 
-<br>
+
 
 ## SMS IOS logs
 
@@ -598,8 +598,8 @@ logs_sms <- sms_android %>%
 ## Join SMS and Voice logs
 
 ```{r}
-logs <- logs_voice %>%
-  full_join(logs_sms, by = c("subid", "date", "number", "log_type", "originated")) %>%
+logs <- logs_voice %>%  
+  full_join(logs_sms, by = c("subid", "date", "number", "log_type", "originated", "number_formatted")) %>%
   select(subid, date, number, log_type, originated, everything()) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   glimpse()
