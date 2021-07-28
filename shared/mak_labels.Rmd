@@ -14,6 +14,11 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+In progress.   There are still some errors to explore or correct before we have
+a set of accurate lapses and periods to exclude for no_lapse observations
+
 ### Set Up Environment
 
 Absolute paths
@@ -89,8 +94,7 @@ ema <- bind_rows(emam, emal) %>%
   select(subid, start_date, end_date, utc, finished,
          contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
   mutate(subid = as.numeric(subid)) %>% 
-  arrange(subid, start_date) 
-
+  arrange(subid, start_date) %>%  
   filter(ema_1 == "Yes") %>% 
   select(-ema_1) %>% 
   glimpse()
@@ -392,16 +396,24 @@ lapses %>%
 
 
 ### Make labels
+THere are issues with 204.   They are missing lapses reported by interview.  But they also
+stopped doing any ema by 5/17 even though their study end date was 6/13.
+
+probably need to drop them for lapse analyses for anything after 5/17.  Probably
+also need to add in their reported lapses at follow-up 2.   OR we drop them at the end of follow-up 1
+or wherever their ema gets sketchy
+
+THere are also issues with 180.   The interview lapses are not credible for onset time.  Those need to be exluded
+
+Need to check on the date that are reported by EMA.  There are some notes in the log.
+
+
+
+
+
+
 ```{r}
-# THere are issues with 204.   They are missing lapses reported by interview.  But they also
-#stopped doing any ema by 5/17 even though their study end date was 6/13.
 
-# probably need to drop them for lapse analyses for anything after 5/17.  Probably
-# also need to add in their reported lapses at follow-up 2.   OR we drop them at the end of follow-up 1
-# or wherever their ema gets sketchy
-
-# THere are also issues with 180.   The interview lapses are not credible for onset time.  Those need to be exluded
-# Need to check on the date that are reported by EMA.  There are some notes in the log.
 ```
 
 
