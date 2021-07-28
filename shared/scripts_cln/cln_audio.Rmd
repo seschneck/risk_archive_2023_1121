@@ -20,24 +20,25 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-To do:
-
-* merge the audio file meta data created here with the transcripts
+EDA on all meta data variables. Still need to merge transcripts into file for NLP.   
 
 
-To check:
 
-* Not clear why there are duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date. (see below)
+### Conclusions   
 
-To (possibly) improve:
+* 162 subids have audio files - all subids without audio were manually confirmed by checking raw data folders.   
 
-* there are a lot of join messages.  Can that code be written to avoid those?
-* Code runs REALLY slow.  Need to use future_map or foreach loops to speed it up but I have not figured out how to do this yet.  
+* Code runs REALLY slow.  Need to use future_map or foreach loops to speed it up but I have not figured out how to do this yet.    
+
+* There are some duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date. 
+
+KW: Note from one subid 27 might shed some enlightenment on duplicate files    
+"Participant reported that it is sometimes hard to send the audio message as the microphone button does not always stay activated. To resolve this issue, the participant reported that she sometimes has to send multiple messages to prevent the need to re-record the message that cut off."     
+
 
 ### Notes
 Purpose: This script gets metadata info regarding daily check in, such as number of days with audio, file names, and duration of audio clip.   
-
-**Can add audio transcripts to this script at a later date**   
+  
 
 
 Inputs:  
@@ -118,7 +119,8 @@ read_audio <- function(subid) {
                date = ymd(date))
 
         audio_log <- audio_log %>%
-          full_join(log) 
+          full_join(log) %>% 
+          suppressMessages()
       } 
     }
     
