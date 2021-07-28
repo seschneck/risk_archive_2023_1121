@@ -280,6 +280,8 @@ voice_android <- voice_android %>%
                                  type == "Rejected" ~ "incoming",
                                  type == "Blocked" ~ "incoming",
                                  type == "Answered Externally" ~ "incoming",
+                                 type == "Incoming" ~ "incoming",
+                                 type == "Outgoing" ~ "outgoing",
                                  TRUE ~ type),
          call_answered = case_when(type == "incoming" ~ "answered",
                               is.na(type) ~ as.character(NA),
