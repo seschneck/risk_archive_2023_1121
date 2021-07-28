@@ -304,6 +304,20 @@ lapses <- lapses %>%
 
 #### EDA
 
+THere are issues with 204.   They are missing lapses reported by interview.  But they also
+stopped doing any ema by 5/17 even though their study end date was 6/13.
+
+probably need to drop them for lapse analyses for anything after 5/17.  Probably
+also need to add in their reported lapses at follow-up 2.   OR we drop them at the end of follow-up 1
+or wherever their ema gets sketchy
+
+THere are also issues with 180.   The interview lapses are not credible for onset time.  Those need to be exluded
+
+Need to check on the date that are reported by EMA.  There are some notes in the log.
+
+
+
+
 KENDRA - check `lapses` more carefully.  Should any other lapses be excluded.  
 
 We also need to decide definitely what to do with lapses that have start but no end time.
@@ -396,29 +410,60 @@ lapses %>%
 
 
 ### Make labels
-THere are issues with 204.   They are missing lapses reported by interview.  But they also
-stopped doing any ema by 5/17 even though their study end date was 6/13.
 
-probably need to drop them for lapse analyses for anything after 5/17.  Probably
-also need to add in their reported lapses at follow-up 2.   OR we drop them at the end of follow-up 1
-or wherever their ema gets sketchy
-
-THere are also issues with 180.   The interview lapses are not credible for onset time.  Those need to be exluded
-
-Need to check on the date that are reported by EMA.  There are some notes in the log.
+#### Get valid observations of lapse and no_lapse
 
 
 
 
 
+
+
+Get valid lapse and no_lapse observations by hour
+
+* tibble includes all hours for each subject starting on midnight on day 2 through
+the end of study (or last ema, whichever is earlier)
+* lapse column is true or false.  True for accurate lapse reports
+* no_lapse column is true or NA.  True for accurate no_lapse, NA for excluded periods
+These periods are excluded if there are with +-3 hours of a valid lapse period, or similar
+periods around invalid lapse reports.  see function for more detail
+```{r}
+valid_observations <- get_lapse_labels(lapses, dates) %>% 
+  glimpse()
+```
+
+
+
+#### EDA
+
+Check `valid_observations` carefully
+
+```{r}
+valid_observations %>% nrow()
+
+valid_observations %>% 
+  pull(lapse) %>% 
+  sum()  # 1137!
+
+valid_observations %>% 
+  pull(no_lapse) %>% 
+  sum()  # 298973 (hard to know what is correct here)
+
+sum(valid_observations$lapse & valid_observations$no_lapse)  # 0!
+
+sum(!valid_observations$lapse & !valid_observations$no_lapse)  # 10102 (should be non-zero.  Hard to know correct value)
+
+1137 + 298973 + 10102  # 310212!
+```
+
+
+#### Get final labels 
+
+Will use all lapses and a proportion of no_lapses
 
 ```{r}
 
 ```
 
 
-
-
-create_labels
-needs, lapses, excluded, and dates as arguments
 
