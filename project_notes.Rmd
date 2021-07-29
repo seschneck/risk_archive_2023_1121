@@ -69,6 +69,35 @@ We use lapses reported by EMA and directly to study staff during visits.
 Write individual feature functions.  These functions map over labels
 They  take subid and `label_hour` (to map over) and `lead_time` and `period_duration` and data (full raw data with all subjects and all times but selected down to just relevant columns).   These functions call Kendra filter by lead_time, subid, and period duration.   These functions apply the same feature function to all columns in data.  These functions name the resulting feature columns based on raw data, `lead_time`, `period_duration` and feature function.   These functions can be used in a pipe inside of `bind_col()`  different `data` can be passed into different maps if needed (to handle different raw data or different columns).  
 
+Can have generic function where the feature function or functions are passed in as a list
+
+https://dplyr.tidyverse.org/reference/across.html
+
+```
+
+iris %>%
+  group_by(Species) %>%
+  summarise(across(starts_with("Sepal"), list(mean = mean, sd = sd), .names = "{.col}.{.fn}"))
+#> # A tibble: 3 x 5
+#>   Species    Sepal.Length.mean Sepal.Length.sd Sepal.Width.mean Sepal.Width.sd
+#>   <fct>                  <dbl>           <dbl>            <dbl>          <dbl>
+#> 1 setosa                  5.01           0.352             3.43          0.379
+#> 2 versicolor              5.94           0.516             2.77          0.314
+#> 3 virginica               6.59           0.636             2.97          0.322
+```
+
+```
+median_and_max <- list(
+  med = ~median(.x, na.rm = TRUE),
+  max = ~max(.x, na.rm = TRUE)
+)
+
+april_median_and_max <- ny %>%
+  summarize(
+    across(starts_with("4"), median_and_max)
+  )
+```
+
 ## Prediction Models
 
 ### Prediction Lead Time
