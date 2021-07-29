@@ -87,6 +87,13 @@ iris %>%
 ```
 
 ```
+iris %>%
+#'   group_by(Species) %>%
+#'   summarise(across(starts_with("Sepal"), mean, .names = "mean_{.col}"))
+```
+
+
+```
 median_and_max <- list(
   med = ~median(.x, na.rm = TRUE),
   max = ~max(.x, na.rm = TRUE)
@@ -97,6 +104,9 @@ april_median_and_max <- ny %>%
     across(starts_with("4"), median_and_max)
   )
 ```
+
+
+See [glue](https://glue.tidyverse.org/) for naming features
 
 ## Prediction Models
 
