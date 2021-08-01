@@ -82,8 +82,8 @@ Source for script
 **This will eventually be outsourced to a lab_support function script**    
 
 ```{r}
-filter_features <- function(label, data, lead_hours, period_duration_hours, study_start = NULL) {
-  
+filter_features <- function(subid, hour, data, lead_hours, period_duration_hours, study_start = NULL) {
+
   # Pass in row from labels tibble that contains subid and hour of lapse label  
   # Pass in data tibble that will be filtered on by labels (MUST INCLUDE DATE VARIABLE)
   # Set lead_hours parameter to number of hours out from lapse you wish to predict 
@@ -112,7 +112,7 @@ filter_features <- function(label, data, lead_hours, period_duration_hours, stud
     
   } else {
     
-    start_date <- hour_label + duration(period_duration_hours, "hours")
+    start_date <- hour_label - duration(period_duration_hours, "hours")
     
     # filter on start_date
     data <- data %>% 
@@ -126,7 +126,10 @@ filter_features <- function(label, data, lead_hours, period_duration_hours, stud
     mutate(diff_hours = as.numeric(difftime(hour_label, date, units = "hours"))) %>%  
     filter(diff_hours >= lead_hours) 
   
- data
+  # can remove message - just for demo
+  message("adding ", nrow(data), " rows")
+  
+  data
 }
 ```
 
@@ -182,15 +185,33 @@ study_start_dates <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_type
 ```
 
 
-Run function
+Run function    
 
-FIX: Only returning rows for first subid in labels
 
+With period duration hours specified
 ```{r}
-logs_filtered <- map_dfr(labels_demo, ~ filter_features(label = .,
-                                                       data = logs_demo,
-                                                       lead_hours = 0, 
-                                                       period_duration_hours = NULL,
-                                                       study_start = study_start_dates)) 
+logs_filtered <- map2_dfr(labels_demo$subid, 
+                          labels_demo$hour, 
+                          ~filter_features(
+                            subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 0, 
+                            period_duration_hours = 72)) %>% 
+  glimpse()
+```
+
+With study start dates
+```{r}
+logs_filtered <- map2_dfr(labels_demo$subid, 
+                          labels_demo$hour, 
+                          ~filter_features(
+                            subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 0, 
+                            period_duration_hours = NULL,
+                            study_start = study_start_dates)) %>% 
+  glimpse()
 ```
 
