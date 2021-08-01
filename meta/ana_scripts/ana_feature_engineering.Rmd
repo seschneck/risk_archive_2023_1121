@@ -63,6 +63,7 @@ Packages for script
 library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
 library(lubridate)
+library(purrr)
 
 # for plots and tables
 library(ggplot2)
@@ -94,8 +95,8 @@ filter_features <- function(label, data, lead_hours, period_duration_hours, stud
   # JOHN - discuss how to best handle period_duration in hours vs start_study dates. 
   # Below is my solution, but may not be what you are thinking. 
   
-  subid_label <- label$subid
-  hour_label <- label$hour
+  subid_label <- subid
+  hour_label <- hour
   
   # Create start date for filtering from study_start or period_duration_hours
   if (is.null(period_duration_hours)) {
@@ -122,10 +123,10 @@ filter_features <- function(label, data, lead_hours, period_duration_hours, stud
   
   # filter on lead hours
   data <- data %>% 
-    mutate(diff_hours = as.numeric(difftime(date, hour_label, units = "hours"))) %>%  
-    filter(diff_hours <= lead_hours) 
+    mutate(diff_hours = as.numeric(difftime(hour_label, date, units = "hours"))) %>%  
+    filter(diff_hours >= lead_hours) 
   
-  data
+ data
 }
 ```
 
@@ -181,9 +182,15 @@ study_start_dates <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_type
 ```
 
 
-
 Run function
-```{r}
 
+FIX: Only returning rows for first subid in labels
+
+```{r}
+logs_filtered <- map_dfr(labels_demo, ~ filter_features(label = .,
+                                                       data = logs_demo,
+                                                       lead_hours = 0, 
+                                                       period_duration_hours = NULL,
+                                                       study_start = study_start_dates)) 
 ```
 
