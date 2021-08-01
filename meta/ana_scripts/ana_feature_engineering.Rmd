@@ -62,6 +62,7 @@ Packages for script
 # for data wrangling
 library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
+library(lubridate)
 
 # for plots and tables
 library(ggplot2)
@@ -80,18 +81,108 @@ Source for script
 **This will eventually be outsourced to a lab_support function script**    
 
 ```{r}
+filter_features <- function(label, data, lead_hours, period_duration_hours, study_start = NULL) {
+  
+  # Pass in row from labels tibble that contains subid and hour of lapse label  
+  # Pass in data tibble that will be filtered on by labels (MUST INCLUDE DATE VARIABLE)
+  # Set lead_hours parameter to number of hours out from lapse you wish to predict 
+  # Set period duration hours to set the duration over which you wish to use data from - 
+  # If using all data since study start set period_duration_hours = NULL and pass
+  # in tibble of subid and start dates (currently set to be compatible with start_study 
+  # variable from visit dates). 
+  
+  # JOHN - discuss how to best handle period_duration in hours vs start_study dates. 
+  # Below is my solution, but may not be what you are thinking. 
+  
+  subid_label <- label$subid
+  hour_label <- label$hour
+  
+  # Create start date for filtering from study_start or period_duration_hours
+  if (is.null(period_duration_hours)) {
+    
+    study_start <- study_start %>% 
+      filter(subid == subid_label)
+    start_date <- study_start$start_study
+    
+    # filter on start_date
+    data <- data %>% 
+      filter(subid == subid_label) %>% 
+      filter(date >= start_date)
+    
+  } else {
+    
+    start_date <- hour_label + duration(period_duration_hours, "hours")
+    
+    # filter on start_date
+    data <- data %>% 
+      filter(subid == subid_label) %>% 
+      filter(date >= start_date)
 
+  }
+  
+  # filter on lead hours
+  data <- data %>% 
+    mutate(diff_hours = as.numeric(difftime(date, hour_label, units = "hours"))) %>%  
+    filter(diff_hours <= lead_hours) 
+  
+  data
+}
 ```
 
 
 ### Demo of filter function
 
-Read in logs
+Read in logs    
 ```{r}
-
+logs <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = cols()) %>% 
+  mutate(date = with_tz(date, tzone = "America/Chicago")) %>% 
+  glimpse()
 ```
 
-Read in lapse labels and narrow down to random 10 lapses
+Narrow down to logs for only 10 random subids for demo
+```{r}
+set.seed(20210606)
+
+subids_demo <- logs %>% 
+  count(subid) %>% 
+  slice_sample(n = 10)
+
+logs_demo <- logs %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  glimpse()
+```
+
+
+Read in lapse labels
+```{r}
+labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = cols()) %>% 
+  select(subid, hour) %>% 
+  mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+Narrow down lapse labels to 10 random lapses for demo
+```{r}
+labels_demo <- labels %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  slice_sample(n = 10)
+
+labels_demo
+```
+
+
+Read in study start dates
+```{r}
+study_start_dates <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = cols()) %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  mutate(start_study = force_tz(as_datetime(start_study)), "America/Chicago") %>% 
+  select(subid, start_study) %>% 
+  glimpse()
+```
+
+
+
+Run function
 ```{r}
 
 ```
