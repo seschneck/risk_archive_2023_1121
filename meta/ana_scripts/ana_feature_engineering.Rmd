@@ -96,7 +96,7 @@ Source for script
 ### Filter Function
 
 ```{r}
-filter_features <- function(subid, hour, data, lead_hours, period_duration_hours, study_start = NULL) {
+filter_features <- function(the_subid, hour, data, lead_hours, period_duration_hours, study_start = NULL) {
 
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
   # row of lapse tibble
@@ -119,13 +119,10 @@ filter_features <- function(subid, hour, data, lead_hours, period_duration_hours
   # Move function to fun_risk.R
   # Call function get_feature_period()
   
-  subid_label <- subid
-  hour_label <- hour
-  
   # Create start date for filtering from study_start or period_duration_hours
   if (is.null(period_duration_hours)) {
     study_start <- study_start %>% 
-      filter(subid == subid_label)
+      filter(subid == the_subid)
     start_date <- study_start$start_study
   } else {
     start_date <- hour_label - duration(period_duration_hours, "hours")
@@ -133,7 +130,7 @@ filter_features <- function(subid, hour, data, lead_hours, period_duration_hours
   
   # filter on start_date
   data <- data %>% 
-    filter(subid == subid_label) %>% 
+    filter(subid == the_subid) %>% 
     filter(date >= start_date)
   
   # filter on lead hours
