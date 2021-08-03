@@ -48,20 +48,18 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_meta <- "P:/studydata/risk/data_processed/meta"
-          path_shared <- "P:/studydata/risk/data_processed/shared"
-          path_lab_support <- "P:/toolboxes/lab_support"},
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
 
         # IOS paths
         Darwin = {
           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_lab_support <- "/Volumes/toolboxes/lab_support"}
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
         )
 ```
 
 Relative paths
 ```{r}
-
+path_fun_risk <- "shared"
 ```
 
 Packages for lab workflow 
@@ -89,7 +87,7 @@ library(kableExtra)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-# source(here(path_lab_support, "get_credentials.R"))
+source(here(path_fun_risk, "fun_risk.R"))
 ```
 
 
