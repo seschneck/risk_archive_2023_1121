@@ -94,7 +94,7 @@ source(here(path_fun_risk, "fun_risk.R"))
 ### Filter Function
 
 ```{r}
-filter_features <- function(subid, hour, data, lead_hours, period_duration_hours, study_start = NULL) {
+filter_features <- function(the_subid, hour, data, lead_hours, period_duration_hours, study_start = NULL) {
 
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
   # row of lapse tibble
@@ -108,13 +108,19 @@ filter_features <- function(subid, hour, data, lead_hours, period_duration_hours
   # JOHN - discuss how to best handle period_duration in hours vs start_study dates. 
   # Below is my solution, but may not be what you are thinking. 
   
-  subid_label <- subid
-  hour_label <- hour
+  # Kendra, 
+  # lets use variable names as they are currently returned by other functions
+  # e.g., do data files have column called date or do we not yet have any consistent name
+  # Lets discuss if we need/should filter on study_start
+  # Did you need subid_label and hour_label?
+  # Do remove message when testing is done. Good to have now.
+  # Move function to fun_risk.R
+  # Call function get_feature_period()
   
   # Create start date for filtering from study_start or period_duration_hours
   if (is.null(period_duration_hours)) {
     study_start <- study_start %>% 
-      filter(subid == subid_label)
+      filter(subid == the_subid)
     start_date <- study_start$start_study
   } else {
     start_date <- hour_label - duration(period_duration_hours, "hours")
@@ -122,7 +128,7 @@ filter_features <- function(subid, hour, data, lead_hours, period_duration_hours
   
   # filter on start_date
   data <- data %>% 
-    filter(subid == subid_label) %>% 
+    filter(subid == the_subid) %>% 
     filter(date >= start_date)
   
   # filter on lead hours
