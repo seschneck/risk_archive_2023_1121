@@ -21,7 +21,7 @@ knit: (function(input, ...) {
 
 ### Code status
 
-This shell is still in progress. Currently includes a demo of get_feature_period function. Working on incorporating demo of make_features().    
+This shell is still in progress. Currently includes a demo of get_feature_period function. Working on improving demo of make_features().    
 
 
 ### Conclusions
@@ -38,6 +38,9 @@ This script serves as a shell for the feature engineering script for meta study.
 Chunk Defaults
 ```{r defaults, include=FALSE}
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
 ```
 
 Absolute paths
@@ -138,7 +141,7 @@ Run function w/ 72 hour period duration hours and 0 lead hours
 logs_filtered <- map2_dfr(labels_demo$subid, 
                           labels_demo$hour, 
                           ~get_feature_period(
-                            subid = .x,
+                            the_subid = .x,
                             hour = .y,
                             data = logs_demo,
                             lead_hours = 0, 
@@ -151,7 +154,7 @@ Run function w/ 28 days (672 hours) period duration and 24 lead hours
 logs_filtered <- map2_dfr(labels_demo$subid, 
                           labels_demo$hour, 
                           ~get_feature_period(
-                            subid = .x,
+                            the_subid = .x,
                             hour = .y,
                             data = logs_demo,
                             lead_hours = 24, 
@@ -163,16 +166,49 @@ logs_filtered <- map2_dfr(labels_demo$subid,
 
 ### Demo of make_features
 
-Run function w/ 72 hour period duration hours and 0 lead hours
+Run function w/ 72 hour period duration hours and 0 lead hours    
+Pass in two functions for 2 categorical variables
 ```{r}
+fun_list <- list(class = ~mode(.x),
+                 n = ~n())
+
+
 logs_features <- map2_dfr(labels_demo$subid,
                           labels_demo$hour,
                           ~make_features(
-                            subid = .x,
+                            the_subid = .x,
                             hour = .y,
                             data = logs_demo,
                             lead_hours = 0, 
-                            period_duration_hours = 72)) %>% 
+                            period_duration_hours = 72,
+                            col_list = c("originated", "call_answered"),
+                            fun_list = fun_list)) %>% 
   glimpse()
+```
+
+
+Pass in four functions for 1 numeric variables   
+
+FIX: subid 248 only has SMS logs within 72 hours preceding lapse - brings back NaN, NA, and Inf values
+
+```{r}
+fun_list <- list(mean = ~mean(.x, na.rm = TRUE),
+                 med = ~median(.x, na.rm = TRUE),
+                 min = ~min(.x, na.rm = TRUE),
+                 max = ~max(.x, na.rm = TRUE))
+
+logs_features <- map2_dfr(labels_demo$subid,
+                          labels_demo$hour,
+                          ~make_features(
+                            the_subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 0, 
+                            period_duration_hours = 72,
+                            col_list = c("call_duration"),
+                            fun_list = fun_list)) %>% 
+  glimpse()
+
+logs_features
 ```
 
