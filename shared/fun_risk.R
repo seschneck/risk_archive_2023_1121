@@ -289,3 +289,31 @@ get_feature_period <- function(subid, hour, data, lead_hours, period_duration_ho
   
   data
 }
+
+
+
+make_features <- function (subid, hour, data, lead_hours, period_duration_hours, fun_list){
+  
+  # This function takes a list of functions to use for feature engineering 
+  # It maps over a lapse label row taking in subid and hour
+  # It calls the get_feature_period function and passes in the subid, hour, lead_hours 
+  # and period_duration_hours parameters to narrow down the data to the appropriate 
+  # rows for a lapse observation
+  # It returns a single row of features for each lapse label
+  
+  # filter down data
+  data <- get_feature_period(subid, hour, data, lead_hours, period_duration_hours)
+  
+  # create features
+  data <- data %>% 
+    group_by(subid) %>% 
+    summarise() %>% 
+    # keep subid and hour from lapse for checking function output
+    mutate(subid_label = subid,
+           dttm_label = hour)
+  
+  data
+  
+}
+
+

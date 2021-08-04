@@ -21,7 +21,7 @@ knit: (function(input, ...) {
 
 ### Code status
 
-This shell is still in progress. Currently includes a demo of get_feature_period function.  
+This shell is still in progress. Currently includes a demo of get_feature_period function. Working on incorporating demo of make_features().    
 
 
 ### Conclusions
@@ -88,18 +88,24 @@ Source for script
 source(here(path_fun_risk, "fun_risk.R"))
 ```
 
+### Read in Data
 
-
-### Demo of get_feature_period function
-
-#### Read in and prepare data
-
-Read in logs    
+Meta logs dataframe  
 ```{r}
 logs <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
+
+Lapse labels dataframe
+```{r}
+labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = vroom::cols()) %>% 
+  select(subid, hour) %>% 
+  mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+### Create Demo Data
 
 Narrow down to logs for only 10 random subids for demo
 ```{r}
@@ -115,14 +121,6 @@ logs_demo <- logs %>%
 ```
 
 
-Read in lapse labels
-```{r}
-labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = vroom::cols()) %>% 
-  select(subid, hour) %>% 
-  mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
-  glimpse()
-```
-
 Narrow down lapse labels to 10 random lapses for demo
 ```{r}
 labels_demo <- labels %>% 
@@ -131,10 +129,9 @@ labels_demo <- labels %>%
 
 labels_demo
 ```
+  
 
-
-
-#### Run function    
+### Demo of get_feature_period function
 
 Run function w/ 72 hour period duration hours and 0 lead hours
 ```{r}
@@ -164,4 +161,18 @@ logs_filtered <- map2_dfr(labels_demo$subid,
 
 
 
+### Demo of make_features
+
+Run function w/ 72 hour period duration hours and 0 lead hours
+```{r}
+logs_features <- map2_dfr(labels_demo$subid,
+                          labels_demo$hour,
+                          ~make_features(
+                            subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 0, 
+                            period_duration_hours = 72)) %>% 
+  glimpse()
+```
 
