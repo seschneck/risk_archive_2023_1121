@@ -266,3 +266,26 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
     bind_rows(no_lapses)
   
 }
+
+
+get_feature_period <- function(subid, hour, data, lead_hours, period_duration_hours) {
+  
+  # This function filters data rows based on a lapse label (subid and hour) passed in
+  # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
+  # row of lapse tibble
+  # Pass in data tibble that will be filtered on by labels (MUST INCLUDE dttm_obs VARIABLE)
+  # Set lead_hours parameter to number of hours out from lapse you wish to predict 
+  # Set period duration hours to set the duration over which you wish to use data from  
+  
+  data <- data %>% 
+    filter(subid == get("subid")) %>% 
+    # filter on period duration hours
+    mutate(period_start_dttm = hour - duration(period_duration_hours, "hours")) %>% 
+    filter(dttm_obs >= period_start_dttm) %>% 
+    # filter on lead hours
+    mutate(diff_hours = as.numeric(difftime(hour, dttm_obs, units = "hours"))) %>%  
+    filter(diff_hours >= lead_hours) %>% 
+    select(-c(period_start_dttm, diff_hours))
+  
+  data
+}

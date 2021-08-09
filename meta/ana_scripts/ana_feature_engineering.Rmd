@@ -1,0 +1,167 @@
+---
+title: "Meta Feature Engineering Shell"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code status
+
+This shell is still in progress. Currently includes a demo of get_feature_period function.  
+
+
+### Conclusions
+
+
+
+### Notes
+
+This script serves as a shell for the feature engineering script for meta study.
+
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+Absolute paths
+```{r, paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+Relative paths
+```{r}
+path_fun_risk <- "shared"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)  # always need this
+library(janitor) # cleaning and EDA
+library(lubridate)
+library(purrr)
+
+# for plots and tables
+library(ggplot2)
+theme_set(theme_bw()) # or theme_set(theme_classic())
+library(kableExtra)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_fun_risk, "fun_risk.R"))
+```
+
+
+
+### Demo of get_feature_period function
+
+#### Read in and prepare data
+
+Read in logs    
+```{r}
+logs <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+Narrow down to logs for only 10 random subids for demo
+```{r}
+set.seed(20210606)
+
+subids_demo <- logs %>% 
+  count(subid) %>% 
+  slice_sample(n = 10)
+
+logs_demo <- logs %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  glimpse()
+```
+
+
+Read in lapse labels
+```{r}
+labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = vroom::cols()) %>% 
+  select(subid, hour) %>% 
+  mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+Narrow down lapse labels to 10 random lapses for demo
+```{r}
+labels_demo <- labels %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  slice_sample(n = 10)
+
+labels_demo
+```
+
+
+
+#### Run function    
+
+Run function w/ 72 hour period duration hours and 0 lead hours
+```{r}
+logs_filtered <- map2_dfr(labels_demo$subid, 
+                          labels_demo$hour, 
+                          ~get_feature_period(
+                            subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 0, 
+                            period_duration_hours = 72)) %>% 
+  glimpse()
+```
+
+Run function w/ 28 days (672 hours) period duration and 24 lead hours
+```{r}
+logs_filtered <- map2_dfr(labels_demo$subid, 
+                          labels_demo$hour, 
+                          ~get_feature_period(
+                            subid = .x,
+                            hour = .y,
+                            data = logs_demo,
+                            lead_hours = 24, 
+                            period_duration_hours = 672)) %>% 
+  glimpse()
+```
+
+
+
+
