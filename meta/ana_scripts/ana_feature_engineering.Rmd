@@ -132,45 +132,21 @@ labels_demo <- labels %>%
 
 labels_demo
 ```
-  
-
-### Demo of get_feature_period function
-
-Run function w/ 72 hour period duration hours and 0 lead hours
-```{r}
-logs_filtered <- map2_dfr(labels_demo$subid, 
-                          labels_demo$hour, 
-                          ~get_feature_period(
-                            the_subid = .x,
-                            hour = .y,
-                            data = logs_demo,
-                            lead_hours = 0, 
-                            period_duration_hours = 72)) %>% 
-  glimpse()
-```
-
-Run function w/ 28 days (672 hours) period duration and 24 lead hours
-```{r}
-logs_filtered <- map2_dfr(labels_demo$subid, 
-                          labels_demo$hour, 
-                          ~get_feature_period(
-                            the_subid = .x,
-                            hour = .y,
-                            data = logs_demo,
-                            lead_hours = 24, 
-                            period_duration_hours = 672)) %>% 
-  glimpse()
-```
 
 
 
 ### Demo of make_features
 
 Run function w/ 72 hour period duration hours and 0 lead hours    
-Pass in two functions for 2 categorical variables
+
+Add features for sms variables
 ```{r}
-fun_list <- list(class = ~mode(.x),
-                 n = ~n())
+logs_demo_sms <- logs_demo %>% 
+  filter(log_type == "sms") %>% 
+  glimpse()
+
+
+fun_list <- list(n_yes = ~sum(.x == "yes", na.rm = TRUE))
 
 
 logs_features <- map2_dfr(labels_demo$subid,
@@ -178,37 +154,106 @@ logs_features <- map2_dfr(labels_demo$subid,
                           ~make_features(
                             the_subid = .x,
                             hour = .y,
-                            data = logs_demo,
+                            data = logs_demo_sms,
                             lead_hours = 0, 
                             period_duration_hours = 72,
-                            col_list = c("originated", "call_answered"),
+                            data_type = "sms",
+                            col_list = c("message_read", "message_is_group", "message_failed"),
                             fun_list = fun_list)) %>% 
+  glimpse()
+
+# add count of incoming sms messages and total sms messages
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$hour,
+                     ~make_features(
+                      the_subid = .x,
+                      hour = .y,
+                      data = logs_demo_sms,
+                      lead_hours = 0, 
+                      period_duration_hours = 72,
+                      data_type = "sms",
+                      col_list = c("originated"),
+                      fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                      n_total_messages = ~n()))),
+            by = c("subid", "dttm_label")) %>% 
+  rename(sms_n_total_messages = sms_originated_n_total_messages,
+         sms_n_incoming = sms_originated_n_incoming) %>% 
   glimpse()
 ```
 
 
-Pass in four functions for 1 numeric variables   
 
-FIX: subid 248 only has SMS logs within 72 hours preceding lapse - brings back NaN, NA, and Inf values
+Add features for Voice variables
 
 ```{r}
-fun_list <- list(mean = ~mean(.x, na.rm = TRUE),
-                 med = ~median(.x, na.rm = TRUE),
-                 min = ~min(.x, na.rm = TRUE),
-                 max = ~max(.x, na.rm = TRUE))
-
-logs_features <- map2_dfr(labels_demo$subid,
-                          labels_demo$hour,
-                          ~make_features(
-                            the_subid = .x,
-                            hour = .y,
-                            data = logs_demo,
-                            lead_hours = 0, 
-                            period_duration_hours = 72,
-                            col_list = c("call_duration"),
-                            fun_list = fun_list)) %>% 
+logs_demo_voice <- logs_demo %>% 
+  filter(log_type == "voice") %>% 
   glimpse()
 
-logs_features
+
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$hour,
+                     ~make_features(
+                       the_subid = .x,
+                       hour = .y,
+                       data = logs_demo_voice,
+                       lead_hours = 0, 
+                       period_duration_hours = 72,
+                       data_type = "voice",
+                       col_list = c("call_answered"),
+                       fun_list = list(n_yes = ~sum(.x == "answered", na.rm = TRUE)))),
+            by = c("subid", "dttm_label")) %>% 
+  glimpse()
+
+# add count of incoming calls and total calls
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$hour,
+                     ~make_features(
+                      the_subid = .x,
+                      hour = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 72,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                      n_total_calls = ~n()))),
+            by = c("subid", "dttm_label")) %>% 
+  rename(voice_n_total_calls = voice_originated_n_total_calls,
+         voice_n_incoming = voice_originated_n_incoming) %>% 
+  glimpse()
+
+# add stats on call duration
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$hour,
+                     ~make_features(
+                      the_subid = .x,
+                      hour = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 72,
+                      data_type = "voice",
+                      col_list = c("call_duration"),
+                      fun_list = list(mean = ~round(mean(.x, na.rm = TRUE), 2),
+                                      sd = ~round(sd(.x, na.rm = TRUE), 2),
+                                      min = ~round(min(.x, na.rm = TRUE), 2),
+                                      max = ~round(max(.x, na.rm = TRUE), 2)))),
+            by = c("subid", "dttm_label")) %>% 
+  glimpse()
+```
+
+
+NOTE: if there are no voice call observations to use for calculating descriptive stats it returns NaN, Inf, or NA
+
+```{r}
+get_feature_period(the_subid = labels_demo$subid[3], 
+                   hour = labels_demo$hour[3],
+                   data = logs_demo_voice,
+                   lead_hours = 0, 
+                   period_duration_hours = 72)
 ```
 
