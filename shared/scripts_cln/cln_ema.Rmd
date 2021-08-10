@@ -21,12 +21,11 @@ knit: (function(input, ...) {
 ### Code Status
 KW currently working on this clean script.   
 
-- check all log entries to see if they are known errors or estimations
-- Need to remove subid 55 entries    
-- perform EDA on cleaning log entries    
-- perform EDA on EMA entries    
-- remove test entries with log    
-- clean up log (remove log note entries that are already included in another log action entry)   
+- clean up and check all log entries to see if they are known errors or estimations
+- EDA on cleaning log entries    
+- EDA on lapses    
+- check and remove test entries with log    
+  
 
 ### Conclusion
 
@@ -140,7 +139,7 @@ log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom
 Join logs for light EDA
 ```{r}
 log_all <- log_morning %>% 
-  rbind(log_later)
+  bind_rows(log_later)
 ```
 
 Log actions
@@ -226,6 +225,7 @@ log_all %>%
 ```
 
 
+
 ### Clean Data with Cleaning Function
 
 ```{r}
@@ -236,9 +236,25 @@ ema_morning <- ema_morning %>%
 ema_later <- ema_later %>% 
   clean_qualtrics_by_log(log_later) %>% 
   glimpse()
-
-#  filter(toupper(subid) != "TEST")  # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
 ```
+
+FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)    
+Most test entries are complete
+```{r}
+ema_all %>% 
+  filter(toupper(subid) == "TEST") %>% 
+  tabyl(finished)
+```
+
+May be able to use latitude/longitude to see if in brogden or find groups of tests
+```{r}
+ema_all %>% 
+  filter(toupper(subid) == "TEST") %>% 
+  tabyl(location_latitude) %>% 
+  arrange(desc(n))
+```
+
+
 
 ### Tidy variable names
 
@@ -254,51 +270,216 @@ ema_later <- ema_later %>%
 
 ### EDA
 
-Missing data
+Combine EMA files for EDA
 ```{r}
-ema_morning %>% 
-  naniar::miss_var_summary()
+ema_all <- ema_morning %>% 
+  rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
+  # add temp variable to trace which ema file an entry came from for EDA
+  mutate(ema_type = "morning") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
+              mutate(ema_type = "later")) %>% 
+  glimpse()
+```
 
-ema_later %>% 
+
+#### Missing data
+```{r}
+ema_all %>% 
   naniar::miss_var_summary()
 ```
 
-Remove Qualtrics variables with 100% missing data
+Remove Qualtrics variables with 100% missing data and variables with 0 variance   
 ```{r}
 ema_morning <- ema_morning %>% 
-  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference))
-
+  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
+            response_set, location_accuracy))
 ema_later <- ema_later %>% 
-  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference))
+  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
+            response_set, location_accuracy))
+ema_all <- ema_all %>% 
+  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
+            response_set, location_accuracy))
 ```
 
-ema_1_1 - ema_1_5 variables 
+missing ema_1_1 - ema_1_5 variables    
+These are follow up variables for participants who report a lapse on ema_1
 ```{r}
-
+ema_all %>% 
+  filter(is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | is.na(ema_1_4) | is.na(ema_1_5)) %>% 
+  tabyl(ema_1)
 ```
 
-ema_2_1 - ema_10_1 variables 
+88 participants report a lapse but do not provide full information about lapse   
+Some do fill out ema_1_1 - ema_1_4 which are the dates/times of lapse
 ```{r}
-
+ema_all %>% 
+  filter(ema_1 == "Yes" & (is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | 
+                             is.na(ema_1_4) | is.na(ema_1_5))) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "700px")
 ```
 
 
-send_date and send_time - FIX: what are these variables?
+missing ema_2_1 - ema_7_1 variables    
+All are marked as not finished
 ```{r}
+ema_all %>% 
+  filter(is.na(ema_2_1) | is.na(ema_3_1) | is.na(ema_4_1) | is.na(ema_5_1) |
+           is.na(ema_6_1) | is.na(ema_7_1)) %>% 
+  tabyl(finished)
+```
 
+missing ema_8_1 - ema_10_1 variables   
+These variables were only on the morning survey    
+All missing values on later surveys or on morning surveys marked as not finished
+```{r}
+ema_all %>% 
+  filter(is.na(ema_8_1) | is.na(ema_9_1) | is.na(ema_10_1)) %>% 
+  tabyl(ema_type, finished)
 ```
 
 
+missing 93% send_date and send_time    
+FIX: what are these variables?
+```{r}
+ema_all %>% 
+  filter(is.na(send_date)) %>% 
+  slice_sample(n = 500) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "700px")
+```
 
-FIX: add number of total EMAs, unique subids, EMAs per person, start and end dates/times
 
+#### EMA counts and frequencies
+
+FIX: add number of total EMAs, unique subids, EMAs per person, start and end dates/times    
 
 FIX: count days between EMAs - look for large gaps
 
 
+#### Lapses
+
+Reported lapses   
+"Have you drank any alcohol that you have not yet reported?"
+```{r}
+ema_all %>% 
+  tabyl(ema_1)
+```
+
+"Please indicate the date of the first drink that you have not yet reported"
+```{r}
+
+```
 
 
-#### Write csvs
+"Please select the hour of the first drink that you have not yet reported"
+```{r}
+
+```
+
+
+"Please indicate the date of the last drink that you have not yet reported"
+```{r}
+
+```
+
+
+"Please select the hour of the last drink that you have not yet reported"
+```{r}
+
+```
+
+
+"Is your goal still to remain abstinent in the future?"
+```{r}
+ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  tabyl(ema_1_5)
+```
+
+
+
+FIX: check how timezone is calculated (should be in America/Chicago)     
+
+FIX: check notes/additional info on participants with no lapses   
+
+FIX: check for invalid lapses
+
+
+#### 13-Point (0-12) Likert Scale Questions
+
+"How intense was your greatest urge to drink alcohol?"
+```{r}
+ema_all %>% 
+  tabyl(ema_2_1)
+```
+
+
+"Did you encounter any risky situations (people, places, or things)?  If yes, rate the intensity of the situation. If you experienced more than one risky situation, rate the most intense one."
+```{r}
+ema_all %>% 
+  tabyl(ema_3_1)
+```
+
+"Has a hassle or stressful event occurred? If yes, rate the intensity of the event. If you experienced more than one hassle or stressful event, rate the most intense one."
+```{r}
+ema_all %>% 
+  tabyl(ema_4_1)
+```
+
+
+"Has a pleasant or positive event occurred? If yes, rate the intensity of the event. If you experienced more than one pleasant or positive event, rate the most intense one."
+```{r}
+ema_all %>% 
+  tabyl(ema_5_1)
+```
+
+#### 11-Point (1-11) Likert Scale Questions
+
+"How are you feeling right now? Unpleasant/unhappy - Pleasant/happy"
+```{r}
+ema_all %>% 
+  tabyl(ema_6_1)
+```
+
+
+"How are you feeling right now? Calm/sleepy - Aroused/alert"
+```{r}
+ema_all %>% 
+  tabyl(ema_7_1)
+```
+
+
+"How likely are you to encounter risky situations (people, places, or things) within the next week?" (moring EMA only)
+```{r}
+ema_all %>% 
+  filter(ema_type == "morning") %>% 
+  tabyl(ema_8_1)
+```
+
+"How likely are you to encounter a stressful event within the next week?" (morning EMA only)
+```{r}
+ema_all %>% 
+  filter(ema_type == "morning") %>% 
+  tabyl(ema_9_1)
+```
+
+"How likely are you to drink any alcohol within the next week?" (morning EMA only)
+```{r}
+ema_all %>% 
+  filter(ema_type == "morning") %>% 
+  tabyl(ema_10_1)
+```
+
+
+
+### Write csvs
+
+FIX: remove Qualtrics variables - location_latitude, location_longitude, ip_address?
+
 ```{r}
 ema_morning %>% 
   write_csv(file.path(path_out, "ema_morning.csv"))
