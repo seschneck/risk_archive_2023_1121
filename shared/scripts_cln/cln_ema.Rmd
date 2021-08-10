@@ -19,28 +19,37 @@ knit: (function(input, ...) {
 ---
 
 ### Code Status
+
 KW currently working on this clean script.   
 
-- clean up and check all log entries to see if they are known errors or estimations
+Working on:   
+
+- clean up and check all log entries to see if they are known errors or estimations   
 - EDA on cleaning log entries    
-- EDA on lapses    
+- EDA on lapses     
 - check and remove test entries with log    
   
 
 ### Conclusion
 
+The focus of this script is to clean/check all EMA lapse reports so that the cleaned data can be used to create lapse labels for individual studies.   
+
+Things to address at study level include:
+
+- Some participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.    
 
 
 ### Notes
-Purpose: This file does basic cleaning of the qualtrics EMA surveys.
+
+Purpose: This file cleans the qualtrics EMA surveys and performs EDA on all EMA variables.  
 
 
-Inputs:  Opens two files in raw_data/qualtrics
+Inputs (path_raw):  
 
 * ema_morning.csv
 * ema_later.csv
 
-Outputs: Creates two cleaned ema files in analysis/shared/data/clean
+Outputs (path_shared):   
 
 * ema_morning.csv
 * ema_later.csv
@@ -187,7 +196,7 @@ log_all %>%
   filter(subid == "031" & var_name == "subid") %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 subid 101
@@ -196,7 +205,7 @@ log_all %>%
   filter(subid == "101" & var_name == "subid") %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 #### recode_tz entries
@@ -205,13 +214,16 @@ log_all %>%
   filter(log_action == "recode_tz") %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "700px")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 #### remove entries
 ```{r}
 log_all %>% 
-  filter(log_action == "remove")
+  filter(log_action == "remove") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
 #### note entries
@@ -221,7 +233,7 @@ log_all %>%
   select(-c(var_name, new_value, old_value)) %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "700px")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
@@ -237,23 +249,6 @@ ema_later <- ema_later %>%
   clean_qualtrics_by_log(log_later) %>% 
   glimpse()
 ```
-
-FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)    
-Most test entries are complete
-```{r}
-ema_all %>% 
-  filter(toupper(subid) == "TEST") %>% 
-  tabyl(finished)
-```
-
-May be able to use latitude/longitude to see if in brogden or find groups of tests
-```{r}
-ema_all %>% 
-  filter(toupper(subid) == "TEST") %>% 
-  tabyl(location_latitude) %>% 
-  arrange(desc(n))
-```
-
 
 
 ### Tidy variable names
@@ -282,6 +277,24 @@ ema_all <- ema_morning %>%
   glimpse()
 ```
 
+#### Test data
+
+FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)    
+Most test entries are complete
+```{r}
+ema_all %>% 
+  filter(toupper(subid) == "TEST") %>% 
+  tabyl(finished)
+```
+
+May be able to use latitude/longitude to see if in brogden or find groups of tests
+```{r}
+ema_all %>% 
+  filter(toupper(subid) == "TEST") %>% 
+  tabyl(location_latitude) %>% 
+  arrange(desc(n))
+```
+
 
 #### Missing data
 ```{r}
@@ -292,14 +305,14 @@ ema_all %>%
 Remove Qualtrics variables with 100% missing data and variables with 0 variance   
 ```{r}
 ema_morning <- ema_morning %>% 
-  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
-            response_set, location_accuracy))
+  select(-c(recipient_last_name, recipient_first_name, recipient_email,
+            external_data_reference, response_set, location_accuracy))
 ema_later <- ema_later %>% 
-  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
-            response_set, location_accuracy))
+  select(-c(recipient_last_name, recipient_first_name, recipient_email,
+            external_data_reference, response_set, location_accuracy))
 ema_all <- ema_all %>% 
-  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference,
-            response_set, location_accuracy))
+  select(-c(recipient_last_name, recipient_first_name, recipient_email,
+            external_data_reference, response_set, location_accuracy))
 ```
 
 missing ema_1_1 - ema_1_5 variables    
@@ -310,7 +323,7 @@ ema_all %>%
   tabyl(ema_1)
 ```
 
-88 participants report a lapse but do not provide full information about lapse   
+82 participants report a lapse but do not provide full information about lapse   
 Some do fill out ema_1_1 - ema_1_4 which are the dates/times of lapse
 ```{r}
 ema_all %>% 
@@ -318,7 +331,7 @@ ema_all %>%
                              is.na(ema_1_4) | is.na(ema_1_5))) %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "700px")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
@@ -349,50 +362,134 @@ ema_all %>%
   slice_sample(n = 500) %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "700px")
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
 #### EMA counts and frequencies
 
-FIX: add number of total EMAs, unique subids, EMAs per person, start and end dates/times    
+`r nrow(ema_all)` EMAS across `r length(unique(ema_all$subid))` unique subids  
 
-FIX: count days between EMAs - look for large gaps
+This currently includes EMAs under subid test     
+169 participants enrolled in study - 169 + test subid = 170 unique subids    
+
+
+EMA counts per subid
+```{r}
+ema_all %>% 
+  count(subid) %>% 
+  arrange(desc(n))
+```
+
+Bring in study start and end dates
+```{r}
+visits <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
+  mutate(across(c(everything(), -subid), ~ force_tz(.x, tzone = "America/Chicago"))) %>% 
+  glimpse()
+
+ema_all_visits <- ema_all %>% 
+  # filter out test subid
+  filter(subid != "test") %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  left_join(visits %>% 
+              select(subid, start_study, end_study), 
+            by = "subid")
+```
+
+Calculate days on study
+```{r}
+ema_all_visits <- ema_all_visits %>% 
+  mutate(days_on_study = as.numeric(round(end_study - start_study))) %>% 
+  glimpse()
+```
+
+Participants were on study for `r min(ema_all_visits$days_on_study)` - `r max(ema_all_visits$days_on_study)` days     
+
+NOTE: 5 subids have over 90 days on study - no notes as to why this is
+```{r}
+ema_all_visits %>% 
+  filter(days_on_study > 90) %>% 
+  group_by(subid) %>% 
+  slice(1) %>% 
+  select(subid, days_on_study)
+```
+
+
+EMAs completed per study day    
+```{r}
+ema_all_visits <- ema_all_visits %>% 
+  group_by(subid, days_on_study) %>% 
+  summarise(n_emas = n(), .groups = "drop") %>% 
+  mutate(avg_emas = n_emas/days_on_study)
+```
+
+On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.  
+NOTE: This does not cap out possible daily EMAs at 4. Some participants completed more than 4 EMAs in a single day.    
+
+```{r}
+ema_all_visits %>% 
+  ggplot(aes(x = avg_emas)) +
+  geom_histogram(bins = 20, color = "black", fill = "light grey")
+```
+
+
+
+FIX: count days between EMAs - look for large gaps    
+
+
+#### Start and End dttms for EMAs
+
+FIX: Calculate duration of EMA 
 
 
 #### Lapses
 
 Reported lapses   
+**ema_1**    
 "Have you drank any alcohol that you have not yet reported?"
 ```{r}
 ema_all %>% 
   tabyl(ema_1)
 ```
 
-"Please indicate the date of the first drink that you have not yet reported"
+**ema_1_1**    
+"Please indicate the date of the first drink that you have not yet reported"    
 ```{r}
-
+ema_all <- ema_all %>% 
+  mutate(ema_1_1 = as_datetime(ema_1_1, format = "%m-%d-%Y", tz = "America/Chicago"))
 ```
 
+Dates of first drink in lapse range from `r min(ema_all$ema_1_1, na.rm = TRUE)` - `r max(ema_all$ema_1_1, na.rm = TRUE)`.    
 
+
+**ema_1_2**    
 "Please select the hour of the first drink that you have not yet reported"
 ```{r}
-
+ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  tabyl(ema_1_2)
 ```
 
 
+**ema_1_3**    
 "Please indicate the date of the last drink that you have not yet reported"
 ```{r}
-
+ema_all <- ema_all %>% 
+  mutate(ema_1_3 = as_datetime(ema_1_3, format = "%m-%d-%Y", tz = "America/Chicago"))
 ```
 
+Dates of last drink in lapse range from `r min(ema_all$ema_1_3, na.rm = TRUE)` - `r max(ema_all$ema_1_3, na.rm = TRUE)`.     
 
+
+**ema_1_4**    
 "Please select the hour of the last drink that you have not yet reported"
 ```{r}
-
+ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  tabyl(ema_1_4)
 ```
 
-
+**ema_1_5**    
 "Is your goal still to remain abstinent in the future?"
 ```{r}
 ema_all %>% 
@@ -402,11 +499,11 @@ ema_all %>%
 
 
 
-FIX: check how timezone is calculated (should be in America/Chicago)     
+FIX: check how timezone was calculated on raw data and cleaning log (should all be in America/Chicago)     
 
 FIX: check notes/additional info on participants with no lapses   
 
-FIX: check for invalid lapses
+FIX: check for invalid lapses   
 
 
 #### 13-Point (0-12) Likert Scale Questions
@@ -478,12 +575,15 @@ ema_all %>%
 
 ### Write csvs
 
-FIX: remove Qualtrics variables - location_latitude, location_longitude, ip_address?
+FIX: remove Qualtrics variables: location_latitude, location_longitude, ip_address?    
+
+
+FIX: Uncomment write csv when test subids are removed - currently still in for checking/EDA
 
 ```{r}
-ema_morning %>% 
-  write_csv(file.path(path_out, "ema_morning.csv"))
-
-ema_later %>% 
-  write_csv(file.path(path_out, "ema_later.csv"))
+# ema_morning %>% 
+#   write_csv(file.path(path_shared, "ema_morning.csv"))
+# 
+# ema_later %>% 
+#   write_csv(file.path(path_shared, "ema_later.csv"))
 ```
