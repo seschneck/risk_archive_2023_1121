@@ -1,6 +1,6 @@
 ---
 title: "Clean the raw qualtrics EMA surveys (morning and later)"
-author: "Sarah Sant'Ana"
+author: "Sarah Sant'Ana and Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
@@ -8,14 +8,33 @@ output:
     toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+KW currently working on this clean script.   
+
+- check all log entries to see if they are known errors or estimations
+- Need to remove subid 55 entries    
+- perform EDA on cleaning log entries    
+- perform EDA on EMA entries    
+- remove test entries with log    
+- clean up log (remove log note entries that are already included in another log action entry)   
+
+### Conclusion
+
 
 
 ### Notes
 Purpose: This file does basic cleaning of the qualtrics EMA surveys.
-* Cleaning from data logs
-* Removing TEST IDs (because they are invalid data)
-* Updating variables to tidy format
+
 
 Inputs:  Opens two files in raw_data/qualtrics
 
@@ -28,134 +47,262 @@ Outputs: Creates two cleaned ema files in analysis/shared/data/clean
 * ema_later.csv
 
 
-### Paths 
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw/qualtrics"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
+```
+
+Relative paths
 ```{r}
-path_in <- "P:/StudyData/RISK/raw_data/qualtrics"
-path_out <- "P:/StudyData/RISK/analysis/shared/data"
-path_log <- "P:/StudyData/RISK/analysis/shared/notes"  
+path_log <- "shared/notes"
 ```
 
-### Packages and Source
-```{r, message = FALSE, warning = FALSE}
-library(tidyverse)
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)  # always need this
+library(janitor) # cleaning and EDA
 library(lubridate)
-library(janitor)
-library(tidymodels)
 
-source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
-source("P:/toolboxes/lab_support/fun_modeling.R")
+# for plots and tables
+library(ggplot2)
+theme_set(theme_bw()) # or theme_set(theme_classic())
+library(kableExtra)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
 
 
 
-### Load raw ema files
+### Read in raw data 
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
-
 ```{r}
-
-ema_morning <- read_csv(file.path(path_in, 'ema_morning.csv'), col_types = cols()) %>% 
+ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
-  rename(response_id = ResponseID)
-
-ema_later <- read_csv(file.path(path_in, 'ema_later.csv'), col_types = cols()) %>% 
-  rename(subid = SubID) %>% 
-  rename(response_id = ResponseID)
-
-```
-
-
-### Load and summarize data logs
-```{r}
-log_morning <- read_csv(file.path(path_log, "log_ema_morning.csv"), col_types = cols()) %>% 
+  rename(response_id = ResponseID) %>% 
   glimpse()
 
-log_later <- read_csv(file.path(path_log, "log_ema_later.csv"), col_types = cols()) %>% 
+ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::cols()) %>% 
+  rename(subid = SubID) %>% 
+  rename(response_id = ResponseID) %>% 
+  glimpse()
+```
+
+
+### Read in Logs
+
+```{r}
+log_morning <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
   glimpse()
 
-# Note extra variables will be deleted after final reviews are complete
+log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
 ```
 
-### Log actions
+
+### Log EDA
+
+Join logs for light EDA
 ```{r}
-tabyl(log_morning$log_action)
-tabyl(log_later$log_action)
+log_all <- log_morning %>% 
+  rbind(log_later)
 ```
 
-### Clean raw ema data
-1. Data are cleaned via log entries
-2. Data are cleaned via code to remove TEST ids
+Log actions
+```{r}
+tabyl(log_all$log_action)
+```
+    
+#### recode_one entries
+
+variables with recode_one entries
+```{r}
+log_all %>% 
+  filter(log_action == "recode_one") %>% 
+  tabyl(var_name)
+```
+
+subids recoded 
+```{r}
+log_all %>% 
+  filter(var_name == "subid") %>% 
+  tabyl(subid)
+```
+
+subid 66 
+```{r}
+log_all %>% 
+  filter(subid == "066") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+subid 136
+```{r}
+log_all %>% 
+  filter(subid == "136") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+subid 31
+```{r}
+log_all %>% 
+  filter(subid == "031" & var_name == "subid") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+subid 101
+```{r}
+log_all %>% 
+  filter(subid == "101" & var_name == "subid") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+#### recode_tz entries
+```{r}
+log_all %>% 
+  filter(log_action == "recode_tz") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "700px")
+```
+
+#### remove entries
+```{r}
+log_all %>% 
+  filter(log_action == "remove")
+```
+
+#### note entries
+```{r}
+log_all %>% 
+  filter(log_action == "note") %>% 
+  select(-c(var_name, new_value, old_value)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "700px")
+```
+
+
+### Clean Data with Cleaning Function
+
 ```{r}
 ema_morning <- ema_morning %>% 
   clean_qualtrics_by_log(log_morning) %>% 
-  filter(toupper(subid) != "TEST")   # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
+  glimpse()
 
 ema_later <- ema_later %>% 
-  clean_qualtrics_by_log(log_later)%>% 
-  filter(toupper(subid) != "TEST")  # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
+  clean_qualtrics_by_log(log_later) %>% 
+  glimpse()
+
+#  filter(toupper(subid) != "TEST")  # SARAH:  THERE NEEDS TO BE LOG ENTRIES THAT DOCUMENT WHY THESE ARE BEING REMOVED.  HOW DO WE KNOW THEY ARE NOT REAL DATA?
 ```
 
 ### Tidy variable names
 
 ```{r}
 ema_morning <- ema_morning %>% 
-  clean_names("snake")%>% 
+  clean_names() %>% 
   glimpse()
 
 ema_later <- ema_later %>% 
-  clean_names("snake")%>% 
+  clean_names() %>% 
   glimpse()
-
 ```
 
-### Cleaning EDA
-
-Variable classes: As expected. Note - dates and subids read in as character strings.
+### EDA
 
 Missing data
 ```{r}
-
-ema_morning %>% skim_some()
-#What is the send_time variable? does it matter for us?
-#Some missingness across ema variables, likely empty surveys
-
-ema_morning %>% filter(is.na(emam_2_1)) %>% print_kbl
-#All finished = 0, to be removed during processing
-
-ema_later %>% skim_some()
-#same story with ema_later vars
-```
-
-
-Numeric variables
-```{r}
 ema_morning %>% 
-  select(where(is.numeric)) %>% 
-  skim_some()
+  naniar::miss_var_summary()
 
-ema_later  %>% 
-  select(where(is.numeric)) %>% 
-  skim_some()
-
+ema_later %>% 
+  naniar::miss_var_summary()
 ```
-Look at categorical response labels
+
+Remove Qualtrics variables with 100% missing data
 ```{r}
-# Check response labels
-ema_morning %>% 
-  select(where(is.character)) %>% 
-  walk2(.x = names(.), 
-        .y = ., 
-        .f = print_responses)
+ema_morning <- ema_morning %>% 
+  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference))
+
+ema_later <- ema_later %>% 
+  select(-c(RecipientLastName, RecipientFirstName, RecipientEmail, ExternalDataReference))
 ```
 
-I don't think I will tidy categorical response labels, since some lubridate functions expect certain capitalization in time and date vars. I could tidy Yes and No I suppose...
+ema_1_1 - ema_1_5 variables 
+```{r}
 
-#### Save
+```
+
+ema_2_1 - ema_10_1 variables 
+```{r}
+
+```
+
+
+send_date and send_time - FIX: what are these variables?
+```{r}
+
+```
+
+
+
+FIX: add number of total EMAs, unique subids, EMAs per person, start and end dates/times
+
+
+FIX: count days between EMAs - look for large gaps
+
+
+
+
+#### Write csvs
 ```{r}
 ema_morning %>% 
   write_csv(file.path(path_out, "ema_morning.csv"))
 
 ema_later %>% 
   write_csv(file.path(path_out, "ema_later.csv"))
-
 ```

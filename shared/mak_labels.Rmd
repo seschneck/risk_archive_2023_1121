@@ -30,7 +30,6 @@ path_raw <- "P:/studydata/risk/data_raw"
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
@@ -41,7 +40,6 @@ library(here)  # establish project directory consistently as working directory
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
-
 # for data wrangling
 library(tidyverse)
 library(vroom)
@@ -84,10 +82,10 @@ dates %>% print_kbl()
 
 EMA lapse reports
 ```{r, message=FALSE}
-emam <- vroom(here(path_processed, "ema_morning.csv")) %>% 
+emam <- vroom(here(path_processed, "ema_morning.csv"), col_types = vroom::cols()) %>% 
   rename_with(~ str_replace(.x, "emam_", "ema_"))
 
-emal <- vroom(here(path_processed, "ema_later.csv"))%>% 
+emal <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%>% 
   rename_with(~ str_replace(.x, "emal_", "ema_"))
 
 ema <- bind_rows(emam, emal) %>% 
