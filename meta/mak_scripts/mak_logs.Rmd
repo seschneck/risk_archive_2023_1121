@@ -1,5 +1,5 @@
 ---
-title: "Meta Logs"
+title: "Make Meta Logs"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
@@ -18,14 +18,14 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-Code is almost fully complete. Data in output can be trusted but more exploration should be done to ensure we are not missing any contact/log entry pairings.    
+Code is almost fully complete. Data in output can be trusted but more exploration on numbers should be done to ensure we are not missing any contact/log entry pairings.    
 
 
 ### Conclusions
 
 * Still need to print warnings with extract number function and look for any missed patterns for cleaning. Purpose would be to make sure we match all instances of known contacts in logs to context variables.   
-* More work could be done to understand what duplicates mean in SMS files. Likely won't affect meta project though.    
-* To run extract number on all logs combined it must run over night. I have the function currently set to run on each of the 4 logs separately before joining them together for now.   
+* More work could be done to understand what duplicates mean in SMS files. This shouldn't affect meta project though.     
+* The extract number function takes a long time to run (several hours). I have code chunks with this function set to cache = TRUE.         
   
 
 ### Notes
@@ -257,7 +257,7 @@ voice_android$number_formatted <- map_chr(voice_android$number, extract_number)
 ### Common voice log variables relevant to meta project
 
 - subid - participant identifier   
-- date - date and time of log entry    
+- dttm_obs - date and time of log entry    
 - number - raw phone number of other party   
 - formatted_number - number formatted to match contacts   
 - originated - incoming or outgoing    
@@ -274,7 +274,8 @@ voice_android %>%
 Create new variables to match IOS
 ```{r}
 voice_android <- voice_android %>% 
-  rename(call_duration = duration) %>% 
+  rename(call_duration = duration,
+         dttm_obs = date) %>% 
   mutate(originated = case_when( type == "Missed" ~ "incoming",
                                  type == "Voicemail" ~ "incoming",
                                  type == "Rejected" ~ "incoming",
@@ -298,7 +299,7 @@ voice_ios %>%
 
 voice_ios <- voice_ios %>% 
   select(c(subid,
-           date = zdate,
+           dttm_obs = zdate,
            originated = zoriginated,
            call_answered = zanswered,
            call_duration = zduration,
@@ -319,7 +320,7 @@ voice_ios <- voice_ios %>%
 join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
-  full_join(voice_ios,  by = c("subid", "number", "call_duration", "date", "originated", 
+  full_join(voice_ios,  by = c("subid", "number", "call_duration", "dttm_obs", "originated", 
                                "call_answered", "number_formatted")) %>% 
   # add new variable to mark these are voice logs
   mutate(log_type = "voice") %>% 
@@ -542,18 +543,23 @@ sms_android$number_formatted <- map_chr(sms_android$address, extract_number)
 
 ### Common voice log variables relevant to meta project  
 
-message_read = yes if sent or read status on incoming message  
-message_failed = yes if outgoing message not delivered    
-originated = outgoing if from_me else incoming (type is NA for android group messages)    
-message_is_group = yes if group message  
-message_n_people = number of people in message thread
+- subid - participant identifier   
+- dttm_obs - date and time of log entry    
+- number - raw phone number of other party   
+- formatted_number - number formatted to match contacts    
+- message_read = yes if sent or read status on incoming message   
+- message_failed = yes if outgoing message not delivered    
+- originated = outgoing if from_me else incoming (type is NA for android group messages)    
+- message_is_group = yes if group message   
+- message_n_people = number of people in message thread  
 
 
 ### tidy android variables for merge
 ```{r}
 sms_android <- sms_android %>% 
   rename(number = address,
-         message_read = read) %>% 
+         message_read = read,
+         dttm_obs = date) %>% 
   mutate(message_failed = if_else(type == "failed", "yes", "no"),
          originated = case_when(type == "sent" ~ "outgoing",
                                   type == "draft" ~ "outgoing",
@@ -569,7 +575,8 @@ sms_android <- sms_android %>%
 ```{r}
 sms_ios <- sms_ios %>% 
   rename(number = phone_number, 
-         message_n_people = n_people_in_chat) %>% 
+         message_n_people = n_people_in_chat,
+         dttm_obs = date) %>% 
   mutate(message_read = case_when(is_read == 1 ~ "yes",
                                is_from_me == 1 ~ "yes",
                                TRUE ~ "no"),
@@ -587,7 +594,7 @@ sms_ios <- sms_ios %>%
 
 ```{r}
 logs_sms <- sms_android %>%
-  full_join(sms_ios, by = c("subid", "number", "date", "message_read", "message_failed", 
+  full_join(sms_ios, by = c("subid", "number", "dttm_obs", "message_read", "message_failed", 
                             "originated", "message_is_group", "message_n_people", "number_formatted")) %>%
   # add new variable to mark these are sms logs
   mutate(log_type = "sms") %>%
@@ -601,8 +608,8 @@ logs_sms <- sms_android %>%
 
 ```{r}
 logs <- logs_voice %>%  
-  full_join(logs_sms, by = c("subid", "date", "number", "log_type", "originated", "number_formatted")) %>%
-  select(subid, date, number, log_type, originated, everything()) %>% 
+  full_join(logs_sms, by = c("subid", "dttm_obs", "number", "log_type", "originated", "number_formatted")) %>%
+  select(subid, dttm_obs, number, log_type, originated, everything()) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   glimpse()
 ```
@@ -868,7 +875,7 @@ logs <- logs %>%
 ```{r}
 logs %>% 
   filter(!is.na(contact_number)) %>% 
-  select(subid, number, contact_number, date) %>% 
+  select(subid, number, contact_number, dttm_obs) %>% 
   print(n = Inf)
 ```
 
@@ -1031,11 +1038,6 @@ tabyl(logs$monthly_visit)
 write_csv(logs, here(path_meta, "meta_logs.csv")) %>% 
   glimpse() 
 ```
-
-
-
-
-
 
 
 
