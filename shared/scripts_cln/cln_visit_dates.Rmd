@@ -1,14 +1,32 @@
 ---
 title: "Cleaning Script for Study Visit Dates"
-author: "John Curtin with updates by Hannah Moshontz (Updated by Kendra Wyant 3-10-21)"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+author: "John Curtin, Hannah Moshontz, Kendra Wyant"
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
     toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+These data are fully cleaned and processed with this script. EDA is extensive and uses multiple data sources as checks. No outstanding issues.   
+
+### Conclusions
+
+* All subids who completed screen session have an entry in visit dates.    
+* Many end study dates were imputed for passively discontinued participants (the process for how these decisions were reached are all documented in the end study EDA section of this script).   
+
 
 ### Notes
 Purpose: aggregates, cleans, and tidys visit date files   
@@ -24,9 +42,6 @@ Guidelines for visit dates:
 * All imputed end dates are documented in end date EDA.  
 
 
-<br>
-
-
 Inputs:
 
 Path raw  
@@ -37,6 +52,7 @@ Path raw
 * followup_12.csv      
 * followup_3.csv        
 * raw_notes.csv    
+* gcal_risk.ics      
 
 Path log  
 
@@ -60,15 +76,40 @@ Path data
 
 ### Setup
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
+Absolute Paths 
+```{r absolute_paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_data <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"},
+
+        # IOS paths
+        Darwin = {
+          path_data <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"}
+        )
+```
+
+Relative paths
+```{r}
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
 
 Packages and Source
 ```{r, message = FALSE, warning = FALSE}
@@ -78,13 +119,6 @@ library(readxl)  # read excel file
 library(naniar) # missing data
 library(lubridate)
 library(kableExtra)
-```
-
-Paths 
-```{r}
-path_raw <- "raw_data"
-path_log <- "analysis/shared/notes"
-path_data <- "analysis/shared/data"
 ```
 
 ### Open and merge files
@@ -102,7 +136,7 @@ read_file <- function(filepath) {
   return(data)
 }
 
-visit_dates <- list.files(file.path(path_raw), 
+visit_dates <- list.files(here(path_raw), 
            pattern = "VisitDates.xlsx", #this accommodates folders without visit dates
            recursive = TRUE, 
            full.names = TRUE) %>% 
@@ -114,7 +148,7 @@ visit_dates <- list.files(file.path(path_raw),
 
 ### Clean by log
 
-Functions
+#### Functions
 ```{r}
 # function to add any subids in log not already in visit dates
 add_subs <- function(dates, log){
@@ -146,11 +180,75 @@ clean_log <- function(..., log){
 }
 ```
 
-
-Clean visit dates
+#### Read in cleaning log and EDA on log
 ```{r}
-log <- read_csv(file.path(path_log, "log_visit_dates.csv"), col_types = cols())
+log <- read_csv(here(path_log, "log_visit_dates.csv"), col_types = cols()) %>% 
+  glimpse()
+```
 
+`r nrow(log)` dates recoded entries.  
+
+Variables recoded
+```{r}
+log %>% 
+  tabyl(var_name)
+```
+
+Start study recodes   
+```{r}
+log %>% 
+    filter(var_name == "StartStudy") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Screen recodes   
+Most entries were to add subids who completed screen but did not complete intake. 
+```{r}
+log %>% 
+  filter(var_name == "Screen") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Intake recodes   
+```{r}
+log %>% 
+  filter(var_name == "Intake") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+Followup visit recodes   
+```{r}
+log %>% 
+  filter(var_name %in% c("Followup1", "Followup2", "FinalVisit")) %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+End study recodes    
+Most of these entries were imputed for passively discontinued participants (the process for how these decisions were reached are all documented in the end study EDA section of this script)
+```{r}
+log %>% 
+  filter(var_name == "EndStudy") %>% 
+  select(-var_name) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(height = "500px", width = "100%")
+```
+
+
+#### Clean visit dates
+```{r}
 visit_dates <- add_subs(visit_dates, log)
 
 visit_dates <- visit_dates %>%
@@ -161,40 +259,43 @@ visit_dates <- visit_dates %>%
 ```
 
 
-## EDA for cleaned visit dates
+### EDA for cleaned visit dates
 
-The original visit date will be compared to the raw uncleaned survey end date. Where there are discrepancies we will look at the cleaned session form dates and notes for a resolution.  
+Notes for how I approached EDA are below - KW     
 
-Note KW: not using raw session form dates since these files are not in a single aggregate file. Due to the data having already been cleaned, the session forms will be used as a note file to help us resolve discrepancies whereas the raw survey dates will be used directly in the EDA to locate errors and discrepancies.  
-
-Note KW: EMA data will also be brought in later to perform EDA on start and end study dates.  
+* The original visit date will be compared to the uncleaned **raw survey** end date. Where there are discrepancies we will look at the cleaned session form dates, google calendar, and notes for a resolution.  
+* Since the surveys are uncleaned we will also check the **cleaning logs** for the surveys in case there are any blatant errors in dates that have already been resolved or documented.   
+* not using raw session form dates since these files are not in a single aggregate file. Due to the data having already been cleaned, the **processed session forms** will be used as a note file to help us resolve visit date discrepancies whereas the raw survey dates will be used directly in the EDA to locate errors and discrepancies.  
+* Since the **google calendar** was not intended to be data when study staff were using it, it will be used as another note file to help resolve visit date discrepancies that arise.   
+* **Processed EMA** data will be used to perform EDA on the start and end study dates.  
+* **Raw notes** will be used to provide context to the discrepancies and decisions to resolve when available.   
 
 ### Import supporting data
 
 Will compare visit dates against raw uncleaned survey end dates
 ```{r}
-screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
-intake <- read_csv(file.path(path_raw, 'qualtrics/intake.csv'), col_types = cols())
-screen <- read_csv(file.path(path_raw, 'qualtrics/screen.csv'), col_types = cols())
-followup_12 <- read_csv(file.path(path_raw, 'qualtrics/followup_12.csv'), col_types = cols())
-followup_3 <- read_csv(file.path(path_raw, 'qualtrics/followup_3.csv'), col_types = cols())
+screen <- read_csv(here(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+intake <- read_csv(here(path_raw, 'qualtrics/intake.csv'), col_types = cols())
+screen <- read_csv(here(path_raw, 'qualtrics/screen.csv'), col_types = cols())
+followup_12 <- read_csv(here(path_raw, 'qualtrics/followup_12.csv'), col_types = cols())
+followup_3 <- read_csv(here(path_raw, 'qualtrics/followup_3.csv'), col_types = cols())
 ```
 
 cleaned session form end dates, raw_notes, survey logs, and google calendar will provide info to resolve discrepancies
 ```{r}
-session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
-session_intake <- read_csv(file.path(path_data, 'session_intake.csv'), col_types = cols())
-session_screen <- read_csv(file.path(path_data, 'session_screen.csv'), col_types = cols())
-session_followup_12 <- read_csv(file.path(path_data, 'session_followup_12.csv'), col_types = cols())
-session_followup_3 <- read_csv(file.path(path_data, 'session_followup_3.csv'), col_types = cols())
+session_screen <- read_csv(here(path_data, 'session_screen.csv'), col_types = cols())
+session_intake <- read_csv(here(path_data, 'session_intake.csv'), col_types = cols())
+session_screen <- read_csv(here(path_data, 'session_screen.csv'), col_types = cols())
+session_followup_12 <- read_csv(here(path_data, 'session_followup_12.csv'), col_types = cols())
+session_followup_3 <- read_csv(here(path_data, 'session_followup_3.csv'), col_types = cols())
 
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols())
-cal <- ical::ical_parse_df(file.path(path_raw, "gcal_risk.ics"))
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols())
+cal <- ical::ical_parse_df(here(path_raw, "gcal_risk.ics"))
 
-log_screen <- read_csv(file.path(path_log, "log_screen.csv"), col_types = cols())
-log_intake <- read_csv(file.path(path_log, "log_intake.csv"), col_types = cols())
-log_followup_12 <- read_csv(file.path(path_log, "log_followup_12.csv"), col_types = cols())
-log_followup_3 <- read_csv(file.path(path_log, "log_followup_3.csv"), col_types = cols())
+log_screen <- read_csv(here(path_log, "log_screen.csv"), col_types = cols())
+log_intake <- read_csv(here(path_log, "log_intake.csv"), col_types = cols())
+log_followup_12 <- read_csv(here(path_log, "log_followup_12.csv"), col_types = cols())
+log_followup_3 <- read_csv(here(path_log, "log_followup_3.csv"), col_types = cols())
 ```
 
 load google calendar function
@@ -226,7 +327,7 @@ dup_subs <- visit_dates %>%
 naniar::miss_var_summary(visit_dates)
 ```
 
-Note KW: 37 missing start, end, and intake dates are all confirmed to be subids who completed screen but did not complete intake - this could be due to screening ineligible, not showing up to intake, or leaving intake before completing visit.  
+Note: 37 missing start, end, and intake dates are all confirmed to be subids who completed screen but did not complete intake - this could be due to screening ineligible, not showing up to intake, or leaving intake before completing visit.  
 
 Check date ranges for each variable  
 No odd dates stand out
@@ -377,9 +478,6 @@ session_screen %>%
 ```
 
 
-<br>
-
-
 ### Intake
 
 #### Check subids with intake visit
@@ -470,8 +568,6 @@ log_intake %>%
   kable_styling()
 ```
 
-
-<br>
 
 
 ### Followup 1
@@ -626,7 +722,6 @@ notes %>%
   kable_styling()
 ```
 
-<br>
 
 ### Followup 2
 
@@ -675,7 +770,6 @@ notes %>%
 ```
 
 These are survey end dates for 3 at home surveys.  
-FIX: Note survey end date for subid 201 is 6/6/2019 and not 6/7/2019 - updated visits date to 6/6 from 6/7 in log but may want to discuss
 ```{r}
 followup_2 %>% 
   filter(subid %in% c(27, 34, 201)) %>% 
@@ -728,12 +822,11 @@ followup_2 %>%
   select(-response_id) %>%
   full_join(session_dates, by = "subid") %>%
   full_join(visit_dates %>% filter(subid %in% unresolved_subs$subid) %>% 
-              select(visit_date = followup_2, subid))
+              select(visit_date = followup_2, subid), by = "subid")
 ```
 
-<br>
 
-### followup 3/final visit
+### Followup 3/Final visit
 
 #### Check subids with followup 3 visit
 
@@ -812,7 +905,9 @@ followup_3 %>%
   filter(subid %in% followup_3_discrep$subid) %>%
   select(-c(response_id, finished)) %>%
   full_join(session_dates, by = "subid") %>%
-  full_join(visit_dates %>% filter(subid %in% followup_3_discrep$subid) %>% select(visit_date = final_visit, subid))
+  full_join(visit_dates %>% 
+              filter(subid %in% followup_3_discrep$subid) %>% 
+              select(visit_date = final_visit, subid), by = "subid")
 ```
 
 notes
@@ -841,14 +936,13 @@ log_followup_3 %>%
   kable_styling()
 ```
 
-<br>
 
 ## EDA for cleaned start and end study dates
 
 Read in EMA data
 ```{r}
-ema_morning <- read_csv(file.path(path_data, "ema_morning.csv"), col_types = cols()) 
-ema_later <- read_csv(file.path(path_data, "ema_later.csv"), col_types = cols()) 
+ema_morning <- read_csv(here(path_data, "ema_morning.csv"), col_types = cols()) 
+ema_later <- read_csv(here(path_data, "ema_later.csv"), col_types = cols()) 
 ```
 
 Create df of days with at least one ema for each subid
@@ -906,8 +1000,9 @@ ema_daily %>%
 * subid 48 was supposed to start study two days after intake, but they started EMA day after intake  
 * subid 62 - due to an error they didn't start receiving surveys until 5/19/2018 when they were supposed to start receiving them on 5/18/2018.  
 * subid 185 - As of 02/21/2019 the participant was still not registered for the Randomized surveys. As of 02/22/2019 the participant was registered and began responding to Randomized surveys.  
+* subid 204 - poor EMA compliance throughout duration of study.   
 
-FIX: Not sure why subid 2 started surveys on intake date
+None of these other discrepancies are alarming (all +/- 1 day from start_study day)
 
 
 
@@ -1159,7 +1254,7 @@ gg_miss_upset(visit_dates)
 
 ## Write CSV
 ```{r}
-write_csv(visit_dates, file.path(path_data, "visit_dates.csv")) %>% 
+write_csv(visit_dates, here(path_data, "visit_dates.csv")) %>% 
   glimpse()
 ```
 

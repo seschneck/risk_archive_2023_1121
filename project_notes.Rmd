@@ -149,6 +149,35 @@ based on up to a week of raw data preceding the observation of the outcome
 
 ### Resampling Choices
 
+## Dates and Time
+
+We save all times in the UTC timezone.  This timezone conversion happens automatically 
+when using `write_csv()` or `vroom_write()` to save a csv file.  These functions timestamp
+the time column values with a "Z" to indicate the UTC timezone.  These same functions
+read these time variables properly and assign the UTC timezone.
+
+We are converting times to "America/Chicago" timezone when doing EDA or otherwise 
+working with time variables.  This makes it easier to detect unusual values
+
+When working with date variables, we convert them to dttm time variables and set
+the time to midnight (the first moment in time of the day).  This allows for easier
+comparisons between date variables and time variables.  We can add days(1) to check 
+for times that occur after any date column.
+
+## Data Issues that cannot be cleaned
+**3**- Data: **GPS*. Participant had a major accident while in the study and was primarily at home recovering prior to follow-up #1 through follow-up #3.
+
+**047**- Data: **EMA**. Participant was withdrawn by study team due to EMA issues that could not be resolved.; Participant was not able to receive messages from survey signal; Participant was withdrawn at his follow-up #1 visit; Completed through follow-up #1; Had a tech troubleshooting appointment on 04/11/2018 RAs were not successful in assessing why the participant was not receiving messages
+
+**055, 061**- Data:  **All data**.  2/3/21 KW: Subject 55 was continued as subject 61 after a brief discontinuation. We are using their previous screen completed as subject 55, but a new intake completed as subject 61. All other files have been merged. See addition notes in `raw_notes.csv`
+
+**066**- Data: **People, Places**.  RA does not trust the contacts data given at FU #2 and FU#3. The participant seemed to be in a rush and marked several contacts irrelevant/spam and neglected to answer the contact follow-up questions when asked directly by RA; from session form - RA does not believe the participant gave quality data. She marked irrelevant spam for all of the unreported contacts she was asked about. Additionally, RA only had the opportunity to review one unreported contact because the participant had to leave to go to work. She arrived 20 minutes late for her visit and had to leave 40 minutes later, so we did not have time to complete the appointment. The participant did not tell RA ahead of time that she only had a short time to meet.
+
+**080**- Data: **GPS, EMA, Surveys**. From session form fu3 - Participant did not have any GPS data due to not putting FollowMee app on their phone. The participant also changed their number before their final visit and did not notify the lab, so they did not complete any surveys since early September. The new number has been saved in the enrollment database.
+
+**082**- Data: **All data**. Participant was discontinued because cell service was shut off; Participant reported that their phone was stolen when they arrived at their Follow up 2 - they had not been giving us data since 7/31/18; 7/20/2018
+
+**084**- Data: **GPS, All data**. Issues with phone throughout study; At FU1 participant said they had been out of the country and had issues with their technology
 
 ## Dates and Times
 
@@ -200,6 +229,9 @@ data.  Her specific role is TBD based on future discussions and level of
 involvement with Georgia Tech in analysis, writing, etc.  
 
 
+## Data Issues
+
+**3**- Data: **GPS*. Participant had a major accident while in the study and was primarily at home recovering prior to follow-up #1 through follow-up #3.
 
 
 # Full Cellular Communications Study Notes

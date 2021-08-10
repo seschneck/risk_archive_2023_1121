@@ -1,11 +1,11 @@
 ---
 title: "Andriod/SMS Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -18,10 +18,23 @@ knit: (function(input, ...) {
   })
 ---
 
-### Notes
-Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+### Code Status
 
-**Note: File not ready for analysis on text content. Emojis are accidently stripped in the aggregated csv file (may result in blank messages), still working on how to extract them from the xml files and will update.**    
+This script almost fully cleans sms android logs. EDA on all variables. See conclusions below for outstanding issues to address.     
+
+### Conclusions   
+
+* subid 2 has text content read in with differring numbers of trailing spaces on log 1 and 2. All other variables are identical. I correct for this at end of script, but more exploration should be done as to why this happened.   
+* This file is not ready for analyses with text content.    
+* Update encoding of text content so that emojis are properly encoded.   
+* All group messages are NA for text content - I think this is because group messages are MMS not SMS. Need to confirm in raw xml file.      
+* Check if other blank text messages are actually blank in logs or if encoding error (i.e., emojis not parsing).   
+* Date sent not showing consistently as 13 digit unix time stamp.    
+
+
+### Notes
+Purpose: This script contains code to open and merge all SMS log files in xml format from participants raw data folders. This is a project-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+
 
 
 Inputs:   
@@ -32,13 +45,10 @@ etc. for as many sms xml logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -55,6 +65,23 @@ switch (Sys.info()[['sysname']],
 ```
 
 
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
@@ -65,13 +92,6 @@ library(XML)
 library(xml2)
 ```
 
-Relative Paths
-```{r}
-library(here)
-
-path_log <- "shared/notes"
-```
-
 ### Android SMS Logs (XML) 
 
 #### Create function to read in subid logs
@@ -80,17 +100,17 @@ path_log <- "shared/notes"
 read_xml <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to XML logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.xml')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           
           # xml code adapted from Susan's fun_database script
           # use read_html instead of read_xml to avoid problem with emojis in contacts
-          xml <- xml_children(read_html(file.path(path)))
+          xml <- xml_children(read_html(here(path)))
  
           # fix for problem with nested list after switching to read_html()
           while (length(xml) == 1) {
@@ -135,7 +155,7 @@ read_xml <- function(subid) {
 ```{r}
 get_xml_ids <- function(subid) {
     log <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
@@ -390,7 +410,6 @@ all_logs %>%
 
 Compare two date entries for discrepancies    
 Readable date for 3 entries are 1 hour off. May be due to traveling?   
-FIX: Doesn't look like 60 minute difference?
 ```{r}
 all_logs %>% 
   mutate(date_str = as_datetime(readable_date, tz = "America/Chicago", 
@@ -439,7 +458,6 @@ all_logs %>%
 #### text content
 
 Random sample of truncated text content    
-FIX: Not seeing many emojis - may have accidently been stripped, working on solution.
 ```{r}
 all_logs %>% 
   select(body) %>% 
@@ -652,17 +670,102 @@ all_logs <- all_logs %>%
 ```
 
 
+### Final check for duplicates
+
+keep only unique rows across retained variables
+```{r}
+all_logs <- all_logs %>% 
+  distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) 
+```
+
+Check for non-identical duplicates
+```{r}
+dup_logs <- all_logs %>% 
+  count(across(c(subid, address, date, type, body))) %>% 
+  filter(n > 1)
+```
+
+`r nrow(dup_logs)` duplicates exist due to change in read or locked status or group messages with discrepant date sent 
+```{r}
+all_logs %>% 
+  left_join(dup_logs, by = c("subid", "address", "date", "type", "body")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
 
 ### Write csv
 ```{r}
 all_logs %>% 
-  # keep only unique rows across retained variables
-  distinct(., across(c(subid, address, date, type, body, read, status, locked,
-                       date_sent, contact_name)), .keep_all = TRUE) %>% glimpse()
-  write_csv(file.path(path_shared, "sms_android.csv")) %>% 
+  write_csv(here(path_shared, "sms_android.csv")) %>% 
   glimpse()
 ```
 
-**Note: date saved as UTC**
 
-<br>
+
+### Trouble shooting duplicates that appear after csv file is written and then read back in
+
+```{r}
+all_logs_in <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+Check for non-identical duplicates
+```{r}
+dups <- all_logs_in %>% 
+  count(across(-c(log_file, created, modified))) 
+
+all_logs_in %>%
+  left_join(dups, by = c("subid", "address", "date", "type", "body", "service_center", 
+                         "read", "status", "locked", "date_sent", "contact_name")) %>% 
+  filter(n > 1) %>% 
+  arrange(subid, date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+All duplicate issues are from subid 2
+```{r}
+dups %>% 
+  filter(n > 1) %>% 
+  count(subid)
+```
+
+Check original data   
+Appears to be a problem where subid 2 has their text content being read in with different numbers of trailing spaces
+```{r}
+options(tibble.width = Inf)
+
+all_logs %>% 
+  filter(subid == "002" & address == "6084386316" & type == "sent" & str_detect(body, "OMG yes!"))
+
+all_logs %>% 
+  filter(subid == "002" & address == "6083325736" & type == "inbox" & str_detect(body, "certainly help"))
+
+all_logs %>% 
+  filter(subid == "002" & address == "6082161412" & type == "sent" & str_detect(body, "I love not seeing you for three whole days."))
+```
+
+
+Remove trailing white space from subid 2's messages and remove duplicates
+```{r}
+all_logs <- all_logs %>% 
+  mutate(body = case_when(subid == "002" ~ str_trim(body),
+                          TRUE ~ body)) %>% 
+  distinct(across(-c(log_file, modified, created)), .keep_all = TRUE)
+```
+
+`r (nrow(all_logs_in) - nrow(all_logs))` duplicates removed.     
+
+
+### Re-write csv
+```{r}
+all_logs %>% 
+  write_csv(here(path_shared, "sms_android.csv")) %>% 
+  glimpse()
+```
+

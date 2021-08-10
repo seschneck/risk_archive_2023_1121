@@ -9,12 +9,17 @@ output:
 editor_options: 
   chunk_output_type: console
 ---
-  
-### Notes
-IMPORTANT:  THIS FILE WILL BE PARSED INTO SEPARARE FILES FOR EACH DATA SOURCE WITH 
+
+### Code Status
+THIS FILE WILL BE PARSED INTO SEPARARE FILES FOR EACH DATA SOURCE WITH 
 EDA ADDED FOR EACH FILE.  JJC HAS BEGUN TO DO THIS WITH THE LOCATIONS DATA SOURCE.
 
+Kendra has completed contacts.   Much of the rest of this parsing still needs to be 
+completed as we finalize cleaning of the RISK data
 
+This fill will eventually be deleted
+
+### Notes
 Purpose: This file does cleaning and basic processing of interview data.
 
 Inputs:  Opens data files in path_raw
@@ -46,17 +51,6 @@ Next steps:
 knitr::opts_chunk$set(results = "hold",  message = FALSE)
 ```
 
-
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-  # all codeblocks bigger than 500 px will be scrollable - can adjust as needed
-  # all codeblocks wider then 100% will be scollable - can make narrower with max-width: 50% or similar
-}
-```
 
 Functions
 ```{r}
@@ -127,9 +121,9 @@ known_locations <- merge_raw_files("Locations") %>%
 
 
 # FIX: This is a temp save b/c JJC needs this file.   We still need to do EDA before trusting these data!
-known_locations %>% 
-  select(subid, utc, street_address, city, state, type, drank, alcohol, emotion, risk, avoid, vacation, lat, long) %>%   #added by JJC b.c of prob with extra columns
-  write_csv(file.path(path_shared, "locations.csv"))
+# known_locations %>% 
+#   select(subid, utc, street_address, city, state, type, drank, alcohol, emotion, risk, avoid, vacation, lat, long) %>%   #added by JJC b.c of prob with extra columns
+#   write_csv(file.path(path_shared, "locations.csv"))
 ```
 
 ### Known contacts 
