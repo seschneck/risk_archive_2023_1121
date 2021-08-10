@@ -102,7 +102,7 @@ logs <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()
 
 Lapse labels dataframe
 ```{r}
-labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = vroom::cols()) %>% 
+labels <- vroom::vroom(here(path_shared, "labels_05.csv"), col_types = vroom::cols()) %>% 
   select(subid, hour) %>% 
   mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
   glimpse()
@@ -152,14 +152,14 @@ fun_list <- list(n_yes = ~sum(.x == "yes", na.rm = TRUE))
 logs_features <- map2_dfr(labels_demo$subid,
                           labels_demo$hour,
                           ~make_features(
-                            the_subid = .x,
-                            hour = .y,
-                            data = logs_demo_sms,
-                            lead_hours = 0, 
-                            period_duration_hours = 72,
-                            data_type = "sms",
-                            col_list = c("message_read", "message_is_group", "message_failed"),
-                            fun_list = fun_list)) %>% 
+                              the_subid = .x,
+                              the_dttm_label = .y,
+                              data = logs_demo_sms,
+                              lead_hours = 0, 
+                              period_duration_hours = 72,
+                              data_type = "sms",
+                              col_list = c("message_read", "message_is_group", "message_failed"),
+                              fun_list = fun_list)) %>% 
   glimpse()
 
 # add count of incoming sms messages and total sms messages
@@ -167,18 +167,18 @@ logs_features <- logs_features %>%
   full_join(map2_dfr(labels_demo$subid,
                      labels_demo$hour,
                      ~make_features(
-                      the_subid = .x,
-                      hour = .y,
-                      data = logs_demo_sms,
-                      lead_hours = 0, 
-                      period_duration_hours = 72,
-                      data_type = "sms",
-                      col_list = c("originated"),
-                      fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
-                                      n_total_messages = ~n()))),
+                        the_subid = .x,
+                        the_dttm_label = .y,
+                        data = logs_demo_sms,
+                        lead_hours = 0, 
+                        period_duration_hours = 72,
+                        data_type = "sms",
+                        col_list = c("originated"),
+                        fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                        n_total_messages = ~n()))),
             by = c("subid", "dttm_label")) %>% 
-  rename(sms_n_total_messages = sms_originated_n_total_messages,
-         sms_n_incoming = sms_originated_n_incoming) %>% 
+  rename(sms_n_total_messages = sms_n_total_messages_originated,
+         sms_n_incoming = sms_n_incoming_originated) %>% 
   glimpse()
 ```
 
