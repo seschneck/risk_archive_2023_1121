@@ -1,3 +1,8 @@
+# WE NEED TO MOVE THESE SCRIPTS TO fun_gps.R in toolboxes/lab_support
+# THIS WILL BE TRUE FOR CURRENT AND FOLLOWMEE FUNCTIONS
+
+
+
 #Functions for manipulation of GPS data
 
 # Required packages -------------------------------------------------------

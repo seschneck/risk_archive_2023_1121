@@ -268,7 +268,7 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
 }
 
 
-get_feature_period <- function(subid, hour, data, lead_hours, period_duration_hours) {
+get_feature_period <- function(the_subid, hour, data, lead_hours, period_duration_hours) {
   
   # This function filters data rows based on a lapse label (subid and hour) passed in
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
@@ -278,7 +278,7 @@ get_feature_period <- function(subid, hour, data, lead_hours, period_duration_ho
   # Set period duration hours to set the duration over which you wish to use data from  
   
   data <- data %>% 
-    filter(subid == get("subid")) %>% 
+    filter(subid == the_subid) %>% 
     # filter on period duration hours
     mutate(period_start_dttm = hour - duration(period_duration_hours, "hours")) %>% 
     filter(dttm_obs >= period_start_dttm) %>% 
@@ -289,3 +289,35 @@ get_feature_period <- function(subid, hour, data, lead_hours, period_duration_ho
   
   data
 }
+
+
+
+make_features <- function (the_subid, hour, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
+  
+  # This function takes a list of columns and list of functions to use for feature engineering 
+  # It maps over a lapse label row taking in subid and hour
+  # It calls the get_feature_period function and passes in the subid, hour, lead_hours 
+  # and period_duration_hours parameters to narrow down the data to the appropriate 
+  # rows for a lapse observation
+  # It returns a single row of features (data_feat) for each lapse label 
+  # data type is used for naming features
+  
+  # If using this function multiple times you should join returned feature set with 
+  # previous feature set on subid and dttm_label
+  
+  # filter down data
+  data <- get_feature_period(the_subid, hour, data, lead_hours, period_duration_hours)
+  
+  # create features
+  data_feat <- data %>% 
+    # all_of is for strict selection - error thrown if any variables are missing
+    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.col}_{.fn}")) %>% 
+    mutate(subid = the_subid,
+           dttm_label = hour) %>% 
+    relocate(subid, dttm_label)
+  
+  data_feat
+  
+}
+
+

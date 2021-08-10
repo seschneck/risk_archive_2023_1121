@@ -1,11 +1,11 @@
 ---
 title: "IOS/SMS Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -18,12 +18,24 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+These data are not fully cleaned. In this script I have documented all the information I have found so far about what the different variables are and what potential issues might exist. See conclusions below for big outstanding issues.       
+
+
+### Conclusions      
+
+* This file not ready for analysis on text content. 
+* Update encoding of text content so that emojis are properly encoded.    
+* Check blank text messages are actually blank in logs or if encoding error.    
+* I have not completed full EDA on every variable. I am still trying to figure out what most of these mean. Focus is on variables relevant for meta study.    
+* Duplicates appear to exist due to how group messages are handled. Same date, text, number but message_id, guid, other_handle, and other unique message identifiers seem to differ.   
+
+
 ### Notes
-Purpose: This script contains code to open and merge all SMS log files in SQL format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
+Purpose: This script contains code to open and merge all SMS log files in SQL format from participants raw data folders. This is a project-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.     
 
-**Note: File not ready for analysis on text content. Emojis may not be properly encoded in aggregated csv file, still working on how to extract them from the SQL files and will update.**   
-
-**Note: Have not completed full EDA on every variable. Still trying to figure out what most of these mean. Focus is on variables relevant for meta study.**   
+  
 
 Inputs:   
 [subid]_SMS_1.sql  
@@ -33,13 +45,10 @@ etc. for as many sms sql logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -53,6 +62,23 @@ switch (Sys.info()[['sysname']],
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"})
+```
+
+
+Relative Paths
+```{r}
+path_log <- "shared/notes"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -110,7 +136,11 @@ read_sql <- function(subid) {
           log <- log %>% 
             left_join(chat_handle_join %>% 
             group_by(chat_id) %>% 
+<<<<<<< HEAD
             summarise(n = n()), by = "chat_id")
+=======
+            summarise(n_people_in_chat = n()), by = "chat_id")
+>>>>>>> issue_12_cln_scripts
           
           # Add subid and log information to dataframe
           log <- log %>% 
@@ -143,7 +173,7 @@ read_sql <- function(subid) {
 ```{r}
 get_sql_ids <- function(subid) {
     log <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "SMS", include.dirs = FALSE)
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
@@ -233,23 +263,22 @@ all_logs <- all_logs %>%
 
 ### EDA
 
+Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
+
+Max date looks good - min date must be due to someone having old messages.   
+
+
 `r length(unique(all_logs$subid))` subids had SQL sms data logs read in.   
 
 sql file detected for subid 9 but not read in     
 NOTE: 3 logs exist but no observations in logs
-```{r}
+```{r message = FALSE}
 sql_subids %>% 
   filter(!subid %in% all_logs$subid)
 
 subid_9 <- read_sql("009") %>% 
   glimpse()
 ```
-
-
-
-Dates range from `r min(all_logs$date)` to `r max(all_logs$date)`  
-
-Max date looks good - min date must be due to someone having old messages.   
 
 
 #### missing data
@@ -338,25 +367,18 @@ all_logs <- all_logs %>%
   select(-ck_record_id)
 ```
 
-ck_record_change_tag
-FIX: not sure yet what this is
+ck_record_change_tag - not sure yet what this is
 ```{r}
 all_logs %>% 
   filter(!is.na(ck_record_change_tag)) %>% 
   count(ck_record_change_tag) %>% 
   head(n = 10)
-
-all_logs %>% 
-  filter(ck_record_change_tag == 100) %>% 
-  kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
 ```
 
 destination_caller_id
-This is just the subid's phone number or apple id account that they make calls through - dont need
+This is just the subid's phone number or apple id account that they make calls through - dont need    
+Not just outgoing calls have value
 ```{r}
-# Not just outgoing calls have value
 all_logs %>% 
   filter(!is.na(destination_caller_id)) %>% 
   tabyl(is_from_me)
@@ -401,7 +423,7 @@ all_logs %>%
 
 Duplicate messages still exist   
 Same message, but variables such as row_id, handle_id, version, account, etc. differ   
-FIX: Duplicates from group messages?
+FIX: Duplicates likely from group messages
 ```{r}
 duplicate_guids <- all_logs %>% 
   count(guid) %>% 
@@ -433,9 +455,9 @@ all_logs %>%
 
 #### ID (phone number)
 
-`r nrow(subset(all_logs, is.na(phone_number)))` missing phone numbers
+`r nrow(subset(all_logs, is.na(phone_number)))` missing phone numbers   
 
-Fix: most missing numbers are sent messages to a group chat.   
+Most missing numbers are sent messages to a group chat.    
 Chat Id is a way to see thread of group messages.  
 
 ```{r}
@@ -486,7 +508,7 @@ tabyl(all_logs$group_action_type)
 
 #### Text message content
 
-Some messages look blank but have a unicode object replacement character   
+Some messages look blank but have a unicode object replacement character      
 FIX: Does this mean an image or object was sent via text?
 ```{r}
 all_logs %>% 
@@ -503,9 +525,8 @@ FIX: Use vroom instead of write_csv? write_csv is slow
 all_logs %>% 
   # keep only unique rows across retained variables
   distinct(across(-c(log_file, created, modified)), .keep_all = TRUE) %>% 
-  write_csv(file.path(path_shared, "sms_ios.csv")) %>% 
+  write_csv(here(path_shared, "sms_ios.csv")) %>% 
   glimpse()
 ```
 
-Note: all dates exported as UTC
 

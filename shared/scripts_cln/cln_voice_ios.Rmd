@@ -1,11 +1,11 @@
 ---
 title: "IOS/Voice Logs"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -18,8 +18,33 @@ knit: (function(input, ...) {
   })
 ---
 
+### Code Status
+
+These data are not fully cleaned. In this script I have documented all the information I have found so far about what the different variables are. I am still trying to figure out what some of the variable response options are.   
+
+The following variables have been fully cleaned:   
+
+* subid   
+* zdate    
+* zaddress   
+* zduration   
+* zanswered   
+* zoriginated   
+* zunique_id   
+* zcall_type   
+* z_opt   
+* zservice_provider    
+
+
+### Conclusions
+
+* Many variables have 1040 missing values. These missing values are a result of some log entries at the end being in csv format instead of sql and having limited information/variables to work with.     
+* A wait tells the phone to wait for action by the user (tapping a button) before dialing the next sequence of numbers. A wait in a phone number is denoted by a semi-colon ; for example: 222-222-2222;12345. Waits are not addressed in this project level clean script.      
+* Two log entries are missing the date. Their SQL file had an invalid unix time stamp and we were unable to extract the date.    
+
+
 ### Notes
-Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a study-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
+Purpose: This script contains code to open and merge all voice log files in sql and csv format from participants raw data folders. This is a project-level clean script so cleaning is minimal. Errors that don't have an obvious solution are highlighted in this clean script but are not corrected for. These will need to be corrected during pre-processing at the study-level.   
 
 Inputs:   
 [subid]_Voice_1.sql  
@@ -29,13 +54,10 @@ etc. for as many voice sql logs in the subid's folder
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
 Absolute Paths 
@@ -52,6 +74,13 @@ switch (Sys.info()[['sysname']],
 ```
 
 
+Relative Paths
+```{r message = FALSE}
+library(here)
+path_log <- "shared/notes"
+```
+
+
 Packages and Source
 ```{r, message = FALSE}
 library(tidyverse)
@@ -64,12 +93,6 @@ options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
 
-Relative Paths
-```{r warning = FALSE}
-library(here)
- 
-path_log <- "shared/notes"
-```
 
 
 ### Read in data 
@@ -80,13 +103,13 @@ path_log <- "shared/notes"
 read_sql <- function(subid) {
     logs <- tibble(subid = character(),
                    message = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.sql')) {
-          path <- file.path(path_raw, subid, file)
+          path <- here(path_raw, subid, file)
           log_db <- dbConnect(RSQLite::SQLite(), path)
           
           log <- dbGetQuery(log_db,'select * from ZCALLRECORD')
@@ -155,14 +178,17 @@ subids <- list.dirs(path_raw, recursive = FALSE, full.names = FALSE) %>%
 
 
 #### read in sql logs
+
+FIX: Warning message explains that it is coercing a mixed type variable containing integers to string. I can cast this column as a character during SQL query but it gets complicated because then I can't just select all (*) and I might miss a newly appearing variable. Keeping this with warning until better fix is determined. Will carefully check ZFACE_TIME_DATA variable during EDA below. 
+
 ```{r message = FALSE}
 all_logs <- tibble(subid = character())
 all_logs <- map_df(subids$subid, ~read_sql(.)) %>% 
   glimpse()
 ```
 
-FIX: Warning message explains that it is coercing a mixed type variable containing integers to string. I can cast this column as a character during SQL query but it gets complicated because then I can't just select all (*) and I might miss a newly appearing variable. Keeping this with warning until better fix is determined. Will carefully check ZFACE_TIME_DATA variable during EDA below.   
-FIX: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS). 100% are missing values for ZLOCAL_ADDRESS and UUID variables do not seem to contain relevant info. Keeping variables for closer inspection with EDA. Also found 2 new tables in later SQL files - need to look more into these tables. They don't seem notably important from first looks.     
+
+Note: New binary objects appearing in more recent SQL files (ZLOCALPARTICIPANTUUID, ZOUTGOINGLOCALPARTICIPANTUUID, ZLOCAL_ADDRESS). 100% are missing values for ZLOCAL_ADDRESS and UUID variables do not seem to contain relevant info (have about 75% missing data). Keeping variables for closer inspection with EDA.     
 
 
 #### Separate logs and messages
@@ -185,14 +211,14 @@ logs_ios <- all_logs %>%
 ```{r}
 read_csv <- function(subid) {
     logs <- tibble(subid = character())
-    log_files <- list.files(file.path(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
+    log_files <- list.files(here(path_raw, subid), pattern = "Voice", include.dirs = FALSE)
     # subids 1-15 have a RawSMSVoice folder in addition to SQL logs - not including this folder 
     log_files <- discard(log_files, log_files == "RawSMSVoice")
     if(length(log_files) > 0) {
       for(file in log_files) {
         if(str_detect(file,'.xls')) {
-          path <- file.path(path_raw, subid, file)
-          log <- readxl::read_excel(file.path(path)) %>% 
+          path <- here(path_raw, subid, file)
+          log <- readxl::read_excel(here(path)) %>% 
             mutate(subid = subid,
                    # convert to character for merging
                    Number = as.character(Number),
@@ -531,7 +557,7 @@ logs_ios %>%
   tabyl(ZANSWERED)
 ```
 
-FIX: Not sure how some calls that were incoming and answered have a duration of 0 seconds
+Note: Some calls that were incoming and answered have a duration of 0 seconds
 ```{r}
 logs_ios %>% 
   filter(ZDURATION == 0) %>% 
@@ -685,8 +711,6 @@ logs_ios %>%
   kable_styling()
 ```
 
-FIX: keep the first entry or have duplicate with different read value
-
 
 
 #### Primary key
@@ -774,9 +798,9 @@ logs_ios <- logs_ios %>%
 logs_ios <- logs_ios %>% 
   janitor::clean_names()
 
-write_csv(logs_ios, file.path(path_shared, "voice_ios.csv")) %>% 
+write_csv(logs_ios, here(path_shared, "voice_ios.csv")) %>% 
   glimpse()
 ```
 
-Note: date saved as UTC
+
 

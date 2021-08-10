@@ -1,15 +1,34 @@
 ---
 title: "Session FU12 Clean File"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
-    code_folding: show
     toc: true 
     toc_depth: 3
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+These data are fully cleaned and checked with EDA.        
+
+### Conclusions 
+
+* Reminder that session forms are considered notes not data.         
+* For this reason times on start and end dates may not have accurate precision. For example, study staff may have started session form prior to participant arriving or gone back into the survey to make updates which changes the start and end time. That being said at the date level all start and end times are accurate.   
+* UTC time stamp is actually in British Summer time which gains an hour during daylight savings.   
+* Number of completed session forms may not match number of completed surveys due to some participants completing a followup visit from home.   
+
 
 ### Notes
 This script creates a single csv file from the three raw data session FU12 files. Uses cleaning function to clean according to data log. Includes file merging and minimal variable renaming (only to merge files with inconsistent names).    
@@ -28,48 +47,69 @@ Output:
 
 * session_followup_12.csv 
 
+### Setup
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(message = FALSE)
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+Absolute Paths 
+```{r absolute_paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_in <- "P:/studydata/risk/data_raw/qualtrics"
+          path_out <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_in <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
 ```
 
-Paths
+Relative paths
 ```{r}
-path_in <- "./raw_data/qualtrics"
-path_out <- "./analysis/shared/data"
-path_log <- "./analysis/shared/notes"
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
 library(kableExtra)
 
-source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
 
 
 ### Read in session screen csvs
 
 ```{r}
-session_1 <- read_csv(file.path(path_in, "session_followup_12_v1.csv")) %>%
+session_1 <- read_csv(here(path_in, "session_followup_12_v1.csv"), col_types = cols()) %>%
   rename(subid = Q4, response_id = ResponseID) %>% 
   glimpse()
-session_2 <- read_csv(file.path(path_in, "session_followup_12_v2.csv")) %>% 
+session_2 <- read_csv(here(path_in, "session_followup_12_v2.csv"), col_types = cols()) %>% 
   rename(subid = Q4, response_id = ResponseID) %>% 
   glimpse()
-session_3 <- read_csv(file.path(path_in, "session_followup_12_v3.csv")) %>% 
+session_3 <- read_csv(here(path_in, "session_followup_12_v3.csv"), col_types = cols()) %>% 
   rename(subid = SSFU_4, response_id = ResponseID) %>% 
   glimpse()
 ```
@@ -78,10 +118,10 @@ session_3 <- read_csv(file.path(path_in, "session_followup_12_v3.csv")) %>%
 
 Open logs
 ```{r}
-log_1 <- read_csv(file.path(path_log, "log_session_followup_12_v1.csv"))  %>% 
+log_1 <- read_csv(here(path_log, "log_session_followup_12_v1.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
-log_2 <- read_csv(file.path(path_log, "log_session_followup_12_v2.csv"))  %>% 
+log_2 <- read_csv(here(path_log, "log_session_followup_12_v2.csv"), col_types = cols())  %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -276,8 +316,20 @@ session_3 <- session_3 %>%
 ### Merge data sets
 ```{r}
 fu_12_session <- session_1 %>% 
-  full_join(session_2) %>% 
-  full_join(session_3) %>% 
+  full_join(session_2, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "ssfu_2", "ssfu_5", "ssfu_6", 
+                              "q22", "q23", "ssfu_11", "ssfu_12", "ssfu_13", 
+                              "ssfu_14", "ssfu_15", "q35", "q36", "ssfu_20", 
+                              "ssfu_21", "ssfu_22", "ssfu_25", "ssfu_26", "ssfu_27", 
+                              "ssfu_28", "ssfu_29", "ssfu_30", "ssfu_33", "ssfu_34", 
+                              "ssfu_35", "ssfu_36", "ssfu_40")) %>% 
+  full_join(session_3, by = c("response_id", "subid", "start_date", "end_date", 
+                              "utc", "finished", "ssfu_2", "ssfu_5", "ssfu_6", 
+                              "ssfu_11", "ssfu_12", "ssfu_13", "ssfu_14", "ssfu_15", 
+                              "ssfu_20", "ssfu_21", "ssfu_22", "ssfu_25", "ssfu_26", 
+                              "ssfu_27", "ssfu_28", "ssfu_29", "ssfu_30", "ssfu_33", 
+                              "ssfu_34", "ssfu_35", "ssfu_36", "ssfu_40", "ssfu_7", 
+                              "ssfu_8", "ssfu_19")) %>% 
   glimpse()
 
 rm(session_1, session_2, session_3)
@@ -294,9 +346,6 @@ All timezones in UTC
 fu_12_session %>% 
   select(start_date, end_date) %>% 
   map(tz)
-
-print(fu_12_session$start_date)
-print(fu_12_session$end_date)
 ```
 
 UTC values that do not fall within range of start_date to end_date
@@ -361,7 +410,7 @@ fu_12_session %>%
 Missing ssfu_5 (time arrived) values represent no shows documented.  
 ssfu_10 ("If no please explain below (interview form updated)") and ssfu_17 ("If no please explain below (ema form updated)") was blank for all participants.   
 
-FIX: subid 98 has a completely blank FU 2 session form other than arrival time. No notes why.  
+subid 98 has a completely blank FU 2 session form other than arrival time. No notes why.  
 
 Nothing else appears problematic in missing data.  
 
@@ -521,7 +570,8 @@ fu_12_session %>%
 ### Save
 
 ```{r}
-write_csv(fu_12_session, file.path(path_out, "session_followup_12.csv"))
+write_csv(fu_12_session, here(path_out, "session_followup_12.csv")) %>% 
+  glimpse()
 ```
 
 

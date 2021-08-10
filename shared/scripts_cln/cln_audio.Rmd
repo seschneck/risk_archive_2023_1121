@@ -1,40 +1,81 @@
 ---
 title: "Clean Audio Metadata"
 author: "Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
-    toc_depth: 2
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+EDA on all meta data variables. Still need to merge transcripts into file for NLP.   
+
+
+
+### Conclusions   
+
+* 162 subids have audio files - all subids without audio were manually confirmed by checking raw data folders.   
+
+* Code runs REALLY slow.  Need to use future_map or foreach loops to speed it up but I have not figured out how to do this yet.    
+
+* There are some duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date. 
+
+KW: Note from one subid 27 might shed some enlightenment on duplicate files    
+"Participant reported that it is sometimes hard to send the audio message as the microphone button does not always stay activated. To resolve this issue, the participant reported that she sometimes has to send multiple messages to prevent the need to re-record the message that cut off."     
+
 
 ### Notes
 Purpose: This script gets metadata info regarding daily check in, such as number of days with audio, file names, and duration of audio clip.   
+  
 
-**Can add audio transcripts to this script at a later date**   
-
-FIX: This script takes a long time to run - need to use future_map or foreach loops to speed it up but I have not figured out how to do this yet.  
 
 Inputs:  
+
 * raw audio files
 
 
 ### Setup
-```{css, include = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
-Paths 
+Absolute Paths 
 ```{r}
-path_raw <- "/Volumes/private/StudyData/RISK/raw_data"
-path_out <- "/Volumes/private/StudyData/RISK/analysis/shared/data"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_out <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -52,40 +93,44 @@ library(av)
 
 ```{r message = FALSE}
 read_audio <- function(subid) {
-    audio_log <- tibble(subid = character(),
-                   message = character())
-    audio_files <- list.files(file.path(path_raw, subid, "Audio"))
-    if(length(audio_files) > 0) {
-      for(file in audio_files) {
-        path <- file.path(path_raw, subid, "Audio", file)
-        extension <- str_extract(path, "[^.]*$")
+  
+  audio_log <- tibble(subid = character(), message = character())
+  audio_files <- list.files(here(path_raw, subid, "Audio"))
+  if(length(audio_files) > 0) {
+    for(file in audio_files) {
+      path <- here(path_raw, subid, "Audio", file)
+      extension <- str_extract(path, "[^.]*$")
+      
+      # filter out non-audio files
+      if(extension != "db" & extension != "lnk") {
         
-        # filter out non-audio files
-        if(extension != "db" & extension != "lnk") {
+        log <- tibble(subid = subid,
+               audio_file_name = file,
+               created = file.info(path)$ctime,
+               modified = file.info(path)$mtime,
+               
+               # estimated duration of audio clip from bitrate
+               duration = av_media_info(path)$duration) %>% 
           
-          log <- tibble(subid = subid,
-                 audio_file_name = file,
-                 created = file.info(path)$ctime,
-                 modified = file.info(path)$mtime,
-                 
-                 # estimated duration of audio clip from bitrate
-                 duration = av_media_info(path)$duration) %>% 
-            
-                 # extract date from file name
-                 mutate(date = str_trunc(audio_file_name, 13, "right", ellipsis = ""),
-                 date = str_trunc(date, 9, "left", ellipsis = ""),
-                 date = str_replace(date, "_", ""),
-                 date = ymd(date))
+               # extract date from file name
+               mutate(date = str_trunc(audio_file_name, 13, "right", ellipsis = ""),
+               date = str_trunc(date, 9, "left", ellipsis = ""),
+               date = str_replace(date, "_", ""),
+               date = ymd(date))
 
-          audio_log <- audio_log %>%
-            full_join(log) 
-        } 
-      }
-      return(audio_log)
-      } else if(length(audio_files) == 0){
-        audio_log <- audio_log %>% add_row(subid = subid, message = "No audio files found")
-        return(audio_log)
+        audio_log <- audio_log %>%
+          full_join(log) %>% 
+          suppressMessages()
+      } 
     }
+    
+  return(audio_log)
+    
+  } else if(length(audio_files) == 0) {
+    audio_log <- audio_log %>% 
+      add_row(subid = subid, message = "No audio files found")
+    return(audio_log)
+  }
 }
 ```
 
@@ -104,9 +149,6 @@ all_audio <- map_df(subids$subid, ~read_audio(.)) %>%
   glimpse()
 ```
 
-<br>
-
-<br>
 
 ### EDA 
 
@@ -126,7 +168,7 @@ no_audio <- all_audio %>%
 
 `r nrow(audio)` sleep observations from `r length(unique(audio$subid))` subids.  
 `r length(unique(no_audio$subid))` subids have no audio files.   
-*Subids with no audio were mnaually confirmed by checking raw data folders*   
+*Subids with no audio were manually confirmed by checking raw data folders*   
 
 Audio data ranges from `r min(audio$date)` to `r max(audio$date)`  
 
@@ -145,7 +187,7 @@ audio %>%
 ```
 
 more than 90 days worth of audio files
-```{r}
+```{r, attr.output='style="max-height: 300px;"'}
 audio %>% 
   count(subid) %>% 
   filter(n > 90)
@@ -154,21 +196,21 @@ audio %>%
 
 #### check for duplicate dates
 
-```{r}
+```{r, attr.output='style="max-height: 300px;"'}
 audio %>% 
   count(subid, date) %>% 
   filter(n > 1) %>% 
   arrange(desc(n))
 ```
 
-```{r}
+```{r, attr.output='style="max-height: 300px;"'}
 audio %>% 
   filter(subid == 128) %>% 
   select(subid, date, duration) %>% 
   print(n = Inf)
 ```
 
-FIX: Not clear why there is duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date.  
+FIX: Not clear why there are duplicate entries on a single date. Possibly they thought the audio was not sending. Will investigate more at a later date.  
 
 
 
@@ -197,14 +239,13 @@ short_audio <- audio %>%
 
 There are `r nrow(short_audio)` short audio files (less than 5 seconds long), but there is a clear pattern among subids.  
 `r length(unique(short_audio$subid))` subids make up all the short audio clips.    
-```{r}
+```{r, attr.output='style="max-height: 300px;"'}
 print(short_audio, n = Inf)
 ```
 
 
 ### Write csv
-```{r}
-write_csv(audio, file.path(path_out, "audio.csv")) %>% 
+```{r, attr.output='style="max-height: 300px;"'}
+write_csv(audio, here(path_out, "audio_.csv")) %>% 
   glimpse()
 ```
-

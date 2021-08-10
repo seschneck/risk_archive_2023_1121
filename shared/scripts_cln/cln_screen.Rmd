@@ -1,14 +1,34 @@
 ---
 title: "Clean and process the raw qualtrics screen"
 author: "John Curtin and Kendra Wyant"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+date: "`r lubridate::today()`"
 output: 
   html_document:
-  toc: true 
-toc_depth: 4
+    toc: true 
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
+
+### Code Status
+
+These data are fully cleaned. EDA on all variables. 
+
+### Conclusions 
+
+* Start and end times all have accurate dates. No obvious timing errors but there is variation in time taken to complete survey (see bullets below). Will want to further explore timing component of start and end date variables if using these in your study.    
+* Subids 9 and 187 have start and end dates less than 15 minutes apart due to these being corrected to match utc via cleaning log.   
+* 5 subids have start and end time difference of more than 3 hours apart. Only subid 155 has notes explaining the long survey. However, other 4 may be due to the survey not getting closed out until the entire screen session was over.   
+* UTC unix time stamp is actually in British Summer Time which gains an hour during daylight savings.   
+
   
 ### Notes
 Purpose: This file does cleaning and basic processing of the qualtrics screen survey.
@@ -37,27 +57,45 @@ Creates file in path_out
 
 
 ### Setup
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(results = "hold",  message = FALSE)
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 ```
 
+Absolute Paths 
+```{r absolute_paths}
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_in <- "P:/studydata/risk/data_raw/qualtrics"
+          path_out <- "P:/studydata/risk/data_processed/shared"
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_in <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
+          path_out <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
 ```
 
-
-Paths 
+Relative paths
 ```{r}
-path_in <- "raw_data/qualtrics"
-path_out <- "analysis/shared/data"
-path_log <- "analysis/shared/notes" 
-path_raw <- "raw_data"
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
 ```
 
 Packages and Source
@@ -69,7 +107,7 @@ library(kableExtra)
 library(psych)
 library(ical)
 
-source('P:/toolboxes/lab_support/clean_qualtrics_by_log.R')
+source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 ```
    
 ### Screening survey
@@ -79,7 +117,7 @@ Load survey and remove unused variables
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
 ```{r message = FALSE}
-screen <- read_csv(file.path(path_in, 'screen.csv'), col_types = cols())  %>% 
+screen <- read_csv(here(path_in, 'screen.csv'), col_types = cols())  %>% 
   select(-c(ResponseSet, IPAddress, RecipientLastName, RecipientFirstName,
             RecipientEmail, ExternalDataReference, Status,
             LocationLatitude, LocationLongitude, LocationAccuracy, DataType,
@@ -94,7 +132,7 @@ screen <- read_csv(file.path(path_in, 'screen.csv'), col_types = cols())  %>%
 
 Open and summarize data log
 ```{r}
-log_screen <- read_csv(file.path(path_log, "log_screen.csv"), col_types = cols()) %>% 
+log_screen <- read_csv(here(path_log, "log_screen.csv"), col_types = cols()) %>% 
   rowid_to_column("index") %>% 
   glimpse()
 ```
@@ -226,7 +264,6 @@ screen %>%
 144 - The participant will need to complete a screening session again if he wants to re-enroll in the project. He did sign a consent form. However, he did not reach seven days without drinking at the time of the screening session. He is interested in the study and will call back when he has a more concrete goal of sobriety.    
 148 - Does not meet criteria for moderate-severe alcohol use disorder (not sure why screen data is not showing up in data file)  
 
-<br>
 
 ##### Dates and Times 
 The earliest recorded report is from `r min(screen$start_date, na.rm = TRUE)` and the most recent is from `r max(screen$start_date, na.rm = TRUE)`.   
@@ -251,11 +288,11 @@ screen %>%
 - Can see clusters around start time and one hour after start time (*this is expected due to daylight savings issues surrounding British Summer Time*).  
 - A check on Qualtrics shows UTC gets piped in immediately after header block (subid, RA, real_data, etc.) 
 - 11 subids with a time difference of more than 70 minutes between start date and utc.  
-- 7 subids look particularly problematic with more than a 2 hour time difference.  
+- 7 subids with more than a 2 hour time difference.  
 
 No info from notes on subids with a 2 hour difference  
 ```{r}
-notes <- read_csv("./raw_data/raw_notes.csv", col_types = cols()) %>% 
+notes <- read_csv(here(path_log, "raw_notes.csv"), col_types = cols()) %>% 
   select(subid, notes_general)
 subs_2hrs <- screen %>% 
   select(subid, start_date, end_date, utc) %>% 
@@ -269,8 +306,6 @@ notes %>%
 ```
 
 
-
-<br>
 
 **Time difference in start and end date**  
 ```{r}
@@ -308,7 +343,6 @@ notes %>%
   kable_styling()
 ```
 
-<br>
 
 
 ##### Missing values
@@ -776,9 +810,6 @@ Save final clean data.  Variables will open with proper class on next load of da
 screen %>%
   select(-utc) %>% 
   glimpse() %>% 
-  write_csv(file.path(path_out, "screen.csv")) 
+  write_csv(here(path_out, "screen.csv")) 
 ```
-
-
-<br>
 
