@@ -292,7 +292,7 @@ get_feature_period <- function(the_subid, hour, data, lead_hours, period_duratio
 
 
 
-make_features <- function (the_subid, hour, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
+make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
   
   # This function takes a list of columns and list of functions to use for feature engineering 
   # It maps over a lapse label row taking in subid and hour
@@ -306,14 +306,14 @@ make_features <- function (the_subid, hour, data, lead_hours, period_duration_ho
   # previous feature set on subid and dttm_label
   
   # filter down data
-  data <- get_feature_period(the_subid, hour, data, lead_hours, period_duration_hours)
+  data <- get_feature_period(the_subid, the_dttm_label, data, lead_hours, period_duration_hours)
   
   # create features
   data_feat <- data %>% 
     # all_of is for strict selection - error thrown if any variables are missing
-    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.col}_{.fn}")) %>% 
+    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.fn}_{.col}")) %>% 
     mutate(subid = the_subid,
-           dttm_label = hour) %>% 
+           dttm_label = the_dttm_label) %>% 
     relocate(subid, dttm_label)
   
   data_feat
