@@ -25,12 +25,11 @@ KW currently working on this clean script.
 Still working on:   
 
 - clean up and manually check all log entries      
-- Check how to handle tz and recode_tz log entries    
+- Recode_tz log entries not currently handled with clean function       
 - Check how many days between EMAs (large gaps?)    
-- Check subid 269's data with 10-15 surveys on some days    
+- Check subid 269, 66, and 84's data with multiple surveys on some days and other subids averaging over 4 surveys a day        
 - Check if participants without lapses are missing EMAs     
 - Look at surveys completed in under 12 seconds    
-- Flag 5 lapses reported in under 30 seconds    
   
 
 ### Conclusion
@@ -39,7 +38,11 @@ Still working on:
 
 - Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
 
-- Subids 104 and 128 have over 100 reported lapses. According to notes, subid 104 reported lapses everyday on study.    
+- Subids 104 and 128 have over 100 reported lapses. According to notes, subid 104 reported lapses everyday on study.   
+
+- Subid 269 and 84 averages over 4 surveys a day - goes for several days with 10-15 completed surveys.   
+
+- 5 lapses are included in surveys completed in under 30 seconds.   
 
 
 ### Notes
@@ -228,7 +231,7 @@ log_all %>%
 
 #### recode_tz entries   
 
-*FIX: confirm tz is recoded and handled properly in r*
+*FIX: Need to implement these log entries into clean Qualtrics function*
 
 ```{r}
 log_all %>% 
@@ -414,8 +417,7 @@ ema_all %>%
 
 `r nrow(ema_all)` EMAS across `r length(unique(ema_all$subid))` unique subids  
 
-This currently includes EMAs under subid test     
-169 participants enrolled in study - 169 + test subid = 170 unique subids    
+This is the expected number for all enrolled subids       
 
 
 EMA counts per subid
@@ -432,8 +434,6 @@ visits <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::
   glimpse()
 
 ema_all_visits <- ema_all %>% 
-  # filter out test subid
-  filter(subid != "test") %>% 
   mutate(subid = as.numeric(subid)) %>% 
   left_join(visits %>% 
               select(subid, start_study, end_study), 
@@ -449,7 +449,7 @@ ema_all_visits <- ema_all_visits %>%
 
 Participants were on study for `r min(ema_all_visits$days_on_study)` - `r max(ema_all_visits$days_on_study)` days     
 
-NOTE: 5 subids have over 90 days on study - no notes as to why this is
+NOTE: 5 subids have over 90 days on study  
 ```{r}
 ema_all_visits %>% 
   filter(days_on_study > 90) %>% 
@@ -479,7 +479,6 @@ NOTE: This does not cap out possible daily EMAs at 4. Almost all participants co
 Days with more than 4 EMAs
 ```{r}
 ema_all_more_than_4 <- ema_all %>% 
-  filter(subid != "test") %>% 
   mutate(date = date(start_date)) %>% 
   count(subid, date) %>% 
   filter(n > 4)
@@ -492,13 +491,41 @@ There are `r nrow(ema_all_more_than_4)` instances of days with more than 4 surve
 
 The most surveys in one day are `r max(ema_all_more_than_4$n)` surveys.  
 
-Subid 269 seems to have completed more than 4 surveys on most study days. Unclear why because they did not have missed surveys the day before to make up for. No staff notes about EMA.
+Subid 269 seems to have completed more than 4 surveys on most study days. Unclear why because they did not have missed surveys the day before to make up for. No staff notes about EMA.    
+
+*FIX: investigate 269's data*   
+
 ```{r}
 ema_all %>% 
   filter(subid == 269) %>% 
   mutate(date = date(start_date)) %>% 
   count(date)
 ```
+
+*FIX: investigate why 66 has more surveys completed in first days on study*   
+
+```{r}
+ema_all %>% 
+  filter(subid == "066") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+*FIX: investigate why 84 has several days with more than 4 surveys*    
+
+```{r}
+ema_all %>% 
+  filter(subid == "084") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+*FIX: investigate subids averaging more than 4 surveys a day*
+```{r}
+ema_all_visits %>% 
+  filter(avg_emas > 4)
+```
+
 
 
 *FIX: count days between EMAs - look for large gaps*    
