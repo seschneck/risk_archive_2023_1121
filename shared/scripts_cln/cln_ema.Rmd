@@ -22,19 +22,21 @@ knit: (function(input, ...) {
 
 KW currently working on this clean script.   
 
-Working on:   
+Still working on:   
 
-- clean up and check all log entries to see if they are known errors or estimations   
-- Check how to handle tz and recode_tz entries
-- EDA on lapses     
-- check and remove test entries        
+- clean up and manually check all log entries      
+- Check how to handle tz and recode_tz entries    
+- check and remove test entries   
+- Check how many days between EMAs (large gaps?) and validity of lapses (duration)     
   
 
 ### Conclusion
 
 - All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.    
 
-- Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.    
+- Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
+
+- Subids 104 and 128 have over 100 reported lapses. According to notes, subid 104 reported lapses everyday on study.    
 
 
 ### Notes
@@ -297,7 +299,7 @@ ema_all <- ema_morning %>%
 
 `r nrow(subset(ema_all, subid == "test"))` test surveys remain.   
 
-FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)    
+*FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)*    
 
 Most test entries are complete
 ```{r}
@@ -382,8 +384,7 @@ ema_all %>%
 
 
 missing 93% send_date and send_time    
-FIX: What are these variables? Related to survey signal?    
-Too much missing data to likely be helpful
+Not sure what these variables are (from SurveySignal?) but too much missing data to likely be helpful
 ```{r}
 ema_all %>% 
   filter(is.na(send_date)) %>% 
@@ -485,7 +486,7 @@ ema_all %>%
 ```
 
 
-FIX: count days between EMAs - look for large gaps    
+*FIX: count days between EMAs - look for large gaps*    
 
 
 
@@ -710,8 +711,8 @@ ema_all %>%
 
 
 Duration of lapses   
-FIX: How to check timezone participant was in? (should all be in America/Chicago)  
-FIX: check for invalid lapses   
+*FIX: How to check timezone participant was in? (should all be in America/Chicago)*   
+*FIX: check for invalid lapses*   
 ```{r}
 
 ```
@@ -786,10 +787,7 @@ ema_all %>%
 
 ### Write csvs
 
-FIX: remove Qualtrics variables: location_latitude, location_longitude, ip_address?    
-
-
-FIX: Uncomment write csv when test subids are removed - currently still in for checking/EDA
+*FIX: Uncomment write csv when test subids are removed - currently still in for checking/EDA*
 
 ```{r}
 # ema_morning %>% 
