@@ -25,9 +25,9 @@ KW currently working on this clean script.
 Working on:   
 
 - clean up and check all log entries to see if they are known errors or estimations   
-- EDA on cleaning log entries    
+- Check how to handle tz and recode_tz entries
 - EDA on lapses     
-- check and remove test entries with log    
+- check and remove test entries        
   
 
 ### Conclusion
@@ -178,7 +178,7 @@ log_all %>%
   tabyl(var_name)
 ```
 
-subids recoded 
+**subids recoded** 
 ```{r}
 log_all %>% 
   filter(var_name == "subid") %>% 
@@ -668,12 +668,53 @@ ema_all %>%
 ```
 
 
+Participants with lapses    
+`r nrow(count(subset(ema_all, ema_1 == "Yes" & subid != "test"), subid))` subids have a reported lapse    
+```{r}
+ema_all_lapse <- ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  filter(subid != "test") %>% 
+  count(subid) %>% 
+  arrange(desc(n))
 
-FIX: check how timezone was calculated on raw data and cleaning log (should all be in America/Chicago)     
+ema_all_lapse 
+```
 
-FIX: check notes/additional info on participants with no lapses   
+Participants with over 40 reported lapses     
+```{r}
+ema_all_lapse %>% 
+  filter(n > 40) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  rename(n_lapses = n) %>% 
+  left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
 
+
+Participants with no lapses    
+`r nrow(count(subset(ema_all, subid != "test" & !subid %in% ema_all_lapse$subid), subid))` subids have no lapses
+```{r}
+ema_all %>% 
+  filter(subid != "test") %>% 
+  count(subid) %>% 
+  filter(!subid %in% ema_all_lapse$subid) %>% 
+  select(subid) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+Duration of lapses   
+FIX: How to check timezone participant was in? (should all be in America/Chicago)  
 FIX: check for invalid lapses   
+```{r}
+
+```
 
 
 #### 13-Point (0-12) Likert Scale Questions
