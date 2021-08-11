@@ -1,5 +1,5 @@
 ---
-title: "Clean the raw qualtrics EMA surveys (morning and later)"
+title: "Clean the raw qualtrics EMA surveys"
 author: "Sarah Sant'Ana and Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
@@ -32,16 +32,14 @@ Working on:
 
 ### Conclusion
 
-The focus of this script is to clean/check all EMA lapse reports so that the cleaned data can be used to create lapse labels for individual studies.   
+- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.    
 
-Things to address at study level include:
-
-- Some participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.    
+- Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.    
 
 
 ### Notes
 
-Purpose: This file cleans the qualtrics EMA surveys and performs EDA on all EMA variables.  
+Purpose: This file cleans the qualtrics EMA surveys and performs EDA on all EMA variables. The focus of this script is to clean/check all EMA lapse reports so that the cleaned data can be used to create lapse labels for individual studies.   
 
 
 Inputs (path_raw):  
@@ -112,6 +110,21 @@ library(kableExtra)
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
 source(here(path_lab_support, "clean_qualtrics_by_log.R"))
+```
+
+
+
+### Print EMA relevant notes from raw_notes
+
+```{r}
+notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+
+notes %>% 
+  select(subid, notes_ema) %>% 
+  filter(!is.na(notes_ema)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
@@ -282,18 +295,21 @@ ema_all <- ema_morning %>%
 
 #### Test data
 
+`r nrow(subset(ema_all, subid == "test"))` test surveys remain.   
+
 FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)    
+
 Most test entries are complete
 ```{r}
 ema_all %>% 
-  filter(toupper(subid) == "TEST") %>% 
+  filter(subid == "test") %>% 
   tabyl(finished)
 ```
 
 May be able to use latitude/longitude to see if in brogden or find groups of tests
 ```{r}
 ema_all %>% 
-  filter(toupper(subid) == "TEST") %>% 
+  filter(subid == "test") %>% 
   tabyl(location_latitude) %>% 
   arrange(desc(n))
 ```
@@ -356,9 +372,18 @@ ema_all %>%
   tabyl(ema_type, finished)
 ```
 
+missing location_latitude and longitude    
+These variables are only recorded when a survey is complete - all missing values are on unfinished surveys
+```{r}
+ema_all %>% 
+  filter(is.na(location_latitude) | is.na(location_longitude)) %>% 
+  tabyl(finished)
+```
+
 
 missing 93% send_date and send_time    
-FIX: what are these variables?
+FIX: What are these variables? Related to survey signal?    
+Too much missing data to likely be helpful
 ```{r}
 ema_all %>% 
   filter(is.na(send_date)) %>% 
@@ -460,14 +485,131 @@ ema_all %>%
 ```
 
 
-
-
 FIX: count days between EMAs - look for large gaps    
+
 
 
 #### Start and End dttms for EMAs
 
-FIX: Calculate duration of EMA 
+Duration of EMA
+```{r}
+ema_all <- ema_all %>%  
+  mutate(duration_min = round(as.numeric(difftime(end_date, start_date, units = "mins"))))
+
+ema_all %>% 
+  filter(subid != "test") %>% 
+  tabyl(duration_min)
+```
+
+Closer look at surveys under half a minute
+```{r}
+ema_all %>%  
+  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
+  filter(duration_min < .5) %>% 
+  filter(subid != "test") %>% 
+  tabyl(duration_min)
+```
+
+Most surveys under half a minute either had no lapse or were not finished
+```{r}
+ema_all %>%  
+  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
+  filter(duration_min < .5) %>% 
+  filter(subid != "test") %>% 
+  tabyl(finished, ema_1)
+```
+
+Surveys that took less than 12 seconds
+```{r}
+ema_all_less_than_12_sec <- ema_all %>%  
+  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
+  filter(duration_min < .2) %>% 
+  filter(subid != "test") 
+```
+
+`r nrow(subset(ema_all_less_than_12_sec, finished == 1))` of the `r nrow(ema_all_less_than_12_sec)` surveys with a duration of less than 12 seconds were marked complete   
+All of these surveys report no lapses and were completed later in the day - which significantly shortens the survey length
+```{r}
+ema_all_less_than_12_sec %>% 
+  filter(finished == 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+Surveys that took more than 5 minutes
+```{r}
+ema_all_more_than_5_min <- ema_all %>%  
+  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
+  filter(duration_min > 5) %>% 
+  filter(subid != "test") 
+```
+
+`r nrow(ema_all_more_than_5_min)` surveys took over 5 minutes to complete.    
+
+Most (N = `r nrow(subset(ema_all_more_than_5_min, finished == 1))`) were marked as complete.   
+```{r}
+ema_all_more_than_5_min %>% 
+  filter(finished == 1) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Different start and end days   
+NOTE: Includes 2 lapses
+```{r}
+ema_all_more_than_5_min %>% 
+  mutate(start_day = as_date(start_date),
+         end_day = as_date(end_date)) %>% 
+  filter(start_day != end_day) %>% 
+  select(c(subid, start_date, end_date, finished, ema_1:ema_10_1, ema_type, duration_min)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+#### Finished
+
+`r nrow(subset(ema_all, finished == 0 & subid != "test"))` surveys are marked as incomplete
+
+Keep unfinished surveys - all have at least ema_1 answered
+```{r}
+ema_all %>% 
+  filter(subid != "test") %>% 
+  filter(finished == 0) %>% 
+  select(subid, ema_1:ema_1_5)
+```
+
+
+#### Status
+
+`r nrow(subset(ema_all, status == 8))` surveys have status = 8     
+
+The value in the Status column indicates the type of response collected     
+0 = A normal response   
+8 = A possible spam response   
+
+```{r}
+ema_all %>% 
+  tabyl(status)
+```
+
+All flagged surveys were completed in under 5 min
+```{r}
+ema_all %>% 
+  filter(status == 8) %>% 
+  tabyl(duration_min)
+```
+
+But they don't seem to be related to any particular subid
+```{r}
+ema_all %>% 
+  filter(status == 8) %>% 
+  tabyl(subid)
+```
 
 
 #### Lapses
