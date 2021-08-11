@@ -269,6 +269,9 @@ Combine EMA files for EDA
 ```{r}
 ema_all <- ema_morning %>% 
   rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
+  # put start and end date in central time
+  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
+         end_date = with_tz(end_date, tzone = "America/Chicago")) %>% 
   # add temp variable to trace which ema file an entry came from for EDA
   mutate(ema_type = "morning") %>% 
   bind_rows(ema_later %>% 
@@ -424,13 +427,38 @@ ema_all_visits <- ema_all_visits %>%
 ```
 
 On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.  
-NOTE: This does not cap out possible daily EMAs at 4. Some participants completed more than 4 EMAs in a single day.    
 
 ```{r}
 ema_all_visits %>% 
   ggplot(aes(x = avg_emas)) +
   geom_histogram(bins = 20, color = "black", fill = "light grey")
 ```
+
+NOTE: This does not cap out possible daily EMAs at 4. Almost all participants completed more than 4 EMAs in a single day at some point.    
+Days with more than 4 EMAs
+```{r}
+ema_all_more_than_4 <- ema_all %>% 
+  filter(subid != "test") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(subid, date) %>% 
+  filter(n > 4)
+
+print(ema_all_more_than_4)
+```
+
+
+There are `r nrow(ema_all_more_than_4)` instances of days with more than 4 surveys from `r length(unique(ema_all_more_than_4$subid))` participants.   
+
+The most surveys in one day are `r max(ema_all_more_than_4$n)` surveys.  
+
+Subid 269 seems to have completed more than 4 surveys on most study days. Unclear why because they did not have missed surveys the day before to make up for. No staff notes about EMA.
+```{r}
+ema_all %>% 
+  filter(subid == 269) %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
 
 
 
