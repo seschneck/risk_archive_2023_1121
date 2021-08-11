@@ -25,9 +25,12 @@ KW currently working on this clean script.
 Still working on:   
 
 - clean up and manually check all log entries      
-- Check how to handle tz and recode_tz entries    
-- check and remove test entries   
-- Check how many days between EMAs (large gaps?) and validity of lapses (duration)     
+- Check how to handle tz and recode_tz log entries    
+- Check how many days between EMAs (large gaps?)    
+- Check subid 269's data with 10-15 surveys on some days    
+- Check if participants without lapses are missing EMAs     
+- Look at surveys completed in under 12 seconds    
+- Flag 5 lapses reported in under 30 seconds    
   
 
 ### Conclusion
@@ -223,7 +226,10 @@ log_all %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
-#### recode_tz entries
+#### recode_tz entries   
+
+*FIX: confirm tz is recoded and handled properly in r*
+
 ```{r}
 log_all %>% 
   filter(log_action == "recode_tz") %>% 
@@ -299,8 +305,6 @@ ema_all <- ema_morning %>%
 
 `r nrow(subset(ema_all, subid == "test"))` test surveys remain.   
 
-*FIX: How to check test data is invalid and how to remove invalid test data (log?/code?)*    
-
 Most test entries are complete
 ```{r}
 ema_all %>% 
@@ -308,13 +312,24 @@ ema_all %>%
   tabyl(finished)
 ```
 
-May be able to use latitude/longitude to see if in brogden or find groups of tests
+Clusters of test data have Brogdens Longitude/Latitude (43.07, 89.41) 
 ```{r}
 ema_all %>% 
   filter(subid == "test") %>% 
-  tabyl(location_latitude) %>% 
+  count(location_latitude, location_longitude) %>% 
   arrange(desc(n))
 ```
+
+Filter out test data
+```{r}
+ema_morning <- ema_morning %>% 
+  filter(subid != "test")
+ema_later <- ema_later %>% 
+  filter(subid != "test")
+ema_all <- ema_all %>% 
+  filter(subid != "test")
+```
+
 
 
 #### Missing data
@@ -487,6 +502,9 @@ ema_all %>%
 
 
 *FIX: count days between EMAs - look for large gaps*    
+```{r}
+
+```
 
 
 
@@ -710,14 +728,6 @@ ema_all %>%
 ```
 
 
-Duration of lapses   
-*FIX: How to check timezone participant was in? (should all be in America/Chicago)*   
-*FIX: check for invalid lapses*   
-```{r}
-
-```
-
-
 #### 13-Point (0-12) Likert Scale Questions
 
 "How intense was your greatest urge to drink alcohol?"
@@ -787,12 +797,10 @@ ema_all %>%
 
 ### Write csvs
 
-*FIX: Uncomment write csv when test subids are removed - currently still in for checking/EDA*
-
 ```{r}
-# ema_morning %>% 
-#   write_csv(file.path(path_shared, "ema_morning.csv"))
-# 
-# ema_later %>% 
-#   write_csv(file.path(path_shared, "ema_later.csv"))
+ema_morning %>%
+  write_csv(file.path(path_shared, "ema_morning.csv"))
+
+ema_later %>%
+  write_csv(file.path(path_shared, "ema_later.csv"))
 ```
