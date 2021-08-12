@@ -1,0 +1,173 @@
+---
+title: "Flagged entries"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/", 
+      "/Volumes/private/studydata/")
+    )
+  })
+---
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+Absolute paths
+```{r, paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/toolboxes/lab_support"}
+        )
+```
+
+Relative paths
+```{r}
+path_log <- "shared/notes"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+# conflict_prefer("filter", "dplyr")
+# conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+# for data wrangling
+library(tidyverse)  # always need this
+library(janitor) # cleaning and EDA
+
+# for plots and tables
+library(ggplot2)
+theme_set(theme_bw()) # or theme_set(theme_classic())
+library(kableExtra)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+
+source(here(path_lab_support, "get_credentials.R"))
+```
+
+
+### Read in raw EMA
+```{r}
+ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom::cols()) %>% 
+  rename(subid = SubID) %>% 
+  rename(response_id = ResponseID) %>% 
+  glimpse()
+
+ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::cols()) %>% 
+  rename(subid = SubID) %>% 
+  rename(response_id = ResponseID) %>% 
+  glimpse()
+```
+
+
+### Read in Logs  
+
+```{r}
+log_morning <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
+
+log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
+```
+
+
+Join
+```{r}
+log_all <- log_morning %>% 
+  bind_rows(log_later)
+```
+
+
+
+### Flagged log entries
+
+#### remove entries
+
+
+**#1**     
+
+Change to note instead of remove    
+```{r}
+log_all %>% 
+  filter(response_id == "R_2aFWx2Wb8v0v8ZF") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw survey
+```{r}
+ema_later %>% 
+  filter(response_id == "R_2aFWx2Wb8v0v8ZF")
+```
+
+**#2**     
+Leave as is to help inform study decisions about unreliable lapses?  
+```{r}
+log_all %>% 
+  filter(response_id == "R_3kb0X4WnkKRBREK") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw survey
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3kb0X4WnkKRBREK")
+```
+
+
+#### recode_one lapse entries
+
+
+**#1**      
+This entire survey is blank except for EMAM_1 has Yes as response. i think we should leave as is and change this to note entry. It doesn't seem we can impute a reliable date of the lapse based on this data log entry.
+```{r}
+log_all %>% 
+  filter(response_id == "R_cXU4FDBV12lZZPH") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw survey
+```{r}
+ema_morning %>%
+  filter(response_id == "R_cXU4FDBV12lZZPH")
+```
+
+
