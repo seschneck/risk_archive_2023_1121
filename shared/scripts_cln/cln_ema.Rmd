@@ -141,21 +141,6 @@ source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 
 
 
-### Print EMA relevant notes from raw_notes
-
-```{r}
-notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
-
-notes %>% 
-  select(subid, notes_ema) %>% 
-  filter(!is.na(notes_ema)) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
-```
-
-
-
 ### Read in raw data 
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
@@ -171,6 +156,10 @@ ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::co
   glimpse()
 ```
 
+Read in raw notes for supporting info
+```{r}
+notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+```
 
 ### Read in Logs
 

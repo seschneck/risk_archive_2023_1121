@@ -13,8 +13,8 @@ knit: (function(input, ...) {
     rmarkdown::render(
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/", 
-      "/Volumes/private/studydata/")
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
     )
   })
 ---
@@ -24,6 +24,9 @@ knit: (function(input, ...) {
 Chunk Defaults
 ```{r defaults, include=FALSE}
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.print_max = Inf)
+options(tibble.width = Inf)
 ```
 
 Absolute paths
@@ -33,14 +36,12 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_raw <- "P:/studydata/risk/data_raw"
-          path_shared <- "P:/studydata/risk/data_processed/shared"
-          path_lab_support <- "P:/toolboxes/lab_support"},
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
 
         # IOS paths
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_lab_support <- "/Volumes/toolboxes/lab_support"}
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
         )
 ```
 
@@ -51,17 +52,15 @@ path_log <- "shared/notes"
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-
 library(conflicted) # detect and warn about function conflicts
-# conflict_prefer("filter", "dplyr")
-# conflict_prefer("select", "dplyr")
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
 
 library(here)  # establish project directory consistently as working directory
 ```
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
-
 # for data wrangling
 library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
@@ -72,21 +71,15 @@ theme_set(theme_bw()) # or theme_set(theme_classic())
 library(kableExtra)
 ```
 
-Source for script
-```{r, source_script, message=FALSE, warning=FALSE}
-
-source(here(path_lab_support, "get_credentials.R"))
-```
-
 
 ### Read in raw EMA
 ```{r}
-ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom::cols()) %>% 
+ema_morning <- vroom::vroom(here(path_raw, 'qualtrics/ema_morning.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
   glimpse()
 
-ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::cols()) %>% 
+ema_later <- vroom::vroom(here(path_raw, 'qualtrics/ema_later.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
   glimpse()
