@@ -36,6 +36,7 @@ pre, code {
 Paths
 ```{r}
 path_shared <- "P:/studydata/risk/data_processed/shared"
+path_burden <- "P:/studydata/risk/data_processed/burden"
 ```
 
 Packages
@@ -60,6 +61,10 @@ sample_fu1 <- visit_dates %>%
   filter(!(is.na(followup_1)))
 screen <- screen %>% 
   filter(subid %in% sample_fu1$subid)
+
+# read in notes on incomplete participants
+notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
+  filter(screen != "cancelled" & screen != "no show")
 ```
 
 <br>
@@ -350,7 +355,7 @@ auh %>%
   kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
       digits = 1,
       align = c("l", "c", "c", "c", "c"),
-      caption = "<b>Table 3<br><br>Alcohol Related Information</b>",
+      caption = "<b>Table 2<br><br>Alcohol Related Information</b>",
       table.attr = "style='width:70%;'",
       escape = FALSE) %>% 
   row_spec(row = 0, align = "c") %>% 
@@ -363,4 +368,73 @@ auh %>%
 ```
 
 
+-----
+
 <br>
+
+### Create Table 3
+
+Table 3 provides a breakdown of why participants discontinued prior to the first month followup   
+
+```{r}
+notes_incomplete <- notes_incomplete %>%
+  filter(screen != "no consent") %>%
+  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
+                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "rescheduled" ~ "Rescheduled multiple times before cancelling/no showing",
+                                  characterize == "treatment" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "compliance" ~ "Noncompliance with providing data",
+                                  characterize == "lapse" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "cell_service" ~ "Cell service shut off",
+                                  characterize == "move" ~ "Moved out of state",
+                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
+                                  characterize == "Unreachable" ~ "Unknown",
+                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
+                                  characterize == "inappropriate behavior" ~ "Staff concerns",
+                                  characterize == "mental health" ~ "Mental health concerns",
+                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe AUD",
+                                  characterize == "phone" ~ "Ineligible phone",
+                                  is.na(characterize) ~ "Unknown",
+                                  TRUE ~ characterize))
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(intake != "complete" | is.na(intake)) %>% 
+  filter(intake != "ineligible" | is.na(intake)) %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(col.names = c("", "<i>n</i>", "%"), 
+      caption = "<b>Table 3<br><br>A</b><br><i>Characterization of eligible and consented participants who discontinued prior to completing enrollment</i>",
+      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
+  footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "no") %>% 
+  filter(intake == "complete") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(col.names = c("", "<i>n</i>", "%"), 
+      caption = "<b>B</b><br><i>Characterization of enrolled participants who discontinued prior to first month follow-up</i>",
+      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
+  footnote("These participants are noted as 'Discontinued' in Figure 1.")
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "yes") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(col.names = c("", "<i>n</i>", "%"), 
+      caption = "<b>C</b><br><i>Characterization of enrolled participants who discontinued after the first month follow-up</i>",
+      digits = 2, table.attr = "style='width:60%;'", escape = FALSE) %>% 
+  kable_classic(position = "left", html_font = "Arial") %>% 
+  footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
+```
+
+
+

@@ -7,7 +7,7 @@ author:
     affiliation   : "1"
   - name          : "Hannah Moshontz"
     affiliation   : "1"
-  - name          : "Stephanie Ward"
+  - name          : "Stephanie B. Ward"
     affiliation   : "1"
   - name          : "John J. Curtin"
     affiliation   : "1"
@@ -72,10 +72,77 @@ csl: journal-of-medical-internet-research.csl
 
 ```{r setup, include = FALSE}
 library(here)
-library("papaja")
+library(papaja)
 library(knitr)
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+
 knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '')
 ```
+
+```{r absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_burden <- "P:/studydata/risk/data_processed/burden"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+        # IOS paths
+        Darwin = {
+          path_burden <- "/Volumes/private/studydata/risk/data_processed/burden"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+       )
+```
+
+```{r relative paths and source}
+path_ana <- "burden/ana_scripts"
+
+source(here(path_ana, "fun_burden.R"))
+```
+
+
+```{r burden data}
+data <- vroom::vroom(here(path_burden, "acceptability.csv"), col_types = vroom::cols())
+
+# pull out last observation for each participant
+# Last available sleep monitor may be earlier than last survey date for some due 
+# to discontinuation of monitor - handle separately
+data_sleep <- data %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+
+data_last <- data %>% 
+  select(-c(starts_with("sleep_"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  full_join(data_sleep, by = c("subid")) %>% 
+  select(-c(contains("wristband"), contains("carrying_phone"))) 
+```
+
+```{r screen data}
+screen <- vroom::vroom(here(path_shared, "screen.csv"), col_types = vroom::cols())
+
+# include only participants used in analyses (n = 154) - use visit dates to determine
+sample_fu1 <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
+  filter(!(is.na(followup_1)))
+
+screen <- screen %>% 
+  filter(subid %in% sample_fu1$subid)
+```
+
+```{r discontinued data}
+# read in notes on incomplete participants
+notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
+  filter(screen != "cancelled" & screen != "no show")
+```
+
 
 ## Text snips and notes
 
@@ -124,7 +191,7 @@ Ecological momentary assessment (EMA), a personal sensing method that collects b
 
 More recently, mental health relevant research using personal sensing of raw data streams other than self report is emerging. This includes methods to sense geolocation [@epsteinPredictionStressDrug2020; @palmiusDetectingBipolarDepression2016<!-- also cite protocol paper [11]-->], cellular communications [@jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021; @razaviDepressionScreeningUsing2020<!--also cite protocol paper-->], sleep [@baiTrackingMonitoringMood2021], and physiology [REF<!--Empatica cites-->] as examples. These alternative personal sensing methods provide benefits and opportunities not possible with EMA. For example, many of these data streams can be sensed passively such that they have very low assessment burden. This may allow their use for long-term longitudinal monitoring of patients that would not be feasible with EMA, which requires more active effort for data collection. These data streams can support measures that are not possible by self report
 
-However, - Proof of concept with healthy controls or small samples of with convenience samp - Most of the published studies were pilot studies collecting data during quite short monitoring periods and small samples - Most used convenience samples. - there was a lack of information provided on the selection process of the included and excluded patients, and thus an evaluation of selection bias was compromised. [faurholt-jepsenSmartphonebasedObjectiveMonitoring2018]
+However, - Proof of concept with healthy controls or small samples of with convenience samp - Most of the published studies were pilot studies collecting data during quite short monitoring periods and small samples - Most used convenience samples. - there was a lack of information provided on the selection process of the included and excluded patients, and thus an evaluation of selection bias was compromised. [@faurholt-jepsenSmartphonebasedObjectiveMonitoring2018]
 
 We need to better understand consent, compliance, and acceptability of personal sensing methods.
 
@@ -268,101 +335,297 @@ Finally, we conducted two analyses to examine the consistency of perceptions acr
 
 One hundred and fifty-four participants completed at least one monthly follow-up visit and provided self-report acceptability ratings for interference, dislike, and willingness to use for one year. These participants serve as our primary sample for our analyses. Table 1 presents demographic information these participants. Table 2 characterizes alcohol use and AUD-relevant information for these participants. We compared demographics and AUD information for participants who were included in the analyses vs. eligible participants who did not provide study measures (i.e., did not enroll or discontinued prior to the first month follow-up; N = 36 ) and found no significant differences (see Multimedia Appendix 2 for more detail on these analyses).
 
-<!-- Insert table 1 by code-->
+```{r table 1}
+dem <- screen %>% 
+  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  select(var = dem_2) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_3) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_4) %>% 
+  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_5) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_6, dem_6_1) %>% 
+  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
+                         dem_6_1 == "Part-time" ~ "Employed part-time",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Employed full-time", "Employed part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  summarise(mean = as.character(round(mean(dem_7, na.rm = TRUE), 0)),
+            SD = as.character(round(sd(dem_7, na.rm = TRUE), 0))) %>% 
+  mutate(var = "Income",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  select(var = dem_8) %>% 
+  mutate(var = case_when(var == "Never Married" ~ "Never married",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+```
 
-    Table 1
 
-    Demographic Characteristics for the Sample
+```{r}
+dem %>% 
+  kbl(booktabs = TRUE,
+      caption = "Demographics",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>%
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>%
+  pack_rows("Education", 11, 16, bold = FALSE) %>%
+  pack_rows("Employment", 17, 25, bold = FALSE) %>%
+  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
+  footnote("N = 154")
+```
 
-        %   M (SD)
-    Age     41.0 (11.9)
+ 
 
-    Sex     
-         Female 50.0%   
-         Male   50.0%   
 
-    Race        
-         American Indian/Alaska Native  1.9%    
-         Asian  1.3%    
-         Black/African American 5.2%    
-         White  87.0%   
-         Multiracial or not listed  4.5%    
 
-    Hispanic, Latino, or Spanish Origin     
-         Yes    2.6%    
-         No 97.4%   
+```{r table 2}
+auh <- screen %>%
+  summarise(mean = mean(auh_1, na.rm = TRUE),
+            SD = sd(auh_1, na.rm = TRUE)) %>%
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()) %>%
+  full_join(screen %>%
+  summarise(mean = mean(auh_2, na.rm = TRUE),
+            SD = sd(auh_2, na.rm = TRUE)) %>%
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(screen %>%
+  summarise(mean = mean(auh_3, na.rm = TRUE),
+            SD = sd(auh_3, na.rm = TRUE)) %>%
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(screen %>%
+  summarise(mean = mean(auh_4, na.rm = TRUE),
+            SD = sd(auh_4, na.rm = TRUE)) %>%
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(screen %>%
+  summarise(mean = mean(auh_5, na.rm = TRUE),
+            SD = sd(auh_5, na.rm = TRUE)) %>%
+  mutate(var = "Number of Quit Attempts",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(screen %>%
+  select(var = auh_6_1) %>%
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ mos.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_2) %>%
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 mos.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_3) %>%
+  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_4) %>%
+  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_5) %>%
+  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_6) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_6_7) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = auh_7) %>%
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>%
+  rowwise() %>%
+  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7,
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>%
+  ungroup() %>%
+  summarise(mean = mean(dsm5_total),
+            SD = sd(dsm5_total)) %>%
+  mutate(var = "AUD DSM-5 Symptom Count",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(screen %>%
+  select(var = assist_1_1) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_2) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_3) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_4) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_5) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_6) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_7) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(screen %>%
+  select(var = assist_1_8) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc"))
+```
 
-    Education       
-         Less than high school or GED degree    0.6%    
-         High school or GED 9.7%    
-         Some college   27.9%   
-         2-Year degree  9.1%    
-         College degree 37.7%   
-         Advanced degree    14.9%   
+```{r}
+auh %>% 
+  kbl(booktabs = TRUE,
+      caption = "Alcohol Related Characteristics for the Sample",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>%
+  pack_rows("Types of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>%
+  pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>%
+  footnote("N = 154")
+```
 
-    Employment      
-         Employed full-time 46.8%   
-         Employed part-time 17.5%   
-         Full-time student  4.5%    
-         Homemaker  0.6%    
-         Disabled   4.5%    
-         Retired    5.2%    
-         Unemployed 12.3%   
-         Temporarily laid off or on leave   1.9%    
-         Other, not otherwise specified 6.5%    
-            
-    Income      34,233 (31,543)
-            
-    Marital Status      
-         Never married  44.8%   
-         Married    21.4%   
-         Divorced   29.2%   
-         Separated  3.2%    
-         Widowed    1.3%    
-
-    Note: N = 154 participants
-
-<!-- Insert Table 2 by code-->
-
-    Table 2
-
-    Alcohol Related Characteristics for the Sample
-
-        %   M (SD)
-    AUD Milestones      
-         Age of first drink     14.6 (2.9)
-         Age of regular drinking        19.5 (6.5)
-         Age at which drinking became problematic       27.9 (9.6)
-         Age of first quit attempt      31.6 (10.4)
-            
-    Number of Quit Attempts     9.1 (31.1)
-            
-    Types of Treatment (more than 1 possible)       
-         Long-term residential (6+ mos.)    5.2%    
-         Short-term residential (< 6 mos.)  33.1%   
-         Outpatient 50.0%   
-         Individual counseling  64.9%   
-         Group counseling   42.2%   
-         Alcoholics Anonymous/Narcotics Anonymous   62.3%   
-         Other  26.6%   
-            
-    Received Medication for AUD     
-         Yes    40.3%   
-         No 59.7%   
-            
-    AUD DSM-5 Symptom Count     8.9 (1.9)
-            
-    Lifetime Drug Use       
-         Tobacco products (cigarettes, chewing tobacco, cigars, etc.)   79.2%   
-         Cannabis (marijuana, pot, grass, hash, etc.)   85.1%   
-         Cocaine (coke, crack, etc.)    55.8%   
-         Amphetamine type stimulants (speed, diet pills, ecstasy, etc.) 52.6%   
-         Inhalants (nitrous, glue, petrol, paint thinner, etc.) 23.4%   
-         Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)  46.8%   
-         Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.) 57.1%   
-         Opioids (heroin, morphine, methadone, codeine, etc.)   42.2%   
-
-    Note: N = 154 participants
 
 ## Behavioral Measures of Acceptability
 
@@ -376,44 +639,90 @@ Study phases where we lost eligible participants are highlighted in red in Figur
 
 All participants (100%) opted-in to provide data for all personal sensing methods. Daily compliance rates were relatively high for EMAs such that 94% of participants completed at least one of the four EMAs every day. On average, participants completed 3.1 EMAs every day. The overall compliance rate for all requested EMAs was 77%. Participants' completion rate for the daily audio check-in was 53%. That is, of their total days on study, participants completed an audio check-in on approximately half of them.
 
-<!-- Insert Table 3 here by code -->
 
-    Table 3
+```{r table 3}
+notes_incomplete <- notes_incomplete %>%
+  filter(screen != "no consent") %>%
+  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
+                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "rescheduled" ~ "Rescheduled multiple times before cancelling/no showing",
+                                  characterize == "treatment" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "compliance" ~ "Noncompliance with providing data",
+                                  characterize == "lapse" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "cell_service" ~ "Cell service shut off",
+                                  characterize == "move" ~ "Moved out of state",
+                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
+                                  characterize == "Unreachable" ~ "Unknown",
+                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
+                                  characterize == "inappropriate behavior" ~ "Staff concerns",
+                                  characterize == "mental health" ~ "Mental health concerns",
+                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe AUD",
+                                  characterize == "phone" ~ "Ineligible phone",
+                                  is.na(characterize) ~ "Unknown",
+                                  TRUE ~ characterize))
+```
 
-    Reasons for Discontinuation…
-    A.  Prior to Completing Enrollment
-        N   %
-    Health concerns 1   0.05
-    No longer has transportation    1   0.05
-    No longer interested    3   0.14
-    Rescheduled multiple times before cancelling/no showing 6   0.29
-    Unknown 10  0.48
-    Total   21  1.00
-    Note: These participants are depicted as “Not Enrolled” in Figure 1. Bolded rows represent acceptability-related discontinuation.
 
-    B.  Prior to Completing First Month Follow-up
-        N   %
-    Family crisis   1   0.06
-    No longer sober or no longer wishes to abstain from alcohol 5   0.31
-    No longer interested    1   0.06
-    Noncompliance with providing data   1   0.06
-    Rescheduled multiple times before cancelling/no showing 4   0.25
-    Unknown 4   0.25
-    Total   16  1.00
-    Note: These participants are depicted as “Discontinued” in Figure 1. Bolded rows represent acceptability-related discontinuation.
+```{r warning = FALSE}
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(intake != "complete" | is.na(intake)) %>% 
+  filter(intake != "ineligible" | is.na(intake)) %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(booktabs = TRUE,
+      col.names = c("", "n", "%"), 
+      caption = "Characterization of Discontinued Participants",
+      align = c("l", "c", "c"),
+      digits = 2,
+      longtable = TRUE) %>% 
+  kable_styling() %>%
+  row_spec(row = 0, align = "c", italic = TRUE) %>%
+  add_header_above(c("Characterization of eligible and consented participants who discontinued prior to completing enrollment" = 3), align = "l", bold = FALSE) %>% 
+  add_header_above(c("A" = 3), align = "l", bold = FALSE) %>%
+  footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
 
-    C.  After Completing First Month Follow-up
-        N   %
-    Cell service shut off   3   0.14
-    Cited study demands as too burdensome   1   0.05
-    No longer sober or no longer wishes to abstain from alcohol 3   0.14
-    Moved out of state  2   0.10
-    No longer interested    3   0.14
-    Noncompliance with providing data   2   0.10
-    Rescheduled multiple times before cancelling/no showing 4   0.19
-    Unknown 3   0.14
-    Total   21  1.00
-    Note: These participants are depicted as “Participated through 1st month follow-up” or “Participated through 2nd month follow-up” in Figure 1. Bolded rows represent acceptability-related discontinuation.
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "no") %>% 
+  filter(intake == "complete") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(booktabs = TRUE,
+      col.names = c("", "n", "%"),
+      align = c("l", "c", "c"),
+      digits = 2,
+      longtable = TRUE) %>% 
+  kable_styling() %>%
+  row_spec(row = 0, align = "c", italic = TRUE) %>%
+  add_header_above(c("Characterization of enrolled participants who discontinued prior to first month follow-up" = 3), align = "l", bold = FALSE) %>% 
+  add_header_above(c("B" = 3), align = "l", bold = FALSE) %>% 
+  footnote("These participants are noted as 'Discontinued' in Figure 1.")
+
+notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "yes") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)) %>% 
+  adorn_totals("row") %>% 
+  kbl(booktabs = TRUE,
+      col.names = c("", "n", "%"), 
+      align = c("l", "c", "c"),
+      digits = 2,
+      longtable = TRUE) %>% 
+  kable_styling() %>%
+  row_spec(row = 0, align = "c", italic = TRUE) %>%
+  add_header_above(c("Characterization of enrolled participants who discontinued after the first month follow-up" = 3), align = "l", bold = FALSE) %>% 
+  add_header_above(c("C" = 3), align = "l", bold = FALSE) %>% 
+  footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
+```
+
+
 
 ## Self-reported Acceptability
 
