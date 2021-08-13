@@ -31,7 +31,6 @@ options(tibble.width = Inf)
 
 Absolute paths
 ```{r, paths}
-
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
@@ -64,6 +63,7 @@ Packages for script
 # for data wrangling
 library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
+library(lubridate)
 
 # for plots and tables
 library(ggplot2)
@@ -77,25 +77,25 @@ library(kableExtra)
 ema_morning <- vroom::vroom(here(path_raw, 'qualtrics/ema_morning.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
-  glimpse()
+  # put start and end date in central time
+  mutate(StartDate = with_tz(StartDate, tzone = "America/Chicago"),
+         EndDate = with_tz(EndDate, tzone = "America/Chicago"))
 
 ema_later <- vroom::vroom(here(path_raw, 'qualtrics/ema_later.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
-  glimpse()
+  # put start and end date in central time
+  mutate(StartDate = with_tz(StartDate, tzone = "America/Chicago"),
+         EndDate = with_tz(EndDate, tzone = "America/Chicago"))
 ```
 
 
 ### Read in Logs  
 
 ```{r}
-log_morning <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
-  glimpse()
-
-log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()) %>% 
-  glimpse()
+log_morning <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols())
+log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()) 
 ```
-
 
 Join
 ```{r}
@@ -104,15 +104,23 @@ log_all <- log_morning %>%
 ```
 
 
+### Read in Notes
+```{r}
+notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+```
+
+
 
 ### Flagged log entries
 
 #### remove entries
 
+These remove entries we may want to keep since they are not necessarily errors only incomplete information. Even if too incomplete for lapses they may be able to be used to determine validity of surrounding lapse/non-lapses.     
 
 **#1**     
 
-Change to note instead of remove    
+This note says UTC 1560435616 doesn't exist for this subid but it does (see below). So there are two incomplete surveys but they both report no lapse for EMAL_1.    
+JC: Do you agree we should keep these entries?
 ```{r}
 log_all %>% 
   filter(response_id == "R_2aFWx2Wb8v0v8ZF") %>% 
@@ -123,12 +131,21 @@ log_all %>%
 
 raw survey
 ```{r}
+ema_morning %>% 
+  filter(UTC == "1560435616")
+```
+
+Other incomplete survey referenced in note
+```{r}
 ema_later %>% 
   filter(response_id == "R_2aFWx2Wb8v0v8ZF")
 ```
 
+
 **#2**     
-Leave as is to help inform study decisions about unreliable lapses?  
+
+The survey being removed is incomplete except for Yes for EMAL_1 - the note in the log does not provide definitive support that this is made in error.        
+JC: Do you agree we should not remove this entry since we are not doing this for other surveys with missing values surrounding the lapse?
 ```{r}
 log_all %>% 
   filter(response_id == "R_3kb0X4WnkKRBREK") %>% 
@@ -144,7 +161,8 @@ ema_later %>%
 ```
 
 
-#### recode_one lapse entries
+
+#### recode_one lapse entries (Dates and times)
 
 
 **#1**      
@@ -163,4 +181,545 @@ ema_morning %>%
   filter(response_id == "R_cXU4FDBV12lZZPH")
 ```
 
+Checked notes and data log but could find no additional information   
+Data log entry appears exactly as in log:   
+
+- "081- 09/05/2018: RA reviewed the incomplete/”false” surveys with the participant if yes was recorded for EMAM_1.The participant reported a response of “yes” to EMAM_1 on the following surveys: UTC: 1534680283 . The participant reported that she could not accurately tell me if she actually experienced a lapse when she endorsed yes on these surveys. The participant reported that she drank very heavily since she last completed a follow-up visit and doesn’t remember. –Candace;   JC marked this as a real lapse on the evening before 8-18-2019.  Set the time to 19"  
+
+```{r}
+notes %>%
+  filter(subid == 81) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+
+**#2**  
+Change made to date/time of lapse      
+
+- the correct times could be as the log suggests 4/27/18 11:00 Pm - 4/28/18 midnight which would mean they not only got one of the dates wrong but they also switched the start and end times.   
+- It could also be 4/27/18 midnight to 4/27/18 11:00 pm which would mean the times were correct but both dates were wrong.   
+
+JC: should we mark NA or correct with current log entry?   
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_UMzNw3jmwMIQOLn") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_morning %>% 
+  filter(response_id == "R_UMzNw3jmwMIQOLn")
+```
+
+
+**#3**    
+Change made to date    
+
+Log changes start date from future date (9/22/18) to survey date (9/16/18). Since end time is 1 AM, it is more likely the start date was the day before (9/15/18). However, it is also possible they switched the times and they drank from 1 AM - 10 AM instead of 10 AM - 1 AM. OR they may have meant 10 PM - 1 AM. 
+
+JC: How to handle this lapse in log? Leave as is (recode date), change date and/or time to NA, or make no changes and keep log entry as note?    
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_6MbQoC7cs9Nf8s1") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_morning %>% 
+  filter(response_id == "R_6MbQoC7cs9Nf8s1")
+```
+
+
+**#4**   
+
+I agree with Sarah that 3/22 is probably a typo for 2/22 (see log entry below). For this reason I think the time 4 PM is indicative of when they started drinking on 2/22 and cannot be used reliably.    
+
+JC: I think this should be a note entry describing that 2/22 - 3/2/19 was a period of frequent lapses and should not be sampled from for non-lapses. What do you think?    
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_RCtJwUMRAB68OQ1") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_morning %>% 
+  filter(response_id == "R_RCtJwUMRAB68OQ1")
+```
+
+
+**#5**   
+
+Flagged lapse time - Likely subid meant 9 PM instead of 9 AM, but this is an assumption   
+
+
+JC: I think this change makes sense but wanted to get your thoughts    
+
+Note: date change made because of confusion surrounding midnight being next day
+```{r}
+log_all %>% 
+  filter(response_id == "R_tSUEclMc9TqDttv") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_tSUEclMc9TqDttv")
+```
+
+
+**#6**  
+
+At 12:58 PM on 9/22 the participant reports a lapse that starts at noon on 9/22 - they type none12PM in for end day we correct this to 9/22, but it may be that they are still drinking and they mean None for no end date.     
+
+We can probably leave log entry as is, but I wanted to flag this as a possibly unreliable end time which could impact non-lapse labels surrounding this lapse.      
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_AbWYKI5zm1dTNUl") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_AbWYKI5zm1dTNUl")
+```
+
+No other lapses reported that day
+```{r}
+ema_later %>% 
+  mutate(day = date(StartDate)) %>% 
+  filter(subid == "118" & day == "2018-09-22")
+```
+
+ 
+**#7**    
+
+It looks like they may have meant the start time to be 4 PM and the end time to be 5 PM. We currently change 0400 to start day (4/7/19) but leave start time as 5 PM.       
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_12rPph45U4SL5ZP") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_12rPph45U4SL5ZP")
+```
+
+
+**#8**   
+
+This lapse end time is in the future from time EMA was taken. I think its more likely that the end date was supposed to be 3-15-19 instead of the start date 3-16-19. Also the notes don't really explain why the time is changed also.      
+
+Data log note = "Lapse on 3/15 – 3/16 from *3pm to 2pm* should be 3/16 – 3/16 from 2pm to 3pm", but the lapse time is actually 3/15 - 3/16 from *2 PM - 3 PM*.      
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_UG5g0ac6eP3ad8Z") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_UG5g0ac6eP3ad8Z")
+```
+
+
+**#9**   
+
+I am not sure these dates are correct. Makes more sense that it would be 11/16 8 PM - 11/17 5 AM instead of 11/17 8 PM - 11/18 5 AM since the survey was completed on 11/17.     
+
+Although it was completed at 8:30 PM so maybe they were guessing the time they would be done drinking. Additionally see additional surveys below show they did not report any lapses earlier that day.      
+
+JC: We currently change lapse to 11/17 8 PM - 11/18 time NA - should we leave as is?   
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_5jqOApLu6KgskSd") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_5jqOApLu6KgskSd")
+```
+
+Additional surveys that day
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  mutate(day = date(StartDate)) %>% 
+  filter(subid == "026" & day == "2017-11-17") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+              mutate(day = date(StartDate)) %>% 
+              filter(subid == "026" & day == "2017-11-17"))
+```
+
+
+**#10**   
+
+It looks like they meant to put start time as 2 PM and end time as 4 PM but they put 2 where the date goes. We correct 2 to the current date but leave 4 PM in the start time box. I think this should be 2 PM especially since the survey was completed at 3 PM so that would mean they hadn't started drinking yet.    
+
+JC: Do you think this is reasonable?   
+
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_2OGOtpd9uxRssdQ") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_2OGOtpd9uxRssdQ")
+```
+
+
+**#11**   
+
+Flagging times as likely inaccurate    
+
+JC: Should we change times to NA? to 11 AM? Lapse currently set as 11 PM - 7PM on 3/22    
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_D8ol8i40GxoCnKN") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_D8ol8i40GxoCnKN")
+```
+
+
+**#12**  
+
+Flagged for duplicate lapse and unreliable EMA Likert values.       
+
+
+Shortly before midnight a participant reports a lapse with start and end time at midnight - we change this to be 11 - midnight and change date to reflect midnight as next day  
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_3LcKMdZCiI2jUqj") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3LcKMdZCiI2jUqj")
+```
+
+However one minute earlier they reported a lapse as being from 9 pm - midnight and they have completely different values for the other EMA variables.    
+```{r}
+ema_later %>% 
+  mutate(day = date(StartDate)) %>% 
+  filter(subid == "048" & day == "2018-06-22")
+```
+
+
+The second lapse (midnight to midnight) doesn't seem to run over into lapses reported on surveys the next day (after midnight).   
+
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  mutate(day = date(StartDate)) %>% 
+  filter(subid == "048" & day == "2018-06-23") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+              mutate(day = date(StartDate)) %>% 
+              filter(subid == "048" & day == "2018-06-23"))
+```
+
+
+**#13**   
+
+Likely unreliable lapse date/time    
+
+Lapse reported on 4/3 at 9:17 to be from 4/4 8 PM - 4/3 11 PM
+```{r}
+log_all %>% 
+  filter(response_id == "R_SVH1i7a01JpgCgV") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_SVH1i7a01JpgCgV")
+```
+
+
+**#14**   
+
+Lapse reported on 11/24 at 4:30 PM to be from 3 PM 11/17 - 4 AM 11/24    
+Log entry changes this lapse to be on 11/24 from 3 PM - 4 PM - this seems reasonable but wanted to flag it to discuss.     
+
+*Overall subid 128 has extremely frequent lapses and several log entry notes (see below)*     
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_12R70VBT8K503Bs") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_12R70VBT8K503Bs")
+```
+
+Subid 128's log entries
+```{r}
+log_all %>% 
+  filter(subid == "128") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+**#15**  
+
+Lapse time may not be accurate. 
+
+JC: Do you think we should set to NA? or keep as is?
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_3NDSbW7B3oXuLT8") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3NDSbW7B3oXuLT8")
+```
+
+
+**#16**   
+
+Survey taken at 6 pm on 4/26 so not sure this log correction makes sense.   
+
+Raw data lapse - 4/26 8 PM - 4/27 5 PM      
+Data log correction - 4/26 5 PM - 4/26 8 PM (future lapse)    
+
+Seems like the end time should be 4/26 5 PM since it is around the time of the survey. No way to know for sure and individual data logs have not always been reliable.    
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_3HhjMZZ3vfiflUd") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3HhjMZZ3vfiflUd")
+```
+
+
+**#17**   
+
+This participant has a lapse from 4 PM - 4 PM on 5/26. They took the survey a few minutes before 4 PM so they must have rounded up.    
+
+In the log we change this lapse from 3 PM - 4 PM to capture the lapse prior to the survey start and end time.    
+
+JC: Do we want to do this at this point? It seems more like a study level preprocessing decision that needs to be done systematically.   
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_22sEXLelx0MXfVQ") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_22sEXLelx0MXfVQ")
+```
+
+
+**#18**     
+
+Same situation as above
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_1ILBYEfGH6Lspdk") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_1ILBYEfGH6Lspdk")
+```
+
+**#19**   
+
+Same situation as above  
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_3LcKMdZCiI2jUqj") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3LcKMdZCiI2jUqj")
+```
+
+**#20**    
+
+Same situation as above
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_2R3c0sgWJSfIQJH") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_2R3c0sgWJSfIQJH")
+```
+
+**#21**    
+
+Same situation as above
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_vN3FAnuL9sdNsyJ") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_vN3FAnuL9sdNsyJ")
+```
+
+
+
+**#22**   
+
+Review this change to time to see if appropriate    
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_3NCyjbdbUIcmj7R") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_3NCyjbdbUIcmj7R")
+```
+
+
+**#23**    
+
+Review how to handle this time change
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_1gHDUYFfICD3zC8") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_1gHDUYFfICD3zC8")
+```
+
+
+**#24**    
+
+Review if appropriate assumption
+
+```{r}
+log_all %>% 
+  filter(response_id == "R_tSUEclMc9TqDttv") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+Raw EMA
+```{r}
+ema_later %>% 
+  filter(response_id == "R_tSUEclMc9TqDttv")
+```
 

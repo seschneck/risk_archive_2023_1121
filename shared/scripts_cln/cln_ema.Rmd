@@ -38,7 +38,10 @@ Still working on:
 
 - Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
 
-- Subids 104 and 128 have over 100 reported lapses. According to notes, subid 104 reported lapses everyday on study. Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
+- Subids 104 and 128 have over 100 reported lapses.     
+  - They both also each have 27 log entries to make corrections to typos and incorrect data.   
+  - According to notes, subid 104 reported lapses everyday on study.     
+  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
 
 - Subid 269 and 84 averages over 4 surveys a day - goes for several days with 10-15 completed surveys.   
 
@@ -148,11 +151,17 @@ Rename subid and response_id to tidy case because these variables are used by na
 ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
+  # put start and end date in central time
+  mutate(StartDate = with_tz(StartDate, tzone = "America/Chicago"),
+         EndDate = with_tz(EndDate, tzone = "America/Chicago")) %>% 
   glimpse()
 
 ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
+  # put start and end date in central time
+  mutate(StartDate = with_tz(StartDate, tzone = "America/Chicago"),
+         EndDate = with_tz(EndDate, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
 
@@ -207,7 +216,55 @@ log_all %>%
   tabyl(var_name)
 ```
 
-**subids recoded** 
+Some subids have more log entries than others and may be more prone to unreliable reports
+```{r}
+log_all %>% 
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
+Subid 101's entries are all due to correcting their EMAs that were initially registered under "test"   
+```{r}
+log_all %>% 
+  filter(subid == "101") %>% 
+  tabyl(var_name)
+```
+
+subid 131 has several flagged entries as having start_diff's over 10 hours
+```{r}
+log_all %>% 
+  filter(subid == "131") %>% 
+  tabyl(log_reason)
+```
+
+Same with subid 48
+```{r}
+log_all %>% 
+  filter(subid == "048") %>% 
+  tabyl(log_reason)
+```
+
+Subid 104 made typos about midnight being the next day
+```{r}
+log_all %>% 
+  filter(subid == "104") %>% 
+  tabyl(var_name)
+
+log_all %>% 
+  filter(subid == "104" & var_name == "EMAL_1.3")
+```
+
+Several long lapses for subid 128
+```{r}
+log_all %>% 
+  filter(subid == "128") %>% 
+  tabyl(log_reason)
+```
+
+
+**subids recoded**  
+
+All recoded subids are appropriate   
 ```{r}
 log_all %>% 
   filter(var_name == "subid") %>% 
@@ -252,7 +309,9 @@ log_all %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
-Lapse dates recoded to correct format of date, remove incorrect lapse information to line up with recoded lapses or correct known errors from data log
+Lapse dates recoded to correct format of date, remove incorrect lapse information to line up with recoded lapses, correct known errors from data log, or fix dates that are clearly an error to the most likely date (from supporting evidence - audio files, other EMA's, data log notes, etc.). Additionally, many date errors are associated with participants not reporting midnight as being the next day.    
+
+I went through every log entry and they all seem to be appropriate assumptions - one's that I was unsure about were flagged for discussion with JC.   
 ```{r}
 log_all %>% 
   filter(var_name %in% c("EMAL_1.1", "EMAL_1.3", "EMAM_1.1", "EMAM_1.3")) %>% 
@@ -261,20 +320,36 @@ log_all %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
-Lapse times recoded
+Lapse times recoded    
+I went through every log entry and they all seem to be appropriate assumptions - one's that I was unsure about were flagged for discussion with JC.  
 ```{r}
-
+log_all %>% 
+  filter(var_name %in% c("EMAL_1.2", "EMAL_1.4", "EMAM_1.2", "EMAM_1.4")) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
-Desire to remain abstinent
+Desire to remain abstinent    
+Adds retrospective answers after this new question was added to the EMA, also recodes for lapses removed due to already having been reported.    
 ```{r}
-
+log_all %>% 
+  filter(var_name == "EMAL_1.5" | var_name == "EMAM_1.5") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
-**UTCs recoded**   
-```{r}
+**UTCs recoded**     
 
+These all seem appropriate and all are for our first 3 subids.
+```{r}
+log_all %>% 
+  filter(var_name == "UTC") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
 ```
 
 
@@ -334,9 +409,6 @@ Combine EMA files for EDA
 ```{r}
 ema_all <- ema_morning %>% 
   rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
-  # put start and end date in central time
-  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
-         end_date = with_tz(end_date, tzone = "America/Chicago")) %>% 
   # add temp variable to trace which ema file an entry came from for EDA
   mutate(ema_type = "morning") %>% 
   bind_rows(ema_later %>% 
