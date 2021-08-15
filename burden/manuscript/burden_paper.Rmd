@@ -81,6 +81,8 @@ library(knitr)
 library(tidyverse)
 library(kableExtra)
 library(janitor)
+library(corx)
+library(patchwork)
 
 knitr::opts_chunk$set(echo = FALSE)
 options(knitr.kable.NA = '')
@@ -719,9 +721,32 @@ a %>%
   footnote(footnote_table_3, threeparttable = TRUE, escape = FALSE)
 ```
 
+<!-- John, I cannot seem to improve tables any further - still need to control width, change spacing (maybe single?) to fit on a single page, and get line returns in footnote to work. I have latex line breaks and it looks like it is trying to add a new line based on weird spacing in knit file but I think it might be interfering with papaja template. -->  
+
 
 
 ## Self-reported Acceptability
+
+```{r active effort t test}
+data_dislike <- data_last %>% 
+  # get subject level means for active and passive measures
+  group_by(subid) %>% 
+  summarise(Active = mean(c(daily_survey_dislike, audio_checkin_dislike), na.rm = TRUE),
+            Passive = mean(c(location_dislike, all_logs_dislike, sms_content_dislike), na.rm = TRUE),
+            dislike_diff = Passive - Active) 
+
+model_dislike <- lm(dislike_diff ~ 1, data = data_dislike)
+
+data_willingness <- data_last %>% 
+  # get subject level means for active and passive measures
+  group_by(subid) %>% 
+  summarise(Active = mean(c(daily_survey_4_1year, audio_checkin_1year), na.rm = TRUE),
+            Passive = mean(c(location_1year, all_logs_1year, sms_content_1year), na.rm = TRUE),
+            willingness_diff = Passive - Active) 
+
+model_willingness <- lm(willingness_diff ~ 1, data = data_willingness)
+```
+
 
 ### Interference
 
@@ -737,7 +762,7 @@ We also assessed the effect of active effort on dislike ratings (Figure 4). We c
 
 Figure 5 shows the distribution of participant responses to the self-reported acceptability item about willingness to use for one year for each personal sensing data stream. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0. Table 6 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
 
-We also assessed the effect of active effort on willingness ratings (Figure 6). We conducted a paired samples t-test of average the average willingness to use for one year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams (M = 0.84, SD = 1.0 ) relative to active data streams (M = 0.69, SD = 1.1), t(153) = 2.12, p = .04, d = .17.
+We also assessed the effect of active effort on willingness ratings (Figure 6). We conducted a paired samples t-test of average the average willingness to use for one year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams (M = 0.8, SD = 1.0 ) relative to active data streams (M = 0.7, SD = 1.1), t(153) = 2.12, p = .04, d = .17.
 
 <!--Review/update (by code) number of decimal places for self report measures.   One decimal place should be appropriate. All statistics (p values, ts, r should be reported to 2 decimal places)-->
 
@@ -747,7 +772,41 @@ We also assessed the effect of active effort on willingness ratings (Figure 6). 
 fig_2_caption <- "Interference Ratings by Personal Sensing Data Stream.\n Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
 ```
 
-<!-- Insert figure 2 by code here-->
+<!-- Caption figure # is not parsing right -->
+
+```{r figure 2, fig.height = 3.5, fig.cap = fig_2_caption}
+interference_plot_data <- data_last %>% 
+  select(contains("interfere")) %>%   
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_interfere", "daily_survey_interfere", 
+                                     "sleep_interfere"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active")) 
+
+interference_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+  theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
+  geom_vline(aes(xintercept = means), interference_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") 
+```
+
+
 
 <!-- Does \n work in figure caption?  Work on this caption a bit more-->
 
@@ -755,7 +814,69 @@ fig_2_caption <- "Interference Ratings by Personal Sensing Data Stream.\n Notes:
 fig_3_caption <- "Dislike Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-<!-- Insert figure 3 by code here-->
+```{r figure 3, fig.height = 6, fig.cap = fig_3_caption}
+dislike_plot_data <- data_last %>% 
+  select(contains("dislike")) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+   mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
+                                     "location_dislike", "all_logs_dislike", "sms_content_dislike"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality",
+                                     "Geolocation", "Cellular Communication Logs", "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active",
+                            measure == "Geolocation" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
+
+active_dis <- dislike_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+  theme(legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(size = 12)) +
+  ylim(0, .65) +
+  geom_vline(aes(xintercept = means), dislike_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
+  theme(text = element_text(size = 12))
+
+
+passive_dis <- dislike_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#DBF8FF") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), dislike_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") 
+
+dislike_plot <- wrap_plots(active_dis, passive_dis, ncol = 1)
+
+dislike_plot  %>% 
+  add_global_label(Ylab = "                   Proportion",
+                   Ygap = .02
+)
+```
 
 <!-- Does \n work in figure caption?  Work on this caption a bit more-->
 
@@ -763,7 +884,36 @@ fig_3_caption <- "Dislike Ratings by Personal Sensing Data Stream.\n  Notes:  X-
 fig_4_caption <- "Average Dislike by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-<!-- Insert figure 4 by code here-->
+```{r figure 4, fig.cap = fig_4_caption}
+# transform dataframe of active/passive means to long
+data_dislike_long <- data_dislike %>% 
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "dislike") %>% 
+  select(-dislike_diff)
+
+data_dislike_long %>% 
+  # bin continuous means, keep numeric
+  mutate(dislike_binned = as.numeric(cut(dislike, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(dislike_binned = dislike_binned - 3) %>% 
+  ggplot(aes(x = dislike_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), data_dislike_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(dislike)), size = .705, color = c("#b44343", "#05667b")) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+```
+
 
 <!-- Does \n work in figure caption.  Work on this caption a bit more-->
 
@@ -771,7 +921,71 @@ fig_4_caption <- "Average Dislike by Active vs. Passive Methods.\n  Notes:  X-ax
 fig_5_caption <- "Willingness to Use for One Year Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-<!-- Insert figure 5 by code here-->
+```{r figure 5, fig.height = 6, fig.cap = fig_5_caption}
+willingness_plot_data <- data_last %>% 
+  select(contains("1year")) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_1year", "daily_survey_4_1year", 
+                                     "daily_survey_1_1year", "sleep_1year", "location_1year", 
+                                     "all_logs_1year", "sms_content_1year"),
+                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)<i><sup>a</sup></i>",
+                                     "Sleep Quality", "Geolocation", "Cellular Communication Logs", 
+                                     "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
+                            measure == "EMA" ~ "Active",
+                            measure == "Sleep Quality" ~ "Active",
+                            measure == "Geolocation" ~ "Passive",
+                            measure == "Cellular Communication Logs" ~ "Passive",
+                            measure == "Text Message Content" ~ "Passive")) 
+
+willingness_active <- willingness_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+  theme(legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        text = element_text(size = 12),
+        strip.text = element_markdown()) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), willingness_plot_data %>% 
+  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+
+
+willingness_passive <- willingness_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#DBF8FF") +
+  facet_grid(active ~ measure) +
+  theme_classic() +
+  labs(y = NULL,
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  geom_vline(aes(xintercept = means), willingness_plot_data %>% 
+  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  group_by(measure) %>% 
+  summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+
+willingness_final_plot <- wrap_plots(willingness_active, willingness_passive, ncol = 1)
+
+willingness_final_plot  %>% 
+  add_global_label(Ylab = "                   Proportion",
+                   Ygap = .02
+)
+```
 
 <!-- Does \n work in figure caption.  Work on this caption a bit more-->
 
@@ -779,7 +993,35 @@ fig_5_caption <- "Willingness to Use for One Year Ratings by Personal Sensing Da
 fig_6_caption <- "Average Willingness to Continue for One Year by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for one year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-<!-- Insert figure 6 by code here-->
+```{r figure 6, fig.cap = fig_6_caption}
+# transform dataframe of active/passive means to long
+data_willingness_long <- data_willingness %>% 
+  pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "willingness") %>% 
+  select(-willingness_diff)
+
+data_willingness_long %>% 
+  # bin continuous means, keep numeric
+  mutate(willingness_binned = as.numeric(cut(willingness, breaks = c(-2.5, -1.5, -0.5, 0.5, 1.5, 2.5)))) %>% 
+  # change 1 to 5 scale to -2 to 2
+  mutate(willingness_binned = willingness_binned - 3) %>% 
+  ggplot(aes(x = willingness_binned, y = ..prop.., group = effort, fill = effort)) +
+  geom_bar(color = "black") +
+  facet_wrap(~ effort, ncol = 1) +
+  theme_classic() +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, .6) +
+  scale_x_continuous(breaks = c(-2, -1, 0, 1, 2),
+                   labels = c("Strongly disagree", "Disgree", "Undecided", "Agree", "Strongly agree")) +
+  scale_fill_manual(values = c("#FFDEDE", "#DBF8FF")) +
+  geom_vline(aes(xintercept = m), data_willingness_long %>% 
+               group_by(effort) %>% 
+               summarise(m = mean(willingness)), size = .705, color = c("#b44343", "#05667b")) +
+  geom_vline(aes(xintercept = 0), linetype = "dashed", size = .4, color = "#787575")
+```
 
 <!-- Insert Table 4 by code-->
 
