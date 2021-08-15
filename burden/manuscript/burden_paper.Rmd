@@ -727,6 +727,61 @@ a %>%
 
 ## Self-reported Acceptability
 
+```{r one sample t tests}
+# interference
+int_sleep <- broom::tidy(lm(sleep_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_interfere, na.rm = TRUE),
+         d = mean(data_last$sleep_interfere, na.rm = TRUE)/sd)
+int_audio <- broom::tidy(lm(audio_checkin_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_interfere, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_interfere, na.rm = TRUE)/sd)
+int_ema <- broom::tidy(lm(daily_survey_interfere ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_interfere, na.rm = TRUE),
+         d = mean(data_last$daily_survey_interfere, na.rm = TRUE)/sd)
+
+# dislike
+dis_sleep <- broom::tidy(lm(sleep_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_dislike, na.rm = TRUE),
+         d = mean(data_last$sleep_dislike, na.rm = TRUE)/sd)
+dis_audio <- broom::tidy(lm(audio_checkin_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_dislike, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_dislike, na.rm = TRUE)/sd)
+dis_ema <- broom::tidy(lm(daily_survey_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_dislike, na.rm = TRUE),
+         d = mean(data_last$daily_survey_dislike, na.rm = TRUE)/sd)
+dis_geolocation <- tidy(lm(location_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$location_dislike, na.rm = TRUE),
+         d = mean(data_last$location_dislike, na.rm = TRUE)/sd)
+dis_logs <- broom::tidy(lm(all_logs_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$all_logs_dislike, na.rm = TRUE),
+         d = mean(data_last$all_logs_dislike, na.rm = TRUE)/sd)
+dis_text_content <- broom::tidy(lm(sms_content_dislike ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sms_content_dislike, na.rm = TRUE),
+         d = mean(data_last$sms_content_dislike, na.rm = TRUE)/sd)
+
+# willingness
+use_audio <- broom::tidy(lm(audio_checkin_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$audio_checkin_1year, na.rm = TRUE),
+         d = mean(data_last$audio_checkin_1year, na.rm = TRUE)/sd)
+use_sleep <- broom::tidy(lm(sleep_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sleep_1year, na.rm = TRUE),
+         d = mean(data_last$sleep_1year, na.rm = TRUE)/sd)
+use_ema <- broom::tidy(lm(daily_survey_4_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$daily_survey_4_1year, na.rm = TRUE),
+         d = mean(data_last$daily_survey_4_1year, na.rm = TRUE)/sd)
+use_geolocation <- broom::tidy(lm(location_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$location_1year, na.rm = TRUE),
+         d = mean(data_last$location_1year, na.rm = TRUE)/sd)
+use_logs <- broom::tidy(lm(all_logs_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$all_logs_1year, na.rm = TRUE),
+         d = mean(data_last$all_logs_1year, na.rm = TRUE)/sd)
+use_text_content <- broom::tidy(lm(sms_content_1year ~ 1, data = data_last)) %>% 
+  mutate(sd = sd(data_last$sms_content_1year, na.rm = TRUE),
+         d = mean(data_last$sms_content_1year, na.rm = TRUE)/sd)
+```
+
+
+
 ```{r active effort t test}
 data_dislike <- data_last %>% 
   # get subject level means for active and passive measures
@@ -1024,6 +1079,34 @@ data_willingness_long %>%
 ```
 
 <!-- Insert Table 4 by code-->
+```{r table 4}
+corrplot_int <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_interfere,
+         `EMA` = daily_survey_interfere,
+         `Sleep Quality` = sleep_interfere) %>%
+  corx(triangle = "lower",
+       stars = c(0.05),
+       method = "pearson",
+       describe = c(`$M$` = mean, `$SD$` = sd))
+
+corrplot_int <- as_tibble(corrplot_int, rownames = " ")
+corrplot_int[corrplot_int == " - " ] <- "--"
+
+corrplot_int <- corrplot_int %>% 
+  mutate(`$N$` = c(154, 154, 87)) %>% 
+  mutate(`$t$` = c(str_c(round(int_audio$statistic, 2), "*"), 
+                   str_c(round(int_ema$statistic, 2), "*"), 
+                   str_c(round(int_sleep$statistic, 2), "*"))) %>% 
+  mutate(`$d$` = (c(round(int_audio$d, 2), round(int_ema$d, 2), round(int_sleep$d, 2)))) %>% 
+  select(` `, `1`, `2`, `$N$`, `$M$`, `$SD$`, everything())
+
+corrplot_int %>% 
+  kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c")) %>% 
+  kable_classic(html_font = "Arial") %>% 
+  row_spec(c(1:3), background = "#FFDEDE") %>% 
+  pack_rows("Active", 1, 3, background = "#FFDEDE") %>% 
+  footnote("* p < 0.05")
+```
 
     Table 4
 
