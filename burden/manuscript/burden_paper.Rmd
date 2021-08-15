@@ -58,6 +58,15 @@ classoption       : "man"
 output            : papaja::apa6_pdf
 header-includes:
   - \raggedbottom
+  - \usepackage{booktabs}
+  - \usepackage{setspace}
+  - \AtBeginEnvironment{tabular}{\singlespacing}
+  - \AtBeginEnvironment{lltable}{\singlespacing}
+  - \AtBeginEnvironment{tablenotes}{\singlespacing}
+  - \captionsetup[table]{font={stretch=1.5}}
+  - \captionsetup[figure]{font={stretch=1.5}}
+
+  
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
@@ -137,7 +146,7 @@ screen <- screen %>%
   filter(subid %in% sample_fu1$subid)
 ```
 
-```{r discontinued data}
+```{r disc data}
 # read in notes on incomplete participants
 notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
   filter(screen != "cancelled" & screen != "no show")
@@ -663,63 +672,57 @@ notes_incomplete <- notes_incomplete %>%
 ```
 
 
-```{r warning = FALSE}
-notes_incomplete %>% 
+
+```{r}
+a <- notes_incomplete %>% 
   filter(screen != "ineligible") %>% 
   filter(intake != "complete" | is.na(intake)) %>% 
   filter(intake != "ineligible" | is.na(intake)) %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
   mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(booktabs = TRUE,
-      col.names = c("", "n", "%"), 
-      caption = "Characterization of Discontinued Participants",
-      align = c("l", "c", "c"),
-      digits = 2,
-      longtable = TRUE) %>% 
-  kable_styling() %>%
-  row_spec(row = 0, align = "c", italic = TRUE) %>%
-  add_header_above(c("Characterization of eligible and consented participants who discontinued prior to completing enrollment" = 3), align = "l", bold = FALSE) %>% 
-  add_header_above(c("A" = 3), align = "l", bold = FALSE) %>%
-  footnote("These participants are noted as 'Not Enrolled' in Figure 1.")
+  adorn_totals("row") 
 
-notes_incomplete %>% 
+b <- notes_incomplete %>% 
   filter(screen != "ineligible") %>% 
   filter(completed_1month == "no") %>% 
   filter(intake == "complete") %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
   mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
-  kbl(booktabs = TRUE,
-      col.names = c("", "n", "%"),
-      align = c("l", "c", "c"),
-      digits = 2,
-      longtable = TRUE) %>% 
-  kable_styling() %>%
-  row_spec(row = 0, align = "c", italic = TRUE) %>%
-  add_header_above(c("Characterization of enrolled participants who discontinued prior to first month follow-up" = 3), align = "l", bold = FALSE) %>% 
-  add_header_above(c("B" = 3), align = "l", bold = FALSE) %>% 
-  footnote("These participants are noted as 'Discontinued' in Figure 1.")
+  adorn_totals("row") 
 
-notes_incomplete %>% 
+c <- notes_incomplete %>% 
   filter(screen != "ineligible") %>% 
   filter(completed_1month == "yes") %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
   mutate(percent = n/sum(n)) %>% 
-  adorn_totals("row") %>% 
+  adorn_totals("row") 
+
+footnote_table_3 <- "Bolded rows depict acceptability-related discontinuation. \\\\ $^a$These participants are labeled as 'Not Enrolled' in Figure 1. \\\\ $^b$These participants are labeled as 'Discontinued' in Figure 1. \\\\ $^c$These participants are labeled as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1."
+
+a %>% 
+  bind_rows(b, c) %>% 
   kbl(booktabs = TRUE,
       col.names = c("", "n", "%"), 
+      caption = "Characterization of Discontinued Participants",
       align = c("l", "c", "c"),
       digits = 2,
       longtable = TRUE) %>% 
-  kable_styling() %>%
+  kable_styling(full_width = TRUE) %>%
   row_spec(row = 0, align = "c", italic = TRUE) %>%
-  add_header_above(c("Characterization of enrolled participants who discontinued after the first month follow-up" = 3), align = "l", bold = FALSE) %>% 
-  add_header_above(c("C" = 3), align = "l", bold = FALSE) %>% 
-  footnote("These participants are noted as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1.")
+  row_spec(row = 3, bold = TRUE) %>% 
+  row_spec(row = 8, bold = TRUE) %>% 
+  row_spec(row = 10, bold = TRUE) %>% 
+  row_spec(row = 15, bold = TRUE) %>% 
+  row_spec(row = 17, bold = TRUE) %>% 
+  row_spec(row = 19, bold = TRUE) %>% 
+  pack_rows("Eligible and consented participants discontinued prior to completing enrollment$^a$", 1, 6, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued prior to first month follow-up$^b$", 7, 13, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued after the first month follow-up$^c$", 14, 22, bold = FALSE, escape = FALSE) %>% 
+  footnote(footnote_table_3, threeparttable = TRUE, escape = FALSE)
+ # footnote(c("Bolded rows depict acceptability-related discontinuation.", "$^a$These participants are labeled as 'Not Enrolled' in Figure 1.", "$^b$These participants are labeled as 'Discontinued' in Figure 1.", "$^c$These participants are labeled as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1."), threeparttable = TRUE, escape = FALSE) 
 ```
 
 
