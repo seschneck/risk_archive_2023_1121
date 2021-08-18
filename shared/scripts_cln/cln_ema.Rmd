@@ -26,18 +26,22 @@ Need to discuss flagged EMA log entries in flagged_entries.Rmd with JC.
 
 Still working on:   
 
-- clean up and manually check all log entries     
-- match all lapses to log note entries    
+- match all lapses to log note entries for determining reliability of lapse       
 - Recode_tz log entries not currently handled with clean function       
 - Check how many days between EMAs (large gaps?)    
-- Check subid 269, 66, and 84's data with multiple surveys on some days and other subids averaging over 4 surveys a day        
 - Check if participants without lapses are missing EMAs     
 - Look at surveys completed in under 12 seconds    
-  
+- match remaining lapses to log note entries   
+- EDA on incomplete surveys    
+ 
+Need to discuss with JC:    
+- 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)   
 
 ### Conclusions
 
-- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.    
+- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.   
+
+- Not sure what send_date and send_time variables are (from SurveySignal?) but too much missing data (93%) to likely be helpful    
 
 - Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
 
@@ -431,7 +435,7 @@ ema_all %>%
   tabyl(finished)
 ```
 
-Clusters of test data have Brogdens Longitude/Latitude (43.07, 89.41) 
+224 test surveys have Brogden's Longitude/Latitude (43.07, 89.41) 
 ```{r}
 ema_all %>% 
   filter(subid == "test") %>% 
@@ -470,33 +474,18 @@ ema_all <- ema_all %>%
             external_data_reference, response_set, location_accuracy))
 ```
 
+Recheck missing data
+```{r}
+ema_all %>% 
+  naniar::miss_var_summary()
+```
+
 missing ema_1_1 - ema_1_5 variables    
-These are follow up variables for participants who report a lapse on ema_1
+These are follow up variables for participants who report a lapse on ema_1 - so we expect a high percentage of missing data due to most observations being non-lapses
 ```{r}
 ema_all %>% 
   filter(is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | is.na(ema_1_4) | is.na(ema_1_5)) %>% 
   tabyl(ema_1)
-```
-
-82 participants report a lapse but do not provide full information about lapse   
-Some do fill out ema_1_1 - ema_1_4 which are the dates/times of lapse
-```{r}
-ema_all %>% 
-  filter(ema_1 == "Yes" & (is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | 
-                             is.na(ema_1_4) | is.na(ema_1_5))) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
-```
-
-
-missing ema_2_1 - ema_7_1 variables    
-All are marked as not finished
-```{r}
-ema_all %>% 
-  filter(is.na(ema_2_1) | is.na(ema_3_1) | is.na(ema_4_1) | is.na(ema_5_1) |
-           is.na(ema_6_1) | is.na(ema_7_1)) %>% 
-  tabyl(finished)
 ```
 
 missing ema_8_1 - ema_10_1 variables   
@@ -506,6 +495,15 @@ All missing values on later surveys or on morning surveys marked as not finished
 ema_all %>% 
   filter(is.na(ema_8_1) | is.na(ema_9_1) | is.na(ema_10_1)) %>% 
   tabyl(ema_type, finished)
+``` 
+
+missing ema_2_1 - ema_7_1 variables    
+All are marked as not finished - will check these incomplete entries closer in EDA
+```{r}
+ema_all %>% 
+  filter(is.na(ema_2_1) | is.na(ema_3_1) | is.na(ema_4_1) | is.na(ema_5_1) |
+           is.na(ema_6_1) | is.na(ema_7_1)) %>% 
+  tabyl(finished)
 ```
 
 missing location_latitude and longitude    
@@ -518,7 +516,7 @@ ema_all %>%
 
 
 missing 93% send_date and send_time    
-Not sure what these variables are (from SurveySignal?) but too much missing data to likely be helpful
+NOTE: Not sure what these variables are (from SurveySignal?) but too much missing data to likely be helpful
 ```{r}
 ema_all %>% 
   filter(is.na(send_date)) %>% 
@@ -536,7 +534,9 @@ ema_all %>%
 This is the expected number for all enrolled subids       
 
 
-EMA counts per subid
+EMA counts per subid     
+360 is the expected max if participants completed 4 surveys every day for 90 days   
+FIX: Subid 269 has almost double this expected max value - will look into below
 ```{r}
 ema_all %>% 
   count(subid) %>% 
@@ -555,6 +555,7 @@ ema_all_visits <- ema_all %>%
               select(subid, start_study, end_study), 
             by = "subid")
 ```
+
 
 Calculate days on study
 ```{r}
@@ -575,7 +576,7 @@ ema_all_visits %>%
 ```
 
 
-EMAs completed per study day    
+EMAs completed per study day - all seem appropriate    
 ```{r}
 ema_all_visits <- ema_all_visits %>% 
   group_by(subid, days_on_study) %>% 
@@ -583,7 +584,7 @@ ema_all_visits <- ema_all_visits %>%
   mutate(avg_emas = n_emas/days_on_study)
 ```
 
-On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.  
+On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.   
 
 ```{r}
 ema_all_visits %>% 
@@ -607,9 +608,9 @@ There are `r nrow(ema_all_more_than_4)` instances of days with more than 4 surve
 
 The most surveys in one day are `r max(ema_all_more_than_4$n)` surveys.  
 
-Subid 269 seems to have completed more than 4 surveys on most study days. Unclear why because they did not have missed surveys the day before to make up for. No staff notes about EMA.    
+##### Closer inspection of 269's data
 
-*FIX: investigate 269's data*   
+Subid 269 seems to have completed more than 4 surveys on most study days. Unclear why because they did not have missed surveys the day before to make up for. No staff notes about EMA.    
 
 ```{r}
 ema_all %>% 
@@ -618,31 +619,262 @@ ema_all %>%
   count(date)
 ```
 
-*FIX: investigate why 66 has more surveys completed in first days on study*   
-
+Check surveys completed outside days on study (2019-08-30 to 2019-11-27)   
+Everything looks fine
 ```{r}
+dates_269 <- visits %>% 
+  filter(subid == 269)
+
 ema_all %>% 
-  filter(subid == "066") %>% 
-  mutate(date = date(start_date)) %>% 
-  count(date)
+  filter(subid == 269) %>% 
+  filter(start_date <= dates_269$start_study | start_date >= dates_269$end_study)
 ```
 
-*FIX: investigate why 84 has several days with more than 4 surveys*    
 
+Look for incomplete surveys   
+43 incomplete surveys
 ```{r}
 ema_all %>% 
-  filter(subid == "084") %>% 
-  mutate(date = date(start_date)) %>% 
-  count(date)
+  filter(subid == 269) %>% 
+  tabyl(finished)
 ```
 
-*FIX: investigate subids averaging more than 4 surveys a day*
+Subid 269 reports no lapses while on study
+```{r}
+ema_all %>% 
+  filter(subid == 269) %>% 
+  tabyl(ema_1)
+```
+
+
+Check if there are duplicate morning surveys - we expect there to be one each day    
+Subid 269 was on study for 89 days but they have `r nrow(subset(ema_morning, subid == 269))` morning emas.  
+
+FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.
+
+*Discuss with JC*   
+
+```{r}
+ema_morning %>% 
+  filter(subid == 269) %>% 
+  select(start_date, emam_1, emam_2_1:emam_10_1) %>% 
+  arrange(start_date)
+```
+
+Maybe someone else's surveys were under subid 169's number?
+
+Subids with low daily compliance
 ```{r}
 ema_all_visits %>% 
-  filter(avg_emas > 4)
+  arrange(avg_emas)
+```
+
+Notes from subids with less than 2 surveys per day on avg don't suggest anyone wasn't getting their surveys except for possibly subid 47(but this time window did not overlap with subid 269)
+```{r}
+notes %>% 
+  filter(subid == 47) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 173) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 204) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 17) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 267) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 90) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 105) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 93) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 76) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 207) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 21) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 232) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 221) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
+
+notes %>% 
+  filter(subid == 245) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  kbl() %>% 
+  kable_styling()
 ```
 
 
+
+#### Check other subid's data averaging more than 4 a day
+
+```{r}
+ema_all_visits %>% 
+  filter(avg_emas > 4) %>% 
+  arrange(desc(avg_emas))
+```
+
+
+Subid 238 has 419 total EMAs for 89 days on study    
+
+Only 5 surveys are incomplete
+```{r}
+ema_all %>% 
+  filter(subid == 238) %>% 
+  tabyl(finished)
+```
+
+Some days they have as many as 10 surveys - they don't appear to be making up for missed surveys just taking it a lot.
+```{r}
+ema_all %>% 
+  filter(subid == 238) %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+They report no lapses while on study
+```{r}
+ema_all %>% 
+  filter(subid == 238) %>% 
+  tabyl(ema_1)
+```
+
+*Discuss with JC*   
+
+```{r}
+ema_all %>% 
+  filter(subid == 238) %>% 
+  select(start_date, ema_1, ema_2_1:ema_7_1) %>% 
+  arrange(start_date)
+```
+
+
+subid 85 has a total of 335 EMAS for 70 days on study     
+
+```{r}
+ema_all %>% 
+  filter(subid == "085") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+Only 1 survey is incomplete
+```{r}
+ema_all %>% 
+  filter(subid == "085") %>% 
+  tabyl(finished)
+```
+
+They report 3 lapses while on study
+```{r}
+ema_all %>% 
+  filter(subid == "085") %>% 
+  tabyl(ema_1)
+```
+
+Doen't seem to have excessive amounts just a steady average of around 5 surveys per day    
+
+FIX: There are some days where they report a lapse and no lapse within minutes to an hour of each other and all other EMA values are different.    
+
+*Discuss with JC*   
+
+```{r}
+ema_all %>% 
+  filter(subid == "085") %>% 
+  select(start_date, ema_1, ema_2_1:ema_7_1) %>% 
+  arrange(start_date)
+```
+
+
+subid 185 has a total of 392 EMAS for 89 days on study     
+
+```{r}
+ema_all %>% 
+  filter(subid == "185") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+Only 9 surveys are incomplete
+```{r}
+ema_all %>% 
+  filter(subid == "185") %>% 
+  tabyl(finished)
+```
+
+They report 1 lapse while on study
+```{r}
+ema_all %>% 
+  filter(subid == "185") %>% 
+  tabyl(ema_1)
+```
+
+FIX: There are some days where they report a lapse and no lapse within minutes to an hour of each other and all other EMA values are different.    
+
+*Discuss with JC*   
+
+```{r}
+ema_all %>% 
+  filter(subid == "185") %>% 
+  select(start_date, ema_1, ema_2_1:ema_7_1) %>% 
+  arrange(start_date)
+```
+
+
+
+#### Gaps in EMA days
 
 *FIX: count days between EMAs - look for large gaps*    
 ```{r}
@@ -745,6 +977,35 @@ ema_all %>%
   select(subid, ema_1:ema_1_5)
 ```
 
+70 participants report a lapse but do not provide full information about lapse   
+Some do fill out ema_1_1 - ema_1_4 which are the dates/times of lapse
+```{r}
+ema_all %>% 
+  filter(ema_1 == "Yes" & (is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | 
+                             is.na(ema_1_4) | is.na(ema_1_5))) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+Other incomplete surveys   
+lapse
+```{r}
+ema_all %>% 
+  filter(ema_1 == "Yes" & !is.na(ema_1_1) & !is.na(ema_1_2) & !is.na(ema_1_3) &
+           !is.na(ema_1_4) & !is.na(ema_1_5)) %>% 
+  filter(is.na(ema_2_1) | is.na(ema_3_1) | is.na(ema_4_1) | is.na(ema_5_1) |
+           is.na(ema_6_1) | is.na(ema_7_1))
+```
+
+non-lapse
+```{r}
+ema_all %>% 
+  filter(ema_1 != "Yes") %>% 
+  filter(is.na(ema_2_1) | is.na(ema_3_1) | is.na(ema_4_1) | is.na(ema_5_1) |
+           is.na(ema_6_1) | is.na(ema_7_1))
+```
+
 
 #### Status
 
@@ -783,6 +1044,7 @@ Reported lapses
 ema_all %>% 
   tabyl(ema_1)
 ```
+
 
 **ema_1_1**    
 "Please indicate the date of the first drink that you have not yet reported"    
