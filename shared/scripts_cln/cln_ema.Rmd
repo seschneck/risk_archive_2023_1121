@@ -20,11 +20,14 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-KW currently working on this clean script.   
+KW currently working on this clean script. 
+
+Need to discuss flagged EMA log entries in flagged_entries.Rmd with JC.   
 
 Still working on:   
 
-- clean up and manually check all log entries      
+- clean up and manually check all log entries     
+- match all lapses to log note entries    
 - Recode_tz log entries not currently handled with clean function       
 - Check how many days between EMAs (large gaps?)    
 - Check subid 269, 66, and 84's data with multiple surveys on some days and other subids averaging over 4 surveys a day        
@@ -183,7 +186,7 @@ log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom
 
 ### Log EDA
 
-Join logs for light EDA
+Join logs for EDA
 ```{r}
 log_all <- log_morning %>% 
   bind_rows(log_later)
