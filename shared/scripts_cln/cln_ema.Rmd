@@ -28,14 +28,13 @@ Still working on:
 
 - match all lapses to log note entries for determining reliability of lapse       
 - Recode_tz log entries not currently handled with clean function       
-- Check how many days between EMAs (large gaps?)    
 - Check if participants without lapses are missing EMAs     
 - Look at surveys completed in under 12 seconds    
-- match remaining lapses to log note entries   
 - EDA on incomplete surveys    
  
 Need to discuss with JC:    
-- 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)   
+- 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)    
+- gaps in EMA data
 
 ### Conclusions
 
@@ -203,9 +202,8 @@ tabyl(log_all$log_action)
 
 #### remove entries   
 
-All entries have been confirmed to be accurate removals   
-- Most removed entries belong to subid 55 who renrolled as subid 61 with a new start_study date     
-- 2 other removals are due to subids putting an incorrect answer for lapse and then retaking it to fix it    
+All removal entries look good   
+- Most removed entries belong to subid 55 who renrolled as subid 61 with a new start_study date or due to subids putting an incorrect answer for lapse and then retaking it to fix it    
 ```{r}
 log_all %>% 
   filter(log_action == "remove") %>% 
@@ -223,7 +221,7 @@ log_all %>%
   tabyl(var_name)
 ```
 
-Some subids have more log entries than others and may be more prone to unreliable reports
+Some subids have more log entries than others  
 ```{r}
 log_all %>% 
   tabyl(subid) %>% 
@@ -373,7 +371,9 @@ log_all %>%
 ```
 
 
-#### note entries
+#### note entries   
+
+Notes about specific lapses are inspected more closely later on in this script
 ```{r}
 log_all %>% 
   filter(log_action == "note") %>% 
@@ -527,6 +527,15 @@ ema_all %>%
 ```
 
 
+Missing UTCs     
+Unclear why some observations are missing UTC - doesn't seem to be a pattern. We likely won't use UTC anyways though.   
+```{r}
+ema_all %>% 
+  filter(is.na(utc))
+```
+
+
+
 #### EMA counts and frequencies
 
 `r nrow(ema_all)` EMAS across `r length(unique(ema_all$subid))` unique subids  
@@ -576,7 +585,7 @@ ema_all_visits %>%
 ```
 
 
-EMAs completed per study day - all seem appropriate    
+EMAs completed per study day    
 ```{r}
 ema_all_visits <- ema_all_visits %>% 
   group_by(subid, days_on_study) %>% 
@@ -584,29 +593,33 @@ ema_all_visits <- ema_all_visits %>%
   mutate(avg_emas = n_emas/days_on_study)
 ```
 
-On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.   
+On average participants completed `r round(mean(ema_all_visits$avg_emas), 2)` EMAs per day.      
 
+NOTE: This does not cap out possible daily EMAs at 4. Almost all participants completed more than 4 EMAs in a single day at some point.       
 ```{r}
 ema_all_visits %>% 
   ggplot(aes(x = avg_emas)) +
   geom_histogram(bins = 20, color = "black", fill = "light grey")
 ```
 
-NOTE: This does not cap out possible daily EMAs at 4. Almost all participants completed more than 4 EMAs in a single day at some point.    
+
 Days with more than 4 EMAs
 ```{r}
 ema_all_more_than_4 <- ema_all %>% 
   mutate(date = date(start_date)) %>% 
   count(subid, date) %>% 
   filter(n > 4)
-
-print(ema_all_more_than_4)
 ```
 
 
 There are `r nrow(ema_all_more_than_4)` instances of days with more than 4 surveys from `r length(unique(ema_all_more_than_4$subid))` participants.   
 
-The most surveys in one day are `r max(ema_all_more_than_4$n)` surveys.  
+The most surveys in one day are `r max(ema_all_more_than_4$n)` surveys.    
+
+```{r}
+print(ema_all_more_than_4)
+```
+
 
 ##### Closer inspection of 269's data
 
@@ -876,14 +889,198 @@ ema_all %>%
 
 #### Gaps in EMA days
 
-*FIX: count days between EMAs - look for large gaps*    
+filter down to unique dates for each subid and count lapsed days   
+First day with an EMA for each subid will be NA
 ```{r}
+ema_unique_dates <- ema_all %>% 
+  mutate(subid = as.numeric(subid),
+         date = date(start_date)) %>% 
+  group_by(subid, date) %>% 
+  slice(1) %>% 
+  ungroup()
 
+ema_unique_dates <- ema_unique_dates %>% 
+  group_by(subid) %>% 
+  mutate(days_since_last_ema = as.numeric(date - dplyr::lag(date, n = 1))) %>% 
+  glimpse()
+```
+
+
+A 1 day difference would mean no missing days between EMAs. On average participants had lapses between EMAs of `r mean(ema_unique_dates$days_since_last_ema, na.rm = TRUE)` days.   
+
+Max days that lapsed is `r max(ema_unique_dates$days_since_last_ema, na.rm = TRUE)` days.     
+
+This was someone who took an EMA in 2020
+```{r}
+ema_unique_dates %>% 
+  filter(days_since_last_ema == 481)
+```
+
+Only look at EMA gaps within study participation dates
+```{r}
+ema_unique_dates_on_study <- ema_unique_dates %>% 
+  left_join(visits %>% 
+              select(subid, start_study, end_study), by = "subid") %>% 
+  filter(date >= start_study & date <= end_study)
+```
+
+Check surveys that are out of range    
+`r nrow(ema_unique_dates) - nrow(ema_unique_dates_on_study)` observations get filtered out    
+```{r}
+(ema_unique_dates_off_study <- ema_unique_dates %>% 
+  select(subid, date) %>% 
+  anti_join(ema_unique_dates_on_study, by = c("subid", "date")) %>% 
+  left_join(visits %>% 
+              select(subid, start_study, end_study), by = "subid") %>% 
+  mutate(start_study = date(start_study), 
+         end_study = date(end_study),
+         days_out_of_range = if_else(date < start_study, 
+                                     as.numeric(date - start_study), 
+                                     as.numeric(date - end_study))))
+```
+
+`r length(unique(subset(ema_unique_dates_off_study, days_out_of_range > 7)$subid))` subids have a total of `r nrow(subset(ema_unique_dates_off_study, days_out_of_range > 7))` surveys taken more than a week after ending study.   
+
+3 of these were taken in 2020 over a year after ending study
+
+Subid 116 looks to be the only subid with a shortened end_study date - all of their emas out of range would be within the original 90 days on study.     
+```{r}
+ema_unique_dates_off_study %>% 
+  filter(days_out_of_range > 7) %>% 
+  mutate(days_on_study = as.numeric(end_study - start_study)) %>% 
+  select(subid, date, days_out_of_range, days_on_study)
+```
+
+According to notes they ended participation after follow-up 1 so these are likely sporadic EMAs completed after officially wnding study.   
+```{r}
+notes %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  filter(subid == 116) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  scroll_box(width = "100%")
+```
+
+
+visualize days between EMAs while participants are on study   
+
+
+On average participants had lapses between EMAs of `r round(mean(ema_unique_dates_on_study$days_since_last_ema, na.rm = TRUE), 2)` days.     
+
+Max days that lapsed is `r max(ema_unique_dates_on_study$days_since_last_ema, na.rm = TRUE)` days.      
+
+
+```{r}
+ema_unique_dates_on_study %>% 
+  # filter out first day for each subid (169 rows) 
+  filter(!is.na(days_since_last_ema)) %>% 
+  ggplot(aes(x = days_since_last_ema)) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey")
+```
+
+`r nrow(subset(ema_unique_dates_on_study, days_since_last_ema > 1))` instances of gaps  in EMAs bigger than 1 day     
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 1) %>% 
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
+Subid 21 has more frequent small gaps towards end of study participation
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 1 & subid == 21) %>% 
+  mutate(end_study = date(end_study),
+         start_study = date(start_study),
+         days_on_study = as.numeric(end_study - start_study)) %>% 
+  select(subid, days_on_study, days_since_last_ema, date, end_study)
+```
+
+Subid 17 had frequent gaps that led to termination of study participation    
+From notes "No-Show for FU#1 and FU #2 (Spouse called to report that participant entered an in-patient treatment program); Very low compliance."
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 1 & subid == 17) %>% 
+  mutate(end_study = date(end_study),
+         start_study = date(start_study),
+         days_on_study = as.numeric(end_study - start_study)) %>% 
+  select(subid, days_on_study, days_since_last_ema, date, end_study)
 ```
 
 
 
+`r nrow(subset(ema_unique_dates_on_study, days_since_last_ema > 3))` instances of gaps  in EMAs bigger than 3 days
+
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 3) %>% 
+  select(subid, date, days_since_last_ema) %>% 
+  arrange(desc(days_since_last_ema))
+```
+
+Spread out among subids (not just a few non-compliant subids)
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 3) %>% 
+  tabyl(subid)
+```
+
+See what day on study this gap occurred    
+Some subids did not complete study for full 90 days
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 3) %>% 
+  mutate(day_on_study = as.numeric(date - date(start_study)),
+         total_days_on_study = as.numeric(date(end_study) - date(start_study))) %>% 
+  select(subid, days_since_last_ema, day_on_study, total_days_on_study) %>% 
+  arrange(desc(total_days_on_study), subid) 
+```
+
+
+Notes on subids with large gaps (> 3 days) that explain compliance   
+
+- subid 47 was withdrawn after follow-up 1 for EMA non-compliance - they were on study for 34 days but had a gap of 11 days where they did not complete an EMA.   
+- subid 84 participant was out of the country for 8 days (8/8 - 8/16) and unable to complete surveys - this lines up with the 12 day gap for this subid. They resumed surveys on 8/20.     
+- subid 116 discontinued after follow-up 1. According to notes, longer lapses are common for this subid which may explain their gaps in EMA compliance.   
+- subid 139 experienced technical difficulties and was unable to complete EMA surveys from 12/25/18 - 01/03/2019. This aligns with a gap in EMA compliance of 9 days. They resumed EMAs on 1/3/19.    
+- subid 173 was only on study for 34 days. From notes - "Participant's EMA compliance was never over 15% went weeks without answering and no-called/no-showed to their Follow Up 1 therefore they are considered discontinued from study participation."  - subid 180 reported that they will be out of the country from 02/22/2019 - 03/02/2019. This aligns with their only gap in EMA compliance (9 days). They resumed EMAs on 3/3/19.   
+- subid 191 has a single gap of 13 days. According to notes participant stopped responding to EMA surveys on 5/10/2019. Staff called participant on 5/23/2019 to determine if the surveys are still coming in and the participant reported having left a voicemail with the staff earlier in the month reporting that they were not receiving any surveys. EMAs resumed on 5/23/19.   
+- subid 204 had extremely poor compliance. From notes - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them."     
+- subid 207 was out of the country for 2 weeks with limited reception. No dates of this trip in notes, but likely explains their 9 day gap in compliance. They also had a four day gap in compliance.    
+- subid 213 has a 15 day gap in EMA compliance where they start EMA again on 5/21. They then have another 4 day gap where they resume n 5/27. Their first audio check-ins after these gaps (on 5/22 and 5/27) both reference they have been drinking.       
+- subid 237's 5 day gap was due to entering in-patient tx on 7/8/2019. This participant was ultimately withdrawn due to inappropriate behavior with staff.   
+- subid 264 has a single gap of 7 days. According to notes - "Participant reported that they were not getting their surveys as of 10/18/2019 - we investigated and this issue is affecting AT&T participants; Participant was unable to get surveys between October 25th and most of November 1st - they started getting surveys the evening of November 1st". EMAs did continue again on 11/1/19.     
+
+
+*Discuss with JC*    
+
+```{r}
+notes %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  filter(subid %in% c(subset(ema_unique_dates_on_study, days_since_last_ema > 3)$subid)) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+   
+
+
+
 #### Start and End dttms for EMAs
+
+Dates of EMAs ranged from `r min(ema_all$start_date)` - `r max(ema_all$start_date)`      
+
+2 subids took an EMA in 2020
+```{r}
+ema_all %>% 
+  filter(date(start_date) > "2019-12-31")
+```
+
+subid 79 ended the study on `r subset(visits, subid == 79)$end_study`   
+subid 137 ended the study on `r subset(visits, subid == 137)$end_study`    
+
+*Discuss with JC to keep or remove with log entry*    
 
 Duration of EMA
 ```{r}
