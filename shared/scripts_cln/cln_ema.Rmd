@@ -28,13 +28,12 @@ Still working on:
 
 - match all lapses to log note entries for determining reliability of lapse       
 - Recode_tz log entries not currently handled with clean function       
-- Check if participants without lapses are missing EMAs     
 - Look at surveys completed in under 12 seconds    
 - EDA on incomplete surveys    
  
 Need to discuss with JC:    
 - 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)    
-- gaps in EMA data
+- gaps in EMA data 
 
 ### Conclusions
 
@@ -49,7 +48,6 @@ Need to discuss with JC:
   - According to notes, subid 104 reported lapses everyday on study.     
   - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
 
-- Subid 269 and 84 averages over 4 surveys a day - goes for several days with 10-15 completed surveys.   
 
 - 5 lapses are included in surveys completed in under 30 seconds.   
 
@@ -1026,7 +1024,7 @@ ema_unique_dates_on_study %>%
 ```
 
 See what day on study this gap occurred    
-Some subids did not complete study for full 90 days
+20 subids did not complete study for full 90 days
 ```{r}
 ema_unique_dates_on_study %>% 
   filter(days_since_last_ema > 3) %>% 
@@ -1063,7 +1061,45 @@ notes %>%
   scroll_box(width = "100%", height = "500px")
 ```
 
-   
+
+See how many of these subids have lapses
+```{r}
+lapse_subids <- ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  count(subid)
+```
+
+
+`r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema > 3 & subid %in% lapse_subids$subid)$subid))` of the `r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema > 3)$subid))` unique subids contributing to the gaps have lapses reported.    
+
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 3) %>%
+  mutate(lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
+  select(subid, lapse, days_since_last_ema) %>% 
+  arrange(desc(days_since_last_ema), subid)
+```
+
+
+#### Discontinued participants
+
+`r nrow(subset(visits, !is.na(final_visit)))` participants completed through the final visit. That is `r nrow(subset(visits, is.na(final_visit) & subid %in% ema_unique_dates_on_study$subid))` subids were discontinued or withdrawn.  
+
+```{r}
+disc_subids <- visits %>% 
+  filter(!is.na(final_visit))
+```
+
+Below is the percentage of discontinued/withdrawn participants who had a reported lapse while on study   
+```{r}
+ema_unique_dates_on_study %>% 
+  mutate(total_days_on_study = as.numeric(date(end_study) - date(start_study)),
+         lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
+  filter(subid %in% disc_subids$subid) %>% 
+  select(subid, lapse, total_days_on_study) %>% 
+  unique() %>% 
+  tabyl(lapse)
+```
 
 
 
@@ -1290,11 +1326,10 @@ ema_all %>%
 
 
 Participants with lapses    
-`r nrow(count(subset(ema_all, ema_1 == "Yes" & subid != "test"), subid))` subids have a reported lapse    
+`r nrow(count(subset(ema_all, ema_1 == "Yes"), subid))` subids have a reported lapse    
 ```{r}
 ema_all_lapse <- ema_all %>% 
   filter(ema_1 == "Yes") %>% 
-  filter(subid != "test") %>% 
   count(subid) %>% 
   arrange(desc(n))
 
@@ -1315,10 +1350,9 @@ ema_all_lapse %>%
 
 
 Participants with no lapses    
-`r nrow(count(subset(ema_all, subid != "test" & !subid %in% ema_all_lapse$subid), subid))` subids have no lapses
+`r nrow(count(subset(ema_all, !subid %in% ema_all_lapse$subid), subid))` subids have no lapses
 ```{r}
 ema_all %>% 
-  filter(subid != "test") %>% 
   count(subid) %>% 
   filter(!subid %in% ema_all_lapse$subid) %>% 
   select(subid) %>% 
