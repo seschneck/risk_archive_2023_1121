@@ -83,7 +83,7 @@ merge_lapses <- function(lapses) {
 
 get_study_hours <- function(subid, study_start, study_end, ema_end) {
   # Returns a tibble for one subject with columns for subid (numeric) and 
-  #   lapse_hour (dttm).  
+  #   dttm_label (dttm).  
   #   First hour is midnight on study day 2
   #   Last hour is earlier of the hour preceding the final EMA or 11 pm on the last day
   #   of the study
@@ -99,7 +99,7 @@ get_study_hours <- function(subid, study_start, study_end, ema_end) {
   
   hour_end <- min(study_end, ema_end)
   
-  study_hours <- tibble(hour = seq(hour_start, hour_end, by = "hour"), subid) %>% 
+  study_hours <- tibble(dttm_label = seq(hour_start, hour_end, by = "hour"), subid) %>% 
     relocate(subid)
   
   return(study_hours)
@@ -125,7 +125,7 @@ get_lapse_labels <- function(lapses, dates) {
     lapse_subid <- valid_lapses$subid[[i]]
     lapse_hour <- valid_lapses$lapse_start[[i]]
     
-    row_index <- which(labels$subid == lapse_subid & labels$hour == lapse_hour)
+    row_index <- which(labels$subid == lapse_subid & labels$dttm_label == lapse_hour)
     
     if (length(row_index) == 1) {
       labels$lapse[row_index] <- TRUE
@@ -165,7 +165,7 @@ get_lapse_labels <- function(lapses, dates) {
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == valid_lapses$subid[[i]] & labels$hour == lapse_hour)
+      row_index <- which(labels$subid == valid_lapses$subid[[i]] & labels$dttm_label == lapse_hour)
       
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -190,7 +190,7 @@ get_lapse_labels <- function(lapses, dates) {
                                  by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$hour == lapse_hour)
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
       
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -211,7 +211,7 @@ get_lapse_labels <- function(lapses, dates) {
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$hour == lapse_hour)
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
       
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -232,7 +232,7 @@ get_lapse_labels <- function(lapses, dates) {
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$hour == lapse_hour)
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
       
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -252,14 +252,14 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
   lapses <- valid_labels %>% 
     filter(lapse) %>% 
     mutate(label = "lapse") %>% 
-    select(subid, hour, label)
+    select(subid, dttm_label, label)
   
   n_no_lapse <- nrow(lapses) * ((1 / p_lapse) - 1)
   
   no_lapses <- valid_labels %>% 
     filter(no_lapse) %>% 
     mutate(label = "no_lapse") %>% 
-    select(subid, hour, label) %>% 
+    select(subid, dttm_label, label) %>% 
     sample_n(n_no_lapse)
 
   labels <- lapses %>% 
@@ -292,7 +292,7 @@ get_feature_period <- function(the_subid, hour, data, lead_hours, period_duratio
 
 
 
-make_features <- function (the_subid, hour, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
+make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
   
   # This function takes a list of columns and list of functions to use for feature engineering 
   # It maps over a lapse label row taking in subid and hour
@@ -306,14 +306,14 @@ make_features <- function (the_subid, hour, data, lead_hours, period_duration_ho
   # previous feature set on subid and dttm_label
   
   # filter down data
-  data <- get_feature_period(the_subid, hour, data, lead_hours, period_duration_hours)
+  data <- get_feature_period(the_subid, the_dttm_label, data, lead_hours, period_duration_hours)
   
   # create features
   data_feat <- data %>% 
     # all_of is for strict selection - error thrown if any variables are missing
-    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.col}_{.fn}")) %>% 
+    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.fn}_{.col}")) %>% 
     mutate(subid = the_subid,
-           dttm_label = hour) %>% 
+           dttm_label = the_dttm_label) %>% 
     relocate(subid, dttm_label)
   
   data_feat
