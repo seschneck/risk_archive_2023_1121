@@ -19,21 +19,19 @@ knit: (function(input, ...) {
 ---
 
 ### Code Status
-
-KW currently working on this clean script. 
-
-Need to discuss flagged EMA log entries in flagged_entries.Rmd with JC.   
-
+ 
 Still working on:   
 
 - match all lapses to log note entries for determining reliability of lapse       
-- Recode_tz log entries not currently handled with clean function       
 - Look at surveys completed in under 12 seconds    
 - EDA on incomplete surveys    
  
 Need to discuss with JC:    
+
 - 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)    
-- gaps in EMA data 
+- gaps in EMA data     
+- Recode_tz log entries not currently handled with clean function - how best to implement (force_tz than with_tz?)       
+- flagged EMA log entries in flagged_entries.Rmd       
 
 ### Conclusions
 
@@ -1065,8 +1063,9 @@ notes %>%
 See how many of these subids have lapses
 ```{r}
 lapse_subids <- ema_all %>% 
+  mutate(subid = as.numeric(subid)) %>% 
   filter(ema_1 == "Yes") %>% 
-  count(subid)
+  count(subid) 
 ```
 
 
@@ -1080,6 +1079,16 @@ ema_unique_dates_on_study %>%
   arrange(desc(days_since_last_ema), subid)
 ```
 
+Below is the percentage of participants with ema compliance gaps who had a reported lapse while on study  
+```{r}
+ema_unique_dates_on_study %>% 
+  filter(days_since_last_ema > 3) %>%
+  mutate(lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
+  select(subid, lapse) %>% 
+  unique() %>% 
+  tabyl(lapse)
+```
+
 
 #### Discontinued participants
 
@@ -1087,16 +1096,25 @@ ema_unique_dates_on_study %>%
 
 ```{r}
 disc_subids <- visits %>% 
-  filter(!is.na(final_visit))
+  filter(is.na(final_visit))
 ```
 
 Below is the percentage of discontinued/withdrawn participants who had a reported lapse while on study   
 ```{r}
 ema_unique_dates_on_study %>% 
-  mutate(total_days_on_study = as.numeric(date(end_study) - date(start_study)),
-         lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
+  mutate(lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
   filter(subid %in% disc_subids$subid) %>% 
-  select(subid, lapse, total_days_on_study) %>% 
+  select(subid, lapse) %>% 
+  unique() %>% 
+  tabyl(lapse)
+```
+
+This seems to be close to the same percentage of non-discontinued participants who lapsed on study
+```{r}
+ema_unique_dates_on_study %>% 
+  mutate(lapse = if_else(subid %in% lapse_subids$subid, "Yes", "No")) %>% 
+  filter(!subid %in% disc_subids$subid) %>% 
+  select(subid, lapse) %>% 
   unique() %>% 
   tabyl(lapse)
 ```
