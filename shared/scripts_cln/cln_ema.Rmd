@@ -46,27 +46,10 @@ Need to discuss with JC:
   - According to notes, subid 104 reported lapses everyday on study.     
   - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
 
+- EMA compliance gaps and reasons for them are noted in this script
 
-- 5 lapses are included in surveys completed in under 30 seconds.   
+- Notes on validity of lapse labels are in this script
 
-
-Supporting notes for lapse/no lapse labels:    
-
-- Subid 47 was not receiving EMA messages between 4/6 - 4/17/18. This should not be a reliable no lapse period though because according to staff they reported a lapse on 4/10/18 at their tech troubleshooting appointment on 4/11/18.   
-
-- Note about a lapse for subid 79 - "Data log says this sub had a brain injury and suffers from memory issues; This could explain why it took so long to report this lapse; However he did report a lapse on 09/02 20:00 at 10am on 09/03 which makes me a little skeptical and think it is possible that that this is supposed to be 09/03"     
-
-- Note about a lapse/non-lapse for subid 119 - "On 10/31 subs audio mentioned that they had missed several days because they relapsed and were trying to get back on track; This is the only lapse that was reported while on study; However it is unclear if this lapse report is correct. They had answered 4 surveys on 10/28 saying they did not lapse"    
-
-- No surveys for subid 173 between 2/5 - 2/14 - they called to say they were interested in continuing with the study but having trouble getting back on track - so this time period is likely not reliable for non-lapse or lapse.    
-
-- Note about subid 204 lapse - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them. I collected lapses from her even though she did not complete her surveys and she reported that the lapse she reported with timestamp: 1558123879 was not 1 long drinking episode, but 3 individual ones lasting from 9pm each night and going until Midnight. She also reported that she probably drank beginning 05/16 through 06/04 from 9pm until Midnight."    
-
-- Subid 212 note about unreported lapses "	Audio on 4/17 reported that drinking has been an issue. No specific info about the lapse. They denied having a lapse to report 3 times during the alleged lapse; Participant divulged at their follow up visit that they drank the night before their visit (5/15/19 - 5/16/19) but they never formally reported the lapse."    
-
-- Subid 213 note about lapse "Participant reported having drank alcohol nearly every day during the lapse dates provided - They reported the first day (05/13/2019) being the heaviest day and the subsequent dates being a little lighter. They did not recall times for lapses when asked during their Follow-up 2 visit; The participant did not complete any ema between 5/7-5/21; They did not complete any audio messages between 5/04-5/22; Their 5/22 and 5/27 audio messages both reference that they've "been drinking" and on 5/30 they say they are "trying to get back on track"; Participant reported having drank at the following times on listed dates: 5/25: 11pm-12am 5/26: 6pm -8pm 5/27: 6pm-8pm. Participant reported these were estimates of the times spent drinking on this weekend."    
-
-- Subid 225 note about lapse "This is the only lapse she reported during her participation but her audio messages definitely do not reflect her drinking during this entire period; On 6/19 participant reported that they felt like crap because they relapsed; On 6/20 participant reported that they were 2 days sober; They did not complete an audio message between 6/14-6/19 however messages between 6/5-6/14 do not give any indication that she was drinking"   
 
 
 ### Notes
@@ -1340,9 +1323,12 @@ ema_all %>%
   tabyl(finished)
 ```
 
-Check proximity to other EMA
+Check proximity to other EMA    
+Almost all spam entries are within a minute of another EMA - likely reason they were flagged   
 ```{r}
-
+ema_all_lag_lead_minutes %>% 
+  filter(status == 8) %>% 
+  select(subid, duration_min, mins_till_next_ema, mins_since_last_ema)
 ```
 
 
@@ -1357,6 +1343,36 @@ ema_all %>%
 ```
 
 `r nrow(subset(ema_all, ema_1 == "Yes"))` reported lapses from `r length(unique(subset(ema_all, ema_1 == "Yes")$subid))` subids.  
+
+
+Supporting notes for lapse/no lapse labels from raw_notes:    
+
+- Subid 47 was not receiving EMA messages between 4/6 - 4/17/18. This should not be a reliable no lapse period though because according to staff they reported a lapse on 4/10/18 at their tech troubleshooting appointment on 4/11/18.   
+- Note about a lapse for subid 79 - "Data log says this sub had a brain injury and suffers from memory issues; This could explain why it took so long to report this lapse; However he did report a lapse on 09/02 20:00 at 10am on 09/03 which makes me a little skeptical and think it is possible that that this is supposed to be 09/03"     
+- Note about a lapse/non-lapse for subid 119 - "On 10/31 subs audio mentioned that they had missed several days because they relapsed and were trying to get back on track; This is the only lapse that was reported while on study; However it is unclear if this lapse report is correct. They had answered 4 surveys on 10/28 saying they did not lapse"    
+- No surveys for subid 173 between 2/5 - 2/14 - they called to say they were interested in continuing with the study but having trouble getting back on track - so this time period is likely not reliable for non-lapse or lapse.    
+- Note about subid 204 lapse - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them. I collected lapses from her even though she did not complete her surveys and she reported that the lapse she reported with timestamp: 1558123879 was not 1 long drinking episode, but 3 individual ones lasting from 9pm each night and going until Midnight. She also reported that she probably drank beginning 05/16 through 06/04 from 9pm until Midnight."    
+- Subid 212 note about unreported lapses "	Audio on 4/17 reported that drinking has been an issue. No specific info about the lapse. They denied having a lapse to report 3 times during the alleged lapse; Participant divulged at their follow up visit that they drank the night before their visit (5/15/19 - 5/16/19) but they never formally reported the lapse."    
+- Subid 213 note about lapse "Participant reported having drank alcohol nearly every day during the lapse dates provided - They reported the first day (05/13/2019) being the heaviest day and the subsequent dates being a little lighter. They did not recall times for lapses when asked during their Follow-up 2 visit; The participant did not complete any ema between 5/7-5/21; They did not complete any audio messages between 5/04-5/22; Their 5/22 and 5/27 audio messages both reference that they've "been drinking" and on 5/30 they say they are "trying to get back on track"; Participant reported having drank at the following times on listed dates: 5/25: 11pm-12am 5/26: 6pm -8pm 5/27: 6pm-8pm. Participant reported these were estimates of the times spent drinking on this weekend."    
+- Subid 225 note about lapse "This is the only lapse she reported during her participation but her audio messages definitely do not reflect her drinking during this entire period; On 6/19 participant reported that they felt like crap because they relapsed; On 6/20 participant reported that they were 2 days sober; They did not complete an audio message between 6/14-6/19 however messages between 6/5-6/14 do not give any indication that she was drinking"   
+
+Info about lapses from cleaning log:   
+```{r}
+# 1442 lapses
+lapses <- ema_all %>% 
+  filter(ema_1 == "Yes") 
+
+# still 1442 lapses after join
+lapses %>% 
+  full_join(log_all %>% 
+              filter(log_action == "note" & response_id %in% lapses$response_id & is.na(var_name)),
+            by = c("subid", "response_id")) %>% 
+  select(subid, start_date, ema_1:ema_10_1, notes) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
 
 
 **ema_1_1**    
