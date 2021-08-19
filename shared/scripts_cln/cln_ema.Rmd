@@ -23,15 +23,15 @@ knit: (function(input, ...) {
 Still working on:   
 
 - match all lapses to log note entries for determining reliability of lapse       
-- Look at surveys completed in under 12 seconds    
-- EDA on incomplete surveys    
+    
  
 Need to discuss with JC:    
 
 - 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)    
 - gaps in EMA data     
 - Recode_tz log entries not currently handled with clean function - how best to implement (force_tz than with_tz?)       
-- flagged EMA log entries in flagged_entries.Rmd       
+- flagged EMA log entries in flagged_entries.Rmd    
+- how to handle surveys taken within minutes of each other (i.e., incomplete followed by complete survey)   
 
 ### Conclusions
 
@@ -1134,7 +1134,7 @@ ema_all %>%
 subid 79 ended the study on `r subset(visits, subid == 79)$end_study`   
 subid 137 ended the study on `r subset(visits, subid == 137)$end_study`    
 
-*Discuss with JC to keep or remove with log entry*    
+*These out of bounds entries will be filtered out at the study level*    
 
 Duration of EMA
 ```{r}
@@ -1142,89 +1142,85 @@ ema_all <- ema_all %>%
   mutate(duration_min = round(as.numeric(difftime(end_date, start_date, units = "mins"))))
 
 ema_all %>% 
-  filter(subid != "test") %>% 
   tabyl(duration_min)
 ```
 
-Closer look at surveys under half a minute
+Closer look at surveys under a minute   
+No notable breaks in the distribution
 ```{r}
 ema_all %>%  
-  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
-  filter(duration_min < .5) %>% 
-  filter(subid != "test") %>% 
-  tabyl(duration_min)
+  mutate(duration_secs = as.numeric(difftime(end_date, start_date, units = "secs"))) %>%
+  filter(duration_secs < 60) %>% 
+  tabyl(duration_secs)
 ```
 
-Most surveys under half a minute either had no lapse or were not finished
+Most surveys under 10 seconds were not complete 
 ```{r}
 ema_all %>%  
-  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
-  filter(duration_min < .5) %>% 
-  filter(subid != "test") %>% 
+  mutate(duration_secs = as.numeric(difftime(end_date, start_date, units = "secs"))) %>%
+  filter(duration_secs < 10) %>% 
   tabyl(finished, ema_1)
 ```
 
-Surveys that took less than 12 seconds
+The complete EMAS had no lapses reported and they were the later version of the EMA which makes the survey considerably shorter  
+Interestingly they all took 9 seconds to complete
 ```{r}
-ema_all_less_than_12_sec <- ema_all %>%  
+ema_all %>%  
+  mutate(duration_secs = as.numeric(difftime(end_date, start_date, units = "secs"))) %>%
+  filter(duration_secs < 10 & finished == 1) %>% 
+  tabyl(duration_secs, ema_type)
+```
+
+
+Lapses reported in less than 10 seconds   
+All lapses were incomplete with only ema_1 filled out (no other info)
+```{r}
+ema_all %>%  
+  mutate(duration_secs = as.numeric(difftime(end_date, start_date, units = "secs"))) %>%
+  filter(duration_secs < 10 & ema_1 == "Yes") %>% 
+  select(subid, start_date, ema_1:ema_1_4)
+```
+
+
+Surveys that took more than 10 minutes
+```{r}
+ema_all_more_than_10_min <- ema_all %>%  
   mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
-  filter(duration_min < .2) %>% 
-  filter(subid != "test") 
+  filter(duration_min > 10) 
 ```
 
-`r nrow(subset(ema_all_less_than_12_sec, finished == 1))` of the `r nrow(ema_all_less_than_12_sec)` surveys with a duration of less than 12 seconds were marked complete   
-All of these surveys report no lapses and were completed later in the day - which significantly shortens the survey length
+`r nrow(ema_all_more_than_10_min)` surveys took over 10 minutes to complete.    
+
+Most (N = `r nrow(subset(ema_all_more_than_10_min, finished == 1))`) were marked as complete.     
+
+most incomplete surveys only have ema_1 answered (1 lapse also has ema_1_1 to ema_1_5 filled out)
 ```{r}
-ema_all_less_than_12_sec %>% 
-  filter(finished == 1) %>% 
+ema_all_more_than_10_min %>% 
+  filter(finished == 0) %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
   scroll_box(width = "100%", height = "500px")
 ```
 
-
-Surveys that took more than 5 minutes
+`r nrow(subset(ema_all_more_than_10_min, ema_1 == "Yes"))` lapses reported on surveys that took more than 10 minutes to complete
 ```{r}
-ema_all_more_than_5_min <- ema_all %>%  
-  mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
-  filter(duration_min > 5) %>% 
-  filter(subid != "test") 
-```
-
-`r nrow(ema_all_more_than_5_min)` surveys took over 5 minutes to complete.    
-
-Most (N = `r nrow(subset(ema_all_more_than_5_min, finished == 1))`) were marked as complete.   
-```{r}
-ema_all_more_than_5_min %>% 
-  filter(finished == 1) %>% 
+ema_all_more_than_10_min %>% 
+  filter(ema_1 == "Yes") %>% 
   kbl() %>% 
   kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
   scroll_box(width = "100%", height = "500px")
 ```
 
-Different start and end days   
-NOTE: Includes 2 lapses
-```{r}
-ema_all_more_than_5_min %>% 
-  mutate(start_day = as_date(start_date),
-         end_day = as_date(end_date)) %>% 
-  filter(start_day != end_day) %>% 
-  select(c(subid, start_date, end_date, finished, ema_1:ema_10_1, ema_type, duration_min)) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
-```
 
 
 #### Finished
 
-`r nrow(subset(ema_all, finished == 0 & subid != "test"))` surveys are marked as incomplete
+`r nrow(subset(ema_all, finished == 0))` surveys are marked as incomplete
 
 Keep unfinished surveys - all have at least ema_1 answered
 ```{r}
 ema_all %>% 
-  filter(subid != "test") %>% 
-  filter(finished == 0) %>% 
+  filter(finished == 0) %>%
   select(subid, ema_1:ema_1_5)
 ```
 
@@ -1258,6 +1254,58 @@ ema_all %>%
 ```
 
 
+Check to see if there is a complete survey within minutes of these incomplete surveys     
+Calculate minutes before next and from last ema    
+Note: only using start_dates since end_dates are not necessarily correct when a survey is left incomplete and it was resulting in overlapping survey times
+```{r}
+ema_all_lag_lead_minutes <- ema_all %>% 
+  group_by(subid) %>% 
+  arrange(subid, start_date) %>% 
+  mutate(mins_since_last_ema = round(as.numeric(difftime(start_date, dplyr::lag(start_date, n = 1), 
+                                                            units = "mins")), 2),
+         mins_till_next_ema = round(as.numeric(difftime(dplyr::lead(start_date, n = 1), start_date, 
+                                                           units = "mins")), 2),
+         previous_response_id = dplyr::lag(response_id, n = 1),
+         next_response_id = dplyr::lead(response_id, n = 1)) %>%
+  ungroup() %>% 
+  glimpse()
+```
+
+
+find response_ids from incomplete surveys  
+```{r}
+ema_incomplete <- ema_all %>% 
+  filter(finished == 0) 
+```
+
+Incomplete surveys within 5 minutes of another survey  
+
+*Discuss with JC how to handle surveys taken within minutes (i.e., incomplete followed by complete survey)*     
+
+
+```{r message = FALSE}
+incomplete_5_min_prior <- ema_all_lag_lead_minutes %>% 
+  filter(response_id %in% ema_incomplete$response_id & mins_till_next_ema <= 5) %>% 
+  filter(!is.na(next_response_id))
+
+incomplete_5_min_after <- ema_all_lag_lead_minutes %>% 
+  filter(response_id %in% ema_incomplete$response_id & mins_since_last_ema <= 5) %>% 
+  filter(!is.na(previous_response_id))
+
+incomplete_5_min_prior %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_prior$next_response_id)) %>% 
+  full_join(incomplete_5_min_after) %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_after$previous_response_id)) %>% 
+  arrange(subid, start_date) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%", height = "500px")
+```
+
+
+
 #### Status
 
 `r nrow(subset(ema_all, status == 8))` surveys have status = 8     
@@ -1285,6 +1333,18 @@ ema_all %>%
   tabyl(subid)
 ```
 
+Or related to finished/unfinished surveys
+```{r}
+ema_all %>% 
+  filter(status == 8) %>% 
+  tabyl(finished)
+```
+
+Check proximity to other EMA
+```{r}
+
+```
+
 
 #### Lapses
 
@@ -1295,6 +1355,8 @@ Reported lapses
 ema_all %>% 
   tabyl(ema_1)
 ```
+
+`r nrow(subset(ema_all, ema_1 == "Yes"))` reported lapses from `r length(unique(subset(ema_all, ema_1 == "Yes")$subid))` subids.  
 
 
 **ema_1_1**    
