@@ -25,7 +25,7 @@ Need to discuss with JC:
 - 269's data - FIX: Something is clearly not right with their data - they are filling 2-4 surveys out within an hour of each other and the responses are completely different.  (similar story with subid 238, 185, 85)    
 - gaps in EMA data     
 - Recode_tz log entries not currently handled with clean function - how best to implement (force_tz than with_tz?)       
-- flagged EMA log entries in flagged_entries.Rmd    
+- flagged EMA log entries in flagged_log_entries.Rmd    
 - how to handle surveys taken within minutes of each other (i.e., incomplete followed by complete survey)   
 
 ### Conclusions
@@ -37,13 +37,12 @@ Need to discuss with JC:
 - Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
 
 - Subids 104 and 128 have over 100 reported lapses.     
-  - They both also each have 27 log entries to make corrections to typos and incorrect data.   
   - According to notes, subid 104 reported lapses everyday on study.     
   - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
 
-- EMA compliance gaps and reasons for them are noted in this script
+- EMA compliance gaps and reasons for them are noted in this script     
 
-- Notes on validity of lapse labels are in this script
+- Notes on validity of lapse labels are in this script. For more detailed info see mak_labels.Rmd
 
 
 
@@ -84,7 +83,7 @@ switch (Sys.info()[['sysname']],
 
         # IOS paths
         Darwin = {
-          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_raw <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
           path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
         )
@@ -120,6 +119,7 @@ library(kableExtra)
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
 source(here(path_lab_support, "clean_qualtrics_by_log.R"))
+source(here(path_lab_support, "print_kbl.R"))
 ```
 
 
@@ -181,9 +181,7 @@ All removal entries look good
 ```{r}
 log_all %>% 
   filter(log_action == "remove") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
     
 #### recode_one entries
@@ -254,18 +252,14 @@ subid 66 and 136 are recoded due to piping error in survey
 ```{r}
 log_all %>% 
   filter(subid == "066" | subid == "136") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%")
+  print_kbl()
 ```
 
 subid 31 recoded according to data_log where test was used as subid incorrectly
 ```{r}
 log_all %>% 
   filter(subid == "031" & var_name == "subid") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 subid 101 recoded to 135 - 135 was receiving surveys under someone else's subid number (this person was ineligible so all occurrences of 101 should be changed to 135)
@@ -283,9 +277,7 @@ Recoded lapses to non-lapses due to error or duplicate reports of a single lapse
 ```{r}
 log_all %>% 
   filter(var_name == "EMAL_1" | var_name == "EMAM_1") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 Lapse dates recoded to correct format of date, remove incorrect lapse information to line up with recoded lapses, correct known errors from data log, or fix dates that are clearly an error to the most likely date (from supporting evidence - audio files, other EMA's, data log notes, etc.). Additionally, many date errors are associated with participants not reporting midnight as being the next day.    
@@ -294,19 +286,15 @@ I went through every log entry and they all seem to be appropriate assumptions -
 ```{r}
 log_all %>% 
   filter(var_name %in% c("EMAL_1.1", "EMAL_1.3", "EMAM_1.1", "EMAM_1.3")) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 Lapse times recoded    
 I went through every log entry and they all seem to be appropriate assumptions - one's that I was unsure about were flagged for discussion with JC.  
 ```{r}
 log_all %>% 
-  filter(var_name %in% c("EMAL_1.2", "EMAL_1.4", "EMAM_1.2", "EMAM_1.4")) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  filter(var_name %in% c("EMAL_1.2", "EMAL_1.4", "EMAM_1.2", "EMAM_1.4"))%>% 
+  print_kbl()
 ```
 
 Desire to remain abstinent    
@@ -314,9 +302,7 @@ Adds retrospective answers after this new question was added to the EMA, also re
 ```{r}
 log_all %>% 
   filter(var_name == "EMAL_1.5" | var_name == "EMAM_1.5") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -325,10 +311,8 @@ log_all %>%
 These all seem appropriate and all are for our first 3 subids.
 ```{r}
 log_all %>% 
-  filter(var_name == "UTC") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  filter(var_name == "UTC")%>% 
+  print_kbl()
 ```
 
 
@@ -339,9 +323,7 @@ log_all %>%
 ```{r}
 log_all %>% 
   filter(log_action == "recode_tz") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -351,10 +333,8 @@ Notes about specific lapses are inspected more closely later on in this script
 ```{r}
 log_all %>% 
   filter(log_action == "note") %>% 
-  select(-c(var_name, new_value, old_value)) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  select(-c(var_name, new_value, old_value))%>% 
+  print_kbl()
 ```
 
 
@@ -495,9 +475,7 @@ NOTE: Not sure what these variables are (from SurveySignal?) but too much missin
 ema_all %>% 
   filter(is.na(send_date)) %>% 
   slice_sample(n = 500) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -931,8 +909,7 @@ notes %>%
   select(subid, notes_general, notes_ema) %>% 
   filter(subid == 116) %>% 
   kbl() %>% 
-  kable_styling() %>% 
-  scroll_box(width = "100%")
+  kable_styling()
 ```
 
 
@@ -1032,9 +1009,7 @@ Notes on subids with large gaps (> 3 days) that explain compliance
 notes %>% 
   select(subid, notes_general, notes_ema) %>% 
   filter(subid %in% c(subset(ema_unique_dates_on_study, days_since_last_ema > 3)$subid)) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -1175,18 +1150,14 @@ most incomplete surveys only have ema_1 answered (1 lapse also has ema_1_1 to em
 ```{r}
 ema_all_more_than_10_min %>% 
   filter(finished == 0) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 `r nrow(subset(ema_all_more_than_10_min, ema_1 == "Yes"))` lapses reported on surveys that took more than 10 minutes to complete
 ```{r}
 ema_all_more_than_10_min %>% 
   filter(ema_1 == "Yes") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -1208,9 +1179,7 @@ Some do fill out ema_1_1 - ema_1_4 which are the dates/times of lapse
 ema_all %>% 
   filter(ema_1 == "Yes" & (is.na(ema_1_1) | is.na(ema_1_2) | is.na(ema_1_3) | 
                              is.na(ema_1_4) | is.na(ema_1_5))) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 Other incomplete surveys   
@@ -1277,9 +1246,7 @@ incomplete_5_min_prior %>%
   full_join(ema_all %>% 
               filter(response_id %in% incomplete_5_min_after$previous_response_id)) %>% 
   arrange(subid, start_date) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -1363,9 +1330,7 @@ lapses %>%
               filter(log_action == "note" & response_id %in% lapses$response_id & is.na(var_name)),
             by = c("subid", "response_id")) %>% 
   select(subid, start_date, ema_1:ema_10_1, notes) %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -1434,9 +1399,7 @@ ema_all_lapse %>%
   mutate(subid = as.numeric(subid)) %>% 
   rename(n_lapses = n) %>% 
   left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 
@@ -1449,9 +1412,7 @@ ema_all %>%
   select(subid) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
-  kbl() %>% 
-  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
-  scroll_box(width = "100%", height = "500px")
+  print_kbl()
 ```
 
 

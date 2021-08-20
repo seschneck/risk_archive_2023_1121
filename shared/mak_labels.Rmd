@@ -17,15 +17,60 @@ knit: (function(input, ...) {
 ### Code Status
 
 In progress.   There are still some errors in the raw EMA and interview data to explore or correct before we have
-a set of accurate lapses and periods to exclude for no_lapse observations
+a set of accurate lapses and periods to exclude for no_lapse observations     
+
+Outstanding issues:   
+
+- currently clean_qualtrics function is not adapted to handle recode_tz entries for out of town EMAs. Discuss with JC how to best implement this.   
+
+- log entries to discuss with JC have been flagged in flagged_log_entries.Rmd    
+
+- Some incomplete surveys were taken again and completed within a minute. See cln_ema.Rmd and discuss.     
+
+- many participants have more than 4 daily surveys and often surveys are taken within minutes of each other. How to handle?    
+
+### Conclusions   
+
+- More complete EDA is in cln_ema.Rmd. This file focusses on EDA related to whether a lapse/non-lapse is reliable for sampling from.       
+
+- EMA compliance gaps and reasons for them are noted in cln_ema.Rmd    
+
+- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey. These should be used for exclusion.          
+
+- Subids 104 and 128 have over 100 reported lapses.     
+  - According to notes, subid 104 reported lapses everyday on study.     
+  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
 
 ### Set Up Environment
 
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
 Absolute paths
 ```{r, paths}
-path_lab_support <- "P:/toolboxes/lab_support"
-path_processed <- "P:/studydata/risk/data_processed/shared"
-path_raw <- "P:/studydata/risk/data_raw"
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
+```
+
+Relative paths
+```{r, paths}
+path_log <- "shared/notes"
 ```
 
 Packages for lab workflow 
@@ -89,7 +134,7 @@ emal <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%
   rename_with(~ str_replace(.x, "emal_", "ema_"))
 
 ema <- bind_rows(emam, emal) %>% 
-  select(subid, start_date, end_date, utc, finished,
+  select(subid, response_id, start_date, end_date, utc, finished,
          contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid, start_date) %>%  
@@ -101,11 +146,51 @@ ema <- bind_rows(emam, emal) %>%
 #### EDA for EMA lapses
 
 KENDRA TO DO
+Review notes from data cleaning for issues with remaining lapses
 
-* Review notes from data cleaning for issues with remaining lapses
-* Confirm with Sarah that all EMA lapses (even cleaned are in America/Chicago)
-* Discuss with Sarah finished == 0, some with and some without lapse info
-* May need some more EDA before we remove variables in next code chunk
+May need some more EDA before we remove variables in next code chunk
+
+Notes on EMA lapse/non-lapse validity    
+read in log and notes
+```{r}
+log <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
+  bind_rows(vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()))
+
+notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+```
+
+**America/Chicago Timezone**    
+*FIX: need to implement the recode_tz log action into clean_qualtrics*    
+
+10 recode_tz log entries
+```{r}
+log %>% 
+  tabyl(log_action)
+
+log %>% 
+  filter(log_action == "recode_tz") %>% 
+  print_kbl()
+```
+
+These affect 5 entries since both the start and end time need to be recoded
+```{r}
+log %>% 
+  filter(log_action == "recode_tz") %>% 
+  count(response_id)
+```
+
+All `r length(unique(subset(log, log_action == "recode_tz")$response_id))` recode_tz entries contain a lapse
+```{r}
+ema %>% 
+  filter(response_id %in% subset(log, log_action == "recode_tz")$response_id)
+```
+
+
+
+**Unfinished surveys**
+```{r}
+
+```
 
 
 #### Final EMA Processing
