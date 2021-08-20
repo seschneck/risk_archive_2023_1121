@@ -25,9 +25,10 @@ Outstanding issues:
 
 - log entries to discuss with JC have been flagged in flagged_log_entries.Rmd    
 
-- Some incomplete surveys were taken again and completed within a minute. See cln_ema.Rmd and discuss.     
+- Some incomplete surveys were taken again and completed within a minute. See cln_ema.Rmd and discuss.    
+  - Incomplete lapses with another survey taken immediately before or after are noted in this script. In many cases the complete survey says there was not a lapse. In most cases they did not enter anything past ema_1 in the reported lapse so may not affect lapses only non-lapse labels.
 
-- many participants have more than 4 daily surveys and often surveys are taken within minutes of each other. How to handle?    
+- Address other outstanding discussion items/fixes in cln_ema.Rmd    
 
 ### Conclusions   
 
@@ -35,11 +36,15 @@ Outstanding issues:
 
 - EMA compliance gaps and reasons for them are noted in cln_ema.Rmd    
 
+- 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes for finished surveys)     
+
 - All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey. These should be used for exclusion.          
 
 - Subids 104 and 128 have over 100 reported lapses.     
   - According to notes, subid 104 reported lapses everyday on study.     
-  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"        
+  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"     
+  
+- Some partipants have a daily avg EMA count exceeding 4 (subid 269 looks particularly problematic - see cln_ema.Rmd)   
 
 ### Set Up Environment
 
@@ -145,8 +150,9 @@ ema <- bind_rows(emam, emal) %>%
 
 #### EDA for EMA lapses
 
-KENDRA TO DO
-May need some more EDA before we remove variables in next code chunk
+See cln_ema.html for full EDA documentation    
+
+Highlighting important EDA findings relevant to lapse labels below:  
 
 **Notes on EMA lapse/non-lapse validity**
 
@@ -159,7 +165,45 @@ notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols()
 ```
 
 ```{r}
-glimpse(ema)
+
+```
+
+
+**Duplicate lapses**   
+
+There are 13 exact duplicates where all lapse variables are identical
+```{r}
+ema_lapse_duplicates_exact <- ema %>% 
+  count(subid, ema_1_1, ema_1_2, ema_1_3, ema_1_4) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+```
+
+Some made within minutes and some made on different days
+```{r}
+ema %>% 
+  left_join(ema_lapse_duplicates_exact, 
+            by = c("subid", "ema_1_1", "ema_1_2", "ema_1_3", "ema_1_4")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
+
+There are 30 cases where the start date and time are duplicated but end time differs    
+*Discuss with JC - may show some typos in end date or suggest lapses to be unreliable*     
+```{r}
+ema_lapse_duplicates_start <- ema %>% 
+  select(subid, ema_1_1:ema_1_4) %>% 
+  # filter out exact duplicates
+  unique() %>% 
+  count(subid, ema_1_1, ema_1_2) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+
+ema %>% 
+  left_join(ema_lapse_duplicates_start, 
+            by = c("subid", "ema_1_1", "ema_1_2")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
 ```
 
 
@@ -236,7 +280,7 @@ incomplete_5_min_after <- ema_lag_lead_minutes %>%
 ```
 
 `r nrow(incomplete_5_min_prior) + nrow(incomplete_5_min_after)` incomplete surveys have another survey within 5 minutes of it    
-*Discuss with JC - many incomplete lapses look to be errors where they retook the survey to change ema_1 to No*
+*Discuss with JC - many incomplete lapses look to be errors where they retook the survey to change ema_1 to No - these are likely filtered out in next step anyways*
 ```{r message = FALSE}
 incomplete_5_min_prior %>% 
   full_join(ema_all %>% 

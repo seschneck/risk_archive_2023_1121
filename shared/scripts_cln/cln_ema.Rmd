@@ -27,6 +27,8 @@ Need to discuss with JC:
 - Recode_tz log entries not currently handled with clean function - how best to implement (force_tz than with_tz?)       
 - flagged EMA log entries in flagged_log_entries.Rmd    
 - how to handle surveys taken within minutes of each other - **especially incomplete Yes lapses followed by a complete No lapse**   
+- 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes for finished surveys) - 10 of these were reported again with a normal time duration for completing the survey.    
+- Discuss 30 lapses where the start date and time are identical to another entry but the end date or time is not the same.   
 
 ### Conclusions
 
@@ -1106,7 +1108,8 @@ subid 137 ended the study on `r subset(visits, subid == 137)$end_study`
 Duration of EMA
 ```{r}
 ema_all <- ema_all %>%  
-  mutate(duration_min = round(as.numeric(difftime(end_date, start_date, units = "mins"))))
+  mutate(duration_min = round(as.numeric(difftime(end_date, start_date, units = "mins")))) %>% 
+  select(subid, response_id, start_date, end_date, finished, ema_1:ema_10_1, status, ema_type, duration_min)
 
 ema_all %>% 
   tabyl(duration_min)
@@ -1153,7 +1156,8 @@ Surveys that took more than 10 minutes
 ```{r}
 ema_all_more_than_10_min <- ema_all %>%  
   mutate(duration_min = as.numeric(difftime(end_date, start_date, units = "mins"))) %>%
-  filter(duration_min > 10) 
+  filter(duration_min > 10) %>% 
+  select(subid, response_id, start_date, end_date, finished, ema_1:ema_10_1, duration_min)
 ```
 
 `r nrow(ema_all_more_than_10_min)` surveys took over 10 minutes to complete.    
@@ -1174,6 +1178,98 @@ ema_all_more_than_10_min %>%
   print_kbl()
 ```
 
+`r nrow(subset(ema_all_more_than_10_min, ema_1 == "Yes" & finished == 1))` of these were marked as complete   
+```{r} 
+ema_all_more_than_10_min %>% 
+  filter(ema_1 == "Yes") %>% 
+  tabyl(finished)
+```
+
+All but `r nrow(subset(ema_all_more_than_10_min, ema_1 == "Yes" & is.na(ema_1_1)))` have lapse times and dates    
+
+Check to see if these lapses are reported elsewhere   
+
+```{r}
+ema_lapse_duplicates <- ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  count(subid, ema_1_1) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+```
+
+There are a total of `r nrow(ema_lapse_duplicates)` days with multiple lapses reported by a subid        
+
+Duplicates for surveys over 10 min  
+
+10 lapses from surveys over 10 minutes in duration are reported more than once
+
+```{r}
+ema_all %>% 
+  filter(subid == "048" & ema_1_1 == "05-29-2018")
+
+ema_all %>% 
+  filter(subid == "048" & ema_1_1 == "06-11-2018")
+
+ema_all %>% 
+  filter(subid == "058" & ema_1_1 == "07-15-2018")
+
+ema_all %>% 
+  filter(subid == "098" & ema_1_1 == "09-05-2018")
+
+ema_all %>% 
+  filter(subid == "104" & ema_1_1 == "08-30-2018")
+
+ema_all %>% 
+  filter(subid == "128" & ema_1_1 == "10-11-2018")
+
+ema_all %>% 
+  filter(subid == "131" & ema_1_1 == "12-08-2018")
+
+ema_all %>% 
+  filter(subid == "150" & ema_1_1 == "10-31-2018")
+
+ema_all %>% 
+  filter(subid == "211" & ema_1_1 == "05-25-2019")
+
+ema_all %>% 
+  filter(subid == "234" & ema_1_1 == "08-28-2019")
+```
+
+There are 13 exact duplicates where all lapse variables are identical
+```{r}
+ema_lapse_duplicates_exact <- ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  count(subid, ema_1_1, ema_1_2, ema_1_3, ema_1_4) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+```
+
+Some made within minutes and some made on different days
+```{r}
+ema_all %>% 
+  left_join(ema_lapse_duplicates_exact, 
+            by = c("subid", "ema_1_1", "ema_1_2", "ema_1_3", "ema_1_4")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
+
+There are 30 cases where the start date and time are duplicated but end time differs    
+*Discuss with JC - may show some typos in end date or suggest lapses to be unreliable*     
+```{r}
+ema_lapse_duplicates_start <- ema_all %>% 
+  filter(ema_1 == "Yes") %>% 
+  select(subid, ema_1:ema_1_4) %>% 
+  # filter out exact duplicates
+  unique() %>% 
+  count(subid, ema_1_1, ema_1_2) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+
+ema_all %>% 
+  left_join(ema_lapse_duplicates_start, 
+            by = c("subid", "ema_1_1", "ema_1_2")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
 
 
 #### Finished
