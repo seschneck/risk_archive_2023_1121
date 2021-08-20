@@ -79,6 +79,7 @@ library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
 library(lubridate)
 library(purrr)
+library(vroom)
 
 # for plots and tables
 library(ggplot2)
@@ -95,16 +96,16 @@ source(here(path_fun_risk, "fun_risk.R"))
 
 Meta logs dataframe  
 ```{r}
-logs <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
 
 Lapse labels dataframe
 ```{r}
-labels <- vroom::vroom(here(path_shared, "labels_all.csv"), col_types = vroom::cols()) %>% 
-  select(subid, hour) %>% 
-  mutate(hour = with_tz(hour, tzone = "America/Chicago")) %>% 
+labels <- vroom(here(path_shared, "labels_05.csv"), col_types = vroom::cols()) %>% 
+  select(subid, dttm_label) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
 
@@ -150,35 +151,35 @@ fun_list <- list(n_yes = ~sum(.x == "yes", na.rm = TRUE))
 
 
 logs_features <- map2_dfr(labels_demo$subid,
-                          labels_demo$hour,
+                          labels_demo$dttm_label,
                           ~make_features(
-                            the_subid = .x,
-                            hour = .y,
-                            data = logs_demo_sms,
-                            lead_hours = 0, 
-                            period_duration_hours = 72,
-                            data_type = "sms",
-                            col_list = c("message_read", "message_is_group", "message_failed"),
-                            fun_list = fun_list)) %>% 
+                              the_subid = .x,
+                              the_dttm_label = .y,
+                              data = logs_demo_sms,
+                              lead_hours = 0, 
+                              period_duration_hours = 72,
+                              data_type = "sms",
+                              col_list = c("message_read", "message_is_group", "message_failed"),
+                              fun_list = fun_list)) %>% 
   glimpse()
 
 # add count of incoming sms messages and total sms messages
 logs_features <- logs_features %>% 
   full_join(map2_dfr(labels_demo$subid,
-                     labels_demo$hour,
+                     labels_demo$dttm_label,
                      ~make_features(
-                      the_subid = .x,
-                      hour = .y,
-                      data = logs_demo_sms,
-                      lead_hours = 0, 
-                      period_duration_hours = 72,
-                      data_type = "sms",
-                      col_list = c("originated"),
-                      fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
-                                      n_total_messages = ~n()))),
+                        the_subid = .x,
+                        the_dttm_label = .y,
+                        data = logs_demo_sms,
+                        lead_hours = 0, 
+                        period_duration_hours = 72,
+                        data_type = "sms",
+                        col_list = c("originated"),
+                        fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                        n_total_messages = ~n()))),
             by = c("subid", "dttm_label")) %>% 
-  rename(sms_n_total_messages = sms_originated_n_total_messages,
-         sms_n_incoming = sms_originated_n_incoming) %>% 
+  rename(sms_n_total_messages = sms_n_total_messages_originated,
+         sms_n_incoming = sms_n_incoming_originated) %>% 
   glimpse()
 ```
 
@@ -194,10 +195,10 @@ logs_demo_voice <- logs_demo %>%
 
 logs_features <- logs_features %>% 
   full_join(map2_dfr(labels_demo$subid,
-                     labels_demo$hour,
+                     labels_demo$dttm_label,
                      ~make_features(
                        the_subid = .x,
-                       hour = .y,
+                       the_dttm_label = .y,
                        data = logs_demo_voice,
                        lead_hours = 0, 
                        period_duration_hours = 72,
@@ -210,10 +211,10 @@ logs_features <- logs_features %>%
 # add count of incoming calls and total calls
 logs_features <- logs_features %>% 
   full_join(map2_dfr(labels_demo$subid,
-                     labels_demo$hour,
+                     labels_demo$dttm_label,
                      ~make_features(
                       the_subid = .x,
-                      hour = .y,
+                      the_dttm_label = .y,
                       data = logs_demo_voice,
                       lead_hours = 0, 
                       period_duration_hours = 72,
@@ -222,17 +223,17 @@ logs_features <- logs_features %>%
                       fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
                                       n_total_calls = ~n()))),
             by = c("subid", "dttm_label")) %>% 
-  rename(voice_n_total_calls = voice_originated_n_total_calls,
-         voice_n_incoming = voice_originated_n_incoming) %>% 
+  rename(voice_n_total_calls = voice_n_total_calls_originated,
+         voice_n_incoming = voice_n_incoming_originated) %>% 
   glimpse()
 
 # add stats on call duration
 logs_features <- logs_features %>% 
   full_join(map2_dfr(labels_demo$subid,
-                     labels_demo$hour,
+                     labels_demo$dttm_label,
                      ~make_features(
                       the_subid = .x,
-                      hour = .y,
+                      the_dttm_label = .y,
                       data = logs_demo_voice,
                       lead_hours = 0, 
                       period_duration_hours = 72,
