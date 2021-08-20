@@ -146,11 +146,10 @@ ema <- bind_rows(emam, emal) %>%
 #### EDA for EMA lapses
 
 KENDRA TO DO
-Review notes from data cleaning for issues with remaining lapses
-
 May need some more EDA before we remove variables in next code chunk
 
-Notes on EMA lapse/non-lapse validity    
+**Notes on EMA lapse/non-lapse validity**
+
 read in log and notes
 ```{r}
 log <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
@@ -158,6 +157,12 @@ log <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::co
 
 notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
 ```
+
+```{r}
+glimpse(ema)
+```
+
+
 
 **America/Chicago Timezone**    
 *FIX: need to implement the recode_tz log action into clean_qualtrics*    
@@ -186,11 +191,63 @@ ema %>%
 ```
 
 
-
-**Unfinished surveys**
+**Unfinished surveys**   
+96 unfinished lapse reports
 ```{r}
-
+ema %>% 
+  tabyl(finished)
 ```
+
+Check if there is another lapse report within minutes of incomplete EMA   
+
+Calculate minutes before next and from last ema on all ema's   
+Note: only using start_dates since end_dates are not necessarily correct when a survey is left incomplete and it was resulting in overlapping survey times
+```{r}
+ema_all <-  bind_rows(emam, emal) 
+
+ema_lag_lead_minutes <- ema_all %>% 
+  group_by(subid) %>% 
+  arrange(subid, start_date) %>% 
+  mutate(mins_since_last_ema = round(as.numeric(difftime(start_date, dplyr::lag(start_date, n = 1), 
+                                                            units = "mins")), 2),
+         mins_till_next_ema = round(as.numeric(difftime(dplyr::lead(start_date, n = 1), start_date, 
+                                                           units = "mins")), 2),
+         previous_response_id = dplyr::lag(response_id, n = 1),
+         next_response_id = dplyr::lead(response_id, n = 1)) %>%
+  ungroup() %>% 
+  glimpse()
+```
+
+filter down to only incomplete lapse surveys 
+```{r}
+ema_lapse_incomplete <- ema %>% 
+  filter(finished == 0)
+```
+
+and surveys with another survey within 5 minutes before or after incomplete survey
+```{r}
+incomplete_5_min_prior <- ema_lag_lead_minutes %>% 
+  filter(response_id %in% ema_lapse_incomplete$response_id & mins_till_next_ema <= 5) %>% 
+  filter(!is.na(next_response_id))
+
+incomplete_5_min_after <- ema_lag_lead_minutes %>% 
+  filter(response_id %in% ema_lapse_incomplete$response_id & mins_since_last_ema <= 5) %>% 
+  filter(!is.na(previous_response_id))
+```
+
+`r nrow(incomplete_5_min_prior) + nrow(incomplete_5_min_after)` incomplete surveys have another survey within 5 minutes of it    
+*Discuss with JC - many incomplete lapses look to be errors where they retook the survey to change ema_1 to No*
+```{r message = FALSE}
+incomplete_5_min_prior %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_prior$next_response_id)) %>% 
+  full_join(incomplete_5_min_after) %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_after$previous_response_id)) %>% 
+  arrange(subid, start_date) %>% 
+  print_kbl()
+```
+
 
 
 #### Final EMA Processing
