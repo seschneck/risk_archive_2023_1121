@@ -28,11 +28,13 @@ Need to discuss with JC:
 - flagged EMA log entries in flagged_log_entries.Rmd    
 - how to handle surveys taken within minutes of each other - **especially incomplete Yes lapses followed by a complete No lapse**   
 - 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes for finished surveys) - 10 of these were reported again with a normal time duration for completing the survey.    
-- Discuss 30 lapses where the start date and time are identical to another entry but the end date or time is not the same.   
+- Discuss 30 lapses where the start date and time are identical to another entry but the end date or time is not the same - log notes add some explanation.   
 
 ### Conclusions
 
 - All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.   
+
+- There were no EMA surveys sent to any participants on 3/2/19.   
 
 - Not sure what send_date and send_time variables are (from SurveySignal?) but too much missing data (93%) to likely be helpful    
 
@@ -1271,6 +1273,19 @@ ema_all %>%
   print_kbl()
 ```
 
+Log entries add some context
+```{r}
+ema_all %>% 
+  left_join(ema_lapse_duplicates_start, 
+            by = c("subid", "ema_1_1", "ema_1_2")) %>% 
+  filter(!is.na(n)) %>% 
+  left_join(log_all %>% 
+              filter(log_action == "note") %>% 
+              select(response_id, notes), by = "response_id") %>% 
+  arrange(subid, ema_1_1, start_date) %>% 
+  print_kbl()
+```
+
 
 #### Finished
 
@@ -1437,21 +1452,13 @@ ema_all_lag_lead_minutes %>%
 ```
 
 
-#### Lapses
+#### Lapses 
 
-Reported lapses   
-**ema_1**    
-"Have you drank any alcohol that you have not yet reported?"
-```{r}
-ema_all %>% 
-  tabyl(ema_1)
-```
+Reported lapses    
 
-`r nrow(subset(ema_all, ema_1 == "Yes"))` reported lapses from `r length(unique(subset(ema_all, ema_1 == "Yes")$subid))` subids.  
+`r nrow(subset(ema_all, ema_1 == "Yes"))` reported lapses from `r length(unique(subset(ema_all, ema_1 == "Yes")$subid))` subids.     
 
-
-Supporting notes for lapse/no lapse labels from raw_notes:    
-
+Hand-selected supporting notes for lapse/no lapse labels from raw_notes:    
 - Subid 47 was not receiving EMA messages between 4/6 - 4/17/18. This should not be a reliable no lapse period though because according to staff they reported a lapse on 4/10/18 at their tech troubleshooting appointment on 4/11/18.   
 - Note about a lapse for subid 79 - "Data log says this sub had a brain injury and suffers from memory issues; This could explain why it took so long to report this lapse; However he did report a lapse on 09/02 20:00 at 10am on 09/03 which makes me a little skeptical and think it is possible that that this is supposed to be 09/03"     
 - Note about a lapse/non-lapse for subid 119 - "On 10/31 subs audio mentioned that they had missed several days because they relapsed and were trying to get back on track; This is the only lapse that was reported while on study; However it is unclear if this lapse report is correct. They had answered 4 surveys on 10/28 saying they did not lapse"    
@@ -1459,24 +1466,73 @@ Supporting notes for lapse/no lapse labels from raw_notes:
 - Note about subid 204 lapse - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them. I collected lapses from her even though she did not complete her surveys and she reported that the lapse she reported with timestamp: 1558123879 was not 1 long drinking episode, but 3 individual ones lasting from 9pm each night and going until Midnight. She also reported that she probably drank beginning 05/16 through 06/04 from 9pm until Midnight."    
 - Subid 212 note about unreported lapses "	Audio on 4/17 reported that drinking has been an issue. No specific info about the lapse. They denied having a lapse to report 3 times during the alleged lapse; Participant divulged at their follow up visit that they drank the night before their visit (5/15/19 - 5/16/19) but they never formally reported the lapse."    
 - Subid 213 note about lapse "Participant reported having drank alcohol nearly every day during the lapse dates provided - They reported the first day (05/13/2019) being the heaviest day and the subsequent dates being a little lighter. They did not recall times for lapses when asked during their Follow-up 2 visit; The participant did not complete any ema between 5/7-5/21; They did not complete any audio messages between 5/04-5/22; Their 5/22 and 5/27 audio messages both reference that they've "been drinking" and on 5/30 they say they are "trying to get back on track"; Participant reported having drank at the following times on listed dates: 5/25: 11pm-12am 5/26: 6pm -8pm 5/27: 6pm-8pm. Participant reported these were estimates of the times spent drinking on this weekend."    
-- Subid 225 note about lapse "This is the only lapse she reported during her participation but her audio messages definitely do not reflect her drinking during this entire period; On 6/19 participant reported that they felt like crap because they relapsed; On 6/20 participant reported that they were 2 days sober; They did not complete an audio message between 6/14-6/19 however messages between 6/5-6/14 do not give any indication that she was drinking"   
+- Subid 225 note about lapse "This is the only lapse she reported during her participation but her audio messages definitely do not reflect her drinking during this entire period; On 6/19 participant reported that they felt like crap because they relapsed; On 6/20 participant reported that they were 2 days sober; They did not complete an audio message between 6/14-6/19 however messages between 6/5-6/14 do not give any indication that she was drinking"  
 
-Info about lapses from cleaning log:   
+Supporting notes from logs
 ```{r}
 # 1442 lapses
 lapses <- ema_all %>% 
   filter(ema_1 == "Yes") 
 
 # still 1442 lapses after join
-lapses %>% 
-  full_join(log_all %>% 
+ema_log_notes <- lapses %>% 
+  left_join(log_all %>% 
               filter(log_action == "note" & response_id %in% lapses$response_id & is.na(var_name)),
             by = c("subid", "response_id")) %>% 
-  select(subid, start_date, ema_1:ema_10_1, notes) %>% 
+  select(subid, start_date, ema_1:ema_10_1, notes)
+```
+
+`r nrow(subset(ema_log_notes, !is.na(notes)))` lapses have additional notes     
+
+```{r}
+ema_log_notes %>% 
+  filter(!is.na(notes)) %>% 
+  print_kbl()
+```
+
+Not sure exactly what this note that reappears throughout means "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is."   
+
+There are no other log entries suggesting we changed the start time   
+
+*Discuss with JC*
+```{r}
+log_all %>% 
+  filter(response_id == "R_6VFN7egqlwAp1eN")
+
+log_all %>% 
+  filter(response_id == "R_Xqe2N1CujYSq6GZ")
+
+log_all %>% 
+  filter(response_id == "R_3RqM3AgzAVHNaVU")
+```
+
+Log notes other than the long start_diff note
+```{r}
+ema_log_notes %>% 
+  filter(!is.na(notes) & notes != "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is.") %>% 
+  print_kbl()
+```  
+
+Check notes on participants with no lapses - to confirm this is valid    
+
+Suspicious entries:
+- subid 167 left audio messages with curse words (may have been intoxicated?) and had low compliance.   
+- subid 237 discontinued prior at follow-up 1 (before data were collected) because they planned to enter inpatient tx.  
+- subid 269 left 2 voicemails for staff admitting to drinking over the weekend.  
+```{r}
+notes %>% 
+  filter(subid %in% as.numeric(ema_all$subid) & !subid %in% as.numeric(lapses$subid)) %>% 
+  select(subid, notes_general, notes_ema) %>% 
   print_kbl()
 ```
 
 
+**ema_1**    
+"Have you drank any alcohol that you have not yet reported?"
+```{r}
+ema_all %>% 
+  tabyl(ema_1)
+```
 
 **ema_1_1**    
 "Please indicate the date of the first drink that you have not yet reported"    
