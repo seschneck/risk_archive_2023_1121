@@ -103,8 +103,8 @@ logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>%
 
 Lapse labels dataframe
 ```{r}
-labels <- vroom(here(path_shared, "labels_05.csv"), col_types = vroom::cols()) %>% 
-  select(subid, dttm_label) %>% 
+labels_05 <- vroom(here(path_shared, "labels_05.csv"), col_types = vroom::cols()) %>% 
+  select(subid, dttm_label = hour) %>% 
   mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
@@ -127,7 +127,7 @@ logs_demo <- logs %>%
 
 Narrow down lapse labels to 10 random lapses for demo
 ```{r}
-labels_demo <- labels %>% 
+labels_demo <- labels_05 %>% 
   filter(subid %in% subids_demo$subid) %>% 
   slice_sample(n = 10)
 
