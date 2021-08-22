@@ -159,7 +159,9 @@ logs_features <- map2_dfr(labels_demo$subid,
                               lead_hours = 0, 
                               period_duration_hours = 72,
                               data_type = "sms",
-                              col_list = c("message_read", "message_is_group", "message_failed"),
+                              col_list = c(read = "message_read", 
+                                           group = "message_is_group", 
+                                           failed = "message_failed"),
                               fun_list = fun_list)) %>% 
   glimpse()
 
@@ -176,10 +178,9 @@ logs_features <- logs_features %>%
                         data_type = "sms",
                         col_list = c("originated"),
                         fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
-                                        n_total_messages = ~n()))),
+                                        total_n = ~n()))),
             by = c("subid", "dttm_label")) %>% 
-  rename(sms_n_total_messages = sms_n_total_messages_originated,
-         sms_n_incoming = sms_n_incoming_originated) %>% 
+  rename_with(~str_replace(.x, "_originated", "")) %>% 
   glimpse()
 ```
 
@@ -203,8 +204,8 @@ logs_features <- logs_features %>%
                        lead_hours = 0, 
                        period_duration_hours = 72,
                        data_type = "voice",
-                       col_list = c("call_answered"),
-                       fun_list = list(n_yes = ~sum(.x == "answered", na.rm = TRUE)))),
+                       col_list = c(answered = "is_answered"),
+                       fun_list = list(n_yes = ~sum(.x == "yes", na.rm = TRUE)))),
             by = c("subid", "dttm_label")) %>% 
   glimpse()
 
@@ -221,10 +222,9 @@ logs_features <- logs_features %>%
                       data_type = "voice",
                       col_list = c("originated"),
                       fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
-                                      n_total_calls = ~n()))),
+                                      total_n = ~n()))),
             by = c("subid", "dttm_label")) %>% 
-  rename(voice_n_total_calls = voice_n_total_calls_originated,
-         voice_n_incoming = voice_n_incoming_originated) %>% 
+  rename_with(~str_replace(.x, "_originated", "")) %>% 
   glimpse()
 
 # add stats on call duration
@@ -238,7 +238,7 @@ logs_features <- logs_features %>%
                       lead_hours = 0, 
                       period_duration_hours = 72,
                       data_type = "voice",
-                      col_list = c("call_duration"),
+                      col_list = c(duration = "call_duration"),
                       fun_list = list(mean = ~round(mean(.x, na.rm = TRUE), 2),
                                       sd = ~round(sd(.x, na.rm = TRUE), 2),
                                       min = ~round(min(.x, na.rm = TRUE), 2),
@@ -248,13 +248,104 @@ logs_features <- logs_features %>%
 ```
 
 
-NOTE: if there are no voice call observations to use for calculating descriptive stats it returns NaN, Inf, or NA
+**NOTE: if there are no voice call observations to use for calculating descriptive stats it returns NaN, Inf, or NA**
 
 ```{r}
 get_feature_period(the_subid = labels_demo$subid[3], 
-                   hour = labels_demo$hour[3],
+                   the_dttm_label = labels_demo$dttm_label[3],
                    data = logs_demo_voice,
                    lead_hours = 0, 
-                   period_duration_hours = 72)
+                   period_duration_hours = 24)
+```
+
+```{r}
+fun_list_descriptive <- list(mean = ~round(mean(.x, na.rm = TRUE), 2),
+                             sd = ~round(sd(.x, na.rm = TRUE), 2),
+                             min = ~round(min(.x, na.rm = TRUE), 2),
+                             max = ~round(max(.x, na.rm = TRUE), 2))
+
+test_na <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c(duration = "call_duration"),
+                      fun_list = fun_list_descriptive)) %>% 
+  glimpse()
+```
+
+
+To prevent warning message and unreliable coercion to Inf, -Inf, NaN, Na values surround function with an if else statement   
+Note: if_else correctly parses the values as NA but the warning messages still show up. Instead use full if else statement
+```{r}
+fun_list_descriptive <- list(mean = function(.x) {if (length(.x) > 0) round(mean(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)},
+                             sd =   function(.x) {if (length(.x) > 0) round(sd(.x, na.rm = TRUE), 2)
+                                                    else as.numeric(NA)},
+                             min =  function(.x) {if (length(.x) > 0) round(min(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)},
+                             max =  function(.x) {if (length(.x) > 0) round(max(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)})
+
+test_na <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c(duration = "call_duration"),
+                      fun_list = fun_list_descriptive)) %>% 
+  glimpse()
+```
+
+Counts do not need to be surrounded by if else because they will simply be 0. Proportions however do need an if else statement - otherwise it will be parsed as NaN by default.   
+```{r}
+fun_list_originated <- list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE), 
+                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), 
+                            prop_incoming = ~round(sum(.x == "incoming", na.rm = TRUE)/n(), 2), 
+                            n_total = ~n())  
+
+test_na_2 <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = fun_list_originated)) %>% 
+  glimpse()
+```
+
+```{r}
+fun_list_originated <- list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE), 
+                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), 
+                            prop_incoming = function (.x) {
+                              if (length(.x) > 0) {
+                              round(sum(.x == "incoming", na.rm = TRUE)/n(), 2)
+                            } else as.numeric(NA)}, 
+                            n_total = ~n()) 
+
+test_na_2 <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = fun_list_originated)) %>% 
+  glimpse()
 ```
 
