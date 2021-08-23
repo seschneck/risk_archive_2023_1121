@@ -21,10 +21,13 @@ knit: (function(input, ...) {
 
 ### Code status
 
-First run at making features for meta project. Still working on implementation of features on dates or contacts.   
+First run at making features for meta project. Still working on implementation of features for dates, numbers, and combined features.   
 
 Discuss with JC:   
 - Use period duration and prediction onset as different feature sets? Which will be kept in the jobs csv as a different parameter to keep track of?      
+- Writing functions to manipulate dates   
+- Writing more complex functions using multiple columns (i.e., n incoming calls from supportive contacts)    
+- Add general descriptives about social network based on all logs with static/snapshot screening variables   
 
 
 ### Conclusions
@@ -168,8 +171,8 @@ fun_list_descriptive <- list(mean = function(.x) {if (length(.x) > 0) round(mean
 #### Use one month period duration for features (longest duration) and predict onset of lapse      
 
 SMS features
-```{r} 
-# categorical variables
+```{r cache = TRUE}  
+# categorical variables - yes/no
 meta_features <- map2_dfr(labels_05$subid,
                           labels_05$dttm_label,
                           ~make_features(
@@ -184,7 +187,7 @@ meta_features <- map2_dfr(labels_05$subid,
                               fun_list = fun_list_yes)) %>% 
   glimpse()
 
-# count variables
+# count variables - incoming/outgoing
 meta_features <- meta_features %>% 
   full_join(map2_dfr(labels_05$subid,
                      labels_05$dttm_label,
@@ -203,8 +206,8 @@ meta_features <- meta_features %>%
 ```
 
 Voice features
-```{r}
-# categorical variables 
+```{r cache = TRUE}
+# categorical variables - yes/no
 meta_features <- meta_features %>% 
   full_join(map2_dfr(labels_05$subid,
                      labels_05$dttm_label,
@@ -220,7 +223,7 @@ meta_features <- meta_features %>%
             by = c("subid", "dttm_label")) %>% 
   glimpse()
 
-# count variables
+# count variables - incoming/outgoing
 meta_features <- meta_features %>% 
   full_join(map2_dfr(labels_05$subid,
                      labels_05$dttm_label,
@@ -237,7 +240,7 @@ meta_features <- meta_features %>%
   rename_with(~str_replace(.x, "_originated", "")) %>% 
   glimpse()
 
-# continuous variables
+# continuous variables - call duration
 meta_features <- meta_features %>% 
   full_join(map2_dfr(labels_05$subid,
                      labels_05$dttm_label,
@@ -256,8 +259,8 @@ meta_features <- meta_features %>%
 
 
 All logs count features
-```{r}
-# count variables
+```{r cache = TRUE}
+# count variables - incoming/outgoing
 meta_features <- meta_features %>% 
   full_join(map2_dfr(labels_05$subid,
                      labels_05$dttm_label,
@@ -297,16 +300,140 @@ Date Features
 
 
 
-Contacts Features
-```{r}
-
+Contacts Features     
+**Note: these are the number of communications for each context variable not the unique number of contacts that fall into each category.**
+```{r cache = TRUE}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("support_status"),
+                      fun_list = list(n_supportive = ~sum(.x == "Supportive", na.rm = TRUE), 
+                                      prop_supportive = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Supportive", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)},
+                                      n_unsupportive = ~sum(.x == "Unsupportive", na.rm = TRUE), 
+                                      prop_unsupportive = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Unsupportive", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+  rename_with(~str_replace(.x, "_support_status", "")) %>% 
+  full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("drink_status"),
+                      fun_list = list(n_drinkers = ~sum(.x == "Drinker", na.rm = TRUE), 
+                                      prop_drinkers = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Drinker", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)},
+                                      n_nondrinkers = ~sum(.x == "NonDrinker", na.rm = TRUE), 
+                                      prop_nondrinkers = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "NonDrinker", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+  rename_with(~str_replace(.x, "_drink_status", "")) %>% 
+  full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("recovery"),
+                      fun_list = list(n_in_recovery = ~sum(.x == "Yes", na.rm = TRUE), 
+                                      prop_in_recovery = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Yes", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+  rename_with(~str_replace(.x, "_recovery", "")) %>% 
+  full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("contact_experience"),
+                      fun_list = list(n_pleasant = ~sum(.x == "Pleasant", na.rm = TRUE), 
+                                      prop_pleasant = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Pleasant", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)},
+                                      n_unpleasant = ~sum(.x == "Unpleasant", na.rm = TRUE), 
+                                      prop_unpleasant = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Unpleasant", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+    rename_with(~str_replace(.x, "_contact", "")) %>% 
+  full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("contact_drink_future"),
+                      fun_list = list(n_contacts_will_drink_around_them = ~sum(.x == "Yes", na.rm = TRUE), 
+                                      prop_contacts_will_drink_around_them = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Yes", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+    rename_with(~str_replace(.x, "_contact_drink_future", "")) %>% 
+    full_join(map2_dfr(labels_05$subid,
+                     labels_05$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs,
+                      lead_hours = 0, 
+                      period_duration_hours = 720,
+                      data_type = "all",
+                      col_list = c("contact_drank_past"),
+                      fun_list = list(n_contacts_past_drinking_together = ~sum(.x == "Almost Always/Always", na.rm = TRUE), 
+                                      prop_contacts_past_drinking_together = function (.x) {
+                                        if (length(.x) > 0) {
+                                          round(sum(.x == "Almost Always/Always", na.rm = TRUE)/n(), 2)
+                                          } else as.numeric(NA)}))),
+            by = c("subid", "dttm_label")) %>% 
+    rename_with(~str_replace(.x, "_contact_drank_past", "")) %>% 
+  glimpse()
 ```
 
+Numbers
+```{r}
+# unique numbers (sms, voice, and all)   
+# count unique contacts that are supportive, in recovery, etc.  
+```
 
 
 Combined Features
 ```{r}
-
+# context variables by incoming/outgoing   
 ```
 
 
@@ -683,10 +810,14 @@ meta_features <- meta_features %>%
 ```
 
 
+FIX: Add general descriptives about social network based on all logs?     
+
+
+
 
 ### Write Feature Set
 
 ```{r}
-write_csv(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead")) %>% 
+write_csv(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead.csv")) %>% 
   glimpse()
 ```
