@@ -814,8 +814,14 @@ FIX: Add general descriptives about social network based on all logs?
 
 
 
-
 ### Write Feature Set
+
+Add outcome label back in
+```{r}
+meta_features <- meta_features %>% 
+  full_join(labels_05, by = "subid", "dttm_label")
+```
+
 
 ```{r}
 write_csv(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead.csv")) %>% 
