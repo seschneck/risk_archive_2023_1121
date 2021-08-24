@@ -2,22 +2,24 @@
 
 # CHANGE ME -------------------
 name_job <- "fit_test" # the name of the job to set folder names
-feature_set <- c("items", "scales") # 1+ specific feature set characteristics
+
+period_duration_hrs <- c(720) # 1+ feature period duration
+lead_hours <- c(0) # 1+ lead hours for prediction
+feature_set <- c("all_context") # 1 data stream to use
+# options = voice, sms, all (voice and sms), add _context to include context features
+
 algorithm <- c("random_forest") # 1+ statistical algorithms
 hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
 hp2 <- c(2, 15, 25, 40) # RF: min_n
 hp3 <- 3500 # RF: trees
 n_splits <- 100 # number of bootstraps or folds
-n_repeats <- 0 # number of repeats if cv_type is "repeated"
-cv_type <- "boot" # cv type; can be "boot", "kfold", or "repeated"
-preprocess <- c("ppwk26_drop_25") # unique text string that sets outcome & tolerable missingness pct
+
 
 # load libraries & source files ------------------
 library(tidyverse)
 
 # set paths -------------------- 
-path_jobs <- "P:/studydata/match/jobs" 
-path_templates <- "scripts/fit_chtc/templates"
+path_jobs <- "P:/studydata/risk/chtc/meta/jobs"  
 
 # create new job directory (if it does not already exist) -------------------
 if (!dir.exists(file.path(path_jobs, name_job))) {
@@ -32,34 +34,29 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
   }
 
 # create jobs tibble ---------------
-if (n_repeats > 0) {
-  jobs <- expand_grid(n_split = 1:n_splits,
-                      n_repeat = 1:n_repeats,
-                      algorithm,
-                      feature_set,
-                      hp1,
-                      hp2,
-                      hp3,
-                      cv_type,
-                      preprocess)
-} else {
-  jobs <- expand_grid(n_split = 1:n_splits,
-                      algorithm,
-                      feature_set,
-                      hp1,
-                      hp2,
-                      hp3,
-                      cv_type,
-                      preprocess)
-}
+jobs <- expand_grid(n_split = 1:n_splits,
+                    algorithm,
+                    feature_set,
+                    period_duration_hrs,
+                    lead_hours,
+                    hp1,
+                    hp2,
+                    hp3)
 
-nrow(jobs)
+print(str_c(nrow(jobs), " jobs created"))
+
 
 # write jobs file to input folder ---------------
 jobs %>% 
   write_csv(file.path(path_jobs, name_job, "input", "jobs.csv"))
 
+
+# FIX: Need a copy of template R files - not sure what this is   
+# probably is the mak, fit, fun chtc files but I will keep these in the repo so 
+# don't need to move over to input folder?
+
 # copy template R files to input folder -----------------
-file.copy(from = file.path(path_templates, dir(path_templates)),
-          to = file.path(path_jobs, name_job, "input"),
-          recursive = TRUE)
+# path_templates <- "scripts/fit_chtc/templates"
+# file.copy(from = file.path(path_templates, dir(path_templates)),
+#           to = file.path(path_jobs, name_job, "input"),
+#           recursive = TRUE)

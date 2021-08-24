@@ -11,29 +11,18 @@ library(rsample)
 library(ranger)
 
 
-split_data <- function(d, job, n_splits, n_repeats = NULL) {
+# Only using bootstrap resampling for model selection   
+# FIX: Need to nest by subid for splits
+
+
+split_data <- function(d, job, n_splits) {
   
   # d: (training) dataset to be resampled
   # job: single-row job-specific tibble
   # n_splits: total number of splits, obtained from jobs before slicing
-  # n_repeats: total number of repeats, if repeated CV
-  
-  cv_type <- job$cv_type
-  
-  if (cv_type == "boot") {
-    splits <- d %>% 
+
+  splits <- d %>% 
       bootstraps(times = n_splits, strata = "y")
-  }
-  
-  if (cv_type == "kfold") {
-    splits <- d %>% 
-      vfold_cv(v = n_splits, strata = "y")
-  }
-  
-  if (cv_type == "repeated") {
-    splits <- d %>% 
-      vfold_cv(v = n_splits, repeats = n_repeats, strata = "y")
-  }
   
   return(splits)
   
@@ -44,29 +33,30 @@ build_recipe <- function(d, job) {
   
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
+  # lapse = outcome variable (lapse/no lapse)
   
   algorithm <- job$algorithm
   feature_set <- job$feature_set
-  preprocess <- job$preprocess
-  if (preprocess == "ppwk26_drop_25") {
-    drop_pct_miss <- .25
-  }
   
-  rec <- recipe(y ~ ., data = d) %>%
+  rec <- recipe(lapse ~ ., data = d) %>%
     update_role(subid, new_role = "id variable") %>%
     step_select(where(~ sum(is.na(.x))/length(.x) < drop_pct_miss)) %>% 
-    step_impute_knn(all_predictors()) %>%
-    themis::step_upsample(y)
-    
-    if (feature_set == "items") {
-      rec <- rec %>% 
-        step_rm(contains("scale"))
-    }
-    
-    if (feature_set == "scales") {
-      rec <- rec %>% 
-        step_rm(contains("item"))
-    }
+    step_impute_knn(all_predictors()) # >%
+    # FIX: downsample majority class in recipe?
+    # themis::step_upsample(y)
+
+  
+  # FIX: Can eliminate voice, sms, context, screener variables depending on feature set
+  
+    # if (feature_set == "items") {
+    #   rec <- rec %>% 
+    #     step_rm(contains("scale"))
+    # }
+    # 
+    # if (feature_set == "scales") {
+    #   rec <- rec %>% 
+    #     step_rm(contains("item"))
+    # }
   
   return(rec)
 }
