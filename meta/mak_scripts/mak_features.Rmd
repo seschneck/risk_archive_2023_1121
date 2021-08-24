@@ -312,7 +312,7 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("support_status"),
                       fun_list = list(n_supportive = ~sum(.x == "Supportive", na.rm = TRUE), 
                                       prop_supportive = function (.x) {
@@ -334,7 +334,7 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("drink_status"),
                       fun_list = list(n_drinkers = ~sum(.x == "Drinker", na.rm = TRUE), 
                                       prop_drinkers = function (.x) {
@@ -356,7 +356,7 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("recovery"),
                       fun_list = list(n_in_recovery = ~sum(.x == "Yes", na.rm = TRUE), 
                                       prop_in_recovery = function (.x) {
@@ -373,7 +373,7 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("contact_experience"),
                       fun_list = list(n_pleasant = ~sum(.x == "Pleasant", na.rm = TRUE), 
                                       prop_pleasant = function (.x) {
@@ -395,10 +395,10 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("contact_drink_future"),
-                      fun_list = list(n_contacts_will_drink_around_them = ~sum(.x == "Yes", na.rm = TRUE), 
-                                      prop_contacts_will_drink_around_them = function (.x) {
+                      fun_list = list(n_will_drink_around_them = ~sum(.x == "Yes", na.rm = TRUE), 
+                                      prop_will_drink_around_them = function (.x) {
                                         if (length(.x) > 0) {
                                           round(sum(.x == "Yes", na.rm = TRUE)/n(), 2)
                                           } else as.numeric(NA)}))),
@@ -412,10 +412,10 @@ meta_features <- meta_features %>%
                       data = logs,
                       lead_hours = 0, 
                       period_duration_hours = 720,
-                      data_type = "all",
+                      data_type = "context_all",
                       col_list = c("contact_drank_past"),
-                      fun_list = list(n_contacts_past_drinking_together = ~sum(.x == "Almost Always/Always", na.rm = TRUE), 
-                                      prop_contacts_past_drinking_together = function (.x) {
+                      fun_list = list(n_past_drinking_together = ~sum(.x == "Almost Always/Always", na.rm = TRUE), 
+                                      prop_past_drinking_together = function (.x) {
                                         if (length(.x) > 0) {
                                           round(sum(.x == "Almost Always/Always", na.rm = TRUE)/n(), 2)
                                           } else as.numeric(NA)}))),

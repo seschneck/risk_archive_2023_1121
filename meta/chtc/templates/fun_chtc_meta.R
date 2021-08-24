@@ -10,10 +10,12 @@ library(yardstick)
 library(rsample)
 library(ranger)
 
+# load risk_fun for making features
+# FIX: Can't locate on server
+source("C:/Users/kpaquette2/analysis_risk1/shared/fun_risk.R")
 
 # Only using bootstrap resampling for model selection   
 # FIX: Need to nest by subid for splits
-
 
 split_data <- function(d, job, n_splits) {
   
@@ -34,6 +36,7 @@ build_recipe <- function(d, job) {
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
   # lapse = outcome variable (lapse/no lapse)
+  # feature_set = data streams to include features for
   
   algorithm <- job$algorithm
   feature_set <- job$feature_set
@@ -45,18 +48,24 @@ build_recipe <- function(d, job) {
     # FIX: downsample majority class in recipe?
     # themis::step_upsample(y)
 
-  
-  # FIX: Can eliminate voice, sms, context, screener variables depending on feature set
-  
-    # if (feature_set == "items") {
-    #   rec <- rec %>% 
-    #     step_rm(contains("scale"))
-    # }
-    # 
-    # if (feature_set == "scales") {
-    #   rec <- rec %>% 
-    #     step_rm(contains("item"))
-    # }
+  if (feature_set == "all_context") {
+    rec <- rec 
+  } else if (feature_set == "sms_context") {
+    rec <- rec %>%
+      step_rm(contains("voice"), contains("all"))
+  } else if (feature_set == "voice_context") {
+    rec <- rec %>%
+      step_rm(contains("sms"), contains("all"))
+  } else if (feature_set == "all") {
+    rec <- rec %>%
+      step_rm(contains("context"))
+  } else if (feature_set == "sms") {
+    rec <- rec %>%
+      step_rm(contains("voice"), contains("all"), contains("context"))
+  } else if (feature_set == "voice") {
+    rec <- rec %>%
+      step_rm(contains("sms"), contains("all"), contains("context"))
+  } 
   
   return(rec)
 }
