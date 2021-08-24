@@ -449,7 +449,7 @@ screen <- vroom::vroom(here(path_shared, "screen.csv"), col_types = vroom::cols(
 ```
 
 Select variables of interest   
-```{r cache = TRUE}
+```{r}
 screen_select <- screen %>% 
   # only 6 participants are Hispanic - consider removing
   mutate(hispanic = if_else(dem_4 == "No, I am not of Hispanic, Latino, or Spanish origin",
@@ -562,7 +562,7 @@ screen_select <- screen %>%
 ```
 
 Score and add YAP
-```{r cache = TRUE}
+```{r}
 yap_life <- screen %>% 
   select(subid, yap_1:yap_27) %>% 
   mutate(across(yap_1:yap_27, ~ if_else(.x == "No, never", 0, 1))) %>% 
@@ -588,7 +588,7 @@ screen_select <- screen_select %>%
 ```
 
 Score and add SCL-90
-```{r cache = TRUE}
+```{r}
 scl_90 <- screen %>% 
   select(subid, contains("scl90")) %>% 
   mutate(across(scl90_1:scl90_90, ~ dplyr::recode(.x, 
@@ -630,7 +630,7 @@ screen_select <- screen_select %>%
 
 
 Score and add IUS
-```{r cache = TRUE}
+```{r}
 ius <- screen %>% 
   select(subid, contains("ius")) %>% 
   mutate(across(ius_1:ius_27, ~ dplyr::recode(.x, 
@@ -650,7 +650,7 @@ screen_select <- screen_select %>%
 
 
 Score and add ASI-3
-```{r cache = TRUE}
+```{r}
 asi3 <- screen %>% 
   select(subid, contains("asi3")) %>% 
   mutate(across(asi3_1:asi3_18, ~ dplyr::recode(.x,
@@ -673,7 +673,7 @@ screen_select <- screen_select %>%
 
 
 Score and add DTS
-```{r cache = TRUE}
+```{r}
 dts <- screen %>% 
   select(subid, contains("dts")) %>% 
   mutate(across(dts_1:dts_15, ~ dplyr::recode(.x,
@@ -699,7 +699,7 @@ screen_select <- screen_select %>%
 ```
 
 Score and add FAD
-```{r cache = TRUE}
+```{r}
 fad <- screen %>% 
   select(subid, contains("fad")) %>% 
   mutate(across(fad_1:fad_60, ~ dplyr::recode(.x,
@@ -737,7 +737,7 @@ screen_select <- screen_select %>%
 ```
 
 Score and add MPS
-```{r cache = TRUE}
+```{r}
 mps <- screen %>% 
   select(subid, contains("mps")) %>% 
   mutate(across(where(is.logical), ~ as.numeric(.x) + 1)) %>% 
@@ -803,7 +803,7 @@ meta_features <- meta_features %>%
 #### Additional Feature engineering
 
 Days since quit date
-```{r cache = TRUE}
+```{r}
 meta_features <- meta_features %>% 
   mutate(days_since_quit_date = round(as.numeric(difftime(dttm_label, quit_date, units = "days")), 2)) %>% 
   glimpse()
@@ -824,6 +824,6 @@ meta_features <- meta_features %>%
 
 
 ```{r}
-write_csv(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead.csv")) %>% 
+vroom::vroom_write(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead.csv")) %>% 
   glimpse()
 ```
