@@ -20,8 +20,10 @@ n_splits <- 100 # number of bootstraps or folds
 library(tidyverse)
 
 # set paths -------------------- 
-path_jobs <- "P:/studydata/risk/chtc/meta/jobs"  
-path_templates <- "templates"
+path_jobs <- if_else(Sys.info()[["sysname"]] == "Windows",
+                     "P:/studydata/risk/chtc/meta/jobs" , 
+                     "/Volumes/private/studydata/risk/chtc/meta/jobs")
+path_templates <- "."
 
 # create new job directory (if it does not already exist) -------------------
 if (!dir.exists(file.path(path_jobs, name_job))) {
