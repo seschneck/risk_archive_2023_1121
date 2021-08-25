@@ -324,24 +324,31 @@ log_all %>%
 
 *FIX: Need to implement these log entries into clean Qualtrics function*     
 
-10 recode_tz entries
+`r nrow(subset(log_all, log_action == "recode_tz"))` recode_tz entries
 ```{r}
 log_all %>% 
   filter(log_action == "recode_tz") %>% 
   print_kbl()
 ```
 
-These affect 5 entries since both the start and end time need to be recoded
+Assuming need to recode tz for start and end time of lapse since there is only one recode_tz entry for each response_id affected
 ```{r}
 log_all %>% 
   filter(log_action == "recode_tz") %>% 
   count(response_id)
 ```
 
-All `r length(unique(subset(log_all, log_action == "recode_tz")$response_id))` recode_tz entries contain a lapse
+
+All entries contain a lapse
 ```{r}
 ema_morning  %>% 
-  filter(response_id %in% subset(log_all, log_action == "recode_tz")$response_id)
+  filter(response_id %in% subset(log_all, log_action == "recode_tz")$response_id) %>% 
+  select(subid, EMAM_1:EMAM_1.4) %>% 
+  rename_with(~ str_replace(.x, "EMAM_", "ema_")) %>% 
+  bind_rows(ema_later  %>% 
+  filter(response_id %in% subset(log_all, log_action == "recode_tz")$response_id) %>% 
+  select(subid, EMAL_1:EMAL_1.4) %>% 
+      rename_with(~ str_replace(.x, "EMAL_", "ema_")))
 ```
 
 
