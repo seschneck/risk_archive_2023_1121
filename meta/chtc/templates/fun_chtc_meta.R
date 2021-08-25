@@ -11,20 +11,27 @@ library(rsample)
 library(ranger)
 
 
-# Only using bootstrap resampling for model selection   
-# FIX: Need to nest by subid for splits
-# grouped k-fold (10 x)
-split_data <- function(d, job, n_splits) {
+# grouped k-fold - grouped by subid
+split_data <- function(d, job, n_splits, n_repeats) {
   
-  # d: (training) dataset to be resampled
+  # d: (training) dataset to be resampled (subid = grouping id)
   # job: single-row job-specific tibble
   # n_splits: total number of splits, obtained from jobs before slicing
-
-  splits <- d %>% 
-      bootstraps(times = n_splits, strata = "y")
+  # n_repeats: total number of repeats
+  splits <- tibble()
+  
+  for (i in 1:n_repeats) {
+    split <- d %>% 
+      group_vfold_cv(group = subid, v = n_splits) %>% 
+      mutate(n_repeat = i)
+    
+    if (nrow(splits) != 0) {
+      splits <- splits %>% 
+        bind_rows(split)
+    } else  splits <- split
+  }
   
   return(splits)
-  
 }
 
 
@@ -33,36 +40,37 @@ build_recipe <- function(d, job) {
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
   # lapse = outcome variable (lapse/no lapse)
-  # feature_set = data streams to include features for
+  # feature_set = all_features or passive_only
+  # upsample = none, up, down, or smote
   
   algorithm <- job$algorithm
   feature_set <- job$feature_set
+  upsample <- job$upsample
   
   rec <- recipe(lapse ~ ., data = d) %>%
-    # make label factor
+    step_string2factor(lapse, levels = c("no", "yes")) %>% 
     update_role(subid, new_role = "id variable") %>%
-    step_impute_knn(all_predictors()) # %>%
-    # FIX: downsample majority class in recipe?
-    # themis::step_upsample(y)
-
-  if (feature_set == "all_context") {
-    rec <- rec 
-  } else if (feature_set == "sms_context") {
-    rec <- rec %>%
-      step_rm(contains("voice"), contains("all"))
-  } else if (feature_set == "voice_context") {
-    rec <- rec %>%
-      step_rm(contains("sms"), contains("all"))
-  } else if (feature_set == "all") {
+    step_string2factor(all_nominal_predictors()) %>% 
+    step_impute_knn(all_predictors()) %>% 
+    step_dummy(all_nominal_predictors())
+  
+  # filter out context features if job uses passive only
+  if (feature_set == "passive_only") {
     rec <- rec %>%
       step_rm(contains("context"))
-  } else if (feature_set == "sms") {
-    rec <- rec %>%
-      step_rm(contains("voice"), contains("all"), contains("context"))
-  } else if (feature_set == "voice") {
-    rec <- rec %>%
-      step_rm(contains("sms"), contains("all"), contains("context"))
   } 
+   
+  # control for uneven outcome variable
+  if (upsample == "up") {
+    rec <- rec %>% 
+      themis::step_upsample(lapse)
+  } else if (upsample == "down") {
+    rec <- rec %>% 
+      themis::step_downsample(lapse)
+  } else if (upsample == "smote") {
+    rec <- rec %>% 
+      themis::step_smote(lapse, neighbors = 5)
+  }
   
   return(rec)
 }

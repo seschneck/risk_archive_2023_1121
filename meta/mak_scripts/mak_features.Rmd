@@ -24,7 +24,6 @@ knit: (function(input, ...) {
 First run at making features for meta project. Still working on implementation of features for dates, numbers, and combined features.   
 
 Discuss with JC:   
-- Use period duration and prediction onset as different feature sets? Which will be kept in the jobs csv as a different parameter to keep track of?      
 - Writing functions to manipulate dates   
 - Writing more complex functions using multiple columns (i.e., n incoming calls from supportive contacts)    
 - Add general descriptives about social network based on all logs with static/snapshot screening variables   
@@ -820,12 +819,17 @@ FIX: Add general descriptives about social network based on all logs?
 Add outcome label (lapse/no lapse) back in
 ```{r}
 meta_features <- meta_features %>% 
-  left_join(labels_05, by = c("subid", "dttm_label"))
+  left_join(labels_05 %>% 
+              rename(lapse = label) %>% 
+              mutate(lapse = dplyr::recode(lapse,
+                                           "lapse" = "yes",
+                                           "no lapse" = "no")), 
+            by = c("subid", "dttm_label"))
 ```
 
 
 ```{r}
-vroom::vroom_write(meta_features, here(path_meta, "features_720_hrs_period_0_hrs_lead.csv"), ",") %>% 
+vroom::vroom_write(meta_features, here(path_meta, "features/period_720_lead_0.csv"), ",") %>% 
   glimpse()
 ```
 

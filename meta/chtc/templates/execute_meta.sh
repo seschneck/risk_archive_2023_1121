@@ -1,5 +1,5 @@
 #!/bin/bash
-# meta_execute.sh
+# execute_meta.sh
 
 #untar R installation
 tar -xzf R402.tar.gz

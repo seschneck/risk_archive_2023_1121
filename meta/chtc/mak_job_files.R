@@ -1,19 +1,15 @@
 # setup chtc jobs & associated files/folders
 
 # CHANGE ME -------------------
-name_job <- "fit_test" # the name of the job to set folder names
-feature_set <- c("all_context") # 1 data stream to use
-# options = all_features and passive_only
-
-period_duration_hrs <- c(720) # 1+ feature period duration
-lead_hours <- c(0) # 1+ lead hours for prediction
-
-
+name_job <- "fit_period_720_lead_0" # the name of the job to set folder names
+feature_set <- c("all_features") # 1 data stream to use (all_features or passive_only)
 algorithm <- c("random_forest") # 1+ statistical algorithms
 hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
 hp2 <- c(2, 15, 25, 40) # RF: min_n
 hp3 <- 3500 # RF: trees
-n_splits <- 100 # number of bootstraps or folds
+n_splits <- 10 # number of folds
+n_repeats <- 10 # number of repeats
+upsample <- c("none") # 1+ upsampling methods (up, down, smote, or none)
 
 
 # load libraries & source files ------------------
@@ -23,7 +19,7 @@ library(tidyverse)
 path_jobs <- if_else(Sys.info()[["sysname"]] == "Windows",
                      "P:/studydata/risk/chtc/meta/jobs" , 
                      "/Volumes/private/studydata/risk/chtc/meta/jobs")
-path_templates <- "."
+path_templates <- "templates"
 
 # create new job directory (if it does not already exist) -------------------
 if (!dir.exists(file.path(path_jobs, name_job))) {
@@ -39,13 +35,13 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 
 # create jobs tibble ---------------
 jobs <- expand_grid(n_split = 1:n_splits,
+                    n_repeat = 1:n_repeats,
                     algorithm,
                     feature_set,
-                    period_duration_hrs,
-                    lead_hours,
                     hp1,
                     hp2,
-                    hp3)
+                    hp3,
+                    upsample)
 
 print(str_c(nrow(jobs), " jobs created"))
 
