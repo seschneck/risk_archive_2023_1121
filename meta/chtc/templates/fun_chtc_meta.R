@@ -10,13 +10,10 @@ library(yardstick)
 library(rsample)
 library(ranger)
 
-# load risk_fun for making features
-# FIX: Can't locate on server
-source("C:/Users/kpaquette2/analysis_risk1/shared/fun_risk.R")
 
 # Only using bootstrap resampling for model selection   
 # FIX: Need to nest by subid for splits
-
+# grouped k-fold (10 x)
 split_data <- function(d, job, n_splits) {
   
   # d: (training) dataset to be resampled
@@ -42,9 +39,9 @@ build_recipe <- function(d, job) {
   feature_set <- job$feature_set
   
   rec <- recipe(lapse ~ ., data = d) %>%
+    # make label factor
     update_role(subid, new_role = "id variable") %>%
-    step_select(where(~ sum(is.na(.x))/length(.x) < drop_pct_miss)) %>% 
-    step_impute_knn(all_predictors()) # >%
+    step_impute_knn(all_predictors()) # %>%
     # FIX: downsample majority class in recipe?
     # themis::step_upsample(y)
 

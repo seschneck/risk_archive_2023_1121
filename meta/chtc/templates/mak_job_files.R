@@ -3,7 +3,7 @@
 # CHANGE ME -------------------
 name_job <- "fit_test" # the name of the job to set folder names
 feature_set <- c("all_context") # 1 data stream to use
-# options = voice, sms, all (voice and sms), add _context to include context features
+# options = all_features and passive_only
 
 period_duration_hrs <- c(720) # 1+ feature period duration
 lead_hours <- c(0) # 1+ lead hours for prediction

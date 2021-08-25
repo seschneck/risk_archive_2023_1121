@@ -22,17 +22,13 @@ job <- slice(jobs, job_num)
 
 # read in [training data] file & prep data --------------
 # FIX: replace with training data
+# d <- read_csv(file.choose())
 d <- vroom::vroom("data_trn_meta.csv",
                   col_types = vroom::cols())
 
 # create bootstrapping splits -------------------
 set.seed(11151994)
 splits <- split_data(d = d, job = job, n_splits = n_splits)
-
-
-# FIX: where to call make_features using period_duration and lead_hours
-# or use these parameters in jobs for the file path to reference an existing 
-# feature set already created (i.e., data_trn_meta_720_0)
 
 
 # build recipe ----------------
