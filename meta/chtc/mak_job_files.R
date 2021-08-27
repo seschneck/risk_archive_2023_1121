@@ -2,7 +2,7 @@
 
 # CHANGE ME -------------------
 name_job <- "fit_period_720_lead_0" # the name of the job to set folder names
-feature_set <- c("all_features") # 1 data stream to use (all_features or passive_only)
+feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
 algorithm <- c("random_forest") # 1+ statistical algorithms
 hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
 hp2 <- c(2, 15, 25, 40) # RF: min_n

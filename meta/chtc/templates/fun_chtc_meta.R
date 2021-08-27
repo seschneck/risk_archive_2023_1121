@@ -11,7 +11,7 @@ library(rsample)
 library(ranger)
 library(psych)
 library(purrr)
-library(kknn)
+# library(kknn)
 library(vip)
 
 
