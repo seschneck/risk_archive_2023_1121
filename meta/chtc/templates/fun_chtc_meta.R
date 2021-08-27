@@ -97,16 +97,6 @@ make_feature_matrices <- function(job, splits, rec) {
     prep(training = d_in) %>% 
     bake(new_data = d_in)
   
-<<<<<<< HEAD
-  d_in <- analysis(splits$splits[[n_split]])
-  d_out <- assessment(splits$splits[[n_split]])
-  
-  feat_in <- rec %>% 
-    prep(training = d_in) %>% 
-    bake(new_data = d_in)
-  
-=======
->>>>>>> 131ded67368c3c431802b55c5a0d731757a26990
   feat_out <- rec %>% 
     prep(training = d_in) %>% 
     bake(new_data = d_out)
@@ -148,11 +138,7 @@ get_metrics <- function(model, feat_out) {
   
   preds <- predict(model, feat_out, type = "class")$.pred_class
   
-<<<<<<< HEAD
-  cm <- tibble(truth = feat_out$y,
-=======
   cm <- tibble(truth = feat_out$lapse,
->>>>>>> 131ded67368c3c431802b55c5a0d731757a26990
                estimate = preds) %>% 
     conf_mat(truth, estimate)
   
@@ -163,15 +149,9 @@ get_metrics <- function(model, feat_out) {
     filter(metric %in% c("accuracy", "bal_accuracy",
                          "sens", "spec"))
   
-<<<<<<< HEAD
-  roc <- tibble(truth = feat_out$y,
-                prob = predict(model, feat_out,
-                               type = "prob")$.pred_abstinent) %>% 
-=======
   roc <- tibble(truth = feat_out$lapse,
                 prob = predict(model, feat_out,
                                type = "prob")$.pred_lapse) %>% 
->>>>>>> 131ded67368c3c431802b55c5a0d731757a26990
     roc_auc(prob, truth = truth, event_level = "second") %>% 
     select(metric = .metric,
            estimate = .estimate)

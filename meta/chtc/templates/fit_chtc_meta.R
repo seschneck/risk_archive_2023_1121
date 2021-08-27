@@ -29,11 +29,7 @@ n_repeats <- max(jobs$n_repeat)
 job <- slice(jobs, job_num)
 
 # read in data train --------------
-<<<<<<< HEAD
-# d <- read_csv("P:/studydata/risk/data_processed/meta/features/period_720_lead_0.csv", col_types = cols())
-=======
 # d <- read_csv("/Volumes/private/studydata/risk/data_processed/meta/features/period_720_lead_0.csv", col_types = cols())
->>>>>>> 131ded67368c3c431802b55c5a0d731757a26990
 d <- read_csv("data_trn.csv", col_types = cols())
 
 # build recipe ----------------
@@ -51,12 +47,9 @@ feat_out <- matrices[[2]]
 # fit model ----------------
 model <- fit_model(feat_in = feat_in, job = job)
 
-<<<<<<< HEAD
-=======
 # get predictions & metrics -------------
 results <- get_metrics(model = model, feat_out = feat_out)
 
->>>>>>> 131ded67368c3c431802b55c5a0d731757a26990
 # write out results tibble ------------
 file_name <- paste("results_", job_num, ".csv", sep = "")
 results %>% 
