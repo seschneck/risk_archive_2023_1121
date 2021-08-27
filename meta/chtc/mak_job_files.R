@@ -16,9 +16,7 @@ upsample <- c("none") # 1+ upsampling methods (up, down, smote, or none)
 library(tidyverse)
 
 # set paths -------------------- 
-path_jobs <- if_else(Sys.info()[["sysname"]] == "Windows",
-                     "P:/studydata/risk/chtc/meta/jobs" , 
-                     "/Volumes/private/studydata/risk/chtc/meta/jobs")
+path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 
 path_templates <- "templates"
 
 # create new job directory (if it does not already exist) -------------------

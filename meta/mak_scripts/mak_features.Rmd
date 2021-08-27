@@ -823,8 +823,15 @@ meta_features <- meta_features %>%
               rename(lapse = label) %>% 
               mutate(lapse = dplyr::recode(lapse,
                                            "lapse" = "yes",
-                                           "no lapse" = "no")), 
+                                           "no_lapse" = "no")), 
             by = c("subid", "dttm_label"))
+```
+
+shuffle rows
+```{r}
+set.seed(102030)
+rows <- sample(nrow(meta_features))
+meta_features <- meta_features[rows, ]
 ```
 
 
