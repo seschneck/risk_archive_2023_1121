@@ -55,8 +55,9 @@ build_recipe <- function(d, job) {
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
     update_role(subid, new_role = "id variable") %>%
     step_string2factor(all_nominal()) %>% 
-    step_knnimpute(all_predictors()) %>% 
-    step_dummy(all_nominal(), -lapse)
+    step_impute_knn(all_predictors()) %>% 
+    step_dummy(all_nominal(), -lapse) %>% 
+    step_rm(dttm_label)
   
   # filter out context features if job uses passive only
   if (feature_set == "passive_only") {
@@ -151,7 +152,7 @@ get_metrics <- function(model, feat_out) {
   
   roc <- tibble(truth = feat_out$lapse,
                 prob = predict(model, feat_out,
-                               type = "prob")$.pred_lapse) %>% 
+                               type = "prob")$.pred_yes) %>% 
     roc_auc(prob, truth = truth, event_level = "second") %>% 
     select(metric = .metric,
            estimate = .estimate)

@@ -29,7 +29,7 @@ n_repeats <- max(jobs$n_repeat)
 job <- slice(jobs, job_num)
 
 # read in data train --------------
-# d <- read_csv("/Volumes/private/studydata/risk/data_processed/meta/features/period_720_lead_0.csv", col_types = cols())
+# d <- read_csv("P:/studydata/risk/data_processed/meta/features/period_720_lead_0.csv", col_types = cols()) %>% select(1:10, lapse)
 d <- read_csv("data_trn.csv", col_types = cols())
 
 # build recipe ----------------
