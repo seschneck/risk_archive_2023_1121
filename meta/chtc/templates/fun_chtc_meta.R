@@ -9,6 +9,10 @@ library(tune)
 library(yardstick)
 library(rsample)
 library(ranger)
+library(psych)
+library(purrr)
+library(kknn)
+library(vip)
 
 
 # grouped k-fold - grouped by subid
@@ -42,7 +46,7 @@ build_recipe <- function(d, job) {
   # lapse = outcome variable (lapse/no lapse)
   # feature_set = all_features or passive_only
   # upsample = none, up, down, or smote
-  
+   
   algorithm <- job$algorithm
   feature_set <- job$feature_set
   upsample <- job$upsample
@@ -50,16 +54,16 @@ build_recipe <- function(d, job) {
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
     update_role(subid, new_role = "id variable") %>%
-    step_string2factor(all_nominal_predictors()) %>% 
-    step_impute_knn(all_predictors()) %>% 
-    step_dummy(all_nominal_predictors())
+    step_string2factor(all_nominal()) %>% 
+    step_knnimpute(all_predictors()) %>% 
+    step_dummy(all_nominal(), -lapse)
   
   # filter out context features if job uses passive only
   if (feature_set == "passive_only") {
     rec <- rec %>%
       step_rm(contains("context"))
   } 
-   
+  
   # control for uneven outcome variable
   if (upsample == "up") {
     rec <- rec %>% 
@@ -72,38 +76,87 @@ build_recipe <- function(d, job) {
       themis::step_smote(lapse, neighbors = 5)
   }
   
+  
+  # FIX: add more if statements to add steps for specific algorithms
+  
   return(rec)
 }
 
 
-fit_model <- function(rec, splits, job) {
+make_feature_matrices <- function(job, splits, rec) {
   
-  # rec: recipe (created manually or via build_recipe() function)
+  # job: single-row job-specific tibble
   # splits: rset object that contains all resamples
+  # rec: recipe (created manually or via build_recipe() function)
+  
+  n_split <- job$n_split
+  d_in <- analysis(splits$splits[[n_split]])
+  d_out <- assessment(splits$splits[[n_split]])
+  
+  feat_in <- rec %>% 
+    prep(training = d_in) %>% 
+    bake(new_data = d_in)
+  
+  feat_out <- rec %>% 
+    prep(training = d_in) %>% 
+    bake(new_data = d_out)
+  
+  return(list(feat_in, feat_out))
+  
+}
+
+
+fit_model <- function(feat_in, job) {
+  
+  # feat_in: feature matrix built from held-in data
   # job: single-row job-specific tibble
   
   algorithm <- job$algorithm
-  n_split <- job$n_split
-  
-  split_job <- splits[n_split, ]
-  rset_job <- manual_rset(split_job$splits, split_job$id)
   
   if (algorithm == "random_forest") {
     model <- rand_forest(mtry = job$hp1,
                          min_n = job$hp2,
-                         trees = job$hp3) %>% 
+                         trees = job$hp3) %>%
       set_engine("ranger",
                  importance = "impurity",
                  respect.unordered.factors = "order",
                  oob.error = FALSE,
-                 seed = 102030) %>% 
-      set_mode("classification") %>% 
-      fit_resamples(preprocessor = rec, 
-                    resamples = rset_job,  
-                    metrics = metric_set(accuracy, bal_accuracy, roc_auc,
-                                         sensitivity, specificity))
-    
+                 seed = 102030) %>%
+      set_mode("classification") %>%
+      fit(lapse ~ .,
+          data = feat_in)
   }
   
   return(model)
+}
+
+
+get_metrics <- function(model, feat_out) {
+  
+  # model: model object fit via fit_model()
+  # feat_in: feature matrix built from held-in data
+  
+  preds <- predict(model, feat_out, type = "class")$.pred_class
+  
+  cm <- tibble(truth = feat_out$lapse,
+               estimate = preds) %>% 
+    conf_mat(truth, estimate)
+  
+  model_metrics <- cm %>% 
+    summary(event_level = "second") %>% 
+    select(metric = .metric,
+           estimate = .estimate) %>% 
+    filter(metric %in% c("accuracy", "bal_accuracy",
+                         "sens", "spec"))
+  
+  roc <- tibble(truth = feat_out$lapse,
+                prob = predict(model, feat_out,
+                               type = "prob")$.pred_lapse) %>% 
+    roc_auc(prob, truth = truth, event_level = "second") %>% 
+    select(metric = .metric,
+           estimate = .estimate)
+  
+  model_metrics <- bind_rows(model_metrics, roc)
+  
+  return(model_metrics)
 }
