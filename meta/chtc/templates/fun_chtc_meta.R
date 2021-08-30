@@ -53,11 +53,15 @@ build_recipe <- function(d, job) {
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
-    update_role(subid, new_role = "id variable") %>%
+    update_role(subid, dttm_label, new_role = "id variable") %>%
     step_string2factor(all_nominal()) %>% 
-    step_impute_knn(all_predictors()) %>% 
-    step_dummy(all_nominal(), -lapse) %>% 
-    step_rm(dttm_label)
+    step_impute_median(all_numeric()) %>% 
+    step_impute_mode(all_nominal(), -lapse) %>% 
+    step_zv(all_predictors()) %>% 
+    step_dummy(all_nominal(), -lapse) 
+    
+    
+    
   
   # filter out context features if job uses passive only
   if (feature_set == "passive_only") {
@@ -65,7 +69,7 @@ build_recipe <- function(d, job) {
       step_rm(contains("context"))
   } 
   
-  # control for uneven outcome variable
+  # control for imbalanced outcome variable
   if (upsample == "up") {
     rec <- rec %>% 
       themis::step_upsample(lapse)
@@ -84,13 +88,18 @@ build_recipe <- function(d, job) {
 }
 
 
-make_feature_matrices <- function(job, splits, rec) {
+make_features <- function(job, n_repeats, splits, rec) {
   
   # job: single-row job-specific tibble
   # splits: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
+  # change to fold
   n_split <- job$n_split
+  n_repeat <- job$n_repeat
+  
+  split_index <- n_split + (n_repeat - 1) * n_repeats
+  
   d_in <- analysis(splits$splits[[n_split]])
   d_out <- assessment(splits$splits[[n_split]])
   
@@ -102,7 +111,7 @@ make_feature_matrices <- function(job, splits, rec) {
     prep(training = d_in) %>% 
     bake(new_data = d_out)
   
-  return(list(feat_in, feat_out))
+  return(list(feat_in = feat_in, feat_out = feat_out))
   
 }
 

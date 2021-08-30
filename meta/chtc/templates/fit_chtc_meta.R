@@ -6,19 +6,12 @@ library(readr)
 library(tidyr)
 source("fun_chtc_meta.R")
 
-# Parallel processing for running local test job ----------------
-# library(doParallel)
-# n_core <- detectCores(logical = FALSE)
-# cl <- makePSOCKcluster(n_core - 1)
-# registerDoParallel(cl)
-
 # set up job_num ---------------
 args <- commandArgs(trailingOnly = TRUE) 
 # job_num <- 1
 job_num <- as.numeric(args[1]) + 1 # process/job arg starts at 0
 
 # read in jobs.csv file ------------------
-# jobs <- read_csv(file.choose(), col_types = cols())
 jobs <- read_csv("jobs.csv", col_types = cols()) 
 
 # get total splits and repeats before slicing job ------------------
@@ -29,20 +22,22 @@ n_repeats <- max(jobs$n_repeat)
 job <- slice(jobs, job_num)
 
 # read in data train --------------
-# d <- read_csv("P:/studydata/risk/data_processed/meta/features/period_720_lead_0.csv", col_types = cols()) %>% select(1:10, lapse)
+# put in mak jobs
 d <- read_csv("data_trn.csv", col_types = cols())
 
 # build recipe ----------------
+# pass in split
 rec <- build_recipe(d = d, job = job)
 
 # create cv splits -------------------
+# move to make jobs
 set.seed(102030)
 splits <- split_data(d = d, job = job, n_splits = n_splits, n_repeats = n_repeats)
 
 # build feature matrices ---------------
-matrices <- make_feature_matrices(job = job, splits = splits, rec = rec)
-feat_in <- matrices[[1]]
-feat_out <- matrices[[2]]
+features <- make_features(job = job, n_repeats, splits = splits, rec = rec)
+feat_in <- features$feat_in
+feat_out <- features$feat_out
 
 # fit model ----------------
 model <- fit_model(feat_in = feat_in, job = job)
