@@ -7,10 +7,10 @@ feature_set <- "all_features" # 1 data stream to use (all_features or passive_on
 algorithm <- c("random_forest") # 1+ statistical algorithms
 hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
 hp2 <- c(2, 15, 25, 40) # RF: min_n
-hp3 <- 3500 # RF: trees
+hp3 <- 2780 # RF: trees (10 x's number of predictors)
 n_folds <- 10 # number of folds
 n_repeats <- 10 # number of repeats
-upsample <- c("none") # 1+ upsampling methods (up, down, smote, or none)
+resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
 
 # set paths -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 
@@ -40,7 +40,7 @@ jobs <- expand_grid(n_fold = 1:n_folds,
                     hp1,
                     hp2,
                     hp3,
-                    upsample)
+                    resample)
 
 # write jobs file to input folder ---------------
 jobs %>% 

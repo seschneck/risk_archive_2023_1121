@@ -806,6 +806,7 @@ Days since quit date
 ```{r}
 meta_features <- meta_features %>% 
   mutate(days_since_quit_date = round(as.numeric(difftime(dttm_label, quit_date, units = "days")), 2)) %>% 
+  select(-quit_date) %>% 
   glimpse()
 ```
 
@@ -827,12 +828,12 @@ meta_features <- meta_features %>%
             by = c("subid", "dttm_label"))
 ```
 
-shuffle rows
-```{r}
-set.seed(102030)
-rows <- sample(nrow(meta_features))
-meta_features <- meta_features[rows, ]
-```
+<!-- shuffle rows -->
+<!-- ```{r} -->
+<!-- set.seed(102030) -->
+<!-- rows <- sample(nrow(meta_features)) -->
+<!-- meta_features <- meta_features[rows, ] -->
+<!-- ``` -->
 
 
 ```{r}

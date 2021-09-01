@@ -45,11 +45,11 @@ build_recipe <- function(d, job) {
   # job: single-row job-specific tibble
   # lapse = outcome variable (lapse/no lapse)
   # feature_set = all_features or passive_only
-  # upsample = none, up, down, or smote
+  # resample = none, up, down, or smote
    
   algorithm <- job$algorithm
   feature_set <- job$feature_set
-  upsample <- job$upsample
+  resample <- job$resample
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
@@ -58,9 +58,7 @@ build_recipe <- function(d, job) {
     step_impute_median(all_numeric()) %>% 
     step_impute_mode(all_nominal(), -lapse) %>% 
     step_zv(all_predictors()) %>% 
-    step_dummy(all_nominal(), -lapse) 
-    
-    
+    step_dummy(all_nominal(), -lapse)
     
   
   # filter out context features if job uses passive only
@@ -69,16 +67,16 @@ build_recipe <- function(d, job) {
       step_rm(contains("context"))
   } 
   
-  # control for imbalanced outcome variable
-  if (upsample == "up") {
+  # control for unbalanced outcome variable
+  if (resample == "up") {
     rec <- rec %>% 
       themis::step_upsample(lapse)
-  } else if (upsample == "down") {
+  } else if (resample == "down") {
     rec <- rec %>% 
-      themis::step_downsample(lapse)
-  } else if (upsample == "smote") {
+      themis::step_downsample(lapse) 
+  } else if (resample == "smote") {
     rec <- rec %>% 
-      themis::step_smote(lapse, neighbors = 5)
+      themis::step_smote(lapse) 
   }
   
   
@@ -104,7 +102,7 @@ make_features <- function(job, n_repeats, folds, rec) {
   
   feat_in <- rec %>% 
     prep(training = d_in) %>% 
-    bake(new_data = d_in)
+    bake(new_data = NULL)
   
   feat_out <- rec %>% 
     prep(training = d_in) %>% 
