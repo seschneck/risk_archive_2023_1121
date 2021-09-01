@@ -15,26 +15,27 @@ library(purrr)
 library(vip)
 
 
-# grouped k-fold - grouped by subid
-split_data <- function(d, n_splits, n_repeats) {
+# splits for grouped repeated k-fold (subid = grouping factor)
+make_folds <- function(d, n_folds, n_repeats) {
   
   # d: (training) dataset to be resampled (subid = grouping id)
   # n_splits: total number of splits, obtained from jobs before slicing
   # n_repeats: total number of repeats
-  splits <- tibble()
+  
+  folds <- tibble()
   
   for (i in 1:n_repeats) {
-    split <- d %>% 
-      group_vfold_cv(group = subid, v = n_splits) %>% 
+    fold <- d %>% 
+      group_vfold_cv(group = subid, v = n_folds) %>% 
       mutate(n_repeat = i)
     
-    if (nrow(splits) != 0) {
-      splits <- splits %>% 
-        bind_rows(split)
-    } else  splits <- split
+    if (nrow(folds) != 0) {
+      folds <- folds %>% 
+        bind_rows(fold)
+    } else  folds <- fold
   }
   
-  return(splits)
+  return(folds)
 }
 
 
@@ -87,20 +88,19 @@ build_recipe <- function(d, job) {
 }
 
 
-make_features <- function(job, n_repeats, splits, rec) {
+make_features <- function(job, n_repeats, folds, rec) {
   
   # job: single-row job-specific tibble
   # splits: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
-  # change to fold
-  n_split <- job$n_split
+  n_fold <- job$n_fold
   n_repeat <- job$n_repeat
   
-  split_index <- n_split + (n_repeat - 1) * n_repeats
+  fold_index <- n_fold + (n_repeat - 1) * n_repeats
   
-  d_in <- analysis(splits$splits[[split_index]])
-  d_out <- assessment(splits$splits[[split_index]])
+  d_in <- analysis(folds$splits[[fold_index]])
+  d_out <- assessment(folds$splits[[fold_index]])
   
   feat_in <- rec %>% 
     prep(training = d_in) %>% 
@@ -156,7 +156,8 @@ get_metrics <- function(model, feat_out) {
     select(metric = .metric,
            estimate = .estimate) %>% 
     filter(metric %in% c("accuracy", "bal_accuracy",
-                         "sens", "spec"))
+                         "sens", "spec")) %>% 
+    suppressWarnings() # warning not about metrics we are returning
   
   roc <- tibble(truth = feat_out$lapse,
                 prob = predict(model, feat_out,

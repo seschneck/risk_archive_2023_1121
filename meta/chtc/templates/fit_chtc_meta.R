@@ -15,7 +15,7 @@ job_num <- as.numeric(args[1]) + 1 # process/job arg starts at 0
 jobs <- read_csv("jobs.csv", col_types = cols()) 
 
 # get total splits and repeats before slicing job ------------------
-n_splits <- max(jobs$n_split)
+n_folds <- max(jobs$n_fold)
 n_repeats <- max(jobs$n_repeat)
 
 # pull out job ------------------
@@ -26,13 +26,13 @@ d <- read_csv("data_trn.csv", col_types = cols())
 
 # create splits object ---------------
 set.seed(102030)
-splits <- split_data(d = d, n_splits = n_splits, n_repeats = n_repeats)
+folds <- make_folds(d = d, n_folds = n_folds, n_repeats = n_repeats)
 
 # build recipe ----------------
 rec <- build_recipe(d = d, job = job)
 
 # build feature matrices ---------------
-features <- make_features(job = job, n_repeats, splits = splits, rec = rec)
+features <- make_features(job = job, n_repeats = n_repeats, folds = folds, rec = rec)
 feat_in <- features$feat_in
 feat_out <- features$feat_out
 

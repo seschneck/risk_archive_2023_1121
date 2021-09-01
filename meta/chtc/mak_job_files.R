@@ -8,7 +8,7 @@ algorithm <- c("random_forest") # 1+ statistical algorithms
 hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
 hp2 <- c(2, 15, 25, 40) # RF: min_n
 hp3 <- 3500 # RF: trees
-n_splits <- 10 # number of folds
+n_folds <- 10 # number of folds
 n_repeats <- 10 # number of repeats
 upsample <- c("none") # 1+ upsampling methods (up, down, smote, or none)
 
@@ -19,7 +19,6 @@ path_data <- "P:/studydata/risk/data_processed/meta/features"
 
 # load libraries & source files ------------------
 library(tidyverse)
-source(file.path(path_templates, "fun_chtc_meta.R"))
 
 # create new job directory (if it does not already exist) -------------------
 if (!dir.exists(file.path(path_jobs, name_job))) {
@@ -34,7 +33,7 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 }
 
 # create jobs tibble ---------------
-jobs <- expand_grid(n_split = 1:n_splits,
+jobs <- expand_grid(n_fold = 1:n_folds,
                     n_repeat = 1:n_repeats,
                     algorithm,
                     feature_set,
