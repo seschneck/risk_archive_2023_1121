@@ -21,15 +21,14 @@ n_repeats <- max(jobs$n_repeat)
 # pull out job ------------------
 job <- slice(jobs, job_num)
 
-# read in data train --------------- 
-d <- read_csv("data_trn.csv", col_types = cols())
+# read in split object --------------
 
-# create splits object ---------------
-set.seed(102030)
-splits <- split_data(d = d, n_splits = n_splits, n_repeats = n_repeats)
 
 # build recipe ----------------
+# pass in split
 rec <- build_recipe(d = d, job = job)
+
+
 
 # build feature matrices ---------------
 features <- make_features(job = job, n_repeats, splits = splits, rec = rec)

@@ -21,6 +21,7 @@ path_data <- "P:/studydata/risk/data_processed/meta/features"
 library(tidyverse)
 source(file.path(path_templates, "fun_chtc_meta.R"))
 
+
 # create new job directory (if it does not already exist) -------------------
 if (!dir.exists(file.path(path_jobs, name_job))) {
   dir.create(file.path(path_jobs, name_job))
@@ -43,21 +44,25 @@ jobs <- expand_grid(n_split = 1:n_splits,
                     hp3,
                     upsample)
 
+print(str_c(nrow(jobs), " jobs created"))
+
+
+# read in data train --------------- 
+d <- read_csv(file.path(path_data, data_trn), col_types = cols())
+
+# create splits object --------------- 
+set.seed(102030)
+splits <- split_data(d = d, n_splits = n_splits, n_repeats = n_repeats)
+
+# write splits object to input folder ---------------
+splits %>% 
+  write_rds(file.path(path_jobs, name_job, "input", "splits.rds"))
+
 # write jobs file to input folder ---------------
 jobs %>% 
   write_csv(file.path(path_jobs, name_job, "input", "jobs.csv"))
 
-# copy data to input folder as data_trn -----------------
-file.copy(from = file.path(path_data, data_trn),
-          to = file.path(path_jobs, name_job, "input/data_trn.csv")) %>% 
-  invisible()
-
-# copy template R files to input folder -----------------
+# copy template R files to input folder on P drive -----------------
 file.copy(from = file.path(path_templates, dir(path_templates)),
           to = file.path(path_jobs, name_job, "input"),
-          recursive = TRUE) %>% 
-  invisible()
-
-# update queue on submit file -----------------
-queue <- str_c("queue ", nrow(jobs))
-write(queue, file.path(path_jobs, name_job, "input/sub_meta.sub"), append = TRUE)
+          recursive = TRUE)
