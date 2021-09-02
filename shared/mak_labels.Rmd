@@ -9,7 +9,9 @@ output:
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
-      output_dir = "P:/studydata/risk/knits/shared"
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
     )
   })
 ---
@@ -17,20 +19,75 @@ knit: (function(input, ...) {
 ### Code Status
 
 In progress.   There are still some errors in the raw EMA and interview data to explore or correct before we have
-a set of accurate lapses and periods to exclude for no_lapse observations
+a set of accurate lapses and periods to exclude for no_lapse observations     
+
+Outstanding issues:   
+
+- currently clean_qualtrics function is not adapted to handle recode_tz entries for out of town EMAs. Discuss with JC how to best implement this.   
+
+- log entries to discuss with JC have been flagged in flagged_log_entries.Rmd    
+
+- Duplicate lapses flagged in this script     
+
+- Some incomplete surveys were taken again and completed within a minute. See cln_ema.Rmd and discuss.    
+  - Incomplete lapses with another survey taken immediately before or after are noted in this script. In many cases the complete survey says there was not a lapse. In most cases they did not enter anything past ema_1 in the reported lapse so may not affect lapses only non-lapse labels.
+
+- Address other outstanding discussion items/fixes in cln_ema.Rmd    
+
+- Discuss log vs code for cleaning midnight reporting errors (we currently do both)
+
+### Conclusions   
+
+- More complete EDA is in cln_ema.Rmd. This file focusses on EDA related to whether a lapse/non-lapse is reliable for sampling from.       
+
+- EMA compliance gaps and reasons for them are noted in cln_ema.Rmd    
+
+- There were no EMA surveys sent to any participants on 3/2/19.   
+
+- 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes for finished surveys)     
+
+- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey. These should be used for exclusion.          
+
+- Subids 104 and 128 have over 100 reported lapses.     
+  - According to notes, subid 104 reported lapses everyday on study.     
+  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"     
+  
+- Some partipants have a daily avg EMA count exceeding 4 (subid 269 looks particularly problematic - see cln_ema.Rmd)   
 
 ### Set Up Environment
 
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
 Absolute paths
-```{r, paths}
-path_lab_support <- "P:/toolboxes/lab_support"
-path_processed <- "P:/studydata/risk/data_processed/shared"
-path_raw <- "P:/studydata/risk/data_raw"
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
+```
+
+Relative paths
+```{r, relative paths}
+path_log <- "shared/notes"
 ```
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
@@ -41,7 +98,6 @@ library(here)  # establish project directory consistently as working directory
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
-
 # for data wrangling
 library(tidyverse)
 library(vroom)
@@ -84,14 +140,14 @@ dates %>% print_kbl()
 
 EMA lapse reports
 ```{r, message=FALSE}
-emam <- vroom(here(path_processed, "ema_morning.csv")) %>% 
+emam <- vroom(here(path_processed, "ema_morning.csv"), col_types = vroom::cols()) %>% 
   rename_with(~ str_replace(.x, "emam_", "ema_"))
 
-emal <- vroom(here(path_processed, "ema_later.csv"))%>% 
+emal <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%>% 
   rename_with(~ str_replace(.x, "emal_", "ema_"))
 
 ema <- bind_rows(emam, emal) %>% 
-  select(subid, start_date, end_date, utc, finished,
+  select(subid, response_id, start_date, end_date, utc, finished,
          contains("ema_1"), -ema_1_5, -ema_10_1) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid, start_date) %>%  
@@ -102,12 +158,221 @@ ema <- bind_rows(emam, emal) %>%
 
 #### EDA for EMA lapses
 
-KENDRA TO DO
+See cln_ema.html for full EDA documentation    
 
-* Review notes from data cleaning for issues with remaining lapses
-* Confirm with Sarah that all EMA lapses (even cleaned are in America/Chicago)
-* Discuss with Sarah finished == 0, some with and some without lapse info
-* May need some more EDA before we remove variables in next code chunk
+Highlighting important EDA findings relevant to lapse labels below:  
+
+**Notes on EMA lapse/non-lapse validity**
+Hand-selected supporting notes for lapse/no lapse labels from raw_notes:    
+- Subid 47 was not receiving EMA messages between 4/6 - 4/17/18. This should not be a reliable no lapse period though because according to staff they reported a lapse on 4/10/18 at their tech troubleshooting appointment on 4/11/18.   
+- Note about a lapse for subid 79 - "Data log says this sub had a brain injury and suffers from memory issues; This could explain why it took so long to report this lapse; However he did report a lapse on 09/02 20:00 at 10am on 09/03 which makes me a little skeptical and think it is possible that that this is supposed to be 09/03"     
+- Note about a lapse/non-lapse for subid 119 - "On 10/31 subs audio mentioned that they had missed several days because they relapsed and were trying to get back on track; This is the only lapse that was reported while on study; However it is unclear if this lapse report is correct. They had answered 4 surveys on 10/28 saying they did not lapse"    
+- No surveys for subid 173 between 2/5 - 2/14 - they called to say they were interested in continuing with the study but having trouble getting back on track - so this time period is likely not reliable for non-lapse or lapse.    
+- Note about subid 204 lapse - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them. I collected lapses from her even though she did not complete her surveys and she reported that the lapse she reported with timestamp: 1558123879 was not 1 long drinking episode, but 3 individual ones lasting from 9pm each night and going until Midnight. She also reported that she probably drank beginning 05/16 through 06/04 from 9pm until Midnight."    
+- Subid 212 note about unreported lapses "	Audio on 4/17 reported that drinking has been an issue. No specific info about the lapse. They denied having a lapse to report 3 times during the alleged lapse; Participant divulged at their follow up visit that they drank the night before their visit (5/15/19 - 5/16/19) but they never formally reported the lapse."    
+- Subid 213 note about lapse "Participant reported having drank alcohol nearly every day during the lapse dates provided - They reported the first day (05/13/2019) being the heaviest day and the subsequent dates being a little lighter. They did not recall times for lapses when asked during their Follow-up 2 visit; The participant did not complete any ema between 5/7-5/21; They did not complete any audio messages between 5/04-5/22; Their 5/22 and 5/27 audio messages both reference that they've "been drinking" and on 5/30 they say they are "trying to get back on track"; Participant reported having drank at the following times on listed dates: 5/25: 11pm-12am 5/26: 6pm -8pm 5/27: 6pm-8pm. Participant reported these were estimates of the times spent drinking on this weekend."    
+- Subid 225 note about lapse "This is the only lapse she reported during her participation but her audio messages definitely do not reflect her drinking during this entire period; On 6/19 participant reported that they felt like crap because they relapsed; On 6/20 participant reported that they were 2 days sober; They did not complete an audio message between 6/14-6/19 however messages between 6/5-6/14 do not give any indication that she was drinking"  
+
+Supporting notes from logs
+```{r}
+log <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>%
+              bind_rows(vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()))
+
+ema_log_notes <- ema %>% 
+  select(-utc) %>% 
+  left_join(log %>% 
+              filter(subid != "all" & log_action == "note" & is.na(var_name)) %>% 
+              mutate(subid = as.numeric(subid)) %>% 
+              select(subid, response_id, notes), by = c("subid", "response_id")) %>% 
+  glimpse()
+```
+
+`r nrow(subset(ema_log_notes, !is.na(notes)))` lapses have additional notes     
+
+```{r}
+ema_log_notes %>% 
+  filter(!is.na(notes)) %>% 
+  print_kbl()
+```
+
+Not sure exactly what this note that reappears throughout means "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is."   
+
+There are no other log entries suggesting we changed the start time   
+
+*Discuss with JC*
+```{r}
+log %>% 
+  filter(response_id == "R_6VFN7egqlwAp1eN")
+
+log %>% 
+  filter(response_id == "R_Xqe2N1CujYSq6GZ")
+
+log %>% 
+  filter(response_id == "R_3RqM3AgzAVHNaVU")
+```
+
+Log notes other than the long start_diff note
+```{r}
+ema_log_notes %>% 
+  filter(!is.na(notes) & notes != "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is.") %>% 
+  print_kbl()
+```
+
+
+
+**Duplicate lapses**   
+
+There are 13 exact duplicates where all lapse variables are identical
+```{r}
+ema_lapse_duplicates_exact <- ema %>% 
+  count(subid, ema_1_1, ema_1_2, ema_1_3, ema_1_4) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+```
+
+Some made within minutes and some made on different days
+```{r}
+ema %>% 
+  left_join(ema_lapse_duplicates_exact, 
+            by = c("subid", "ema_1_1", "ema_1_2", "ema_1_3", "ema_1_4")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
+
+There are 30 cases where the start date and time are duplicated but end time differs    
+*Discuss with JC - may show some typos in end date or suggest lapses to be unreliable*     
+```{r}
+ema_lapse_duplicates_start <- ema %>% 
+  select(subid, ema_1_1:ema_1_4) %>% 
+  # filter out exact duplicates
+  unique() %>% 
+  count(subid, ema_1_1, ema_1_2) %>% 
+  filter(n > 1 & !is.na(ema_1_1))
+
+ema %>% 
+  left_join(ema_lapse_duplicates_start, 
+            by = c("subid", "ema_1_1", "ema_1_2")) %>% 
+  filter(!is.na(n)) %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
+
+Pull log entries on these semi-duplicates   
+*Discuss with JC*
+```{r}
+ema %>% 
+  left_join(ema_lapse_duplicates_start, 
+            by = c("subid", "ema_1_1", "ema_1_2")) %>% 
+  filter(!is.na(n)) %>% 
+  left_join(log %>% 
+              filter(log_action == "note") %>% 
+              select(response_id, notes), by = "response_id") %>% 
+  arrange(subid, ema_1_1) %>% 
+  print_kbl()
+```
+
+
+
+**America/Chicago Timezone**    
+*FIX: need to implement the recode_tz log action into clean_qualtrics*    
+
+10 recode_tz log entries
+```{r}
+log %>% 
+  tabyl(log_action)
+
+log %>% 
+  filter(log_action == "recode_tz") %>% 
+  print_kbl()
+```
+
+These affect 5 entries since both the start and end time need to be recoded
+```{r}
+log %>% 
+  filter(log_action == "recode_tz") %>% 
+  count(response_id)
+```
+
+All `r length(unique(subset(log, log_action == "recode_tz")$response_id))` recode_tz entries contain a lapse
+```{r}
+ema %>% 
+  filter(response_id %in% subset(log, log_action == "recode_tz")$response_id)
+```
+
+
+**Unfinished surveys**   
+96 unfinished lapse reports
+```{r}
+ema %>% 
+  tabyl(finished)
+```
+
+Check if there is another lapse report within minutes of incomplete EMA   
+
+Calculate minutes before next and from last ema on all ema's   
+Note: only using start_dates since end_dates are not necessarily correct when a survey is left incomplete and it was resulting in overlapping survey times
+```{r}
+ema_all <-  bind_rows(emam, emal) 
+
+ema_lag_lead_minutes <- ema_all %>% 
+  group_by(subid) %>% 
+  arrange(subid, start_date) %>% 
+  mutate(mins_since_last_ema = round(as.numeric(difftime(start_date, dplyr::lag(start_date, n = 1), 
+                                                            units = "mins")), 2),
+         mins_till_next_ema = round(as.numeric(difftime(dplyr::lead(start_date, n = 1), start_date, 
+                                                           units = "mins")), 2),
+         previous_response_id = dplyr::lag(response_id, n = 1),
+         next_response_id = dplyr::lead(response_id, n = 1)) %>%
+  ungroup() %>% 
+  glimpse()
+```
+
+filter down to only incomplete lapse surveys 
+```{r}
+ema_lapse_incomplete <- ema %>% 
+  filter(finished == 0)
+```
+
+and surveys with another survey within 5 minutes before or after incomplete survey
+```{r}
+incomplete_5_min_prior <- ema_lag_lead_minutes %>% 
+  filter(response_id %in% ema_lapse_incomplete$response_id & mins_till_next_ema <= 5) %>% 
+  filter(!is.na(next_response_id))
+
+incomplete_5_min_after <- ema_lag_lead_minutes %>% 
+  filter(response_id %in% ema_lapse_incomplete$response_id & mins_since_last_ema <= 5) %>% 
+  filter(!is.na(previous_response_id))
+```
+
+`r nrow(incomplete_5_min_prior) + nrow(incomplete_5_min_after)` incomplete surveys have another survey within 5 minutes of it    
+*Discuss with JC - many incomplete lapses look to be errors where they retook the survey to change ema_1 to No - these are likely filtered out in next step anyways*
+```{r message = FALSE}
+incomplete_5_min_prior %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_prior$next_response_id)) %>% 
+  full_join(incomplete_5_min_after) %>% 
+  full_join(ema_all %>% 
+              filter(response_id %in% incomplete_5_min_after$previous_response_id)) %>% 
+  arrange(subid, start_date) %>% 
+  print_kbl()
+```
+
+
+**Check notes on participants with no lapses**
+
+Suspicious entries:
+- subid 167 left audio messages with curse words (may have been intoxicated?) and had low compliance.   
+- subid 237 discontinued prior at follow-up 1 (before data were collected) because they planned to enter inpatient tx.  
+- subid 269 left 2 voicemails for staff admitting to drinking over the weekend.  
+
+```{r}
+notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+
+notes %>% 
+  filter(subid %in% as.numeric(ema_all$subid) & !subid %in% ema$subid) %>% 
+  select(subid, notes_general, notes_ema) %>% 
+  print_kbl()
+```
 
 
 #### Final EMA Processing
@@ -129,7 +394,7 @@ Interview lapse reports
 * Source is both staff and EDA by Sarah.  Dropped this variable.
 * Retained notes to check any suspect reports
 ```{r, message=FALSE}
-interview <- vroom(here(path_raw, "additional_lapses.csv")) %>% 
+interview <- vroom(here(path_raw, "additional_lapses.csv"), col_types = vroom::cols()) %>% 
   select(-report_date, -ema_1, -ema_1_5, -time_zone) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid) %>% 
@@ -138,7 +403,8 @@ interview <- vroom(here(path_raw, "additional_lapses.csv")) %>%
 
 #### EDA for Inteview Lapses
 
-KENDRA to do
+KENDRA to do   
+- John do you still want me to do EDA on interview lapses now that we are likely going to exclude them?   
 
 #### Final Interview Processing
 ```{r}
@@ -163,8 +429,6 @@ Process timestamp of lapse
 * Calculate start_lapse and end_lapse as dttm when completed timestamp info available
 * retain character date and timestamps as check and also for lapses with incomplete info
 
-KENDRA - you will see that we seem to not have any lapses from a large number (2/3)
-of participants.  Check this carefully.
 ```{r}
 # To recode start and end times from EMA
 recode_military <- function (time_12hr) {
@@ -234,7 +498,10 @@ length(unique(lapses$subid))  # from 88 participants
 
 Fix midnight reporting error.   Many participants considered midnight the same date 
 as a few hours before when, in fact, midnight starts the next date.  We can see these
-among the negative lapse reports.  Look at the many with `lapse_end_time` == "00:00"
+among the negative lapse reports.  Look at the many with `lapse_end_time` == "00:00"   
+
+
+*JOHN: We also have log entries that correct for midnight reporting error - do you want me to make log entries for these too?*   
 
 ```{r}
 lapses %>% filter(duration < 0) %>% 
@@ -259,8 +526,6 @@ lapses <- lapses %>%
          lapse_end_date = if_else(is.na(lapse_end), 
                                   lapse_end_date, format(lapse_end, "%m-%d-%Y")),
          duration = difftime(lapse_end, lapse_start, units = "hours"))
-
-
 ```
 
 
@@ -318,7 +583,8 @@ Need to check on the date that are reported by EMA.  There are some notes in the
 
 
 
-KENDRA - check `lapses` more carefully.  Should any other lapses be excluded.  
+KENDRA - check `lapses` more carefully.  Should any other lapses be excluded.      
+*JOhn lets discuss some things that have come up in my EDA*    
 
 We also need to decide definitely what to do with lapses that have start but no end time.
 

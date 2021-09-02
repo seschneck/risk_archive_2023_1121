@@ -723,3 +723,162 @@ ema_later %>%
   filter(response_id == "R_tSUEclMc9TqDttv")
 ```
 
+
+**#25**   
+
+These may be unreliable non-lapses considering notes below
+```{r}
+log_all %>% 
+  filter(subid == "065" & 
+           (response_id == "R_3fZsS5Dsiv4V8Us" | response_id == "R_1DqAtRHszCFO5RQ")) %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+
+## Note entries
+
+**1**   
+
+Questionable lapse and non-lapses for subid 100        
+```{r}
+log_all %>% 
+  filter(subid == "100" & response_id == "R_1hYI0TFdKUGdagV") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+EMAs
+```{r}
+ema_later %>% 
+  filter(subid == "100") %>% 
+  select(StartDate, EMAL_1, UTC) %>% 
+  arrange(StartDate) %>% 
+  filter(date(StartDate) >= "2018-08-10" & date(StartDate) <= "2018-08-12")
+```
+
+No lapses reported the morning of 8/11 or 8/12 either (no morning survey for 8-12)    
+
+This makes me think they were drinking on 8/11, but we currently are using their lapse as 8/10    
+```{r}
+ema_morning %>% 
+  filter(subid == "100") %>% 
+  select(StartDate, EMAM_1, UTC) %>% 
+  arrange(StartDate) %>% 
+  filter(date(StartDate) >= "2018-08-10" & date(StartDate) <= "2018-08-12")
+```
+
+**2**   
+
+Overlapping lapse reports for subid 131   
+
+EMA morning and later surveys for subid 131 
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  filter(subid == "131" & date(StartDate) >= "2018-12-09" & 
+           date(StartDate) <= "2018-12-11") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+              filter(subid == "131" & date(StartDate) >= "2018-12-09" & 
+           date(StartDate) <= "2018-12-11")) %>% 
+  arrange(StartDate) %>% 
+  select(StartDate, EMA_1:EMA_1.4, UTC)
+```
+
+Do we want to keep the incomplete entry on 2018-12-10 which seems to be started in the middle of the lapse?    
+Currently we just have a note in the log about this   
+```{r}
+log_all %>% 
+  filter(response_id == "R_2fuMoTj6mLAJQPO") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+
+**3**   
+
+Another Incomplete lapse for subid 131   
+
+EMA morning and later surveys for subid 131 
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  filter(subid == "131" & date(StartDate) == "2018-11-30") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+              filter(subid == "131" & date(StartDate) == "2018-11-30")) %>% 
+  arrange(StartDate) %>% 
+  select(StartDate, EMA_1:EMA_1.4, UTC)
+```
+
+John: Do we want to keep the incomplete entry made at 4:34 PM?    
+Currently we just have a note in the log about this   
+```{r}
+log_all %>% 
+  filter(response_id == "R_cGSDB15GRJx2Pgl") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+
+
+**4**   
+
+Currently have an incomplete lapse for subid 158 that was captured the next day.   
+```{r}
+log_all %>% 
+  filter(response_id == "R_W24Eoe0KBWOJ4Q1") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+EMA morning and later surveys for subid 158    
+
+John: Retain incomplete lapse or remove?
+
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  filter(subid == "158" & date(StartDate) >= "2018-12-30" & 
+           date(StartDate) <= "2018-12-31") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+                filter(subid == "158" & date(StartDate) >= "2018-12-30" & 
+           date(StartDate) <= "2018-12-31")) %>% 
+  arrange(StartDate) %>% 
+  select(StartDate, EMA_1:EMA_1.4, UTC)
+```
+
+
+**5**   
+
+Incomplete lapse for subid 178   
+
+According to log the incomplete survey that reports a lapse was captured in the lapse prior. 
+```{r}
+log_all %>% 
+  filter(response_id == "R_2dmR0Yn9S3nIlFn") %>% 
+  kbl() %>% 
+  kable_styling(bootstrap_options = c("condensed", "striped")) %>% 
+  scroll_box(width = "100%")
+```
+
+EMA morning and later surveys for subid 178 
+```{r}
+ema_morning %>%  
+  rename_with(~ str_replace(.x, "EMAM_", "EMA_")) %>% 
+  filter(subid == "178" & date(StartDate) == "2019-1-25") %>% 
+  bind_rows(ema_later %>% 
+              rename_with(~ str_replace(.x, "EMAL_", "EMA_")) %>% 
+              filter(subid == "178" & date(StartDate) == "2019-1-25")) %>% 
+  arrange(StartDate) %>% 
+  select(StartDate, EMA_1:EMA_1.4, UTC)
+```
+
+JOHN: Keep incomplete lapse as note entry or remove?    
