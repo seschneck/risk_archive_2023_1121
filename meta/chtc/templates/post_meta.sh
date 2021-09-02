@@ -2,7 +2,7 @@
 # post_meta.sh
 
 #move data to results
-mv results_*.rds meta_results
+mv results_*.csv meta_results
 
 #move error files to error
 mv error*.err meta_error

@@ -1,18 +1,20 @@
 # Description: 
 
 # load libraries
-library(dplyr)
-library(recipes)
-library(parsnip)
-library(themis)
-library(tune)
-library(yardstick)
-library(rsample)
-library(ranger)
-library(psych)
-library(purrr)
-# library(kknn)
-library(vip)
+suppressPackageStartupMessages({
+  require(dplyr)
+  require(recipes)
+  require(parsnip)
+  require(themis)
+  require(tune)
+  require(yardstick)
+  require(rsample)
+  require(ranger)
+  require(psych)
+  require(purrr)
+  # require(kknn)
+  require(vip)
+})
 
 
 # splits for grouped repeated k-fold (subid = grouping factor)

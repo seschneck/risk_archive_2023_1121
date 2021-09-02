@@ -1,9 +1,11 @@
 # fit model at chtc with bootstrapping 
 
 # libraries & source functions file ----------------
-library(dplyr)
-library(readr)
-library(tidyr)
+suppressPackageStartupMessages({
+  require(dplyr)
+  require(readr)
+  require(tidyr)
+})
 source("fun_chtc_meta.R")
 
 # set up job_num ---------------
