@@ -274,7 +274,6 @@ ema %>%
 
 
 **America/Chicago Timezone**    
-*FIX: need to implement the recode_tz log action into clean_qualtrics*    
 
 10 recode_tz log entries
 ```{r}
@@ -395,7 +394,7 @@ Interview lapse reports
 * Retained notes to check any suspect reports
 ```{r, message=FALSE}
 interview <- vroom(here(path_raw, "additional_lapses.csv"), col_types = vroom::cols()) %>% 
-  select(-report_date, -ema_1, -ema_1_5, -time_zone) %>% 
+  select(-report_date, -ema_1, -ema_1_5, ema_1_6 = time_zone) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid) %>% 
   glimpse()
@@ -465,11 +464,15 @@ lapses <- lapses %>%
   mutate(lapse_start_time = recode_military(ema_1_2),
          lapse_end_time = recode_military(ema_1_4),
          lapse_start = str_c(ema_1_1, " ", lapse_start_time),
-         lapse_end = str_c(ema_1_3, " ", lapse_end_time),
          lapse_start = as_datetime(lapse_start, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         lapse_start = force_tzs(lapse_start, tzones = ema_1_6, tzone_out = "America/Chicago"),
+         lapse_end = str_c(ema_1_3, " ", lapse_end_time),
          lapse_end = as_datetime(lapse_end, format = "%m-%d-%Y %H:%M", tz = "America/Chicago"),
+         lapse_end = force_tzs(lapse_end, tzones = ema_1_6, tzone_out = "America/Chicago"),
          duration = difftime(lapse_end, lapse_start, unit = "hour")) %>% 
-  select(subid, lapse_start_date = ema_1_1, lapse_start_time, lapse_start, lapse_end_date = ema_1_3, lapse_end_time, lapse_end, duration, source)
+  select(subid, lapse_start_date = ema_1_1, lapse_start_time, lapse_start, 
+         lapse_end_date = ema_1_3, lapse_end_time, lapse_end, duration,source, 
+         ema_1_6)
 
 length(unique(lapses$subid)) # 98 participants with some lapses (valid and invalid)
 ```
