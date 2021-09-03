@@ -154,17 +154,6 @@ source(here(path_lab_support, "clean_qualtrics_by_log.R"))
 source(here(path_lab_support, "print_kbl.R"))
 ```
 
-*Temporarily overriding the lab_support version of print_kbl until it is updated with repo version.    
-Will remove this code block after knitting*
-```{r}
-print_kbl <- function(data, height = "500px", align = "r"){
-      data %>%
-        kableExtra::kbl(align = align) %>%
-        kableExtra::kable_styling(bootstrap_options = c("striped", "condensed")) %>%
-        kableExtra::scroll_box(height = height, width = "100%")
-}
-```
-
 
 ### Read in raw data 
 
@@ -412,6 +401,35 @@ ema_later <- ema_later %>%
   clean_names() %>% 
   glimpse()
 ```
+
+
+### Handle timezone changes for reported lapses
+
+Morning
+```{r}
+log_tz_morning <- log_morning %>% 
+  filter(log_action == "recode_tz") %>% 
+  select(response_id, emam_1_6 = new_value)
+
+ema_morning <- ema_morning %>% 
+  left_join(log_tz_morning, by = "response_id") %>% 
+  mutate(emam_1_6 = if_else(emam_1 == "Yes" & is.na(emam_1_6), "America/Chicago", emam_1_6)) %>% 
+  relocate(emam_1_6, .after = emam_1_5)
+```
+
+later
+```{r}
+log_tz_later <- log_later %>% 
+  filter(log_action == "recode_tz") %>% 
+  select(response_id, emal_1_6 = new_value)
+
+ema_later <- ema_later %>% 
+  left_join(log_tz_later, by = "response_id") %>% 
+  mutate(emal_1_6 = if_else(emal_1 == "Yes" & is.na(emal_1_6), "America/Chicago", emal_1_6)) %>% 
+  relocate(emal_1_6, .after = emal_1_5)
+```
+
+
 
 ### EDA
 
@@ -1560,7 +1578,7 @@ ema_all %>%
 ```
 
 
-"How likely are you to encounter risky situations (people, places, or things) within the next week?" (moring EMA only)
+"How likely are you to encounter risky situations (people, places, or things) within the next week?" (morning EMA only)
 ```{r}
 ema_all %>% 
   filter(ema_type == "morning") %>% 
