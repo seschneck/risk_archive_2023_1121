@@ -21,32 +21,44 @@ knit: (function(input, ...) {
 ### Code Status
  
 Outstanding issues:    
-- Recode_tz log entries not currently handled with clean function - how best to implement (force_tz than with_tz?)       
-- Review flagged EMA log entries in flagged_log_entries.Rmd     
+
+- Review flagged EMA log entries in flagged_log_entries.Rmd with John       
 - When Sarah is back need to discuss evidence for changing midnight correction via log. Preprocessing decision or known error?    
 - Also ask her about "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is." note. There are 229 of these notes but not clear what they mean. See log eda below.    
 
 
 ### Conclusions
 
-- Subid 269's data may be problematic.    
-  - They completed 10-15 surveys on many days on study.  
-  - Their avg number of surveys per day is 6.76.    
-  - They were also filling 2-4 surveys out within an hour of each other and the responses to other questions were completely different.     
-  - They reported no lapses while on study but according to notes left two messages for study staff where they admitted to drinking over the weekend.   
+- We will drop subid 269's data for the following reasons:       
+  - They completed 10-15 surveys on many days on study (avg number of surveys per day is 6.76).  
+  - Their responses indicate careless responding - they were filling 2-4 surveys out within an hour of each other and the responses to the questions were completely different.     
+  - They have questionable no lapse labels - they reported no lapses while on study but according to notes left two messages for study staff where they admitted to drinking over the weekend.   
   
+
+- We will drop subid 204's data for the following reasons:    
+  - Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. They only did a total of 5 surveys between followup 2 and 3.    
+  - We don't trust their lapse labels - They report several lapses during their interviews but times appear questionable (same time every night). They only report 1 lapse with EMA.
+  - From notes - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log."    
+
+
+- Subids 104 and 128 have over 100 reported lapses.   
+  - Compliance is good - they both average over 3 surveys per day (no days without an EMA).       
+  - Subid 104 completed through follow-up 2. Discontinued at followup 2 as they were struggling to gain sobriety (reported lapses every day on study except for their 2nd to last day).     
+  - On all but 12 lapse reports for subid 104 (N = 125) they stated they were uncertain in their goal to be abstinent.    
+  - At followup 1 and 2 subid 104 reported they were uncertain that their goal was to still remain abstinent.   
+  - Subid 128 completed the study for the full 90 days.    
+  - Subid 128 appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.      
   
-- subid 167 reported no lapses while on study but left audio messages with curse words (may have been intoxicated?) and had low compliance.   
 
-- subid 237 reported no lapses while on study. They discontinued prior at follow-up 1 (before data were collected) because they planned to enter inpatient tx.    
+- Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 surveys a day. Not clear why. They report no lapses while on study and no other notes or evidence to suggest their data is unreliable.    
 
-- Subid 105 went 25 days with out an EMA. Notes say Discontinued before follow-up #1. Last EMA received on 2018-10-05. Followup 1 visit scheduled for 2018-09-13 - according to google calendar participant cancelled with intent to reschedule. End date was imputed to last day of EMA (2018-10-05). However no EMAs were completed 25 days before this last EMA.         
+- Subid 237 reported no lapses while on study. They discontinued at follow-up 1 (before data were collected - incomplete visit) because they planned to enter inpatient tx. Non-lapse labels may not be reliable (likely drinking if entering in patient tx), but this subid will likely be filtered out from most studies due to not completing followup 1.   
 
-- Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed.        
-  - From notes - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them."    
-
+- Subid 173 has a much larger mean gap of days without an EMA compared to other participants (mean gap = 2.12). Overall low compliance (15 EMAs completed over 34 days). 7 of these EMAs contain lapses. They did not complete followup 1 though so will likely be filtered out for most studies.  
 
 - Subid 116 has a shortened end_study date. According to notes they were discontinued after 58 days on study. However they do have 4 sporadic emails over the third month they would have been on study in which they report lapses. These will likely get filtered out by end study date so you must adjust if you wish to keep these EMAs.     
+
+- Note that not all timezones are in Central. This script creates a timezone variable. This needs to be considered when date time variable of lapse is created. Currently this is accounted for in mak_labels script.    
 
 - All unfinished surveys (finished = 0) have at least ema_1 answered which reports if there have been any lapses since the last survey.   
   - Note that there are several "self-correcting surveys" where a participant answers "Yes" for ema_1 then restarts another survey within minutes of the incomplete survey and puts "no" for ema_1.  
@@ -66,12 +78,7 @@ Outstanding issues:
 - Not sure what send_date and send_time variables are (from SurveySignal?) but too much missing data (93%) to likely be helpful    
 
 - Many participants completed more than 4 EMAs per day. This may be due to several reasons, including trying to make up for missed surveys the day before, receiving too many prompts via survey signal, or forgetting whether they already did it.   
-
-- Subids 104 and 128 have over 100 reported lapses.     
-  - According to notes, subid 104 reported lapses everyday on study.     
-  - Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)"     
   
-
 - EMA compliance gaps and reasons for them are noted in this script     
 
 - Notes on validity of lapse labels are in this script. For more detailed info see mak_labels.Rmd
@@ -303,8 +310,6 @@ log_all %>%
 
 #### recode_tz entries   
 
-*FIX: Need to implement these log entries into clean Qualtrics function*     
-
 `r nrow(subset(log_all, log_action == "recode_tz"))` recode_tz entries
 ```{r}
 log_all %>% 
@@ -316,19 +321,20 @@ Assuming need to recode tz for start and end time of lapse since there is only o
 ```{r}
 log_all %>% 
   filter(log_action == "recode_tz") %>% 
-  count(response_id)
+  count(response_id) %>% 
+  filter(n != 1)
 ```
 
 
-All entries contain a lapse
+Lapses with recode_tz log entries
 ```{r}
 ema_morning  %>% 
   filter(response_id %in% subset(log_all, log_action == "recode_tz")$response_id) %>% 
-  select(subid, EMAM_1:EMAM_1.4) %>% 
+  select(subid, response_id, EMAM_1:EMAM_1.4) %>% 
   rename_with(~ str_replace(.x, "EMAM_", "ema_")) %>% 
   bind_rows(ema_later  %>% 
   filter(response_id %in% subset(log_all, log_action == "recode_tz")$response_id) %>% 
-  select(subid, EMAL_1:EMAL_1.4) %>% 
+  select(subid, response_id, EMAL_1:EMAL_1.4) %>% 
       rename_with(~ str_replace(.x, "EMAL_", "ema_")))
 ```
 
@@ -351,7 +357,7 @@ log_all %>%
   tabyl(notes) %>% 
   arrange(desc(n)) %>% 
   head(1) %>% 
-  print_kbl(height = "110px", align = "l")
+  print_kbl(height = "100%", align = "l")
 ```
 
 Log reason for these entries is start_diff > 10 hours
@@ -381,12 +387,10 @@ ema_morning %>%
 
 ```{r}
 ema_morning <- ema_morning %>% 
-  clean_qualtrics_by_log(log_morning) %>% 
-  glimpse()
+  clean_qualtrics_by_log(log_morning)
 
 ema_later <- ema_later %>% 
-  clean_qualtrics_by_log(log_later) %>% 
-  glimpse()
+  clean_qualtrics_by_log(log_later)
 ```
 
 
@@ -394,16 +398,16 @@ ema_later <- ema_later %>%
 
 ```{r}
 ema_morning <- ema_morning %>% 
-  clean_names() %>% 
-  glimpse()
+  clean_names()
 
 ema_later <- ema_later %>% 
-  clean_names() %>% 
-  glimpse()
+  clean_names() 
 ```
 
 
-### Handle timezone changes for reported lapses
+### Add timezone variable for reported lapses
+
+Timezone corrected for based on log recode_tz entries.    
 
 Morning
 ```{r}
@@ -556,8 +560,7 @@ This is the expected number for all enrolled subids
 Bring in study start and end dates
 ```{r}
 visits <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
-  mutate(across(c(everything(), -subid), ~ force_tz(.x, tzone = "America/Chicago"))) %>% 
-  glimpse()
+  mutate(across(c(everything(), -subid), ~ force_tz(.x, tzone = "America/Chicago"))) 
 
 ema_all_visits <- ema_all %>% 
   mutate(subid = as.numeric(subid)) %>% 
@@ -675,8 +678,8 @@ Subid 269 was on study for 89 days but they have `r nrow(subset(ema_morning, sub
 ```{r}
 ema_morning %>% 
   filter(subid == 269) %>% 
-  select(start_date, emam_1, emam_2_1:emam_10_1) %>% 
-  arrange(start_date)
+  mutate(date = date(start_date)) %>% 
+  count(date)
 ```
 
 Maybe someone else's surveys were under subid 269's number?
@@ -740,7 +743,7 @@ Doen't seem to have excessive amounts just a steady average of around 5 surveys 
 
 **Subid 238 has 419 total EMAs for 89 days on study**    
 
-Only 5 surveys are incomplete
+5 surveys are incomplete
 ```{r}
 ema_all %>% 
   filter(subid == 238) %>% 
@@ -772,7 +775,7 @@ ema_all %>%
   count(date)
 ```
 
-Only 9 surveys are incomplete
+9 surveys are incomplete
 ```{r}
 ema_all %>% 
   filter(subid == "185") %>% 
@@ -865,7 +868,8 @@ ema_unique_dates_on_study <- ema_unique_dates_on_study %>%
 
 A 1 day difference would mean no missing days between EMAs. On average participants had lapses between EMAs of `r round(mean(ema_unique_dates_on_study$days_since_last_ema, na.rm = TRUE), 2)` days.     
 
-Calculate number of gaps and mean and median days between EMAs for each participant      
+#### Calculate number of gaps and mean and median days between EMAs for each participant      
+
 ```{r}
 ema_gap_subid_summary <- ema_unique_dates_on_study %>% 
   # subtract 1 so that 0 is no gaps
@@ -880,7 +884,6 @@ ema_gap_subid_summary %>%
   arrange(desc(num_gaps))
 ```
 
-**Subids with frequent gaps**    
 
 Two subids have 10+ gaps (subids 21 and 17)      
 Subid 21 has more frequent small gaps towards end of study participation
@@ -904,7 +907,6 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
-
 Visualize mean days between EMAs while participants are on study  
 ```{r}
 ema_gap_subid_summary %>% 
@@ -912,8 +914,9 @@ ema_gap_subid_summary %>%
   geom_histogram(bins = 25, color = "black", fill = "light grey")
 ```
 
-Subid 173 has a much larger mean gap compared to other participants    
-Poor compliance over their one month on study
+Subid 173 has a much larger mean gap compared to other participants (mean gap = 2.12 - see outlier on histogram above)   
+Poor compliance - 15 EMAs completed over 34 days.          
+*Note they did not complete followup 1 so will likely be filtered out*
 ```{r}
 ema_unique_dates_on_study %>% 
   filter(subid == 173) %>% 
@@ -923,9 +926,30 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
+7 lapses reported
+```{r}
+ema_all %>% 
+  filter(subid == 173) %>% 
+  count(ema_1)
+```
 
 
-**Other large gaps in compliance**
+#### Mean and Median number of gap days (excluding days without gaps) 
+
+```{r}
+ema_unique_dates_on_study %>% 
+  # subtract 1 so that 0 is no gaps
+  mutate(days_since_last_ema = days_since_last_ema - 1) %>% 
+  mutate(gap = if_else(days_since_last_ema > 0, 1, 0)) %>% 
+  filter(gap > 0) %>% 
+  group_by(subid) %>% 
+  summarise(num_gaps = sum(gap, na.rm = TRUE),
+            mean_gap_days = mean(days_since_last_ema, na.rm = TRUE),
+            median_gap_days = median(days_since_last_ema, na.rm = TRUE)) %>% 
+  arrange(desc(mean_gap_days))
+```
+
+#### Other large gaps in compliance
 
 `r nrow(subset(ema_unique_dates_on_study, days_since_last_ema >= 7))` instances of gaps in EMAs of at least 7 days
 
@@ -943,22 +967,14 @@ ema_unique_dates_on_study %>%
   tabyl(subid)
 ```
 
-Subid 105 went 25 days with out an EMA     
-Notes say Discontinued before follow-up #1. Last EMA received on 2018-10-05. Followup 1 visit scheduled for 2018-09-13 - according to google calendar participant cancelled with intent to reschedule. End date was imputed to last day of EMA (2018-10-05). However no EMAs were completed 25 days before this last EMA.         
-```{r}
-ema_unique_dates_on_study %>% 
-  filter(days_since_last_ema == 25)
-
-notes %>% 
-  filter(subid == 105) %>% 
-  select(notes_general, notes_ema) %>% 
-  print_kbl(height = "110", align = "l")
-```
-
 Subids 204, 90, 84, 66, and 10 have more than 1 gap of at least 7 days   
 
-According to notes subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed.       
-From notes - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log; Participant did a total of 5 surveys in between follow-up2 and follow-up3. Participant reported that she did not like doing the surveys after a while so she stopped completing them."    
+**Subid 204**   
+
+- We decided we will drop subid 204's data for the following reasons:    
+  - Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. They only did a total of 5 surveys between followup 2 and 3.    
+  - We don't trust their lapse labels - They report several lapses during their interviews but times appear questionable (same time every night). They only report 1 lapse with EMA.  
+  
 ```{r}
 ema_unique_dates_on_study %>% 
   filter(subid == 204) %>% 
@@ -968,7 +984,16 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
-No notes for subid 90    
+1 lapse reported
+```{r}
+ema_all %>% 
+  filter(subid == "204" & ema_1 == "Yes") %>% 
+  select(ema_1:ema_1_4)
+```
+
+
+**Subid 90**    
+No notes on compliance for subid 90    
 They seemed to have good compliance until the end of the study where they had longer gaps in compliance   
 ```{r}
 ema_unique_dates_on_study %>% 
@@ -979,6 +1004,14 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
+1 lapse reported
+```{r}
+ema_all %>% 
+  filter(subid == "090" & ema_1 == "Yes") %>% 
+  select(ema_1:ema_1_4)
+```
+
+**Subid 84**   
 subid 84 was out of the country for 8 days (8/8 - 8/16) and unable to complete surveys - this lines up with the 12 day gap for this subid. They resumed surveys on 8/20.    
 No notes to explain a second 7 day gap from 9-29 - 10-06. Overall compliance seems fine for this participant.    
 ```{r}
@@ -990,6 +1023,14 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
+1 lapse reported
+```{r}
+ema_all %>% 
+  filter(subid == "084" & ema_1 == "Yes") %>% 
+  select(ema_1:ema_1_4)
+```
+
+**Subid 66**   
 No notes on 2 gaps of over 7 days - gaps seem to cluster between 2nd and 3rd month followup
 ```{r}
 ema_unique_dates_on_study %>% 
@@ -1000,14 +1041,29 @@ ema_unique_dates_on_study %>%
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
 ```
 
+No lapses reported
+```{r}
+ema_all %>% 
+  filter(subid == "066") %>% 
+  count(ema_1)
+```
+
+**Subid 10**  
 No notes to explain gaps. Overall compliance seems fine. Gaps seem to cluster in middle of study.   
 ```{r}
-ema_unique_dates_on_study %>% 
+ema_unique_dates_on_study %>%
   filter(subid == 10) %>% 
   mutate(end_study = date(end_study),
          start_study = date(start_study),
          days_on_study = as.numeric(end_study - start_study)) %>% 
   select(subid, days_on_study, days_since_last_ema, ema_date = date)
+```
+
+19 lapses reported
+```{r}
+ema_all %>% 
+  filter(subid == "010" & ema_1 == "Yes") %>% 
+  select(ema_1:ema_1_4)
 ```
 
 
@@ -1025,7 +1081,7 @@ Other notes on subids with large gaps (>= 7 days) that explain compliance
 
 
 
-See how many of these subids have lapses
+Get proportion of subids with lapses
 ```{r}
 lapse_subids <- ema_all %>% 
   mutate(subid = as.numeric(subid)) %>% 
@@ -1034,9 +1090,9 @@ lapse_subids <- ema_all %>%
 ```
 
 
-`r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema >= 7 & subid %in% lapse_subids$subid)$subid))` of the `r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema >= 7)$subid))` unique subids contributing to the gaps have lapses reported.    
+`r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema >= 7 & subid %in% lapse_subids$subid)$subid))` of the `r length(unique(subset(ema_unique_dates_on_study, days_since_last_ema >= 7)$subid))` unique subids contributing to the gaps of 7 or more days have lapses reported.    
 
-Below is the percentage of participants with ema compliance gaps who had a reported lapse while on study  
+Below is the percentage of participants with an ema compliance gap of at least 7 days who reported a lapse while on study  
 ```{r}
 ema_unique_dates_on_study %>% 
   filter(days_since_last_ema >= 7) %>%
@@ -1388,7 +1444,90 @@ Reported lapses
 
 `r nrow(subset(ema_all, ema_1 == "Yes"))` reported lapses from `r length(unique(subset(ema_all, ema_1 == "Yes")$subid))` subids.     
 
-Hand-selected supporting notes for lapse/no lapse labels from raw_notes:    
+Lapses per subid
+```{r}
+ema_all %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  janitor::tabyl(subid, ema_1)
+```
+
+Look at frequent lapses
+```{r}
+ema_all %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  filter(ema_1 == "Yes") %>% 
+  count(subid) %>% 
+  rename(n_lapses = n) %>% 
+  left_join(ema_all_visits, by = "subid") %>% 
+  arrange(desc(n_lapses)) 
+```
+
+Subids 104 and 128 have more lapses than days on study    
+
+**Subid 104**     
+
+Subid 104 completed through follow-up 2. Discontinued at followup 2 as they were struggling to gain sobriety (reported lapses every day on study except for 10-23-18).    
+
+Lapses reported for subid 104 by day
+```{r}
+ema_all %>% 
+  filter(subid == "104") %>% 
+  filter(ema_1 == "Yes") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+On all but 12 lapse reports they stated they were uncertain in their desire to be abstinent
+```{r}
+ema_all %>% 
+  filter(subid == "104" & ema_1 == "Yes") %>% 
+  count(ema_1_5)
+```
+
+Check monthly survey for whether they still were seeking abstinence
+```{r}
+fu_12 <- read_csv(here(path_shared, "followup_12.csv"))
+```
+
+Answers to "Is your goal still to remain abstinent in the future?"   
+```{r}
+fu_12 %>% 
+  filter(subid == 104) %>% 
+  select(subid, start_date, mam_22) 
+```
+
+
+**Subid 128**     
+
+Audio messages seem to support 128's frequent lapses - notes say "Audio message for 10/05 reports that the sub has been drinking off and on for the last 2 or 3 days; Lots of lapses reported on 10/03-10/05; Some overlap but not all which further emphasizes info from audio message; Audio message on 10/17 reported drinking the night before - Lots of lapses being reported during time; Participant mentioned that she drank some on 11/18 but not a ton; She also reported on 11/17 that she has not been fighting any urges; No explicit mention of drinking in audio message just that sub was not looking forward to going home; Lots of little lapses reported around this time (12/3/18)."     
+
+Lapses reported for subid 128 by day
+```{r}
+ema_all %>% 
+  filter(subid == "128") %>% 
+  filter(ema_1 == "Yes") %>% 
+  mutate(date = date(start_date)) %>% 
+  count(date)
+```
+
+Despite frequent lapses subid 128 stated they desired to be abstinent
+```{r}
+ema_all %>% 
+  filter(subid == "128" & ema_1 == "Yes") %>% 
+  count(ema_1_5)
+```
+
+Answers to "Is your goal still to remain abstinent in the future?"   
+```{r}
+fu_12 %>% 
+  filter(subid == 128) %>% 
+  select(subid, start_date, mam_22)
+```
+
+
+
+**Hand-selected supporting notes for lapse/no lapse labels from raw_notes:**    
+
 - Subid 47 was not receiving EMA messages between 4/6 - 4/17/18. This should not be a reliable no lapse period though because according to staff they reported a lapse on 4/10/18 at their tech troubleshooting appointment on 4/11/18.   
 - Note about a lapse for subid 79 - "Data log says this sub had a brain injury and suffers from memory issues; This could explain why it took so long to report this lapse; However he did report a lapse on 09/02 20:00 at 10am on 09/03 which makes me a little skeptical and think it is possible that that this is supposed to be 09/03"     
 - Note about a lapse/non-lapse for subid 119 - "On 10/31 subs audio mentioned that they had missed several days because they relapsed and were trying to get back on track; This is the only lapse that was reported while on study; However it is unclear if this lapse report is correct. They had answered 4 surveys on 10/28 saying they did not lapse"    
@@ -1431,12 +1570,12 @@ ema_log_notes %>%
   print_kbl(align = "l")
 ```  
 
-Check notes on participants with no lapses - to confirm this is valid    
+**Check notes on participants with no lapses - to confirm this is valid**        
 
-Suspicious entries:
-- subid 167 left audio messages with curse words (may have been intoxicated?) and had low compliance.   
-- subid 237 discontinued prior at follow-up 1 (before data were collected) because they planned to enter inpatient tx.  
-- subid 269 left 2 voicemails for staff admitting to drinking over the weekend.  
+Suspicious entries:    
+- subid 167 left audio messages with curse words (may have been intoxicated?) and had moderate to low compliance (avg 2 EMAs/day). No notes to suggest we should not trust their data though.        
+- subid 237 discontinued at follow-up 1 (before data were collected) because they planned to enter inpatient tx. Data will likely be filtered out since they did not complete followup 1.     
+- subid 269 left 2 voicemails for staff admitting to drinking over the weekend. Other problems with this subid's data lead us to conclude we should drop them.      
 
 ```{r}
 notes %>% 
@@ -1517,7 +1656,7 @@ ema_all_lapse %>%
   mutate(subid = as.numeric(subid)) %>% 
   rename(n_lapses = n) %>% 
   left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
-  print_kbl()
+  print_kbl(align = "l")
 ```
 
 
@@ -1530,7 +1669,7 @@ ema_all %>%
   select(subid) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   left_join(notes %>% select(subid, notes_ema), by = "subid") %>% 
-  print_kbl()
+  print_kbl(align = "l")
 ```
 
 
