@@ -2,15 +2,15 @@
 
 # CHANGE ME -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "fit_period_720_lead_0" # the name of the job to set folder names
+name_job <- "fit_period_720_lead_0_glmnet" # the name of the job to set folder names
 feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
-algorithm <- c("random_forest") # 1+ statistical algorithms
-hp1 <- c(5, 10, 20, 100, 200) # RF: mtry
-hp2 <- c(2, 15, 25, 40) # RF: min_n
-hp3 <- 2780 # RF: trees (10 x's number of predictors)
+algorithm <- c("glmnet") # 1+ statistical algorithms
+hp1 <- exp(seq(-5, 3, length.out = 10)) # RF: mtry; KNN: neighbors; glmnet: penalty
+hp2 <- seq(0, 1, length.out = 5) # RF: min_n; glmnet: mixture
+hp3 <- NULL # RF: trees (10 x's number of predictors)
 n_folds <- 10 # number of folds
 n_repeats <- 10 # number of repeats
-resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
+resample <- c("none", "up") # 1+ upsampling methods (up, down, smote, or none)
 
 # set paths -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 

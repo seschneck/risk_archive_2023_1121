@@ -12,6 +12,7 @@ suppressPackageStartupMessages({
   require(ranger)
   require(psych)
   require(purrr)
+  require(glmnet)
   # require(kknn)
   require(vip)
 })
@@ -81,8 +82,11 @@ build_recipe <- function(d, job) {
       themis::step_smote(lapse) 
   }
   
-  
-  # FIX: add more if statements to add steps for specific algorithms
+  # algorithm specific steps
+  if (algorithm == "glmnet" | algorithm == "knn") {
+    rec <- rec %>% 
+      step_normalize(all_predictors())
+  } 
   
   return(rec)
 }
@@ -132,6 +136,19 @@ fit_model <- function(feat_in, job) {
                  oob.error = FALSE,
                  seed = 102030) %>%
       set_mode("classification") %>%
+      fit(lapse ~ .,
+          data = feat_in)
+  } else if (algorithm == "knn") {
+    model <- nearest_neighbor(neighbors = job$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      fit(lapse ~ .,
+          data = feat_in)
+  } else if (algorithm == "glmnet") {
+    model <- logistic_reg(penalty = job$hp1,
+                          mixture = job$hp2) %>% 
+      set_engine("glmnet") %>% 
+      set_mode("classification") %>% 
       fit(lapse ~ .,
           data = feat_in)
   }
