@@ -22,7 +22,19 @@ knit: (function(input, ...) {
  
 Outstanding issues:    
 
-- Review flagged EMA log entries in flagged_log_entries.Rmd with John       
+- Review flagged EMA log entries in flagged_log_entries.Rmd with John  
+
+- Discuss possibly removing subid 104 for the following reasons:    
+  - They had lapses every day on study except one day.    
+  - Only had 75 surveys where a lapse was not reported.   
+  - Viewing their lapse times it appears they were drinking constantly (morning and 
+  night).   
+  - They consistently report being uncertain that their goal is to be abstinent 
+  (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
+  at followup 1 and 2.    
+  - They are ultimately discontinued since they were struggling to gain sobriety.   
+  - I would conclude their goal is not to be abstinent.     
+  
 - When Sarah is back need to discuss evidence for changing midnight correction via log. Preprocessing decision or known error?    
 - Also ask her about "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is." note. There are 229 of these notes but not clear what they mean. See log eda below.    
 
@@ -43,12 +55,15 @@ Outstanding issues:
 
 - Subids 104 and 128 have over 100 reported lapses.   
   - Compliance is good - they both average over 3 surveys per day (no days without an EMA).       
-  - Subid 104 completed through follow-up 2. Discontinued at followup 2 as they were struggling to gain sobriety (reported lapses every day on study except for their 2nd to last day).     
-  - On all but 12 lapse reports for subid 104 (N = 125) they stated they were uncertain in their goal to be abstinent.    
-  - At followup 1 and 2 subid 104 reported they were uncertain that their goal was to still remain abstinent.   
-  - Subid 128 completed the study for the full 90 days.    
-  - Subid 128 appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.      
-  
+  - Subid 104:    
+    - completed through follow-up 2. Discontinued at followup 2 as they were struggling to gain sobriety (reported lapses every day on study except for their 2nd to last day). Only 75 surveys do not have a lapse reported.         
+    - On all but 12 lapse reports for subid 104 (N = 125) they stated they were uncertain in their goal to be abstinent.    
+    - At followup 1 and 2 subid 104 reported they were uncertain that their goal was to still remain abstinent.   
+  - Subid 128:  
+    - completed the study for the full 90 days.    
+    - appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.        
+    - Has more non-lapse surveys than lapse surveys.   
+
 
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 surveys a day. Not clear why. They report no lapses while on study and no other notes or evidence to suggest their data is unreliable.    
 
@@ -1477,6 +1492,21 @@ ema_all %>%
   count(date)
 ```
 
+Lapses reflect constant drinking at all times of day
+```{r}
+ema_all %>% 
+  filter(subid == "104") %>% 
+  filter(ema_1 == "Yes") %>%
+  select(ema_1_1:ema_1_4)
+```
+
+Only 75 EMAs where they did not report a lapse
+```{r}
+ema_all %>% 
+  filter(subid == "104") %>% 
+  count(ema_1)
+```
+
 On all but 12 lapse reports they stated they were uncertain in their desire to be abstinent
 ```{r}
 ema_all %>% 
@@ -1486,7 +1516,7 @@ ema_all %>%
 
 Check monthly survey for whether they still were seeking abstinence
 ```{r}
-fu_12 <- read_csv(here(path_shared, "followup_12.csv"))
+fu_12 <- vroom::vroom(here(path_shared, "followup_12.csv"), col_types = vroom::cols())
 ```
 
 Answers to "Is your goal still to remain abstinent in the future?"   
@@ -1508,6 +1538,21 @@ ema_all %>%
   filter(ema_1 == "Yes") %>% 
   mutate(date = date(start_date)) %>% 
   count(date)
+```
+
+Start and end times for lapses
+```{r}
+ema_all %>% 
+  filter(subid == "128") %>% 
+  filter(ema_1 == "Yes") %>%
+  select(ema_1_1:ema_1_4)
+```
+
+Has more non-lapses than lapses
+```{r}
+ema_all %>% 
+  filter(subid == "128") %>% 
+  count(ema_1)
 ```
 
 Despite frequent lapses subid 128 stated they desired to be abstinent
