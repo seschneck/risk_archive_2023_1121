@@ -23,19 +23,10 @@ knit: (function(input, ...) {
 Outstanding issues:    
 
 - Review flagged EMA log entries in flagged_log_entries.Rmd with John  
-
-- Discuss possibly removing subid 104 for the following reasons:    
-  - They had lapses every day on study except one day.    
-  - Only had 75 surveys where a lapse was not reported.   
-  - Viewing their lapse times it appears they were drinking constantly (morning and 
-  night).   
-  - They consistently report being uncertain that their goal is to be abstinent 
-  (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
-  at followup 1 and 2.    
-  - They are ultimately discontinued since they were struggling to gain sobriety.   
-  - I would conclude their goal is not to be abstinent.     
   
-- When Sarah is back need to discuss evidence for changing midnight correction via log. Preprocessing decision or known error?    
+- When Sarah is back need to discuss evidence for changing midnight correction via log. 
+Preprocessing decision or known error?    
+
 - Also ask her about "No audio messages or data notes to indicate long start_diff makes lapse report invalid - leave as is." note. There are 229 of these notes but not clear what they mean. See log eda below.    
 
 
@@ -53,16 +44,20 @@ Outstanding issues:
   - From notes - "Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid's raw data log."    
 
 
-- Subids 104 and 128 have over 100 reported lapses.   
-  - Compliance is good - they both average over 3 surveys per day (no days without an EMA).       
-  - Subid 104:    
-    - completed through follow-up 2. Discontinued at followup 2 as they were struggling to gain sobriety (reported lapses every day on study except for their 2nd to last day). Only 75 surveys do not have a lapse reported.         
-    - On all but 12 lapse reports for subid 104 (N = 125) they stated they were uncertain in their goal to be abstinent.    
-    - At followup 1 and 2 subid 104 reported they were uncertain that their goal was to still remain abstinent.   
-  - Subid 128:  
-    - completed the study for the full 90 days.    
-    - appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.        
-    - Has more non-lapse surveys than lapse surveys.   
+- We have tentatively concluded we will drop 104's data for the following reasons:   
+  - They had mulitiple lapses every day on study except one day.    
+  - Only had 75 surveys where a lapse was not reported.   
+  - Viewing their lapse times it appears they were drinking constantly (morning and night).   
+  - They consistently report being uncertain that their goal is to be abstinent (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal at followup 1 and 2.    
+  - They are ultimately discontinued since they were struggling to gain sobriety.   
+  - Unfortunately this drops 109 valid lapses.   
+  - Compliance was also good for this participant (averaged over 3 surveys per day, no missing days without EMA)
+
+
+- We decided we will retain 129's data for the following reasons:   
+  - Compliance is good (averaged over 3 surveys per day, no days without an EMA).       
+  - completed the study for the full 90 days.    
+  - appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.    - Has more non-lapse surveys than lapse surveys.   
 
 
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 surveys a day. Not clear why. They report no lapses while on study and no other notes or evidence to suggest their data is unreliable.    
@@ -85,7 +80,7 @@ Outstanding issues:
 
 
 - Some duplicate lapses may be able to be used to resolve typos or discrepancies that appear to make a lapse look invalid.  
-  - For example: A lapse with duplicate start times was reported on the day of the lapse and following day (response_ids: R_32INTVsht297f4y and R_A6Unu7gLOWGREcx). The end times were also similar but the end date on the second entry is 5/30. A closer look at this example is in this script and evidence suggests the date for ema_1_3 on response_id R_A6Unu7gLOWGREcx is likely supposed to be 5-29 (as in first entry) instead of 5/30.  
+  - For example: A lapse with duplicate start times was reported on the day of the lapse and following day (response_ids: R_32INTVsht297f4y and R_A6Unu7gLOWGREcx). The end times were also similar but the end date on the second entry is 5/30. A closer look at this example is in this script and evidence suggests the date for ema_1_3 on response_id R_A6Unu7gLOWGREcx is likely supposed to be 5-29 (as in first entry) instead of 5/30.  <- currently in flagged_log_entry script.   
 
 
 - There were no EMA surveys sent to any participants on 3/2/19.   
