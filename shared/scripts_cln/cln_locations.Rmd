@@ -8,14 +8,6 @@ output:
   toc_depth: 4
 editor_options: 
   chunk_output_type: console
-knit: (function(input, ...) {
-    rmarkdown::render(
-      input,
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/shared", 
-      "/Volumes/private/studydata/risk/knits/shared")
-    )
-  })
 ---
 
 ### Code status
@@ -143,24 +135,34 @@ known_locations <- known_locations %>%
 
 
 ```{r}
-log_locations <- read_csv(file.path(path_log, "log_locations.csv"))
+log_locations <- read_csv(file.path(path_log, "log_locations.csv")) 
+
+#this breaks because one of the log entries corrects accents and there are encoding issues
+#that I cannot resolve in a feasible amount of time
+
+#brute forcing the correct old values
+log_locations$old_value[2] <- "coffe shop/café"
+log_locations$old_value[3] <- "coffee shop/café"
 
 if (nrow(filter(log_locations, log_action != "recode_all")) > 0) {
   stop("Not all log actions are recode_all; code needs to be rewritten")
 }
 
 for (i in seq_along(log_locations$var_name)) {
-  
+
   log_var_name <- pluck(log_locations, "var_name", i)
   log_new_value <- pluck(log_locations, "new_value", i)
   log_old_value <- pluck(log_locations, "old_value", i)
   
-  # pull out row ids that need to be recoded
-  row_ids <- known_locations %>%
-    mutate(row_number = as.numeric(rownames(d))) %>%
-    filter(get(log_var_name) == log_old_value) %>%
-    select(row_number) %>%
-    unlist(use.names = FALSE)
+  message(paste("changing values of", log_var_name, "from", log_old_value, "to", log_new_value))
+  
+    # pull out row ids that need to be recoded
+  row_ids <- known_locations %>% 
+    rowid_to_column() %>% 
+    filter(get(log_var_name) == log_old_value) %>% 
+    pull(rowid)
+  
+  message(paste("changing", length(row_ids), "rows"))
   
   for (i in seq_along(row_ids)) {
     
