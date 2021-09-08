@@ -8,6 +8,14 @@ output:
   toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Code status
@@ -29,11 +37,7 @@ Also opens log files in path_log
 
 Outputs: 
 
-Next steps:
-- need to apply any existing log files / corrections
-- eda 
-- update logs
-- eda
+* locations.csv
 
 ### Setup
 
@@ -75,13 +79,73 @@ library(readxl)
 ```
 
 ### Import locations files
-Import
+
 ```{r}
 known_locations <- merge_raw_files("Locations") %>% 
   glimpse()
 ```
 
 
+### EDA
+
+```{r}
+known_locations <- known_locations %>%
+  mutate(utc = as.double(utc)) %>% 
+  mutate(time_of_obs = as_datetime(utc, tz = 'America/Chicago')) %>%
+  select(-utc) %>% 
+  mutate(across(where(is_character), str_to_lower),
+         across(
+           c("type", 
+             "drank",
+             "alcohol",
+             "emotion",
+             "risk",
+             "avoid",
+             "vacation"),
+           as_factor)) %>% 
+  glimpse() 
+```
+
+
+Ensuring unique labels for different levels of the type factor
+
+```{r}
+known_locations %>% 
+  tabyl(type)
+```
+
+Reviewing issues with different variable names for six subjects
+```{r}
+known_locations %>% 
+  filter(!is.na(alcohol_here)) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  length()
+```
+
+
+### Apply log and other fixes
+
+Making variable names uniform
+```{r}
+known_locations <- known_locations %>% 
+  mutate(drank = coalesce(drank, drank_here),
+         alcohol = coalesce(alcohol, alcohol_here),
+         emotion = coalesce(emotion, location_emotion),
+         risk = coalesce(risk, location_risk),
+         avoid = coalesce(avoid, risk_avoid),
+         vacation = coalesce(vacation, vacation_location)) %>% 
+  select(-c(drank_here, alcohol_here, location_emotion, location_risk, risk_avoid, vacation_location))
+```
+
+
+To do:
+- Remove addresses
+- Fix typos
+
+```{r}
+library(tidylog) #will document data wrangling
+```
 
 
 ### Save final shared file
