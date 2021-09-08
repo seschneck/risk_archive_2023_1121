@@ -90,9 +90,6 @@ known_locations <- merge_raw_files("Locations") %>%
 
 ```{r}
 known_locations <- known_locations %>%
-  mutate(utc = as.double(utc)) %>% 
-  mutate(time_of_obs = as_datetime(utc, tz = 'America/Chicago')) %>%
-  select(-utc) %>% 
   mutate(across(where(is_character), str_to_lower),
          across(
            c("type", 
@@ -126,6 +123,12 @@ known_locations %>%
 
 ### Apply log and other fixes
 
+
+```{r}
+library(tidylog) #will document data wrangling
+```
+
+
 Making variable names uniform
 ```{r}
 known_locations <- known_locations %>% 
@@ -139,20 +142,37 @@ known_locations <- known_locations %>%
 ```
 
 
-To do:
-- Remove addresses
-- Fix typos
-
 ```{r}
-library(tidylog) #will document data wrangling
+log_locations <- read_csv(file.path(path_log, "log_locations.csv"))
+
+if (nrow(filter(log_locations, log_action != "recode_all")) > 0) {
+  stop("Not all log actions are recode_all; log code needs to be rewritten")
+}
+
+log_locations %>% 
+  as.list() %>% 
+  transpose() %>% 
+  map_chr(pluck("var_name"))
+
+known_locations %>% 
+  mutate(log_locations$var_name[1])
+
+recode_all <- function(list_element) {
+  
+  known_locations %>% 
+    mutate({{list_element$var_name}} = str_replace(
+      list_element$var_name, 
+      list_element$old_value, 
+      list_element$new_value))
+}
+
 ```
 
 
 ### Save final shared file
 
-# FIX: This is a temp save b/c JJC needs this file.   We still need to do EDA before trusting these data!
 ```{r}
-# known_locations %>% 
-#   select(subid, utc, street_address, city, state, type, drank, alcohol, emotion, risk, avoid, vacation, lat, long) %>%   #added by JJC b.c of prob with extra columns
-#   write_csv(file.path(path_shared, "locations.csv"))
+ known_locations %>% 
+   select(subid, utc, lat, long, full_address, type, drank, alcohol, emotion, risk, avoid, vacation) %>%   
+   write_csv(file.path(path_processed, "locations.csv"))
 ```
