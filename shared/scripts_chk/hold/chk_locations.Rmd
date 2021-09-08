@@ -33,7 +33,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRU
 Paths 
 ```{r}
 getwd()
-path_data <- "./analysis/shared/data"
+path_data_processed <- "P:/studydata/risk/data_processed/shared"
 ```
 
 Packages
@@ -49,7 +49,7 @@ library(kableExtra)
 
 Locations data
 ```{r}
-locations <- read_rds(file.path(path_data, "ds_locations_report.rds")) 
+locations <- read_csv(file.path(path_data_processed, "locations.csv")) 
 
 locations <- locations %>%
   mutate(time_central = as_datetime(utc, tz = 'America/Chicago')) %>%
@@ -74,7 +74,7 @@ the location to research staff (confirmed by checking with notes log/visit dates
 
 Check for missing values
 ```{r}
-if(any(is.na(locations))){
+if (any(is.na(locations))) {
   missing <- locations %>%
     summarise(across(everything(), ~sum(is.na(.)))) %>%
     gather(key = "var", value = "num_NA" ) %>%
@@ -119,7 +119,7 @@ locations %>%
 
 Check missing values again
 ```{r}
-if(any(is.na(locations))){
+if (any(is.na(locations))) {
   missing <- locations %>%
     summarise(across(everything(), ~sum(is.na(.)))) %>%
     gather(key = "var", value = "num_NA" ) %>%
@@ -307,3 +307,137 @@ locations %>%
   kable_styling(position = "left")
 ```
 
+### Hannah EDA
+
+```{r}
+locations %>% 
+  group_by(subid, type)
+```
+
+There is a case issue here, need to make uniform
+Also factors are not categorized
+
+```{r}
+locations <- locations %>% 
+  mutate(across(where(is_character), str_to_lower),
+         across(
+           c("type", 
+             "drank",
+             "alcohol",
+             "emotion",
+             "risk",
+             "avoid",
+             "vacation"),
+           as_factor),
+         type = str_replace(type, "é", "e"),
+         type = str_replace(type, "coffe ", "coffee ")) 
+```
+
+
+#### Checking missing values for vacations
+
+```{r}
+locations %>% 
+  tabyl(vacation)
+```
+
+
+why do we have missing values on vacations? is vacations at all helpful?
+
+#### Checking duplicate homes
+
+```{r}
+locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1) %>% 
+  kable(caption = "Multiple homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+##### Investigating timing of 3 reported homes
+
+```{r}
+subs_with_three_homes <- locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n == 3) %>% 
+  pull(subid)
+
+
+locations %>% 
+  filter(type == "home") %>% 
+  filter(subid %in% subs_with_three_homes) %>% 
+  mutate( #adding readable month
+    month_of_report = month(time_central, label = TRUE)) %>% 
+  group_by(subid, type, month_of_report) %>% 
+  count() %>% 
+  arrange(subid, month_of_report) %>% 
+  kable(caption = "Participants with 3 homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+One person added 2 homes at a follow-up session. Another added 2 homes at intake. Notes for 079 do not mention this.
+
+##### Investigating timing of 2 reported homes
+
+```{r}
+subs_with_two_homes <- locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1, n < 3) %>% 
+  pull(subid)
+
+locations %>% 
+  filter(type == "home") %>% 
+  filter(subid %in% subs_with_two_homes) %>% 
+  mutate( #adding readable month
+    month_of_report = month(time_central, label = TRUE)) %>% 
+  group_by(subid, type, month_of_report) %>% 
+  count() %>% 
+  arrange(subid, month_of_report) %>% 
+  kable(caption = "Participants with 2 homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Mix of people who added one home later vs those that added two at once. Taking a close look to see if these are different places / how far multiple homes are
+
+```{r}
+subs_with_mult_homes <- locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1) %>% 
+  pull(subid)
+
+locations %>% 
+  filter(subid %in% subs_with_mult_homes,
+         type == "home") %>% 
+  group_by(subid) %>% 
+  select(lat, long, everything()) %>% 
+  View()
+  
+```
+
+Several of these are the same place and have the same address but slightly different lat/long
+
+```{r}
+locations %>% 
+  filter(subid %in% subs_with_mult_homes,
+         type == "home") %>%  
+  group_by(subid, street_address) %>% 
+  count() %>% 
+  kable(caption = "Duplicate addresses for homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+  
+```
+
+Need to combine duplicate addresses for all places, not just homes.
+At least one address is the same but spelled differently.
