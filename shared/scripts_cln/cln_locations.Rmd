@@ -146,24 +146,26 @@ known_locations <- known_locations %>%
 log_locations <- read_csv(file.path(path_log, "log_locations.csv"))
 
 if (nrow(filter(log_locations, log_action != "recode_all")) > 0) {
-  stop("Not all log actions are recode_all; log code needs to be rewritten")
+  stop("Not all log actions are recode_all; code needs to be rewritten")
 }
 
-log_locations %>% 
-  as.list() %>% 
-  transpose() %>% 
-  map_chr(pluck("var_name"))
-
-known_locations %>% 
-  mutate(log_locations$var_name[1])
-
-recode_all <- function(list_element) {
+for (i in seq_along(log_locations$var_name)) {
   
-  known_locations %>% 
-    mutate({{list_element$var_name}} = str_replace(
-      list_element$var_name, 
-      list_element$old_value, 
-      list_element$new_value))
+  log_var_name <- pluck(log_locations, "var_name", i)
+  log_new_value <- pluck(log_locations, "new_value", i)
+  log_old_value <- pluck(log_locations, "old_value", i)
+  
+  # pull out row ids that need to be recoded
+  row_ids <- known_locations %>%
+    mutate(row_number = as.numeric(rownames(d))) %>%
+    filter(get(log_var_name) == log_old_value) %>%
+    select(row_number) %>%
+    unlist(use.names = FALSE)
+  
+  for (i in seq_along(row_ids)) {
+    
+    known_locations[[row_ids[i], log_var_name]] <- as.character(log_new_value)
+  }
 }
 
 ```
