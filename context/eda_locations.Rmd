@@ -17,42 +17,17 @@ Under construction
 
 ### Notes
 
-Purpose: This file does cleaning and basic processing of interview data.
+Purpose: This file summarizes the location labels supplied by participants for the Liu et al. GPS project. In that project, place labels (supplied by participants) are predicted by geospatial and temporal features of people's GPS data in the risk project. In this markdown, I aim to:
+1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces, out of state residence or workplaces. We want to preserve as much data as possible.
+2. Characterize place proximity to understand about how many of these observations / labels are for the same place (but have different lat/long).
+3. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
+4. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
 
 Inputs:  Opens data files in path_raw
-
-* subid_Locations.xlsx
-
-Also opens log files in path_log
-
-* log_locations.csv
-
-Outputs: 
 
 * locations.csv
 
 ### Setup
-
-Functions
-```{r}
-import_w_subid <- function(xlsxfile){
-  read_excel(xlsxfile) %>% 
-    mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
-}
-
-merge_raw_files <- function(file_suffix) {
-  list.files(file.path(path_raw), 
-           recursive = TRUE,
-           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
-           full.names = TRUE) %>% 
-  as.list() %>% 
-  set_names(str_extract(., "\\d\\d\\d")) %>% 
-  map_df(~import_w_subid(.x) %>% 
-           clean_names() %>% 
-           mutate(across(everything(), as.character)))
-}
-```
-
 
 Paths 
 ```{r}
@@ -65,7 +40,6 @@ library(tidyverse)
 library(lubridate)
 library(janitor)
 library(purrr)
-library(readxl)
 ```
 
 ### Import locations files
@@ -82,25 +56,43 @@ locations <- read_csv(file.path(path_processed, "locations.csv")) %>%
              "avoid",
              "vacation"),
            as_factor),
-         utc_of_observation) %>% 
+         date_of_observation = as_datetime(utc, tz = "America/Chicago")) %>% 
+  select(-utc) %>% 
   glimpse()
 ```
 
 
 ### EDA
 
+1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces, out of state residence or workplaces. We want to preserve as much data as possible.
+
+
 ```{r}
-known_locations <- known_locations %>%
-  mutate(across(where(is_character), str_to_lower),
-         across(
-           c("type", 
-             "drank",
-             "alcohol",
-             "emotion",
-             "risk",
-             "avoid",
-             "vacation"),
-           as_factor)) %>% 
-  glimpse() 
+locations %>% 
+  
+```
+
+
+2. Characterize place proximity to understand about how many of these observations / labels are for the same place (but have different lat/long).
+
+
+```{r}
+
+```
+
+
+3. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
+
+
+```{r}
+
+```
+
+
+4. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
+
+
+```{r}
+
 ```
 
