@@ -1,0 +1,106 @@
+---
+title: "Clean and process location data from interviews"
+author: "Hannah Moshontz & John Curtin"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+  toc: true 
+  toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Code status
+
+Under construction
+
+
+### Notes
+
+Purpose: This file does cleaning and basic processing of interview data.
+
+Inputs:  Opens data files in path_raw
+
+* subid_Locations.xlsx
+
+Also opens log files in path_log
+
+* log_locations.csv
+
+Outputs: 
+
+* locations.csv
+
+### Setup
+
+Functions
+```{r}
+import_w_subid <- function(xlsxfile){
+  read_excel(xlsxfile) %>% 
+    mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
+}
+
+merge_raw_files <- function(file_suffix) {
+  list.files(file.path(path_raw), 
+           recursive = TRUE,
+           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
+           full.names = TRUE) %>% 
+  as.list() %>% 
+  set_names(str_extract(., "\\d\\d\\d")) %>% 
+  map_df(~import_w_subid(.x) %>% 
+           clean_names() %>% 
+           mutate(across(everything(), as.character)))
+}
+```
+
+
+Paths 
+```{r}
+path_processed <- "P:/studydata/risk/data_processed" 
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(purrr)
+library(readxl)
+```
+
+### Import locations files
+
+```{r}
+locations <- read_csv(file.path(path_processed, "locations.csv")) %>% 
+  mutate(across(where(is_character), str_to_lower),
+         across(
+           c("type", 
+             "drank",
+             "alcohol",
+             "emotion",
+             "risk",
+             "avoid",
+             "vacation"),
+           as_factor),
+         utc_of_observation) %>% 
+  glimpse()
+```
+
+
+### EDA
+
+```{r}
+known_locations <- known_locations %>%
+  mutate(across(where(is_character), str_to_lower),
+         across(
+           c("type", 
+             "drank",
+             "alcohol",
+             "emotion",
+             "risk",
+             "avoid",
+             "vacation"),
+           as_factor)) %>% 
+  glimpse() 
+```
+
