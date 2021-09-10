@@ -26,6 +26,30 @@ Inputs:  Opens data files in path_raw
 
 * locations.csv
 
+### Summary / recommendations
+
+Mid-level categories could be:
+* others' homes -- home of family, home of friend, (some from "other" fit here)
+* own home
+* liquor store
+* entertainment -- bar, restaurant (some from "other" fit here)
+* public/community spaces -- coffee shop/cafe, church, park, volunteer (from "other", library)
+* recovery and health -- aa/recovery meeting, health care, gym/fitness center
+* errands (many from "other" fit here)
+* work/school
+* travel stop (many from "other" fit here: bus stop, airport)
+
+There are duplicate rows in the locations data. Need to reduce to unique rows.
+
+In the locations data, rows may refer to the same place despite having different lat/long. However, unique lat/long are useful so you should not reduce to unique rows for analysis (but should when making exclusions based on multiple homes/work places).
+
+Some people may have moved during the study. Consider closely evaluating people's GPS movement patterns to determine if they moved.
+
+Many people seem to travel in-town for work (e.g., perhaps domestic work or grocery/food delivery). Would be good if a model could allow for this.
+
+We should impute type labels for one "NA" and for several "others"
+
+
 ### Setup
 
 Paths 
@@ -280,20 +304,4 @@ The second of these (subid == 131, vacation == yes) is at a landmark in colorado
 
 The first appears (subid == 110) appears to be a house, but this person seems to work in lots of different places, including places nearby.
 
-#### Summary / recommendations
 
-* There are duplicate rows in the locations data. Reduce to unique rows.
-* In the locations data, rows may refer to the same place despite having different lat/long
-* Many people seem to travel in-town for work
-* We should impute type labels for one "NA" and for several "others"
-* Categories for labels could be
-
-** others' homes -- home of family, home of friend, (some from "other" fit here)
-** own home
-** liquor store
-** entertainment -- bar, restaurant (some from "other" fit here)
-** public/community spaces -- coffee shop/cafe, church, park, volunteer (from "other", library)
-** recovery and health -- aa/recovery meeting, health care, gym/fitness center
-** errands (many from "other" fit here)
-** work/school
-** travel stop (many from "other" fit here: bus stop, airport)
