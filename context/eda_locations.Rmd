@@ -10,10 +10,7 @@ editor_options:
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/shared", 
-      "/Volumes/private/studydata/risk/knits/shared")
-    )
+      output_dir = "P:/studydata/risk/knits/context")
   })
 ---
 
@@ -157,8 +154,20 @@ locations %>%
   kable_styling(position = "left")
 ```
 
-Similar pattern to homes; most appear to be truly different places.
+Similar pattern to homes, although some people have a ton of observations. Most appear to be truly different places.
 
+```{r}
+locations %>% 
+  filter(type == "work") %>% 
+  group_by(subid, type) %>%
+  count() %>% 
+  filter(n > 5) %>% 
+  arrange(desc(n)) %>% 
+  kable(caption = "People with over 5 work locations", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Some people appear to have work that, by its nature, involves traveling to different places. Consider doing analyses in ways that can accomodate this kind of work given how common it is.
 
 #### 2. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
 
@@ -195,13 +204,54 @@ locations %>%
 
 ```{r}
 locations %>% 
-  glimpse()
+  tabyl(type, risk) %>% 
+  tibble() %>% 
+  arrange(desc(no)) %>% 
+  kable(caption = "Place type by risk", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+
+locations %>% 
+  group_by(type) %>% 
+  summarize(mean_risk = mean(as.numeric(risk), na.rm = TRUE),
+            sd_risk = sd(as.numeric(risk), na.rm = TRUE)) %>% 
+  arrange(desc(mean_risk)) %>% 
+  kable(caption = "Place type by mean risk", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
 ```
 
-3. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
+```{r}
+locations %>% 
+  tabyl(type, emotion) %>% 
+  tibble() %>% 
+  arrange(desc(pleasant)) %>% 
+  kable(caption = "Place type by emotion", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+
+locations %>% 
+  group_by(type) %>% 
+  summarize(mean_emotion = mean(as.numeric(emotion), na.rm = TRUE),
+            sd_emotion = sd(as.numeric(emotion), na.rm = TRUE)) %>% 
+  arrange(desc(mean_emotion)) %>% 
+  kable(caption = "Place type by mean emotion", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+
+#### 3. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
 
 
 ```{r}
 
 ```
 
+
+#### Misc -- investigating type NA values
+
+```{r}
+locations %>% 
+  filter(is.na(type))
+```
+
+The second of these (subid == 131, vacation == yes) is at a landmark in colorado.
+
+The first appears (subid == 110) appears to be a house, but this person seems to work in lots of different places, including places nearby.
