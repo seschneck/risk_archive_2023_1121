@@ -14,10 +14,6 @@ knit: (function(input, ...) {
   })
 ---
 
-### Code status
-
-Under construction
-
 
 ### Notes
 
@@ -35,6 +31,7 @@ Inputs:  Opens data files in path_raw
 Paths 
 ```{r}
 path_processed <- "P:/studydata/risk/data_processed" 
+path_raw <- "P:/studydata/risk/data_raw" 
 ```
 
 Packages and Source
@@ -51,7 +48,22 @@ library(here)
 ### Import locations files
 
 ```{r}
-locations <- read_csv(file.path(path_processed, "locations.csv")) %>% 
+other_codes <- list.files(file.path(path_raw, "locations"), full.names = TRUE) 
+
+
+#having major issues joining the other codes because some locations for the same
+#participant have the same lat/long
+
+locations <- other_codes %>% 
+  keep(str_detect(., "REAL") | str_detect(., "connie")) %>% 
+  map(~read_csv(.x) %>% 
+           mutate(subid = str_pad(subid, 3, side = "left", pad = "0"),
+                  key = str_c(subid, utc, lat, long)) %>% 
+           select(key, description)) %>% 
+  reduce(left_join, by = "key") %>% 
+  mutate(across(starts_with("description"), str_to_lower)) %>% 
+  left_join(read_csv(file.path(path_processed, "locations.csv")), ., 
+            by = c("subid", "utc", "lat", "long")) %>% 
   mutate(across(where(is_character), str_to_lower),
          across(
            c("type", 
@@ -69,6 +81,9 @@ locations <- read_csv(file.path(path_processed, "locations.csv")) %>%
          date_of_observation = as_datetime(utc, tz = "America/Chicago")) %>% 
   select(-utc) %>% 
   glimpse()
+
+
+
 ```
 
 
@@ -241,6 +256,8 @@ locations %>%
 
 
 ```{r}
+
+
 
 ```
 
