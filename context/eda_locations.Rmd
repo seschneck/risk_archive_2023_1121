@@ -1,13 +1,20 @@
 ---
 title: "Clean and process location data from interviews"
 author: "Hannah Moshontz & John Curtin"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
-  toc: true 
-  toc_depth: 4
+    toc: true 
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Code status
@@ -41,6 +48,7 @@ library(janitor)
 library(purrr)
 library(kableExtra)
 library(geosphere)
+library(here)
 ```
 
 ### Import locations files
@@ -52,11 +60,15 @@ locations <- read_csv(file.path(path_processed, "locations.csv")) %>%
            c("type", 
              "drank",
              "alcohol",
-             "emotion",
-             "risk",
              "avoid",
              "vacation"),
            as_factor),
+         risk = factor(risk, 
+                       levels = c("no", "low", "medium", "high"), 
+                       ordered = TRUE),
+         emotion = factor(emotion,
+                          levels = c("unpleasant", "mixed", "neutral", "pleasant"),
+                          ordered = TRUE),
          date_of_observation = as_datetime(utc, tz = "America/Chicago")) %>% 
   select(-utc) %>% 
   glimpse()
@@ -139,7 +151,7 @@ locations %>%
   group_by(subid, type, month_of_obs) %>% 
   summarize(
     n = n(),
-    miles_to_next_work = first(miles_to_next_home)) %>% 
+    miles_to_next_work = first(miles_to_next_work)) %>% 
   ungroup() %>% 
   kable(caption = "Multiple works", table.attr = "style='width:50%;'") %>%
   kable_styling(position = "left")
