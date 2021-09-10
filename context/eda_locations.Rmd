@@ -1,6 +1,6 @@
 ---
-title: "Clean and process location data from interviews"
-author: "Hannah Moshontz & John Curtin"
+title: "EDA on location data for context project"
+author: "Hannah Moshontz"
 output: 
   html_document:
     toc: true 
@@ -50,17 +50,15 @@ library(here)
 ```{r}
 other_codes <- list.files(file.path(path_raw, "locations"), full.names = TRUE) 
 
-
-#having major issues joining the other codes because some locations for the same
-#participant have the same lat/long
-
 locations <- other_codes %>% 
   keep(str_detect(., "REAL") | str_detect(., "connie")) %>% 
   map(~read_csv(.x) %>% 
-           mutate(subid = str_pad(subid, 3, side = "left", pad = "0"),
-                  key = str_c(subid, utc, lat, long)) %>% 
-           select(key, description)) %>% 
-  reduce(left_join, by = "key") %>% 
+           mutate(subid = str_pad(subid, 3, side = "left", pad = "0")) %>% 
+           select(subid, utc, lat, long, description) %>% 
+        unique() %>% 
+        filter(!is.na(description))) %>% #they did not code every 'other'
+  reduce(left_join, by = c("subid", "utc", "lat", "long")) %>% 
+  #note that there were duplicate rows in the raw locations data
   mutate(across(starts_with("description"), str_to_lower)) %>% 
   left_join(read_csv(file.path(path_processed, "locations.csv")), ., 
             by = c("subid", "utc", "lat", "long")) %>% 
@@ -257,9 +255,18 @@ locations %>%
 
 ```{r}
 
-
+locations %>% 
+  mutate(description = coalesce(description.x, description.y))
 
 ```
+
+
+Many of these clearly fit existing categories. Also, new categories that can be created include:
+- Entertainment/Sports
+- Library
+- Temporary residence (e.g., hotel, airbnb)
+- Bus stop
+- Airport
 
 
 #### Misc -- investigating type NA values
@@ -272,3 +279,21 @@ locations %>%
 The second of these (subid == 131, vacation == yes) is at a landmark in colorado.
 
 The first appears (subid == 110) appears to be a house, but this person seems to work in lots of different places, including places nearby.
+
+#### Summary / recommendations
+
+* There are duplicate rows in the locations data. Reduce to unique rows.
+* In the locations data, rows may refer to the same place despite having different lat/long
+* Many people seem to travel in-town for work
+* We should impute type labels for one "NA" and for several "others"
+* Categories for labels could be
+
+** others' homes -- home of family, home of friend, (some from "other" fit here)
+** own home
+** liquor store
+** entertainment -- bar, restaurant (some from "other" fit here)
+** public/community spaces -- coffee shop/cafe, church, park, volunteer (from "other", library)
+** recovery and health -- aa/recovery meeting, health care, gym/fitness center
+** errands (many from "other" fit here)
+** work/school
+** travel stop (many from "other" fit here: bus stop, airport)
