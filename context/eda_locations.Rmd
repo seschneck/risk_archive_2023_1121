@@ -18,10 +18,9 @@ Under construction
 ### Notes
 
 Purpose: This file summarizes the location labels supplied by participants for the Liu et al. GPS project. In that project, place labels (supplied by participants) are predicted by geospatial and temporal features of people's GPS data in the risk project. In this markdown, I aim to:
-1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces, out of state residence or workplaces. We want to preserve as much data as possible.
-2. Characterize place proximity to understand about how many of these observations / labels are for the same place (but have different lat/long).
-3. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
-4. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
+1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces.
+2. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
+3. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
 
 Inputs:  Opens data files in path_raw
 
@@ -40,6 +39,8 @@ library(tidyverse)
 library(lubridate)
 library(janitor)
 library(purrr)
+library(kableExtra)
+library(geosphere)
 ```
 
 ### Import locations files
@@ -64,32 +65,128 @@ locations <- read_csv(file.path(path_processed, "locations.csv")) %>%
 
 ### EDA
 
-1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces, out of state residence or workplaces. We want to preserve as much data as possible.
+#### 1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces.
+
+##### Multiple homes
+
+```{r}
+locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1) %>% 
+  kable(caption = "Multiple homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Investigating when homes were added and how far away they are (as they may be the same place, but different lat and long).
+
+```{r}
+subs_with_mult_homes <- locations %>% 
+  filter(type == "home") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1) %>% 
+  pull(subid)
+
+locations %>% 
+  filter(type == "home") %>% 
+  filter(subid %in% subs_with_mult_homes) %>% 
+  group_by(subid) %>% 
+  mutate( #adding readable month
+    month_of_obs = month(date_of_observation, label = TRUE),
+    next_lat = lead(lat),
+    next_long = lead(long)) %>% 
+  arrange(month_of_obs) %>% 
+  rowwise() %>% 
+  mutate(
+    miles_to_next_home = distm(c(long, lat), c(next_long, next_lat))*0.000621371) %>% 
+  group_by(subid, type, month_of_obs) %>% 
+  summarize(
+    n = n(),
+    miles_to_next_home = first(miles_to_next_home)) %>% 
+  ungroup() %>% 
+  kable(caption = "Multiple homes", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Some of these places were added later, and some appear to be the same place with different lat/long.
+
+##### Multiple workplaces
+```{r}
+subs_with_mult_works <- locations %>% 
+  filter(type == "work") %>% 
+  group_by(subid, type) %>% 
+  count() %>% 
+  arrange(n) %>% 
+  filter(n > 1) %>% 
+  pull(subid)
+
+locations %>% 
+  filter(type == "work") %>% 
+  filter(subid %in% subs_with_mult_works) %>% 
+  group_by(subid) %>% 
+  mutate( #adding readable month
+    month_of_obs = month(date_of_observation, label = TRUE),
+    next_lat = lead(lat),
+    next_long = lead(long)) %>% 
+  arrange(month_of_obs) %>% 
+  rowwise() %>% 
+  mutate(
+    miles_to_next_work = distm(c(long, lat), c(next_long, next_lat))*0.000621371) %>% 
+  group_by(subid, type, month_of_obs) %>% 
+  summarize(
+    n = n(),
+    miles_to_next_work = first(miles_to_next_home)) %>% 
+  ungroup() %>% 
+  kable(caption = "Multiple works", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
+```
+
+Similar pattern to homes; most appear to be truly different places.
+
+
+#### 2. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
 
 
 ```{r}
 locations %>% 
-  
+  tabyl(type, drank) %>% 
+  tibble() %>% 
+  mutate(drink_majority = (yes > no)) %>% 
+  arrange(desc(drink_majority)) %>% 
+  kable(caption = "Place type by drank", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
 ```
-
-
-2. Characterize place proximity to understand about how many of these observations / labels are for the same place (but have different lat/long).
-
 
 ```{r}
-
+locations %>% 
+  tabyl(type, alcohol) %>% 
+  tibble() %>% 
+  mutate(alcohol_majority = (yes > no)) %>% 
+  arrange(desc(alcohol_majority)) %>% 
+  kable(caption = "Place type by alcohol", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
 ```
-
-
-3. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
-
 
 ```{r}
-
+locations %>% 
+  tabyl(type, avoid) %>% 
+  tibble() %>% 
+  mutate(avoid_majority = (yes > no)) %>% 
+  arrange(desc(avoid_majority)) %>% 
+  kable(caption = "Place type by avoid", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
 ```
 
+```{r}
+locations %>% 
+  glimpse()
+```
 
-4. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
+3. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
 
 
 ```{r}
