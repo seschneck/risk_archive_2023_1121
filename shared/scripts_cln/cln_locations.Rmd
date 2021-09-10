@@ -8,6 +8,11 @@ output:
   toc_depth: 4
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "P:/studydata/risk/knits/shared")
+  })
 ---
 
 ### Code status
@@ -53,21 +58,21 @@ merge_raw_files <- function(file_suffix) {
 }
 ```
 
-
-Paths 
-```{r}
-path_raw <- "P:/studydata/risk/data_raw" 
-path_log <- "./shared/notes"
-path_processed <- "P:/studydata/risk/data_processed" 
-```
-
 Packages and Source
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(lubridate)
 library(janitor)
 library(purrr)
+library(here)
 library(readxl)
+```
+
+Paths 
+```{r}
+path_raw <- "P:/studydata/risk/data_raw" 
+path_log <- here("shared/notes")
+path_processed <- "P:/studydata/risk/data_processed" 
 ```
 
 ### Import locations files
