@@ -13,6 +13,14 @@ editor_options:
 
 ### Setup
 
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
 Absolute paths
 ```{r, paths}
 switch (Sys.info()[['sysname']],
@@ -28,6 +36,7 @@ Relative paths
 path_out <- "out"
 path_results <- "results"
 path_err <- "err"
+path_jobs <- "../input/jobs.csv"
 ```
 
 Packages for lab workflow 
@@ -59,6 +68,20 @@ source(here(path_lab_support, "fun_modeling.R"))
 This script aggregates all CHTC results, runs checks on jobs and hyperparameters, 
 and summarizes model performance across all folds.   
 
+Inputs:  
+
+Returned CHTC files     
+- meta_output.zip  
+- meta_results.zip    
+- meta_output.zip   
+
+Jobs input file   
+- jobs.csv   
+
+Output:   
+
+- results_aggregate.csv   
+
 ### Unzip and check jobs
 
 unzip and rename chtc folders
@@ -83,24 +106,105 @@ tabyl(err_files$size == 0)
 
 
 
-# aggregate all result CSVs --------------- 
+### aggregate all result CSVs
 
 read in all CSVs
 ```{r}
-
+result_files <- list.files(path_results, full.names = TRUE)
+results <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
+  glimpse()
 ```
 
-check number of results equals number of jobs
+FIX: hp2 and hp3 - got left out of test results by accident. Add na values
 ```{r}
-
+# remove this block for future jobs
+results <- results %>% 
+  mutate(hp2 = NA_integer_,
+         hp3 = NA_integer_)
 ```
 
 
-# average across all folds ---------------
-# 100 per configuration with a 10 x 10-fold design
+check for missing jobs
+```{r}
+jobs <- vroom::vroom(path_jobs, col_types = vroom::cols())
 
-# plot hyperparameters
+missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "job_num") %>% 
+  filter(!job_num %in% results$job_num)
+```
 
-# pull best model performance
+`r nrow(results)` results from `r nrow(jobs)`   
 
-# plot model performance
+`r if(nrow(missing_job_nums) > 0) {print(str_c("missing jobs: ", missing_job_nums$job_num))} else print(str_c("No missing jobs"))`
+
+
+### average metrics across folds 
+100 models per configuration with a 10 x 10-fold design    
+Note: In testing using only 1 x 10-fold (10 models per configuration)    
+
+```{r}
+results_aggregate <- results %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarize(across(c(accuracy, bal_accuracy, sens, spec, roc_auc),
+                   mean),
+            n_jobs = n()) %>% 
+  ungroup()
+```
+
+
+`r nrow(results_aggregate)` total configurations.    
+`r nrow(job_nums)/nrow(results_aggregate)` models per configuration.   
+
+```{r}
+results_aggregate %>% 
+  print()
+```
+
+
+### plot hyperparameters
+
+FIX: plotting alpha hyperparameters but not sure how to plot penalty hyperparameters. 
+Plot for best model only? How to get fits?
+```{r}
+ggplot(mapping = aes(x = log(results_aggregate$hp1), y = results_aggregate$bal_accuracy)) +
+  geom_line() +
+  xlab("mixture (alpha)") +
+  ylab("balanced accuracy")
+```
+
+
+### pull best model performance
+
+Highest balanced accuracy
+```{r}
+max(results_aggregate$bal_accuracy)
+results_aggregate %>% 
+  slice_max(bal_accuracy) %>% 
+  glimpse()
+```
+
+highest ROC
+```{r}
+results_aggregate %>% 
+  slice_max(roc_auc) %>% 
+  glimpse()
+```
+
+
+### plot/visualize model performance 
+```{r}
+hist(results_aggregate$accuracy)
+hist(results_aggregate$roc_auc)
+hist(results_aggregate$bal_accuracy)
+hist(results_aggregate$sens)
+hist(results_aggregate$spec)
+```
+
+
+### Write out aggregated model configurations
+
+Save configuration summaries
+```{r}
+write_csv(results_aggregate, "results_aggregate.csv") %>% 
+  glimpse()
+```
+

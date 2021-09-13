@@ -6,8 +6,8 @@ name_job <- "test_glmnet" # the name of the job to set folder names
 feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
 algorithm <- c("glmnet") # 1+ statistical algorithms
 hp1 <- seq(0, 1, length.out = 11) # RF: mtry; KNN: neighbors; glmnet: alpha (mixture)
-hp2 <- NULL # RF: min_n; 
-hp3 <- NULL # RF: trees (10 x's number of predictors)
+hp2 <- NA_integer_ # RF: min_n; 
+hp3 <- NA_integer_ # RF: trees (10 x's number of predictors)
 n_folds <- 10 # number of folds
 n_repeats <- 1 # number of repeats
 resample <- c("none", "up") # 1+ upsampling methods (up, down, smote, or none)
