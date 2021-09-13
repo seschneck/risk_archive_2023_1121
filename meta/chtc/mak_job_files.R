@@ -2,14 +2,14 @@
 
 # CHANGE ME -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "fit_period_720_lead_0_glmnet" # the name of the job to set folder names
+name_job <- "test_glmnet" # the name of the job to set folder names
 feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
 algorithm <- c("glmnet") # 1+ statistical algorithms
-hp1 <- exp(seq(-5, 3, length.out = 10)) # RF: mtry; KNN: neighbors; glmnet: penalty
-hp2 <- seq(0, 1, length.out = 5) # RF: min_n; glmnet: mixture
+hp1 <- seq(0, 1, length.out = 11) # RF: mtry; KNN: neighbors; glmnet: alpha (mixture)
+hp2 <- NULL # RF: min_n; 
 hp3 <- NULL # RF: trees (10 x's number of predictors)
 n_folds <- 10 # number of folds
-n_repeats <- 10 # number of repeats
+n_repeats <- 1 # number of repeats
 resample <- c("none", "up") # 1+ upsampling methods (up, down, smote, or none)
 
 # set paths -------------------- 
@@ -25,9 +25,6 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
   dir.create(file.path(path_jobs, name_job))
   dir.create(file.path(path_jobs, name_job, "input"))
   dir.create(file.path(path_jobs, name_job, "output"))
-  dir.create(file.path(path_jobs, name_job, "output", "results"))
-  dir.create(file.path(path_jobs, name_job, "output", "err"))
-  dir.create(file.path(path_jobs, name_job, "output", "out"))
 } else {
   stop("Job folder already exists. No new folders created.")
 }
@@ -52,9 +49,14 @@ file.copy(from = file.path(path_data, data_trn),
   invisible()
 
 # copy template R files to input folder -----------------
-file.copy(from = file.path(path_templates, dir(path_templates)),
+file.copy(from = file.path(path_templates, "input", c(list.files(file.path(path_templates, "input")))),
           to = file.path(path_jobs, name_job, "input"),
           recursive = TRUE) %>% 
+  invisible()
+
+# copy template aggregate script to output folder ---------------
+file.copy(from = file.path(path_templates, "post_chtc_processing.Rmd"),
+          to = file.path(path_jobs, name_job, "output/post_chtc_processing.Rmd")) %>% 
   invisible()
 
 # update queue on submit file -----------------

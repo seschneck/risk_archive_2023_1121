@@ -9,8 +9,8 @@ suppressPackageStartupMessages({
 source("fun_chtc_meta.R")
 
 # set up job_num ---------------
-args <- commandArgs(trailingOnly = TRUE) 
 # job_num <- 1
+args <- commandArgs(trailingOnly = TRUE) 
 job_num <- as.numeric(args[1]) + 1 # process/job arg starts at 0
 
 # read in jobs.csv file ------------------
@@ -38,14 +38,17 @@ features <- make_features(job = job, n_repeats = n_repeats, folds = folds, rec =
 feat_in <- features$feat_in
 feat_out <- features$feat_out
 
+# retain held-in split raw data for glmnet hyperparameter tuning ---------------
+d_in <- features$d_in
+
 # fit model ----------------
-model <- fit_model(feat_in = feat_in, job = job)
+model <- fit_model(feat_in = feat_in, d_in = d_in, rec = rec, job = job)
 
 # get predictions & metrics -------------
 results <- get_metrics(model = model, feat_out = feat_out)
 
 # write out results tibble ------------
-file_name <- paste("results_", job_num, ".csv", sep = "")
+file_name <- paste0("results_", job_num, ".csv")
 results %>% 
   pivot_wider(., names_from = "metric",
               values_from = "estimate") %>% 

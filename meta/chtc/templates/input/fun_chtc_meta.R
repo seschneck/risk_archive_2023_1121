@@ -98,10 +98,7 @@ make_features <- function(job, n_repeats, folds, rec) {
   # splits: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
-  n_fold <- job$n_fold
-  n_repeat <- job$n_repeat
-  
-  fold_index <- n_fold + (n_repeat - 1) * n_repeats
+  fold_index <- job$n_fold + (job$n_repeat - 1) * n_repeats
   
   d_in <- analysis(folds$splits[[fold_index]])
   d_out <- assessment(folds$splits[[fold_index]])
@@ -113,15 +110,17 @@ make_features <- function(job, n_repeats, folds, rec) {
   feat_out <- rec %>% 
     prep(training = d_in) %>% 
     bake(new_data = d_out)
-  
-  return(list(feat_in = feat_in, feat_out = feat_out))
+
+  return(list(feat_in = feat_in, feat_out = feat_out, d_in = d_in))
   
 }
 
 
-fit_model <- function(feat_in, job) {
+fit_model <- function(feat_in, d_in, rec, job) {
   
   # feat_in: feature matrix built from held-in data
+  # d_in: held in data (pre-recipe) for hyperparameter tuning
+  # recipe: recipe used to make feat_in - only used for hyperparameter tuning
   # job: single-row job-specific tibble
   
   algorithm <- job$algorithm
@@ -145,8 +144,26 @@ fit_model <- function(feat_in, job) {
       fit(lapse ~ .,
           data = feat_in)
   } else if (algorithm == "glmnet") {
-    model <- logistic_reg(penalty = job$hp1,
-                          mixture = job$hp2) %>% 
+    # first tune penalty hyperparameter
+    # create tune grid
+    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 100)))
+    # Create bootstrap splits
+    # Don't need to nest subid since only selecting from fold's held in data 
+    splits_boot <- d_in %>% 
+      bootstraps(100, strata = "lapse")
+    # fit models
+    fits_boot <- logistic_reg(penalty = tune(),
+                              mixture = job$hp1) %>% 
+      set_engine("glmnet") %>% 
+      set_mode("classification") %>% 
+      tune_grid(preprocessor = rec,
+                resamples = splits_boot,
+                grid = grid_penalty,
+                metrics = metric_set(bal_accuracy))
+      
+    # fit model with best hyperparameter
+    model <- logistic_reg(penalty = select_best(fits_boot)$penalty,
+                          mixture = job$hp1) %>% 
       set_engine("glmnet") %>% 
       set_mode("classification") %>% 
       fit(lapse ~ .,

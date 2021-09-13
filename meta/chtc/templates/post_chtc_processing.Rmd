@@ -1,0 +1,106 @@
+---
+title: "Post-CHTC Processing"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+### Setup
+
+Absolute paths
+```{r, paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = { path_lab_support <- "P:/toolboxes/lab_support" },
+        # IOS paths
+        Darwin = { path_lab_support <- "/Volumes/toolboxes/lab_support" }
+        )
+```
+
+Relative paths
+```{r}
+path_out <- "out"
+path_results <- "results"
+path_err <- "err"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+
+theme_set(theme_classic()) 
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_lab_support, "fun_modeling.R"))
+```
+
+### Notes
+This script aggregates all CHTC results, runs checks on jobs and hyperparameters, 
+and summarizes model performance across all folds.   
+
+### Unzip and check jobs
+
+unzip and rename chtc folders
+```{r}
+unzip(zipfile = "meta_output.zip")
+invisible(file.rename("meta_output", "out"))
+unzip(zipfile = "meta_results.zip")
+invisible(file.rename("meta_results", "results"))
+unzip(zipfile = "meta_error.zip")
+invisible(file.rename("meta_error", "err"))
+```
+
+
+check all error and output files are blank (0 kb)
+```{r}
+out_files <- map_df(list.files(path_out, full.names = TRUE), file.info)
+tabyl(out_files$size == 0)
+
+err_files <- map_df(list.files(path_err, full.names = TRUE), file.info)
+tabyl(err_files$size == 0)
+```
+
+
+
+# aggregate all result CSVs --------------- 
+
+read in all CSVs
+```{r}
+
+```
+
+check number of results equals number of jobs
+```{r}
+
+```
+
+
+# average across all folds ---------------
+# 100 per configuration with a 10 x 10-fold design
+
+# plot hyperparameters
+
+# pull best model performance
+
+# plot model performance
