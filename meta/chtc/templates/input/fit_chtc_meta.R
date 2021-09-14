@@ -37,6 +37,6 @@ rec <- build_recipe(d = d, job = job)
 results <- tune_model(job = job, rec = rec, folds = folds, n_repeats = n_repeats)
 
 # write out results tibble ------------
-file_name <- paste0("results_", job_num, ".csv")
+file_name <- paste0("results_", process_num, ".csv")
 results %>% 
   write_csv(., file_name)

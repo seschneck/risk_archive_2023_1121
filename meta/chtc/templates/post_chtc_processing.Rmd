@@ -163,13 +163,15 @@ results_aggregate %>%
 
 ### Plot hyperparameters
 
-FIX: plotting alpha hyperparameters but not sure how to plot penalty hyperparameters. 
-Plot for best model only? How to get fits?
 ```{r}
-ggplot(mapping = aes(x = results_aggregate$hp1, y = results_aggregate$bal_accuracy)) +
-  geom_line() +
-  xlab("mixture (alpha)") +
-  ylab("balanced accuracy")
+ggplot(mapping = aes(x = log(results_aggregate$hp2), 
+                     y = results_aggregate$bal_accuracy, 
+                     group = results_aggregate$hp1, 
+                     color = results_aggregate$hp1)) +
+      geom_line() +
+      xlab(hp2) +
+      ylab("balanced accuracy") +
+      scale_color_discrete(name = hp1)
 ```
 
 
@@ -200,7 +202,7 @@ Fits for model with highest balanced accuracy
   arrange(n_fold, n_repeat))
 ```
 
-Fits for model with highest ROC AUC (if different configuration)
+Fit or fits for model with highest ROC AUC (if different configuration)
 ```{r}
 if (slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
   results %>% 

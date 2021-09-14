@@ -30,14 +30,30 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 }
 
 # create jobs tibble ---------------
-jobs <- expand_grid(n_fold = 1:n_folds,
-                    n_repeat = 1:n_repeats,
-                    algorithm,
-                    feature_set,
-                    hp1,
-                    hp2,
-                    hp3,
-                    resample)
+
+if (algorithm == "glmnet") {
+  # note for glmnet we only put total number of folds and repeats for creating splits
+  # in tune_grid. Jobs not broken down by fold.
+  jobs <- expand_grid(n_fold = n_folds,
+                      n_repeat = n_repeats,
+                      algorithm,
+                      feature_set,
+                      hp1,
+                      hp2,
+                      hp3,
+                      resample)
+  
+} else { 
+  jobs <- expand_grid(n_fold = 1:n_folds,
+                      n_repeat = 1:n_repeats,
+                      algorithm,
+                      feature_set,
+                      hp1,
+                      hp2,
+                      hp3,
+                      resample)
+}
+
 
 # add job num to file --------------- 
 jobs <- jobs %>% 
