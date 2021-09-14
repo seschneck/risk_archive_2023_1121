@@ -39,6 +39,10 @@ jobs <- expand_grid(n_fold = 1:n_folds,
                     hp3,
                     resample)
 
+# add job num to file --------------- 
+jobs <- jobs %>% 
+  rownames_to_column("job_num") 
+
 # write jobs file to input folder ---------------
 jobs %>% 
   write_csv(file.path(path_jobs, name_job, "input", "jobs.csv"))

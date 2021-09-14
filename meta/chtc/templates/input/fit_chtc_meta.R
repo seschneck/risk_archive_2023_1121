@@ -9,9 +9,9 @@ suppressPackageStartupMessages({
 source("fun_chtc_meta.R")
 
 # set up job_num ---------------
-# job_num <- 1
+# process_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
-job_num <- as.numeric(args[1]) + 1 # process/job arg starts at 0
+process_num <- as.numeric(args[1]) + 1 # process/job arg starts at 0
 
 # read in jobs.csv file ------------------
 jobs <- read_csv("jobs.csv", col_types = cols()) 
@@ -21,7 +21,7 @@ n_folds <- max(jobs$n_fold)
 n_repeats <- max(jobs$n_repeat)
 
 # pull out job ------------------
-job <- slice(jobs, job_num)
+job <- slice(jobs, process_num)
 
 # read in data train --------------- 
 d <- read_csv("data_trn.csv", col_types = cols())
@@ -48,7 +48,7 @@ model <- fit_model(feat_in = feat_in, d_in = d_in, rec = rec, job = job)
 results <- get_metrics(model = model, feat_out = feat_out)
 
 # write out results tibble ------------
-file_name <- paste0("results_", job_num, ".csv")
+file_name <- paste0("results_", job$job_num, ".csv")
 results %>% 
   pivot_wider(., names_from = "metric",
               values_from = "estimate") %>% 

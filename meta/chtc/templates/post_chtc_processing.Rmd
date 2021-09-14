@@ -70,12 +70,14 @@ and summarizes model performance across all folds.
 
 Inputs:  
 
-Returned CHTC files     
+Returned CHTC files   
+
 - meta_output.zip  
 - meta_results.zip    
 - meta_output.zip   
 
 Jobs input file   
+
 - jobs.csv   
 
 Output:   
@@ -95,32 +97,27 @@ invisible(file.rename("meta_error", "err"))
 ```
 
 
-check all error and output files are blank (0 kb)
+check all error files are blank (0 kb)
+```{r}
+err_files <- map_df(list.files(path_err, full.names = TRUE), file.info)
+tabyl(err_files$size)
+```
+
+check all output files are blank (0 kb)
 ```{r}
 out_files <- map_df(list.files(path_out, full.names = TRUE), file.info)
-tabyl(out_files$size == 0)
-
-err_files <- map_df(list.files(path_err, full.names = TRUE), file.info)
-tabyl(err_files$size == 0)
+tabyl(out_files$size)
 ```
 
 
 
-### aggregate all result CSVs
+### Aggregate all result CSVs
 
 read in all CSVs
 ```{r}
 result_files <- list.files(path_results, full.names = TRUE)
 results <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
   glimpse()
-```
-
-FIX: hp2 and hp3 - got left out of test results by accident. Add na values
-```{r}
-# remove this block for future jobs
-results <- results %>% 
-  mutate(hp2 = NA_integer_,
-         hp3 = NA_integer_)
 ```
 
 
@@ -132,12 +129,17 @@ missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "job_num") %
   filter(!job_num %in% results$job_num)
 ```
 
-`r nrow(results)` results from `r nrow(jobs)`   
+`r nrow(results)` results from `r nrow(jobs)` jobs.      
 
-`r if(nrow(missing_job_nums) > 0) {print(str_c("missing jobs: ", missing_job_nums$job_num))} else print(str_c("No missing jobs"))`
+```{r}
+if (nrow(missing_job_nums) > 0) {
+  print(str_c("missing jobs: ", missing_job_nums$job_num))
+  } else print(str_c("No missing jobs"))
+```
 
 
-### average metrics across folds 
+
+### Average metrics across folds 
 100 models per configuration with a 10 x 10-fold design    
 Note: In testing using only 1 x 10-fold (10 models per configuration)    
 
@@ -146,13 +148,12 @@ results_aggregate <- results %>%
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
   summarize(across(c(accuracy, bal_accuracy, sens, spec, roc_auc),
                    mean),
-            n_jobs = n()) %>% 
-  ungroup()
+            n_jobs = n(), .groups = "drop") 
 ```
 
 
 `r nrow(results_aggregate)` total configurations.    
-`r nrow(job_nums)/nrow(results_aggregate)` models per configuration.   
+`r nrow(jobs)/nrow(results_aggregate)` models per configuration.   
 
 ```{r}
 results_aggregate %>% 
@@ -160,43 +161,71 @@ results_aggregate %>%
 ```
 
 
-### plot hyperparameters
+### Plot hyperparameters
 
 FIX: plotting alpha hyperparameters but not sure how to plot penalty hyperparameters. 
 Plot for best model only? How to get fits?
 ```{r}
-ggplot(mapping = aes(x = log(results_aggregate$hp1), y = results_aggregate$bal_accuracy)) +
+ggplot(mapping = aes(x = results_aggregate$hp1, y = results_aggregate$bal_accuracy)) +
   geom_line() +
   xlab("mixture (alpha)") +
   ylab("balanced accuracy")
 ```
 
 
-### pull best model performance
+### Pull best model performance
 
-Highest balanced accuracy
+Highest balanced accuracy is `r round(max(results_aggregate$bal_accuracy), 2)`
 ```{r}
-max(results_aggregate$bal_accuracy)
 results_aggregate %>% 
   slice_max(bal_accuracy) %>% 
   glimpse()
 ```
 
-highest ROC
+highest ROC is `r round(max(results_aggregate$roc_auc), 2)`
 ```{r}
 results_aggregate %>% 
   slice_max(roc_auc) %>% 
   glimpse()
 ```
 
-
-### plot/visualize model performance 
+Fits for model with highest balanced accuracy
 ```{r}
-hist(results_aggregate$accuracy)
+(best_model_bal_accuracy <- results %>% 
+  select(-job_num) %>%
+  inner_join(results_aggregate %>% 
+               slice_max(bal_accuracy) %>% 
+               select(-c(accuracy:n_jobs)),
+             by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
+  arrange(n_fold, n_repeat))
+```
+
+Fits for model with highest ROC AUC (if different configuration)
+```{r}
+if (slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
+  results %>% 
+    select(-job_num) %>% 
+    inner_join(results_aggregate %>% 
+                 slice_max(roc_auc) %>% 
+                 select(-c(accuracy:n_jobs)),
+               by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
+    arrange(n_fold, n_repeat)
+}
+```
+
+
+### Plot/visualize model performance 
+
+FIX: How to plot observed vs predicted outcomes with just performance metrics? 
+Refit best model?    
+
+Histogram of aggregate metrics across configurations
+```{r collapse = TRUE}
 hist(results_aggregate$roc_auc)
 hist(results_aggregate$bal_accuracy)
-hist(results_aggregate$sens)
-hist(results_aggregate$spec)
+hist(results_aggregate$accuracy, breaks = 20)
+hist(results_aggregate$sens, breaks = 20)
+hist(results_aggregate$spec, breaks = 20)
 ```
 
 
