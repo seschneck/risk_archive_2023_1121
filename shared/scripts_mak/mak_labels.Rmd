@@ -23,15 +23,11 @@ lapses and periods to exclude for no_lapse observations
 
 Outstanding issues:   
 
-- **HANDLE INVALID END TIME (None12pm)**
-
 - I have printed all relevant notes about lapses in this Rmd - still need to change 
 exclude to TRUE for any entries determined to be unreliable after discussing with JC  
 
-- Negative lapses with end time at 1 or 2 AM   
+- Make midnight date correction for negative lapses with end time at 1 or 2 AM?   
 
-- Discuss log vs code for cleaning midnight reporting errors (we currently do both). 
-Wait till Sarah is back to discuss how she determined the midnight error for log corrections.   
 
 ### Conclusions   
 
@@ -82,7 +78,12 @@ to whether a lapse/non-lapse is reliable for sampling from.
   - appeared to still want abstinence as they reported they were uncertain to ema_1_5 
   on only 3 surveys. They reported they were uncertain that their goal was to remain 
   abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.    
-  - Has more non-lapse surveys than lapse surveys.    
+  - Has more non-lapse surveys than lapse surveys.   
+  
+
+- Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. After KW 
+and JC reviewed this situation, it was concluded that it was likely they were still drinking at time 
+of EMA (i.e., no end time). Changing end time to NA in this script.    
   
   
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 
@@ -324,20 +325,11 @@ ema %>%
   tabyl(finished)
 ```
 
-All but 1 lapse from unfinished surveys have complete dates and times   
+All lapses from unfinished surveys have complete dates and times   
 ```{r}
 ema %>% 
   filter(finished == 0) %>% 
   select(subid, ema_1_1:ema_1_4)
-```
-
-Lapse without times does not appear to be reliable, keep as exclusion date for 
-sampling non-lapses
-```{r}
-log %>% 
-  filter(response_id == "R_cXU4FDBV12lZZPH") %>% 
-  select(subid, new_value, old_value, notes) %>% 
-  print_kbl(height = "100%", align = "l")
 ```
 
 **Other missing values**
@@ -346,7 +338,7 @@ log %>%
 naniar::miss_var_summary(ema)
 ```
 
-2 additional entries with missing lapse values - both are missing end time
+3 lapse times missing
 ```{r}
 ema %>% 
   filter(is.na(ema_1_2) | is.na(ema_1_4)) %>% 
@@ -357,7 +349,7 @@ ema %>%
 Check if lapse re-reported in another EMA - it is not
 ```{r}
 ema %>% 
-  filter(subid == 26) %>% 
+  filter(subid == 180) %>% 
   select(subid, ema_1_1:ema_1_4)
 
 ema %>% 
@@ -440,6 +432,26 @@ lapses <- interview %>%
 ```
 
 **Process timestamp of lapse**   
+
+Check all lapse times (includes EMA and interview lapses)  
+```{r}
+lapses %>% 
+  tabyl(ema_1_2)
+
+lapses %>% 
+  tabyl(ema_1_4)
+```
+
+Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. After KW 
+and JC reviewed this situation, it was concluded that it was likely they were still drinking at time 
+of EMA (i.e., no end time). Changing end time to NA in this script.    
+```{r}
+lapses <- lapses %>% 
+  mutate(ema_1_4 = case_when(response_id == "R_AbWYKI5zm1dTNUl" ~ NA_character_,
+                             TRUE ~ ema_1_4))
+```
+
+Recode lapse times
 
 * Calculate start_lapse and end_lapse as dttm when completed timestamp info available
 * retain character date and timestamps as check and also for lapses with incomplete info
@@ -579,12 +591,10 @@ Interview
 `r nrow(subset(lapses, source == "interview"))` interview lapses excluded   
 
 No start time   
-`r nrow(subset(lapses, is.na(lapse_start) & source != "interview"))` lapse without a start time excluded
+`r nrow(subset(lapses, is.na(lapse_start) & source != "interview"))` lapses without a start time excluded
 ```{r}
 lapses %>% 
-  filter(is.na(lapse_start) & source != "interview") %>% 
-  arrange(lapse_end_time) %>% 
-  print_kbl(height = "100%")
+  filter(is.na(lapse_start) & source != "interview") 
 ```
 
 
