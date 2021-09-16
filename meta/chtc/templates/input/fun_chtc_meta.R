@@ -156,7 +156,7 @@ tune_model <- function(job, rec, folds, n_repeats) {
   if (job$algorithm == "glmnet") {
     # use whole dataset (all folds)
     # CHANGE: number of penalty values in tune grid
-    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 50)))
+    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 3)))
     
     # tune_grid - takes in recipe, splits, and hyperparameter values to find
     # the best penalty value across all 100 held out folds 

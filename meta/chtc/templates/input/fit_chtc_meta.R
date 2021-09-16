@@ -1,4 +1,4 @@
-# fit model at chtc with bootstrapping 
+# fit model at chtc with grouped k-fold cv 
 
 # libraries & source functions file ----------------
 suppressPackageStartupMessages({

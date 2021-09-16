@@ -143,6 +143,8 @@ if (nrow(missing_job_nums) > 0) {
 100 models per configuration with a 10 x 10-fold design    
 Note: In testing using only 1 x 10-fold (10 models per configuration)    
 
+NOTE: glmnet algorithms will have 50-100 x's the number of jobs due to hyperparemeter tuning
+
 ```{r}
 results_aggregate <- results %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
@@ -153,7 +155,7 @@ results_aggregate <- results %>%
 
 
 `r nrow(results_aggregate)` total configurations.    
-`r nrow(jobs)/nrow(results_aggregate)` models per configuration.   
+   
 
 ```{r}
 results_aggregate %>% 
@@ -169,9 +171,9 @@ ggplot(mapping = aes(x = log(results_aggregate$hp2),
                      group = results_aggregate$hp1, 
                      color = results_aggregate$hp1)) +
       geom_line() +
-      xlab(hp2) +
+      xlab("hp2") +
       ylab("balanced accuracy") +
-      scale_color_discrete(name = hp1)
+      scale_color_continuous(name = "hp1")
 ```
 
 
@@ -191,20 +193,22 @@ results_aggregate %>%
   glimpse()
 ```
 
-Fits for model with highest balanced accuracy
+Fits for model with highest balanced accuracy (for repeated single models - not glmnet)
 ```{r}
-(best_model_bal_accuracy <- results %>% 
-  select(-job_num) %>%
-  inner_join(results_aggregate %>% 
-               slice_max(bal_accuracy) %>% 
-               select(-c(accuracy:n_jobs)),
-             by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
-  arrange(n_fold, n_repeat))
+if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet") {
+  (best_model_bal_accuracy <- results %>% 
+    select(-job_num) %>%
+    inner_join(results_aggregate %>% 
+                 slice_max(bal_accuracy) %>% 
+                 select(-c(accuracy:n_jobs)),
+               by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
+    arrange(n_fold, n_repeat))
+}
 ```
 
-Fit or fits for model with highest ROC AUC (if different configuration)
+Fits for model with highest ROC AUC (if different configuration)
 ```{r}
-if (slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
+if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet" & slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
   results %>% 
     select(-job_num) %>% 
     inner_join(results_aggregate %>% 
