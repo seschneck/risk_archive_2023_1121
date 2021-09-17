@@ -18,8 +18,11 @@ knit: (function(input, ...) {
 ### Notes
 
 Purpose: This file summarizes the location labels supplied by participants for the Liu et al. GPS project. In that project, place labels (supplied by participants) are predicted by geospatial and temporal features of people's GPS data in the risk project. In this markdown, I aim to:
+
 1. Recommend what data to exclude on the basis of: multiple homes, multiple workplaces.
+
 2. Understand meaningful, risk-related clusters of labels. We want these labels to be useful for inclusion in models like the kind we are creating for the primary aims of the risk and risk2 projects.
+
 3. Identify any "other" labels that fit existing factor levels. The goal is for these labels to be as accurate as possible, since they serve as ground truth.
 
 Inputs:  Opens data files in path_raw
@@ -28,7 +31,7 @@ Inputs:  Opens data files in path_raw
 
 ### Summary / recommendations
 
-Mid-level categories could be:
+Categories could be:
 
 * others' homes -- home of family, home of friend, (some from "other" fit here)
 
@@ -36,17 +39,23 @@ Mid-level categories could be:
 
 * liquor store
 
-* entertainment -- bar, restaurant (some from "other" fit here)
+* public drinking spaces -- bar, restaurant - w/ alcohol (some from "other" fit here), coffee shop/cafe - w/ alochol
 
-* public/community spaces -- coffee shop/cafe, church, park, volunteer (from "other", library)
+* public community spaces -- coffee shop/cafe - w/o alochol, restaurant - w/o alochol, church, park, volunteer (from "other", library)
 
 * recovery and health -- aa/recovery meeting, health care, gym/fitness center
 
-* errands (many from "other" fit here)
+* work/school (if single places)
 
-* work/school
+* airports
 
-* travel stop (many from "other" fit here: bus stop, airport)
+Drop:
+
+* errands
+
+* distributed work places
+
+* travel stop (many from "other" fit here: bus stop)
 
 There are duplicate rows in the locations data. Need to reduce to unique rows.
 
@@ -287,10 +296,12 @@ locations %>%
 
 
 ```{r}
-
 locations %>% 
-  mutate(description = coalesce(description.x, description.y))
-
+  mutate(description = coalesce(description.x, description.y)) %>% 
+  filter(!is.na(description)) %>% 
+  select(subid, long, lat, description)  %>% 
+  kable(caption = "Descriptions of 'other' places", table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left")
 ```
 
 
