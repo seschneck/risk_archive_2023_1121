@@ -2,15 +2,16 @@
 
 # CHANGE ME -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "random_forest" # the name of the job to set folder names
+name_job <- "test_cv_type" # the name of the job to set folder names
 feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
-algorithm <- c("random_forest") # 1+ statistical algorithms
-hp1 <- c(5, 10, 20, 100, 200) # RF: mtry; KNN: neighbors; glmnet: alpha (mixture)
-hp2 <- c(2, 15, 25, 40) # RF: min_n; glmnet: lambda (penalty) - This gets set on CHTC 
-hp3 <- 2000 # RF: trees (10 x's number of predictors), set to NA_integer_ if not using
-n_folds <- 10 # number of folds
-n_repeats <- 1 # number of repeats
+algorithm <- c("glmnet") # options: glmnet, random_forest 
+hp1 <- seq(0, 1, length.out = 11) # RF: mtry; KNN: neighbors; glmnet: alpha (mixture)
+hp2 <- NA_integer_ # RF: min_n; glmnet: lambda (penalty) - This gets set on CHTC (NA_integer here)
+hp3 <- NA_integer_ # RF: trees (10 x's number of predictors), set to NA_integer_ if not using
+n_repeats <- NA_integer_ # number of repeats, set to NA_integer_ for glmnet
+n_folds <- NA_integer_ # number of folds, set to NA_integer_ for glmnet
 resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
+cv_type <- "10_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
 
 # set paths -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 
@@ -31,9 +32,7 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 
 # create jobs tibble ---------------
 
-if (algorithm == "glmnet") {
-  # note for glmnet we only put total number of folds and repeats for creating splits
-  # in tune_grid. Jobs not broken down by fold.
+if (is.na(n_folds) & is.na(n_repeats)) {
   jobs <- expand_grid(n_fold = n_folds,
                       n_repeat = n_repeats,
                       algorithm,
@@ -41,7 +40,8 @@ if (algorithm == "glmnet") {
                       hp1,
                       hp2,
                       hp3,
-                      resample)
+                      resample,
+                      cv_type)
   
 } else { 
   jobs <- expand_grid(n_fold = 1:n_folds,
@@ -51,7 +51,8 @@ if (algorithm == "glmnet") {
                       hp1,
                       hp2,
                       hp3,
-                      resample)
+                      resample,
+                      cv_type)
 }
 
 

@@ -19,11 +19,13 @@ suppressPackageStartupMessages({
 
 
 # splits for grouped repeated k-fold (subid = grouping factor)
-make_folds <- function(d, n_folds, n_repeats) {
+make_folds <- function(d, job) {
   
   # d: (training) dataset to be resampled (subid = grouping id)
-  # n_splits: total number of splits, obtained from jobs before slicing
-  # n_repeats: total number of repeats
+  # job: single job to get n_repeats and n_folds from cv_type
+  
+  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
+  n_folds <- as.numeric(str_split(job$cv_type, "_x_")[[1]][2])
   
   folds <- tibble()
   
@@ -32,10 +34,10 @@ make_folds <- function(d, n_folds, n_repeats) {
       group_vfold_cv(group = subid, v = n_folds) %>% 
       mutate(n_repeat = i)
     
-    if (nrow(folds) != 0) {
-      folds <- folds %>% 
-        bind_rows(fold)
-    } else  folds <- fold
+    folds <- if (i == 1)
+      fold
+    else
+      rbind(folds, fold)
   }
   
   return(folds)
@@ -91,12 +93,13 @@ build_recipe <- function(d, job) {
   return(rec)
 }
 
-make_features <- function(job, n_repeats, folds, rec) {
+make_features <- function(job, folds, rec) {
   
   # job: single-row job-specific tibble
   # folds: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
+  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
   fold_index <- job$n_fold + (job$n_repeat - 1) * n_repeats
   
   d_in <- analysis(folds$splits[[fold_index]])
@@ -146,7 +149,7 @@ get_metrics <- function(model, feat_out) {
 }
 
 
-tune_model <- function(job, rec, folds, n_repeats) {
+tune_model <- function(job, rec, folds) {
   # job: single-row job-specific tibble from jobs
   # folds: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
@@ -184,7 +187,7 @@ tune_model <- function(job, rec, folds, n_repeats) {
   if (job$algorithm == "random_forest") {
     # extract fold associated with this job - 1 held in and 1 held out set and make 1 
     # set of features for the held in and held out set 
-    features <- make_features(job = job, n_repeats = n_repeats, folds = folds, rec = rec)
+    features <- make_features(job = job, folds = folds, rec = rec)
     feat_in <- features$feat_in
     feat_out <- features$feat_out
     
