@@ -27,8 +27,6 @@ make_folds <- function(d, job) {
   n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
   n_folds <- as.numeric(str_split(job$cv_type, "_x_")[[1]][2])
   
-  folds <- tibble()
-  
   for (i in 1:n_repeats) {
     fold <- d %>% 
       group_vfold_cv(group = subid, v = n_folds) %>% 
@@ -153,13 +151,11 @@ tune_model <- function(job, rec, folds) {
   # job: single-row job-specific tibble from jobs
   # folds: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
-  # n_repeats: number of k-fold repeats, needed for algorithms that extract single 
-  # fold associated with a job
   
   if (job$algorithm == "glmnet") {
     # use whole dataset (all folds)
     # CHANGE: number of penalty values in tune grid
-    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 3)))
+    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 100)))
     
     # tune_grid - takes in recipe, splits, and hyperparameter values to find
     # the best penalty value across all 100 held out folds 
@@ -175,6 +171,10 @@ tune_model <- function(job, rec, folds) {
 
     # create tibble of penalty and metrics returned (avg over 10 folds for each penalty)
     results <- collect_metrics(models) %>% 
+      # summarise across repeats
+      group_by(penalty, .metric, .estimator, .config) %>% 
+      summarise(mean = mean(mean), 
+                std_err = mean(std_err), .groups = "drop") %>% 
       select(hp2 = penalty, .metric, mean) %>% 
       pivot_wider(., names_from = ".metric",
                   values_from = "mean") %>% 
