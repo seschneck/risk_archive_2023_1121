@@ -19,23 +19,23 @@ suppressPackageStartupMessages({
 
 
 # splits for grouped repeated k-fold (subid = grouping factor)
-make_folds <- function(d, n_folds, n_repeats) {
+make_folds <- function(d, job) {
   
   # d: (training) dataset to be resampled (subid = grouping id)
-  # n_splits: total number of splits, obtained from jobs before slicing
-  # n_repeats: total number of repeats
+  # job: single job to get n_repeats and n_folds from cv_type
   
-  folds <- tibble()
+  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
+  n_folds <- as.numeric(str_split(job$cv_type, "_x_")[[1]][2])
   
   for (i in 1:n_repeats) {
     fold <- d %>% 
       group_vfold_cv(group = subid, v = n_folds) %>% 
       mutate(n_repeat = i)
     
-    if (nrow(folds) != 0) {
-      folds <- folds %>% 
-        bind_rows(fold)
-    } else  folds <- fold
+    folds <- if (i == 1)
+      fold
+    else
+      rbind(folds, fold)
   }
   
   return(folds)
@@ -91,13 +91,13 @@ build_recipe <- function(d, job) {
   return(rec)
 }
 
-
-make_features <- function(job, n_repeats, folds, rec) {
+make_features <- function(job, folds, rec) {
   
   # job: single-row job-specific tibble
-  # splits: rset object that contains all resamples
+  # folds: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
+  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
   fold_index <- job$n_fold + (job$n_repeat - 1) * n_repeats
   
   d_in <- analysis(folds$splits[[fold_index]])
@@ -111,73 +111,14 @@ make_features <- function(job, n_repeats, folds, rec) {
     prep(training = d_in) %>% 
     bake(new_data = d_out)
 
-  return(list(feat_in = feat_in, feat_out = feat_out, d_in = d_in))
+  return(list(feat_in = feat_in, feat_out = feat_out))
   
 }
-
-
-fit_model <- function(feat_in, d_in, rec, job) {
-  
-  # feat_in: feature matrix built from held-in data
-  # d_in: held in data (pre-recipe) for hyperparameter tuning
-  # recipe: recipe used to make feat_in - only used for hyperparameter tuning
-  # job: single-row job-specific tibble
-  
-  algorithm <- job$algorithm
-  
-  if (algorithm == "random_forest") {
-    model <- rand_forest(mtry = job$hp1,
-                         min_n = job$hp2,
-                         trees = job$hp3) %>%
-      set_engine("ranger",
-                 importance = "impurity",
-                 respect.unordered.factors = "order",
-                 oob.error = FALSE,
-                 seed = 102030) %>%
-      set_mode("classification") %>%
-      fit(lapse ~ .,
-          data = feat_in)
-  } else if (algorithm == "knn") {
-    model <- nearest_neighbor(neighbors = job$hp1) %>% 
-      set_engine("kknn") %>% 
-      set_mode("classification") %>% 
-      fit(lapse ~ .,
-          data = feat_in)
-  } else if (algorithm == "glmnet") {
-    # first tune penalty hyperparameter
-    # create tune grid
-    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 100)))
-    # Create bootstrap splits
-    # Don't need to nest subid since only selecting from fold's held in data 
-    splits_boot <- d_in %>% 
-      bootstraps(100, strata = "lapse")
-    # fit models
-    fits_boot <- logistic_reg(penalty = tune(),
-                              mixture = job$hp1) %>% 
-      set_engine("glmnet") %>% 
-      set_mode("classification") %>% 
-      tune_grid(preprocessor = rec,
-                resamples = splits_boot,
-                grid = grid_penalty,
-                metrics = metric_set(bal_accuracy))
-      
-    # fit model with best hyperparameter
-    model <- logistic_reg(penalty = select_best(fits_boot)$penalty,
-                          mixture = job$hp1) %>% 
-      set_engine("glmnet") %>% 
-      set_mode("classification") %>% 
-      fit(lapse ~ .,
-          data = feat_in)
-  }
-  
-  return(model)
-}
-
 
 get_metrics <- function(model, feat_out) {
   
-  # model: model object fit via fit_model()
-  # feat_in: feature matrix built from held-in data
+  # model: single model object 
+  # feat_out: feature matrix built from held-out data
   
   preds <- predict(model, feat_out, type = "class")$.pred_class
   
@@ -204,3 +145,75 @@ get_metrics <- function(model, feat_out) {
   
   return(model_metrics)
 }
+
+
+tune_model <- function(job, rec, folds) {
+  # job: single-row job-specific tibble from jobs
+  # folds: rset object that contains all resamples
+  # rec: recipe (created manually or via build_recipe() function)
+  
+  if (job$algorithm == "glmnet") {
+    # use whole dataset (all folds)
+    # CHANGE: number of penalty values in tune grid
+    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 100)))
+    
+    # tune_grid - takes in recipe, splits, and hyperparameter values to find
+    # the best penalty value across all 100 held out folds 
+    models <- logistic_reg(penalty = tune(),
+                           mixture = job$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      tune_grid(preprocessor = rec,
+                resamples = folds,
+                grid = grid_penalty,
+                metrics = metric_set(accuracy, bal_accuracy,
+                                     sens, spec, roc_auc))
+
+    # create tibble of penalty and metrics returned (avg over 10 folds for each penalty)
+    results <- collect_metrics(models) %>% 
+      # summarise across repeats
+      group_by(penalty, .metric, .estimator, .config) %>% 
+      summarise(mean = mean(mean), 
+                std_err = mean(std_err), .groups = "drop") %>% 
+      select(hp2 = penalty, .metric, mean) %>% 
+      pivot_wider(., names_from = ".metric",
+                  values_from = "mean") %>% 
+      bind_cols(job %>% select(-hp2), .) %>% 
+      relocate(hp2, .before = hp3)
+    
+    return(results)
+  }
+  
+  if (job$algorithm == "random_forest") {
+    # extract fold associated with this job - 1 held in and 1 held out set and make 1 
+    # set of features for the held in and held out set 
+    features <- make_features(job = job, folds = folds, rec = rec)
+    feat_in <- features$feat_in
+    feat_out <- features$feat_out
+    
+    # fit model on feat_in with job hyperparemeter values 
+    model <- rand_forest(mtry = job$hp1,
+                         min_n = job$hp2,
+                         trees = job$hp3) %>%
+      set_engine("ranger",
+                 importance = "impurity",
+                 respect.unordered.factors = "order",
+                 oob.error = FALSE,
+                 seed = 102030) %>%
+      set_mode("classification") %>%
+      fit(lapse ~ .,
+          data = feat_in)
+  }
+  
+  # Single model jobs
+  # use get_metrics function to get a tibble that shows performance metrics
+  results <- get_metrics(model = model, feat_out = feat_out) %>% 
+    pivot_wider(., names_from = "metric",
+                values_from = "estimate") %>%   
+    bind_cols(job, .) 
+  
+  return(results) 
+}
+
+
+

@@ -2,15 +2,16 @@
 
 # CHANGE ME -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "test_glmnet" # the name of the job to set folder names
+name_job <- "test_cv_type" # the name of the job to set folder names
 feature_set <- "all_features" # 1 data stream to use (all_features or passive_only)
-algorithm <- c("glmnet") # 1+ statistical algorithms
+algorithm <- c("glmnet") # options: glmnet, random_forest 
 hp1 <- seq(0, 1, length.out = 11) # RF: mtry; KNN: neighbors; glmnet: alpha (mixture)
-hp2 <- NA_integer_ # RF: min_n; 
-hp3 <- NA_integer_ # RF: trees (10 x's number of predictors)
-n_folds <- 10 # number of folds
-n_repeats <- 1 # number of repeats
-resample <- c("none", "up") # 1+ upsampling methods (up, down, smote, or none)
+hp2 <- NA_integer_ # RF: min_n; glmnet: lambda (penalty) - This gets set on CHTC (NA_integer here)
+hp3 <- NA_integer_ # RF: trees (10 x's number of predictors), set to NA_integer_ if not using
+n_repeats <- NA_integer_ # number of repeats, set to NA_integer_ for glmnet
+n_folds <- NA_integer_ # number of folds, set to NA_integer_ for glmnet
+resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
+cv_type <- "10_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
 
 # set paths -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 
@@ -30,14 +31,30 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 }
 
 # create jobs tibble ---------------
-jobs <- expand_grid(n_fold = 1:n_folds,
-                    n_repeat = 1:n_repeats,
-                    algorithm,
-                    feature_set,
-                    hp1,
-                    hp2,
-                    hp3,
-                    resample)
+
+if (is.na(n_folds) & is.na(n_repeats)) {
+  jobs <- expand_grid(n_fold = n_folds,
+                      n_repeat = n_repeats,
+                      algorithm,
+                      feature_set,
+                      hp1,
+                      hp2,
+                      hp3,
+                      resample,
+                      cv_type)
+  
+} else { 
+  jobs <- expand_grid(n_fold = 1:n_folds,
+                      n_repeat = 1:n_repeats,
+                      algorithm,
+                      feature_set,
+                      hp1,
+                      hp2,
+                      hp3,
+                      resample,
+                      cv_type)
+}
+
 
 # add job num to file --------------- 
 jobs <- jobs %>% 
