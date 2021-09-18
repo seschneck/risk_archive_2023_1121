@@ -165,19 +165,18 @@ results_aggregate %>%
 
 ### Plot hyperparameters
 
-FIX:   
-
-- make color scale discrete    
-- within algorithm and resample type
 ```{r}
-ggplot(mapping = aes(x = log(results_aggregate$hp2), 
-                     y = results_aggregate$bal_accuracy, 
-                     group = results_aggregate$hp1, 
-                     color = results_aggregate$hp1)) +
+results_aggregate %>% 
+  mutate(hp1 = factor(hp1, ordered = TRUE)) %>% 
+  ggplot(mapping = aes(x = log(hp2), 
+                     y = bal_accuracy, 
+                     group = hp1, 
+                     color = hp1)) +
       geom_line() +
+      facet_grid(algorithm ~ resample) +
       xlab("hp2") +
       ylab("balanced accuracy") +
-      scale_color_continuous(name = "hp1")
+      scale_color_discrete(name = "hp1")
 ```
 
 
