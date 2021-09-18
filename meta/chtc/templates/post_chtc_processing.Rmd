@@ -61,7 +61,7 @@ theme_set(theme_classic())
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here(path_lab_support, "fun_modeling.R"))
+source(here(path_lab_support, "print_kbl.R"))
 ```
 
 ### Notes
@@ -133,7 +133,7 @@ missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "job_num") %
 
 ```{r}
 if (nrow(missing_job_nums) > 0) {
-  print(str_c("missing jobs: ", missing_job_nums$job_num))
+  print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$job_num), collapse=", ")))
   } else print(str_c("No missing jobs"))
 ```
 
@@ -154,17 +154,21 @@ results_aggregate <- results %>%
 ```
 
 
-`r nrow(results_aggregate)` total configurations.    
+`r nrow(results_aggregate)` unique model configurations.    
    
 
 ```{r}
 results_aggregate %>% 
-  print()
+  print_kbl()
 ```
 
 
 ### Plot hyperparameters
 
+FIX:   
+
+- make color scale discrete    
+- within algorithm and resample type
 ```{r}
 ggplot(mapping = aes(x = log(results_aggregate$hp2), 
                      y = results_aggregate$bal_accuracy, 
@@ -181,20 +185,36 @@ ggplot(mapping = aes(x = log(results_aggregate$hp2),
 
 Highest balanced accuracy is `r round(max(results_aggregate$bal_accuracy), 2)`
 ```{r}
-results_aggregate %>% 
-  slice_max(bal_accuracy) %>% 
-  glimpse()
+if (slice_max(results_aggregate, bal_accuracy)$algorithm == "glmnet") {
+  results_aggregate %>% 
+    slice_max(bal_accuracy) %>% 
+    mutate(hp2 = log(hp2)) %>% 
+    glimpse()
+} else {
+  results_aggregate %>% 
+    slice_max(bal_accuracy) %>% 
+    glimpse()
+  }
 ```
 
-highest ROC is `r round(max(results_aggregate$roc_auc), 2)`
+highest ROC AUC is `r round(max(results_aggregate$roc_auc), 2)`
 ```{r}
-results_aggregate %>% 
-  slice_max(roc_auc) %>% 
-  glimpse()
+# pull best AUC model if different than best balanced accuracy model
+if (slice_max(results_aggregate, bal_accuracy)$algorithm == "glmnet" & slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
+  results_aggregate %>% 
+    slice_max(roc_auc) %>% 
+    mutate(hp2 = log(hp2)) %>% 
+    glimpse()
+} else if (slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
+  results_aggregate %>% 
+    slice_max(roc_auc) %>% 
+    glimpse()
+  }
 ```
 
-Fits for model with highest balanced accuracy (for repeated single models - not glmnet)
+
 ```{r}
+# Print fits for model with highest balanced accuracy (for repeated single models - not glmnet)
 if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet") {
   (best_model_bal_accuracy <- results %>% 
     select(-job_num) %>%
@@ -202,12 +222,14 @@ if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet") {
                  slice_max(bal_accuracy) %>% 
                  select(-c(accuracy:n_jobs)),
                by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
-    arrange(n_fold, n_repeat))
+    arrange(n_fold, n_repeat)) %>% 
+    print_kbl(height = "100%", caption = "Fits for model with highest balanced accuracy") 
 }
 ```
 
-Fits for model with highest ROC AUC (if different configuration)
+
 ```{r}
+# Fits for model with highest ROC AUC (if different configuration and not glmnet)
 if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet" & slice_max(results_aggregate, bal_accuracy)$roc_auc != slice_max(results_aggregate, roc_auc)$roc_auc) {
   results %>% 
     select(-job_num) %>% 
@@ -215,7 +237,8 @@ if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet" & slice_max
                  slice_max(roc_auc) %>% 
                  select(-c(accuracy:n_jobs)),
                by = c("algorithm", "feature_set", "hp1", "hp2", "hp3", "resample")) %>% 
-    arrange(n_fold, n_repeat)
+    arrange(n_fold, n_repeat) %>% 
+    print_kbl(height = "100%", caption = "Fits for model with highest roc")
 }
 ```
 
@@ -225,14 +248,6 @@ if (slice_max(results_aggregate, bal_accuracy)$algorithm != "glmnet" & slice_max
 FIX: How to plot observed vs predicted outcomes with just performance metrics? 
 Refit best model?    
 
-Histogram of aggregate metrics across configurations
-```{r collapse = TRUE}
-hist(results_aggregate$roc_auc)
-hist(results_aggregate$bal_accuracy)
-hist(results_aggregate$accuracy, breaks = 20)
-hist(results_aggregate$sens, breaks = 20)
-hist(results_aggregate$spec, breaks = 20)
-```
 
 
 ### Write out aggregated model configurations
