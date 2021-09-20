@@ -143,7 +143,8 @@ if (nrow(missing_job_nums) > 0) {
 100 models per configuration with a 10 x 10-fold design    
 Note: In testing using only 1 x 10-fold (10 models per configuration)    
 
-NOTE: glmnet algorithms will have 50-100 x's the number of jobs due to hyperparemeter tuning
+NOTE: glmnet algorithms will have 50-100 x's the # of jobs due to tuning lambda 
+within a single job
 
 ```{r}
 results_aggregate <- results %>% 
@@ -159,24 +160,45 @@ results_aggregate <- results %>%
 
 ```{r}
 results_aggregate %>% 
-  print_kbl()
+  print_kbl(digits = 2)
 ```
 
 
 ### Plot hyperparameters
 
-```{r}
-results_aggregate %>% 
-  mutate(hp1 = factor(hp1, ordered = TRUE)) %>% 
-  ggplot(mapping = aes(x = log(hp2), 
+```{r fig.width = 10}
+# glmnet
+if (nrow(subset(results_aggregate, algorithm == "glmnet")) != 0){
+  results_aggregate %>%
+    filter(algorithm == "glmnet") %>% 
+    mutate(hp1 = factor(hp1, ordered = TRUE)) %>% 
+    ggplot(mapping = aes(x = log(hp2), 
                      y = bal_accuracy, 
                      group = hp1, 
                      color = hp1)) +
       geom_line() +
       facet_grid(algorithm ~ resample) +
-      xlab("hp2") +
+      xlab("penalty (lambda)") +
       ylab("balanced accuracy") +
-      scale_color_discrete(name = "hp1")
+      scale_color_discrete(name = "mixture (alpha)")
+}
+
+
+# random forest
+if (nrow(subset(results_aggregate, algorithm == "random_forest")) != 0) {
+  results_aggregate %>%
+    filter(algorithm == "random_forest") %>% 
+    mutate(hp2 = factor(hp2, ordered = TRUE)) %>% 
+    ggplot(mapping = aes(x = hp1, 
+                     y = bal_accuracy, 
+                     group = hp2, 
+                     color = hp2)) +
+      geom_line() +
+      facet_grid(algorithm ~ resample) +
+      xlab("mtry") +
+      ylab("balanced accuracy") +
+      scale_color_discrete(name = "min n")
+}
 ```
 
 
