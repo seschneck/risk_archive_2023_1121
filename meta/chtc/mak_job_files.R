@@ -7,12 +7,12 @@ name_job <- "test_algorithms" # the name of the job to set folder names
 feature_set <- c("all_features") # 1+ data stream to use (all_features or passive_only)
 algorithm <- c("glmnet", "random_forest") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
-cv_type <- "10_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
+cv_type <- "1_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
 hp1_glmnet <- seq(0, 1, length.out = 11) # alpha (mixture) 
-hp1_rf <- c(5, 10, 20, 100, 200) # mtry
-hp2_rf <- c(2, 15, 25, 40) # min_n
+hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
+hp2_rf <- c(2, 10, 20) # min_n
 hp3_rf <- 2000 # trees (10 x's number of predictors)
 
 # set paths -------------------- 
@@ -26,8 +26,8 @@ library(tidyverse)
 # create jobs tibble ---------------
 for (i in algorithm) {
   if (i == "glmnet") { 
-    jobs_tmp <- expand_grid(n_fold = NA_integer_,
-                      n_repeat = NA_integer_,
+    jobs_tmp <- expand_grid(n_repeat = NA_integer_,
+                      n_fold = NA_integer_,
                       algorithm = "glmnet",
                       feature_set,
                       hp1 = hp1_glmnet,
@@ -36,8 +36,8 @@ for (i in algorithm) {
                       resample,
                       cv_type) 
     } else if (i == "random_forest") {
-    jobs_tmp <- expand_grid(n_fold = 1:as.numeric(str_split(cv_type, "_x_")[[1]][1]),
-                        n_repeat = 1:as.numeric(str_split(cv_type, "_x_")[[1]][2]),
+    jobs_tmp <- expand_grid(n_repeat = 1:as.numeric(str_split(cv_type, "_x_")[[1]][1]),
+                        n_fold = 1:as.numeric(str_split(cv_type, "_x_")[[1]][2]),
                         algorithm = "random_forest",
                         feature_set,
                         hp1 = hp1_rf,
