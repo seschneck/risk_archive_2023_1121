@@ -130,8 +130,7 @@ get_metrics <- function(model, feat_out) {
     summary(event_level = "second") %>% 
     select(metric = .metric,
            estimate = .estimate) %>% 
-    filter(metric %in% c("accuracy", "bal_accuracy",
-                         "sens", "spec")) %>% 
+    filter(metric %in% c("accuracy", "sens", "spec","bal_accuracy",)) %>% 
     suppressWarnings() # warning not about metrics we are returning
   
   roc <- tibble(truth = feat_out$lapse,
@@ -179,7 +178,9 @@ tune_model <- function(job, rec, folds) {
       pivot_wider(., names_from = ".metric",
                   values_from = "mean") %>% 
       bind_cols(job %>% select(-hp2), .) %>% 
-      relocate(hp2, .before = hp3)
+      relocate(hp2, .before = hp3) %>% 
+      relocate(sens, .after = accuracy) %>%  # order metrics to bind with other algorithms
+      relocate(spec, .after = sens)
     
     return(results)
   }
