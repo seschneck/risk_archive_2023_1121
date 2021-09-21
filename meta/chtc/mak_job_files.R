@@ -8,6 +8,7 @@ feature_set <- c("all_features") # 1+ data stream to use (all_features or passiv
 algorithm <- c("glmnet", "random_forest") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
 cv_type <- "1_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
+under_ratio <- c(NA_integer_, 4, 1) # majority:minority ratio (e.g., 4 = 20% minority cases)
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
 hp1_glmnet <- seq(0, 1, length.out = 11) # alpha (mixture) 
@@ -34,7 +35,13 @@ for (i in algorithm) {
                       hp2 = NA_integer_,
                       hp3 = NA_integer_,
                       resample,
-                      cv_type) 
+                      cv_type)
+    if ("up" %in% resample | "down" %in% resample | "smote" %in% resample) {
+      if ("none" %in% resample) resample_tmp <- resample[!resample %in% ("none")] 
+      under_ratio_tmp <- expand_grid(resample = resample_tmp,
+                                     under_ratio)
+      jobs_tmp <- full_join(as_tibble(jobs_tmp), under_ratio_tmp, by = "resample")
+    } 
     } else if (i == "random_forest") {
     jobs_tmp <- expand_grid(n_repeat = 1:as.numeric(str_split(cv_type, "_x_")[[1]][1]),
                         n_fold = 1:as.numeric(str_split(cv_type, "_x_")[[1]][2]),
@@ -45,6 +52,12 @@ for (i in algorithm) {
                         hp3 = hp3_rf,
                         resample,
                         cv_type)
+    if ("up" %in% resample | "down" %in% resample | "smote" %in% resample) {
+      if ("none" %in% resample) resample_tmp <- resample[!resample %in% ("none")] 
+      under_ratio_tmp <- expand_grid(resample = resample_tmp,
+                                     under_ratio)
+      jobs_tmp <- full_join(as_tibble(jobs_tmp), under_ratio_tmp, by = "resample")
+    } 
     }
   # bind jobs files
   jobs <- if (i == algorithm[1])

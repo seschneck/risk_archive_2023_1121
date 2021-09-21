@@ -49,10 +49,12 @@ build_recipe <- function(d, job) {
   # lapse = outcome variable (lapse/no lapse)
   # feature_set = all_features or passive_only
   # resample = none, up, down, or smote
+  # under_ratio = diff value of majority:minority (e.g., 4 = 20% minority)
    
   algorithm <- job$algorithm
   feature_set <- job$feature_set
   resample <- job$resample
+  under_ratio <- job$under_ratio
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
@@ -73,13 +75,13 @@ build_recipe <- function(d, job) {
   # control for unbalanced outcome variable
   if (resample == "up") {
     rec <- rec %>% 
-      themis::step_upsample(lapse)
+      themis::step_upsample(lapse, under_ratio = under_ratio)
   } else if (resample == "down") {
     rec <- rec %>% 
-      themis::step_downsample(lapse) 
+      themis::step_downsample(lapse, under_ratio = under_ratio) 
   } else if (resample == "smote") {
     rec <- rec %>% 
-      themis::step_smote(lapse) 
+      themis::step_smote(lapse, under_ratio = under_ratio) 
   }
   
   # algorithm specific steps
