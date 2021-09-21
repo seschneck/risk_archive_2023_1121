@@ -32,10 +32,14 @@ exclude to TRUE for any entries determined to be unreliable after discussing wit
 ### Conclusions   
 
 - More complete EDA on all EMA data is in cln_ema.Rmd. This file focuses on EDA related 
-to whether a lapse/non-lapse is reliable for sampling from.      
+to whether a lapse/non-lapse is reliable or whether it should be excluded from sampling.   
+
+- We decided to retain lapses with no end time if their onset was valid. We will use a
+24 hour rule when sampling non-lapses. That is we will not sample non-lapses in the 
+24 hours following the onset of the lapse.    
 
 
-- We are tentatively dropping subid 104's data for the following reasons:   
+- John and Kendra have decided to drop subid 104's data for the following reasons:   
   - They had lapses every day on study except one day.    
   - Only had 75 surveys where a lapse was not reported.   
   - Viewing their lapse times it appears they were drinking constantly (morning and 
@@ -47,7 +51,7 @@ to whether a lapse/non-lapse is reliable for sampling from.
   - Unfortunately this drops 109 valid lapses.    
 
 
-- We drop subid 269's data for the following reasons:       
+- John and Kendra have decided to drop subid 269's data for the following reasons:       
   - They completed 10-15 surveys on many days on study (avg number of surveys per 
   day is 6.76).  
   - Their responses indicate careless responding - they were filling 2-4 surveys out 
@@ -57,7 +61,7 @@ to whether a lapse/non-lapse is reliable for sampling from.
   over the weekend.   
   
 
-- We drop subid 204's data for the following reasons:    
+- John and Kendra have decided to drop subid 204's data for the following reasons:    
   - Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. 
   They only did a total of 5 surveys between followup 2 and 3.    
   - We don't trust their lapse labels - They report several lapses during their interviews 
@@ -65,14 +69,15 @@ to whether a lapse/non-lapse is reliable for sampling from.
   - From notes - "Participant did not do many surveys during their second month of participation. 
   At their Follow-up 2 visit they reported several lapses that were not documented in their 
   EMAs - estimated lapse days/times in subid's raw data log."  
-  - JC note: "There are issues with 204. They are missing lapses reported by interview. But they also 
-  stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to 
+  - JC note: "There are issues with 204. They are missing lapses reported by interview. But they  
+  also stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to 
   drop them for lapse analyses for anything after 5/17.  Probably also need to add in their 
   reported lapses at follow-up 2. OR we drop them at the end of follow-up 1 or wherever their 
   ema gets sketchy"    
 
 
-- We decided we will retain 128's data even though they have over 100 lapses for the following reasons:   
+- John and Kendra have decided to decided to retain 128's data even though they have over 100 lapses for 
+the following reasons:   
   - Compliance is good (averaged over 3 surveys per day, no days without an EMA).       
   - completed the study for the full 90 days.    
   - appeared to still want abstinence as they reported they were uncertain to ema_1_5 
@@ -81,9 +86,9 @@ to whether a lapse/non-lapse is reliable for sampling from.
   - Has more non-lapse surveys than lapse surveys.   
   
 
-- Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. After KW 
-and JC reviewed this situation, it was concluded that it was likely they were still drinking at time 
-of EMA (i.e., no end time). Changing end time to NA in this script.    
+- Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. 
+After Kendra and John reviewed this situation, it was concluded that it was likely they were 
+still drinking at time of EMA (i.e., no end time). Changing end time to NA in this script.    
   
   
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 
@@ -96,7 +101,7 @@ used as valid lapses. Times are approximations made retrospectively.
 - There were no EMA surveys sent to any participants on 3/2/19.   
 
 - 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes 
-for finished surveys)     
+for finished surveys).     
 
 - All unfinished surveys (finished = 0) have at least ema_1 answered which reports if 
 there have been any lapses since the last survey.  
@@ -105,7 +110,7 @@ there have been any lapses since the last survey.
   and puts "no" for ema_1.  
   
 
-- All final timezones are in Central    
+- All final timezones are in Central time.    
 
 
 ### Set Up Environment
@@ -209,20 +214,22 @@ emal <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%
   rename_with(~ str_replace(.x, "emal_", "ema_"))
 ```
 
-Drop subids 269 and 204   
+Drop subids 269, 204, and 104   
 
-* JC and KW determined the data provided by 269 and 204 was unreliable and should be 
-excluded from the labels. See conclusions at top of this script and cln_ema for more 
-information.   
-* `r nrow(subset(emam, subid == 269 | subid == 204)) + nrow(subset(emal, subid == 269 | subid == 204))` surveys removed.   
-* `r nrow(subset(emam, (subid == 269 | subid == 204) & ema_1 == "Yes")) + nrow(subset(emal, (subid == 269 | subid == 204) & ema_1 == "Yes"))` lapse removed.  
+* John and Kendra determined the data provided by 269, 204, and 104 were unreliable and should be 
+excluded from the labels. See conclusions at top of this script and cln_ema for more information.   
+* `r nrow(subset(emam, subid == 269 | subid == 204 | subid == 104)) + nrow(subset(emal, subid == 269 | subid == 204 | subid == 104))` surveys removed.   
+* `r nrow(subset(emam, (subid == 269 | subid == 204 | subid == 104) & ema_1 == "Yes")) + nrow(subset(emal, (subid == 269 | subid == 204 | subid == 104) & ema_1 == "Yes"))` lapses removed.    
+
+
+Note: `r nrow(subset(emam, subid == 104 & ema_1 == "Yes")) + nrow(subset(emal, subid == 104 & ema_1 == "Yes"))` lapses are from subid 104.
 
 ```{r}
 emam <- emam %>% 
-  filter(subid != 269 & subid != 204)
+  filter(subid != 269 & subid != 204 & subid != 104)
 
 emal <- emal %>% 
-  filter(subid != 269 & subid != 204)
+  filter(subid != 269 & subid != 204 & subid != 104)
 ```
 
 Pull out all lapses
@@ -833,100 +840,6 @@ lapses %>%
   as.numeric() %>% 
   hist(main = "Lapse Onset (hour)", breaks = 24)
 ```
-
-Total time drinking   
-To check if we retain participants who are drinking all the time    
-
-FIX: for now this is just a crude estimate of drinking time (total duration of lapses/days 
-on study).   
-
-* Subid 104 spends on average 5.37 hours each day on study drinking   
-* Subid 128 spends on average 3.92 hours each day on study drinking   
-```{r}
-lapses %>% 
-  filter(!exclude) %>% 
-  group_by(subid) %>% 
-  summarise(duration_total = as.numeric(sum(duration, na.rm = TRUE))) %>% 
-  left_join(dates %>% 
-              mutate(days = as.numeric(difftime(date(study_end), date(study_start), units = "days"))) %>% 
-              select(subid, days), by = "subid") %>% 
-  mutate(avg_hours_per_day = duration_total/days) %>% 
-  pull(avg_hours_per_day) %>% 
-  hist(main = "Average hours per day drinking", breaks = 24)
-```
-
-
-#### Tentatively removing subid 104
-
-We are tentatively dropping subid 104's data for the following reasons:   
-
-* They had lapses every day on study except one day.    
-* Only had 75 surveys where a lapse was not reported.   
-* Viewing their lapse times it appears they were drinking constantly (morning and 
-  night).   
-* They consistently report being uncertain that their goal is to be abstinent 
-  (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
-  at followup 1 and 2.    
-* They are ultimately discontinued since they were struggling to gain sobriety.   
-
-`r nrow(subset(lapses, subid == 104))` lapses removed.  
-```{r}
-lapses <- lapses %>% 
-  filter(subid != 104)
-```
-
-We now have `r nrow(subset(lapses, exclude == FALSE))` valid lapses from `r length(unique(subset(lapses, exclude == FALSE)$subid))` unique participants.    
-
-Note: including invalid lapses we have a total of `r nrow(lapses)` from `r length(unique(lapses$subid))`.     
-
-Lapses per participant.     
-```{r}
-lapses %>% 
-  filter(!exclude) %>% 
-  tabyl(subid) %>% 
-  arrange(desc(n))
-
-lapses %>% 
-  filter(!exclude) %>% 
-  tabyl(subid) %>% 
-  pull(n) %>% 
-  hist(main = "Number of lapses", breaks = 90)
-```
-
-
-Duration of lapses
-```{r}
-lapses %>% 
-  filter(!exclude) %>% 
-  pull(duration) %>% 
-  as.numeric() %>% 
-  hist(main = "Duration (hours)", breaks = 24)
-```
-
-
-Hour of Lapse Onset
-```{r}
-lapses %>% 
-  mutate(lapse_start_hour = str_split_fixed(lapse_start_time, ":", 2)[,1]) %>% 
-  pull(lapse_start_hour) %>% 
-  as.numeric() %>% 
-  hist(main = "Lapse Onset (hour)", breaks = 24)
-```
-
-Total time drinking   
-```{r}
-lapses %>% 
-  filter(!exclude) %>% 
-  group_by(subid) %>% 
-  summarise(duration_total = as.numeric(sum(duration, na.rm = TRUE))) %>% 
-  left_join(dates %>% 
-              mutate(days = as.numeric(difftime(date(study_end), date(study_start), units = "days"))) %>% 
-              select(subid, days), by = "subid") %>% 
-  mutate(avg_hours_per_day = duration_total/days) %>% 
-  pull(avg_hours_per_day) %>% 
-  hist(main = "Average hours per day drinking", breaks = 24)
-```
-
 
 
 ### Make labels
