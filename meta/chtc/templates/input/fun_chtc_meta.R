@@ -103,7 +103,7 @@ make_features <- function(job, folds, rec) {
   # folds: rset object that contains all resamples
   # rec: recipe (created manually or via build_recipe() function)
   
-  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
+  n_repeats <- as.numeric(str_split(str_remove(job$cv_type, "_x"), "_")[[1]][2])
   fold_index <- job$n_fold + (job$n_repeat - 1) * n_repeats
   
   d_in <- analysis(folds$splits[[fold_index]])
@@ -136,7 +136,7 @@ get_metrics <- function(model, feat_out) {
     summary(event_level = "second") %>% 
     select(metric = .metric,
            estimate = .estimate) %>% 
-    filter(metric %in% c("accuracy", "sens", "spec","bal_accuracy",)) %>% 
+    filter(metric %in% c("accuracy", "sens", "spec", "bal_accuracy")) %>% 
     suppressWarnings() # warning not about metrics we are returning
   
   roc <- tibble(truth = feat_out$lapse,
