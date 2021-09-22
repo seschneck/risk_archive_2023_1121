@@ -186,7 +186,7 @@ tune_model <- function(job, rec, folds) {
                                      sens, spec, roc_auc))
 
     # create tibble of penalty and metrics returned (avg over 10 folds for each penalty)
-    results <- collect_metrics(models) %>% 
+    results <- collect_metrics(models) %>%
       # summarise across repeats
       group_by(penalty, .metric, .estimator, .config) %>% 
       summarise(mean = mean(mean), .groups = "drop") %>% 
