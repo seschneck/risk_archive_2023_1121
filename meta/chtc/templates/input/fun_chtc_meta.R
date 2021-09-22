@@ -53,12 +53,19 @@ build_recipe <- function(d, job) {
   # job: single-row job-specific tibble
   # lapse = outcome variable (lapse/no lapse)
   # feature_set = all_features or passive_only
-  # resample = type + under_ratio
+  # resample = type + under_ratio or none
    
   algorithm <- job$algorithm
   feature_set <- job$feature_set
-  resample <- str_split(job$resample, "_")[[1]][1]
-  under_ratio <- str_split(job$resample, "_")[[1]][2]
+  
+  
+  if (job$resample == "none") {
+    resample <- job$resample
+  } else {
+    resample <- str_split(job$resample, "_")[[1]][1]
+    under_ratio <- as.numeric(str_split(job$resample, "_")[[1]][2])
+  }
+  
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
@@ -78,14 +85,18 @@ build_recipe <- function(d, job) {
   
   # control for unbalanced outcome variable
   if (resample == "up") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
     rec <- rec %>% 
-      themis::step_upsample(lapse, under_ratio = under_ratio)
+      themis::step_upsample(lapse, over_ratio = over_ratio)
   } else if (resample == "down") {
     rec <- rec %>% 
       themis::step_downsample(lapse, under_ratio = under_ratio) 
   } else if (resample == "smote") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
     rec <- rec %>% 
-      themis::step_smote(lapse, under_ratio = under_ratio) 
+      themis::step_smote(lapse, over_ratio = over_ratio, seed = 102030) 
   }
   
   # algorithm specific steps
