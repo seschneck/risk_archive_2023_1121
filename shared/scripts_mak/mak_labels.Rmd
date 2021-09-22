@@ -325,7 +325,6 @@ naniar::miss_var_summary(ema)
 ```{r}
 ema %>% 
   filter(is.na(ema_1_2) | is.na(ema_1_4)) %>% 
-  filter(response_id != "R_cXU4FDBV12lZZPH") %>% 
   select(subid, ema_1_1:ema_1_4)
 ```
 
@@ -363,7 +362,7 @@ interview <- vroom(here(path_raw, "additional_lapses.csv"), col_types = vroom::c
   mutate(subid = as.numeric(subid)) %>% 
   arrange(subid) %>% 
   # filter out lapses from dropped subids
-  filter(subid != 204 & subid != 269) %>% 
+  filter(subid != 204 & subid != 269 & subid != 104) %>% 
   glimpse()
 ```
 
@@ -415,8 +414,8 @@ Highlighting important EDA findings relevant to lapse labels below:
 ```{r echo = FALSE}
 tibble(subid = numeric(),
        notes = character()) %>% 
-  add_row(subid = 73,
-          notes = "No surveys between 2/5 - 2/14 - they called to say they were interested in continuing with the study but having trouble getting back on track. Subid 73 reports no lapses on ema or interview during study. Flagging this time period and possibly surounding days as being unreliable for both lapse and non-lapse labels due to likely drinking.") %>% 
+  add_row(subid = 173,
+          notes = "Participant hadn't responded to surveys since 2/5/19. They picked back up on 2/14/19 (participant called on 2/14/19 and stated they were interested in continuing study participation they were just having a hard time but are ready to get back on track). Flagging this time period (2/5 - 2/13) as being possibly unreliable for both lapse and non-lapse labels due to likely drinking. Note they did report a lapse on 2/9 from 10 AM - 10 AM when they picked back up on EMAs on 2/14. This is a lapse reported 5 days later and is less than an hour long. Seems not indicative of being off track though so likely more drinking occurred. Especially since they drank again on the 15th and were eventually discontinued due to poor EMA compliance.") %>% 
   add_row(subid = 10,
           notes = "Participant has a 27 hour lapse from 6PM 8/24 - 9 PM 8/25 [response_id = R_3h9jBssRo3T7q1I]. They reported this lapse via EMA on 8/27. No other lapses immediately surrounding these dates. Also missed all EMAs over 8/24 - 8/25 duration. From log - No notes in audio, individial or full data log, or indication from EMAs and nothing to suggest we should change these dates even though it is a long lapse.") %>% 
   print_kbl(align = "l", height = "100%")
@@ -424,19 +423,26 @@ tibble(subid = numeric(),
 
 John and Kendra discussed the notes above and decided to make the following changes:    
 
-Add dates for subid 73 ranging between 2/5-2/14 as interview reported lapses with no 
-start or end time
-
-FIX: subid 74?
+Add dates for subid 73 for 2/5-2/13 as interview reported lapses with no start or end time   
 ```{r}
 interview <- interview %>% 
-  add_row(subid == 73, ema_1_1 = "")
+  add_row(subid = 173, ema_1_1 = "02-05-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-06-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-07-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-08-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-09-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-10-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-11-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-12-2019", ema_1_6 = "America/Chicago", source = "interview") %>% 
+  add_row(subid = 173, ema_1_1 = "02-13-2019", ema_1_6 = "America/Chicago", source = "interview")
 ```
 
 Change end time to NA for subid 10 - reasoning is we believe start time to be valid but
 this would otherwise get excluded due to a lapse duration over 24 hours.
 ```{r}
-
+ema <- ema %>% 
+  mutate(ema_1_4 = case_when(response_id == "R_3h9jBssRo3T7q1I" ~ NA_character_,
+                             TRUE ~ ema_1_4))
 ```
 
 
@@ -458,8 +464,8 @@ lapses %>%
   tabyl(ema_1_4)
 ```
 
-Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. After KW 
-and JC reviewed this situation, it was concluded that it was likely they were still drinking at time 
+Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. After Kendra 
+and John reviewed this situation, it was concluded that it was likely they were still drinking at time 
 of EMA (i.e., no end time). Changing end time to NA in this script.    
 ```{r}
 lapses <- lapses %>% 
