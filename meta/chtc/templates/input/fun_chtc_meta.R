@@ -13,30 +13,35 @@ suppressPackageStartupMessages({
   require(psych)
   require(purrr)
   require(glmnet)
-  # require(kknn)
+  require(kknn)
   require(vip)
 })
 
 
-# splits for grouped repeated k-fold (subid = grouping factor)
 make_folds <- function(d, job) {
   
   # d: (training) dataset to be resampled (subid = grouping id)
   # job: single job to get n_repeats and n_folds from cv_type
+  cv_type <- str_split(str_remove(job$cv_type, "_x"), "_")[[1]][1]
   
-  n_repeats <- as.numeric(str_split(job$cv_type, "_x_")[[1]][1])
-  n_folds <- as.numeric(str_split(job$cv_type, "_x_")[[1]][2])
+  # kfold splits
+  if (cv_type == "kfold"){ 
+    n_repeats <- as.numeric(str_split(str_remove(job$cv_type, "_x"), "_")[[1]][2])
+    n_folds <- as.numeric(str_split(str_remove(job$cv_type, "_x"), "_")[[1]][3])
   
-  for (i in 1:n_repeats) {
-    fold <- d %>% 
-      group_vfold_cv(group = subid, v = n_folds) %>% 
-      mutate(n_repeat = i)
+    for (i in 1:n_repeats) {
+      fold <- d %>% 
+        group_vfold_cv(group = subid, v = n_folds) %>% 
+        mutate(n_repeat = i)
     
-    folds <- if (i == 1)
-      fold
-    else
-      rbind(folds, fold)
+      folds <- if (i == 1)
+        fold
+      else
+        rbind(folds, fold)
+    }
   }
+  
+  # add bootstap splits here
   
   return(folds)
 }
@@ -48,13 +53,12 @@ build_recipe <- function(d, job) {
   # job: single-row job-specific tibble
   # lapse = outcome variable (lapse/no lapse)
   # feature_set = all_features or passive_only
-  # resample = none, up, down, or smote
-  # under_ratio = diff value of majority:minority (e.g., 4 = 20% minority)
+  # resample = type + under_ratio
    
   algorithm <- job$algorithm
   feature_set <- job$feature_set
-  resample <- job$resample
-  under_ratio <- job$under_ratio
+  resample <- str_split(job$resample, "_")[[1]][1]
+  under_ratio <- str_split(job$resample, "_")[[1]][2]
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
@@ -156,7 +160,7 @@ tune_model <- function(job, rec, folds) {
   if (job$algorithm == "glmnet") {
     # use whole dataset (all folds)
     # CHANGE: number of penalty values in tune grid
-    grid_penalty <- expand_grid(penalty = exp(seq(-5, 5, length.out = 100)))
+    grid_penalty <- expand_grid(penalty = exp(seq(-6, 2, length.out = 100)))
     
     # tune_grid - takes in recipe, splits, and hyperparameter values to find
     # the best penalty value across all 100 held out folds 
@@ -174,8 +178,7 @@ tune_model <- function(job, rec, folds) {
     results <- collect_metrics(models) %>% 
       # summarise across repeats
       group_by(penalty, .metric, .estimator, .config) %>% 
-      summarise(mean = mean(mean), 
-                std_err = mean(std_err), .groups = "drop") %>% 
+      summarise(mean = mean(mean), .groups = "drop") %>% 
       select(hp2 = penalty, .metric, mean) %>% 
       pivot_wider(., names_from = ".metric",
                   values_from = "mean") %>% 
@@ -206,16 +209,39 @@ tune_model <- function(job, rec, folds) {
       set_mode("classification") %>%
       fit(lapse ~ .,
           data = feat_in)
+    
+    # use get_metrics function to get a tibble that shows performance metrics
+    results <- get_metrics(model = model, feat_out = feat_out) %>% 
+      pivot_wider(., names_from = "metric",
+                  values_from = "estimate") %>%   
+      bind_cols(job, .) 
+    
+    return(results) 
   }
   
-  # Single model jobs
-  # use get_metrics function to get a tibble that shows performance metrics
-  results <- get_metrics(model = model, feat_out = feat_out) %>% 
-    pivot_wider(., names_from = "metric",
-                values_from = "estimate") %>%   
-    bind_cols(job, .) 
+  if (job$algorithm == "knn") {
+    # extract single fold associated with job
+    features <- make_features(job = job, folds = folds, rec = rec)
+    feat_in <- features$feat_in
+    feat_out <- features$feat_out
+    
+    # fit model - job provides number of neighbors
+    
+    model <- nearest_neighbor(neighbors = job$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      fit(lapse ~ .,
+          data = feat_in)
+    
+    # use get_metrics function to get a tibble that shows performance metrics
+    results <- get_metrics(model = model, feat_out = feat_out) %>% 
+      pivot_wider(., names_from = "metric",
+                  values_from = "estimate") %>%   
+      bind_cols(job, .) 
+    
+    return(results) 
+  }
   
-  return(results) 
 }
 
 
