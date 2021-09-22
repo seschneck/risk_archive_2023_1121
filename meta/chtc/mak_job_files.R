@@ -3,18 +3,19 @@
 
 # CHANGE GLOBAL JOB PARAMETERS -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "test_algorithms" # the name of the job to set folder names
+name_job <- "glmnet_knn" # the name of the job to set folder names
 feature_set <- c("all_features") # 1+ data stream to use (all_features or passive_only)
-algorithm <- c("glmnet", "random_forest") # 1+ algorithm (glmnet, random_forest) 
-resample <- c("none", "up", "down", "smote") # 1+ upsampling methods (up, down, smote, or none)
-cv_type <- "1_x_10" # format should be n_repeats_x_n_folds (e.g., 1_x_10, 50_x_10)
-under_ratio <- c(NA_integer_, 4, 1) # majority:minority ratio (e.g., 4 = 20% minority cases)
+algorithm <- c("glmnet", "knn") # 1+ algorithm (glmnet, random_forest) 
+resample <- c("none", "up_3", "up_1", "down_3", "down_1", "smote_3", "smote_1") # 1+ upsampling methods (up, down, smote, or none)
+# should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
+cv_type <- "kfold_2_x_10" # format for kfold should be kfold_n_repeats_n_folds (e.g., kfold_1_x_10, kfold_50_x_10)
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
-hp1_glmnet <- seq(0, 1, length.out = 11) # alpha (mixture) 
-hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 10, 20) # min_n
-hp3_rf <- 2000 # trees (10 x's number of predictors)
+hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
+hp1_knn <- c(5, 10, 20) # neighbors
+# hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
+# hp2_rf <- c(2, 10, 20) # min_n
+# hp3_rf <- 2000 # trees (10 x's number of predictors)
 
 # set paths -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" 
@@ -36,15 +37,9 @@ for (i in algorithm) {
                       hp3 = NA_integer_,
                       resample,
                       cv_type)
-    if ("up" %in% resample | "down" %in% resample | "smote" %in% resample) {
-      if ("none" %in% resample) resample_tmp <- resample[!resample %in% ("none")] 
-      under_ratio_tmp <- expand_grid(resample = resample_tmp,
-                                     under_ratio)
-      jobs_tmp <- full_join(as_tibble(jobs_tmp), under_ratio_tmp, by = "resample")
-    } 
     } else if (i == "random_forest") {
-    jobs_tmp <- expand_grid(n_repeat = 1:as.numeric(str_split(cv_type, "_x_")[[1]][1]),
-                        n_fold = 1:as.numeric(str_split(cv_type, "_x_")[[1]][2]),
+    jobs_tmp <- expand_grid(n_repeat = 1:as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][2]),
+                        n_fold = 1:as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][3]),
                         algorithm = "random_forest",
                         feature_set,
                         hp1 = hp1_rf,
@@ -52,13 +47,18 @@ for (i in algorithm) {
                         hp3 = hp3_rf,
                         resample,
                         cv_type)
-    if ("up" %in% resample | "down" %in% resample | "smote" %in% resample) {
-      if ("none" %in% resample) resample_tmp <- resample[!resample %in% ("none")] 
-      under_ratio_tmp <- expand_grid(resample = resample_tmp,
-                                     under_ratio)
-      jobs_tmp <- full_join(as_tibble(jobs_tmp), under_ratio_tmp, by = "resample")
-    } 
+    } else if (i == "knn") {
+    jobs_tmp <- expand_grid(n_repeat = 1:as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][2]),
+                            n_fold = 1:as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][3]),
+                            algorithm = "knn",
+                            feature_set,
+                            hp1 = hp1_knn,
+                            hp2 = NA_integer_,
+                            hp3 = NA_integer_,
+                            resample,
+                            cv_type)      
     }
+  
   # bind jobs files
   jobs <- if (i == algorithm[1])
     jobs_tmp
