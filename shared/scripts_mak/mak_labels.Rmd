@@ -750,13 +750,15 @@ future_lapse_start <- lapses %>%
 
 FIX: These may be unreliable lapses - should consider whether to include
 ```{r}
-ema_all %>% 
+lapses %>% 
   filter(response_id %in% future_lapse_start$response_id) %>% 
   left_join(log %>% 
               filter(subid != "all") %>% 
               mutate(subid = as.numeric(subid)), 
             by = c("response_id", "subid")) %>% 
-  select(subid, ema_1_1:ema_1_4, ema_start = start_date, ema_end = end_date, notes) %>% 
+  left_join(ema_all %>% select(subid, response_id, ema_end_time = end_date), 
+            by = c("subid", "response_id")) %>% 
+  select(subid, lapse_start, lapse_end, ema_end_time, notes) %>% 
   print_kbl(align = "l")
 ```
 
@@ -873,7 +875,6 @@ labels_all <- get_lapse_labels(lapses, dates) %>%
   glimpse()
 ```
 
-FIX: confirm we are not sampling within 24 hours of lapses with no end date for non-lapses
 
 
 #### EDA
