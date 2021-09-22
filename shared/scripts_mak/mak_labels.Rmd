@@ -18,8 +18,14 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-These labels are complete. See conclusions for important points that may affect study-level 
-decisions.   
+These labels are complete except for one outstanding fix below. See conclusions for 
+important points that may affect study-level decisions.   
+
+JOHN:  
+
+- 5 lapses are reported in the future (start time is after end time of EMA survey). These 
+are currently retained but may want to consider excluding. Notes are in script under future 
+lapses (Can search for FIX to go directly to section).   
  
 
 ### Conclusions   
@@ -27,9 +33,6 @@ decisions.
 - More complete EDA on all EMA data is in cln_ema.Rmd. This file focuses on EDA related 
 to whether a lapse/non-lapse is reliable or whether it should be excluded from sampling.  
 
-- 5 lapses are reported in the future (start time is after end time of EMA survey). These 
-are currently retained but may want to consider excluding. Notes are in script under future 
-lapses.   
 
 - We decided to retain lapses with no end time if their onset was valid. We will use a
 24 hour rule when sampling non-lapses. That is we will not sample non-lapses in the 
@@ -745,7 +748,7 @@ future_lapse_start <- lapses %>%
 
 `r nrow(future_lapse_start)` lapses reported as starting after EMA       
 
-NOTE: These may be unreliable lapses - should consider whether to include
+FIX: These may be unreliable lapses - should consider whether to include
 ```{r}
 ema_all %>% 
   filter(response_id %in% future_lapse_start$response_id) %>% 
@@ -800,8 +803,8 @@ lapses %>%
 Valid vs. invalid lapses
 ```{r}
 lapses %>% 
-  tabyl(exclude) %>%  # 1181 total lapses
-  adorn_totals("row") # 43 invalid lapses
+  tabyl(exclude) %>%  
+  adorn_totals("row") 
 ```
 
 View all valid lapses
