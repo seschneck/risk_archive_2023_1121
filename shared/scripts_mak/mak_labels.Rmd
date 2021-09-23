@@ -92,7 +92,7 @@ still drinking at time of EMA (i.e., no end time). Changing end time to NA in th
   
   
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 
-surveys a day. Not clear why. They report no lapses while on study and no other notes or 
+surveys a day. Not clear why. They report no lapses while on study. They also have no other notes or 
 evidence to suggest their data is unreliable.    
 
 - Interview lapses are used to exclude days from non-lapse sampling but should not be 
@@ -110,7 +110,7 @@ there have been any lapses since the last survey.
   and puts "no" for ema_1.  
   
 
-- All final timezones are in Central time.    
+- All final timezones are in America/Chicago timezone.    
 
 
 ### Set Up Environment
@@ -208,10 +208,14 @@ log <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::co
 Read in cleaned EMA files
 ```{r, message=FALSE}
 emam <- vroom(here(path_processed, "ema_morning.csv"), col_types = vroom::cols()) %>% 
-  rename_with(~ str_replace(.x, "emam_", "ema_"))
+  rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
+  mutate(start_date = with_tz(start_date, "America/Chicago"),
+         end_date = with_tz(end_date, "America/Chicago"))
 
 emal <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%>% 
-  rename_with(~ str_replace(.x, "emal_", "ema_"))
+  rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
+  mutate(start_date = with_tz(start_date, "America/Chicago"),
+         end_date = with_tz(end_date, "America/Chicago"))
 ```
 
 Drop subids 269, 204, and 104   
