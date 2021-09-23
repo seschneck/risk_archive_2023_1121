@@ -3,7 +3,7 @@
 
 # CHANGE GLOBAL JOB PARAMETERS -------------------
 data_trn <- "period_720_lead_0.csv"
-name_job <- "glmnet_knn" # the name of the job to set folder names
+name_job <- "glmnet_knn_extended" # the name of the job to set folder names
 feature_set <- c("all_features") # 1+ data stream to use (all_features or passive_only)
 algorithm <- c("glmnet", "knn") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up_3", "up_1", "down_3", "down_1", "smote_3", "smote_1") # 1+ upsampling methods (up, down, smote, or none)
@@ -12,7 +12,7 @@ cv_type <- "kfold_2_x_10" # format for kfold should be kfold_n_repeats_n_folds (
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
 hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
-hp1_knn <- c(5, 10, 20) # neighbors
+hp1_knn <- seq(5, 75, length.out = 15) # neighbors
 # hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
 # hp2_rf <- c(2, 10, 20) # min_n
 # hp3_rf <- 2000 # trees (10 x's number of predictors)
