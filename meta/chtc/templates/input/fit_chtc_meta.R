@@ -25,13 +25,13 @@ d <- read_csv("data_trn.csv", col_types = cols())
 
 # create splits object ---------------
 set.seed(102030)
-folds <- make_folds(d = d, job = job)
+splits <- make_splits(d = d, job = job)
 
 # build recipe ----------------
 rec <- build_recipe(d = d, job = job)
 
 # fit model and get predictions and metrics ----------------
-results <- tune_model(job = job, rec = rec, folds = folds)
+results <- tune_model(job = job, rec = rec, folds = splits)
 
 # write out results tibble ------------
 file_name <- str_c("results_", process_num, ".csv")

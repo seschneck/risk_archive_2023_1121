@@ -825,15 +825,9 @@ meta_features <- meta_features %>%
               mutate(lapse = dplyr::recode(lapse,
                                            "lapse" = "yes",
                                            "no_lapse" = "no")), 
-            by = c("subid", "dttm_label"))
+            by = c("subid", "dttm_label")) %>% 
+  rename(lapse = y) # for CHTC functions that use y as outcome
 ```
-
-<!-- shuffle rows -->
-<!-- ```{r} -->
-<!-- set.seed(102030) -->
-<!-- rows <- sample(nrow(meta_features)) -->
-<!-- meta_features <- meta_features[rows, ] -->
-<!-- ``` -->
 
 
 ```{r}
