@@ -772,9 +772,15 @@ unclear if some of these lapses were due to typos in date (i.e., the time is cor
 the day is meant to be the day before). For this reason we are excluding the day of the lapse 
 and previous day from no lapse samples (prior day added via additional_lapses.csv).   
 ```{r}
-# lapses <- lapses %>%
-#   mutate(exclude = case_when(response_id %in% future_lapse_start$response_id ~ TRUE,
-#                              TRUE ~ exclude))
+lapses <- lapses %>%
+  mutate(exclude = case_when(response_id %in% future_lapse_start$response_id ~ TRUE,
+                             TRUE ~ exclude),
+         lapse_end_time = case_when(response_id %in% future_lapse_start$response_id ~ NA_character_,
+                             TRUE ~ lapse_end_time),
+         lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ as_datetime(NA),
+                             TRUE ~ lapse_end),
+         duration = case_when(response_id %in% future_lapse_start$response_id ~ difftime(NA, NA, "secs"),
+                             TRUE ~ duration))
 ```
 
 
