@@ -18,15 +18,13 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-These labels are complete except for one outstanding fix below. See conclusions for 
-important points that may affect study-level decisions.   
+These labels are now complete once John finalizes his review (including investigating 
+the note below). See conclusions for important decisions and notes related to the processing 
+of these labels.   
 
-JOHN:  
+NOTE: lapse times are in both central standard time (CST) and central daylight time (CDT) 
+after recoded in military format. See fix statement in script.
 
-- 5 lapses are reported in the future (start time is after end time of EMA survey). These 
-are currently retained but may want to consider excluding. Notes are in script under future 
-lapses (Can search for FIX to go directly to section).   
- 
 
 ### Conclusions   
 
@@ -37,6 +35,16 @@ to whether a lapse/non-lapse is reliable or whether it should be excluded from s
 - We decided to retain lapses with no end time if their onset was valid. We will use a
 24 hour rule when sampling non-lapses. That is we will not sample non-lapses in the 
 24 hours following the onset of the lapse + 3 hours as with all lapses.    
+
+
+- Our exclusion criteria can be summarized as:
+
+  - lapses that were reported in an interview   
+  - lapses that have no start time and date     
+  - lapses that have a negative duration   
+  - lapses that have a duration longer than 24 hours     
+  - future lapses (lapse start > ema end time)   
+
 
 
 - John and Kendra have decided to drop subid 104's data for the following reasons:   
@@ -529,6 +537,14 @@ lapses <- lapses %>%
          ema_1_6, response_id)
 ```
 
+
+FIX: Some timezones are central standard time and some are central daylight time
+```{r}
+lapses$lapse_start
+```
+
+
+
 `r nrow(lapses)` lapses (valid and invalid) from `r length(unique(lapses$subid))` participants    
 
 Now we:
@@ -621,7 +637,8 @@ Exclude lapses that:
 * were reported in an interview   
 * have no start time and date     
 * have a negative duration   
-* have a duration longer than 24 hours   
+* have a duration longer than 24 hours     
+* future lapses reported (lapse start > ema end time)   
 
 ```{r}
 lapses <- lapses %>% 
@@ -714,6 +731,63 @@ log %>%
   print_kbl(align = "l")
 ```
 
+**future lapses**
+```{r}
+future_lapse_start <- lapses %>% 
+  left_join(ema_all %>% 
+              select(response_id, ema_end_time = end_date),
+            by = "response_id") %>% 
+  mutate(diff = difftime(ema_end_time, lapse_start, units = "hours"),
+         diff = round(as.numeric(diff))) %>% 
+  filter(diff < 0 & exclude == FALSE) 
+```
+
+`r nrow(future_lapse_start)` lapses reported as starting after EMA    
+
+```{r}
+future_lapse_start %>% 
+  print_kbl()
+```
+
+
+No definitive fixes from log entries 
+```{r}
+lapses %>% 
+  filter(response_id %in% future_lapse_start$response_id) %>% 
+  left_join(log %>% 
+              filter(subid != "all") %>% 
+              mutate(subid = as.numeric(subid)), 
+            by = c("response_id", "subid")) %>% 
+  left_join(ema_all %>% select(subid, response_id, ema_end_time = end_date), 
+            by = c("subid", "response_id")) %>% 
+  select(subid, lapse_start, lapse_end, ema_end_time, notes) %>% 
+  print_kbl(align = "l")
+```
+
+These are not the only lapses for the above subids
+```{r}
+lapses %>% 
+  filter(subid %in% future_lapse_start$subid) %>% 
+  tabyl(subid)
+```
+
+Kendra and John determined these lapses were unreliable and should be excluded. It is 
+unclear if some of these lapses were due to typos in date (i.e., the time is correct but 
+the day is meant to be the day before). For this reason we are excluding the day of the lapse 
+and previous day from no lapse samples (prior day added via additional_lapses.csv).   
+```{r}
+lapses <- lapses %>%
+  mutate(exclude = case_when(response_id %in% future_lapse_start$response_id ~ TRUE,
+                             TRUE ~ exclude),
+         lapse_end_time = case_when(response_id %in% future_lapse_start$response_id ~ NA_character_,
+                             TRUE ~ lapse_end_time),
+         lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ as_datetime(NA),
+                             TRUE ~ lapse_end),
+         duration = case_when(response_id %in% future_lapse_start$response_id ~ difftime(NA, NA, "secs"),
+                             TRUE ~ duration))
+```
+
+
 ### EDA    
 
 Check `lapses` for any other lapses that should be excluded.    
@@ -736,32 +810,6 @@ lapses_10hrs %>%
 lapses_10hrs %>% 
   tabyl(subid) %>% 
   arrange(desc(n))
-```
-
-
-#### future lapses
-```{r}
-future_lapse_start <- lapses %>% 
-  left_join(ema_all %>% 
-              select(response_id, ema_end_time = end_date),
-            by = "response_id") %>% 
-  mutate(diff = difftime(ema_end_time, lapse_start, units = "hours"),
-         diff = round(as.numeric(diff))) %>% 
-  filter(diff < 0 & exclude == FALSE) 
-```
-
-`r nrow(future_lapse_start)` lapses reported as starting after EMA       
-
-FIX: These may be unreliable lapses - should consider whether to include
-```{r}
-ema_all %>% 
-  filter(response_id %in% future_lapse_start$response_id) %>% 
-  left_join(log %>% 
-              filter(subid != "all") %>% 
-              mutate(subid = as.numeric(subid)), 
-            by = c("response_id", "subid")) %>% 
-  select(subid, ema_1_1:ema_1_4, ema_start = start_date, ema_end = end_date, notes) %>% 
-  print_kbl(align = "l")
 ```
 
 
@@ -877,12 +925,11 @@ labels_all <- get_lapse_labels(lapses, dates) %>%
   glimpse()
 ```
 
-FIX: confirm we are not sampling within 24 hours of lapses with no end date for non-lapses
 
 
 #### EDA
 
-Check `labels_all` carefully    
+Check `labels_all`       
 
 * A total of `r nrow(labels_all)` labels made.    
 * `r nrow(subset(labels_all, lapse))` labels are lapses.   
