@@ -16,6 +16,7 @@ knit: (function(input, ...) {
   })
 ---
 
+
 ### Code Status
 
 Code is almost fully complete. Data in output can be trusted but more exploration on numbers should be done to ensure we are not missing any contact/log entry pairings.    
@@ -113,7 +114,7 @@ options(tibble.width = Inf)
 ### Read in Data
 Read in voice IOS data and filter down to variables for meta
 ```{r}
-voice_ios <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = cols()) %>%
+voice_ios <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = vroom::cols()) %>%
   select(subid, zdate, zaddress, zduration, zanswered, zoriginated, zunique_id) %>% 
   glimpse()
 ```
@@ -163,7 +164,7 @@ Note: there is no read variable for android voice logs so we cannot use this var
 Check all duplicates    
 All duplicates have an update to z_opt variable suggesting something happened in between log downloads. Does not appear relevant for meta project so can filter out duplicates.   
 ```{r}
-voice_ios_full <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = cols())
+voice_ios_full <- vroom::vroom(here(path_shared, "voice_ios.csv"), col_types = vroom::cols())
 
 dup_voice_ios <- voice_ios %>% 
   count(across(subid:zunique_id)) %>% 
@@ -198,7 +199,7 @@ voice_ios$number_formatted <- map_chr(voice_ios$zaddress, extract_number)
 
 ### Read in data
 ```{r}
-voice_android <- vroom::vroom(here(path_shared, "voice_android.csv"), col_types = cols()) %>% 
+voice_android <- vroom::vroom(here(path_shared, "voice_android.csv"), col_types = vroom::cols()) %>% 
   select(subid, number, duration, date, type) %>% 
   glimpse()
 ```
@@ -284,9 +285,9 @@ voice_android <- voice_android %>%
                                  type == "Incoming" ~ "incoming",
                                  type == "Outgoing" ~ "outgoing",
                                  TRUE ~ type),
-         call_answered = case_when(type == "incoming" ~ "answered",
+         is_answered = case_when(type == "incoming" ~ "yes",
                               is.na(type) ~ as.character(NA),
-                              TRUE ~ "not answered")) %>% 
+                              TRUE ~ "no")) %>% 
   select(-type) %>% 
   glimpse()
 ```
@@ -308,9 +309,10 @@ voice_ios <- voice_ios %>%
   mutate(originated = case_when(originated == "Incoming" ~ "incoming",
                                 originated == "Outgoing" ~ "outgoing",
                                 TRUE ~ originated)) %>% 
-  mutate(call_answered = case_when(call_answered == "Not Answered" ~ "not answered",
-                                   call_answered == "Answered" ~ "answered",
+  mutate(is_answered = case_when(call_answered == "Not Answered" ~ "no",
+                                   call_answered == "Answered" ~ "yes",
                                    TRUE ~ call_answered)) %>% 
+  select(-call_answered) %>% 
   glimpse()
 ```
 
@@ -321,7 +323,7 @@ join voice logs
 ```{r}
 logs_voice <- voice_android %>% 
   full_join(voice_ios,  by = c("subid", "number", "call_duration", "dttm_obs", "originated", 
-                               "call_answered", "number_formatted")) %>% 
+                               "is_answered", "number_formatted")) %>% 
   # add new variable to mark these are voice logs
   mutate(log_type = "voice") %>% 
   glimpse()
@@ -333,7 +335,7 @@ logs_voice <- voice_android %>%
 
 ### Read in data
 ```{r}
-sms_ios <- vroom::vroom(here(path_shared, "sms_ios.csv"), col_types = cols()) %>% 
+sms_ios <- vroom::vroom(here(path_shared, "sms_ios.csv"), col_types = vroom::cols()) %>% 
   # temporarily keeping text and log_file to filter out duplicates
   select(subid, phone_number, date, is_delivered, is_from_me, is_sent, is_read, 
          is_prepared, n_people_in_chat, text, chat_id, log_file) %>% 
@@ -448,7 +450,7 @@ sms_ios$number_formatted <- map_chr(sms_ios$phone_number, extract_number)
 
 ### Read in data
 ```{r}
-sms_android <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+sms_android <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = vroom::cols()) %>% 
   # keep text message content and log_file in for filtering out duplicates
   select(subid, address, date, type, text = body, read, log_file) %>% 
   glimpse()
@@ -462,7 +464,7 @@ sms_android <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = co
 Check all duplicates    
 Not clear what caused duplicate but they are identical on all meta relevant variables so not going to investigate further at the moment. 
 ```{r}
-sms_android_full <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = cols()) %>% 
+sms_android_full <- vroom::vroom(here(path_shared, "sms_android.csv"), col_types = vroom::cols()) %>% 
   rename(text = body)
 
 dup_sms_android <- sms_android %>% 
@@ -620,7 +622,7 @@ Filter down to analysis sample (N = 154)
 
 Read in visit dates
 ```{r}
-visit_dates <- read_csv(here(path_shared, "visit_dates.csv"), col_types = cols()) 
+visit_dates <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) 
 
 study_sample <- visit_dates %>% 
   filter(!is.na(followup_1)) %>% 
@@ -641,7 +643,7 @@ logs <- logs %>%
 
 ### Read in Data
 ```{r}
-contacts <- read_csv(here(path_shared, "contacts.csv"), col_types = "icccccccccccccc") %>% 
+contacts <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = "icccccccccccccc") %>% 
   glimpse()
 ```
 
@@ -959,7 +961,7 @@ call answered
 ```{r}
 logs %>% 
   filter(log_type == "voice") %>% 
-  tabyl(call_answered)
+  tabyl(is_answered)
 ```
 
 message read
@@ -1038,8 +1040,6 @@ tabyl(logs$monthly_visit)
 write_csv(logs, here(path_meta, "meta_logs.csv")) %>% 
   glimpse() 
 ```
-
-
 
 
 

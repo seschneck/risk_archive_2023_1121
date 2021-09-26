@@ -1,0 +1,351 @@
+---
+title: "Meta Feature Engineering Shell"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code status
+
+This shell is still in progress. Currently includes a demo of get_feature_period function. Working on improving demo of make_features().    
+
+
+### Conclusions
+
+
+
+### Notes
+
+This script serves as a shell for the feature engineering script for meta study.
+
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+Relative paths
+```{r}
+path_fun_risk <- "shared"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)  # always need this
+library(janitor) # cleaning and EDA
+library(lubridate)
+library(purrr)
+library(vroom)
+
+# for plots and tables
+library(ggplot2)
+theme_set(theme_bw()) # or theme_set(theme_classic())
+library(kableExtra)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_fun_risk, "fun_risk.R"))
+```
+
+### Read in Data
+
+Meta logs dataframe  
+```{r}
+logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+Lapse labels dataframe
+```{r}
+labels_05 <- vroom(here(path_shared, "labels_05.csv"), col_types = vroom::cols()) %>% 
+  select(subid, dttm_label = hour) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+### Create Demo Data
+
+Narrow down to logs for only 10 random subids for demo
+```{r}
+set.seed(20210606)
+
+subids_demo <- logs %>% 
+  count(subid) %>% 
+  slice_sample(n = 10)
+
+logs_demo <- logs %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  glimpse()
+```
+
+
+Narrow down lapse labels to 10 random lapses for demo
+```{r}
+labels_demo <- labels_05 %>% 
+  filter(subid %in% subids_demo$subid) %>% 
+  slice_sample(n = 10)
+
+labels_demo
+```
+
+
+
+### Demo of make_features
+
+Run function w/ 72 hour period duration hours and 0 lead hours    
+
+Add features for sms variables
+```{r}
+logs_demo_sms <- logs_demo %>% 
+  filter(log_type == "sms") %>% 
+  glimpse()
+
+
+fun_list <- list(n_yes = ~sum(.x == "yes", na.rm = TRUE))
+
+
+logs_features <- map2_dfr(labels_demo$subid,
+                          labels_demo$dttm_label,
+                          ~make_features(
+                              the_subid = .x,
+                              the_dttm_label = .y,
+                              data = logs_demo_sms,
+                              lead_hours = 0, 
+                              period_duration_hours = 72,
+                              data_type = "sms",
+                              col_list = c(read = "message_read", 
+                                           group = "message_is_group", 
+                                           failed = "message_failed"),
+                              fun_list = fun_list)) %>% 
+  glimpse()
+
+# add count of incoming sms messages and total sms messages
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                        the_subid = .x,
+                        the_dttm_label = .y,
+                        data = logs_demo_sms,
+                        lead_hours = 0, 
+                        period_duration_hours = 72,
+                        data_type = "sms",
+                        col_list = c("originated"),
+                        fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                        total_n = ~n()))),
+            by = c("subid", "dttm_label")) %>% 
+  rename_with(~str_replace(.x, "_originated", "")) %>% 
+  glimpse()
+```
+
+
+
+Add features for Voice variables
+
+```{r}
+logs_demo_voice <- logs_demo %>% 
+  filter(log_type == "voice") %>% 
+  glimpse()
+
+
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                       the_subid = .x,
+                       the_dttm_label = .y,
+                       data = logs_demo_voice,
+                       lead_hours = 0, 
+                       period_duration_hours = 72,
+                       data_type = "voice",
+                       col_list = c(answered = "is_answered"),
+                       fun_list = list(n_yes = ~sum(.x == "yes", na.rm = TRUE)))),
+            by = c("subid", "dttm_label")) %>% 
+  glimpse()
+
+# add count of incoming calls and total calls
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 72,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
+                                      total_n = ~n()))),
+            by = c("subid", "dttm_label")) %>% 
+  rename_with(~str_replace(.x, "_originated", "")) %>% 
+  glimpse()
+
+# add stats on call duration
+logs_features <- logs_features %>% 
+  full_join(map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 72,
+                      data_type = "voice",
+                      col_list = c(duration = "call_duration"),
+                      fun_list = list(mean = ~round(mean(.x, na.rm = TRUE), 2),
+                                      sd = ~round(sd(.x, na.rm = TRUE), 2),
+                                      min = ~round(min(.x, na.rm = TRUE), 2),
+                                      max = ~round(max(.x, na.rm = TRUE), 2)))),
+            by = c("subid", "dttm_label")) %>% 
+  glimpse()
+```
+
+
+**NOTE: if there are no voice call observations to use for calculating descriptive stats it returns NaN, Inf, or NA**
+
+```{r}
+get_feature_period(the_subid = labels_demo$subid[3], 
+                   the_dttm_label = labels_demo$dttm_label[3],
+                   data = logs_demo_voice,
+                   lead_hours = 0, 
+                   period_duration_hours = 24)
+```
+
+```{r}
+fun_list_descriptive <- list(mean = ~round(mean(.x, na.rm = TRUE), 2),
+                             sd = ~round(sd(.x, na.rm = TRUE), 2),
+                             min = ~round(min(.x, na.rm = TRUE), 2),
+                             max = ~round(max(.x, na.rm = TRUE), 2))
+
+test_na <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c(duration = "call_duration"),
+                      fun_list = fun_list_descriptive)) %>% 
+  glimpse()
+```
+
+
+To prevent warning message and unreliable coercion to Inf, -Inf, NaN, Na values surround function with an if else statement   
+Note: if_else correctly parses the values as NA but the warning messages still show up. Instead use full if else statement
+```{r}
+fun_list_descriptive <- list(mean = function(.x) {if (length(.x) > 0) round(mean(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)},
+                             sd =   function(.x) {if (length(.x) > 0) round(sd(.x, na.rm = TRUE), 2)
+                                                    else as.numeric(NA)},
+                             min =  function(.x) {if (length(.x) > 0) round(min(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)},
+                             max =  function(.x) {if (length(.x) > 0) round(max(.x, na.rm = TRUE), 2)
+                                                    else  as.numeric(NA)})
+
+test_na <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c(duration = "call_duration"),
+                      fun_list = fun_list_descriptive)) %>% 
+  glimpse()
+```
+
+Counts do not need to be surrounded by if else because they will simply be 0. Proportions however do need an if else statement - otherwise it will be parsed as NaN by default.   
+```{r}
+fun_list_originated <- list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE), 
+                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), 
+                            prop_incoming = ~round(sum(.x == "incoming", na.rm = TRUE)/n(), 2), 
+                            n_total = ~n())  
+
+test_na_2 <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = fun_list_originated)) %>% 
+  glimpse()
+```
+
+```{r}
+fun_list_originated <- list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE), 
+                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), 
+                            prop_incoming = function (.x) {
+                              if (length(.x) > 0) {
+                              round(sum(.x == "incoming", na.rm = TRUE)/n(), 2)
+                            } else as.numeric(NA)}, 
+                            n_total = ~n()) 
+
+test_na_2 <- map2_dfr(labels_demo$subid,
+                     labels_demo$dttm_label,
+                     ~make_features(
+                      the_subid = .x,
+                      the_dttm_label = .y,
+                      data = logs_demo_voice,
+                      lead_hours = 0, 
+                      period_duration_hours = 24,
+                      data_type = "voice",
+                      col_list = c("originated"),
+                      fun_list = fun_list_originated)) %>% 
+  glimpse()
+```
+
