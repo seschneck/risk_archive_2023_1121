@@ -10,7 +10,7 @@ get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Inputs: 
   #   filename/path for processed visit_dates, and morning and later ema in processed data
   
-  visits <- vroom(filename_visits)  %>% 
+  visits <- vroom(filename_visits, col_types = vroom::cols())  %>% 
     rename(study_start = start_study, study_end = end_study) %>% 
     mutate(followup_complete = !is.na(followup_1),
            study_start = as_datetime(study_start),
@@ -20,10 +20,10 @@ get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
            subid = as.numeric(subid)) %>% 
     select(subid, study_start, study_end, followup_complete)
 
-  emam <- vroom(filename_emam) %>% 
+  emam <- vroom(filename_emam, col_types = vroom::cols()) %>% 
     rename_with(~ str_replace(.x, "emam_", "ema_"))
   
-  emal <- vroom(filename_emal)%>% 
+  emal <- vroom(filename_emal, col_types = vroom::cols())%>% 
     rename_with(~ str_replace(.x, "emal_", "ema_"))
   
   ema <- bind_rows(emam, emal) %>% 
