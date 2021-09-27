@@ -13,32 +13,58 @@ suppressPackageStartupMessages({
   require(psych)
   require(purrr)
   require(glmnet)
-  # require(kknn)
+  require(kknn)
   require(vip)
 })
 
 
-# splits for grouped repeated k-fold (subid = grouping factor)
-make_folds <- function(d, cv_type) {
+make_splits <- function(d, cv_type) {
   
-  # d: (training) dataset to be resampled (subid = grouping id)
-  # cv_type: variable to get n_repeats and n_folds
+  # d: (training) dataset to be resampled 
+  # job: single job to get cv_type parameter from - may directly pass in cv_type
+  # if it becomes global parameter
   
-  n_repeats <- as.numeric(str_split(cv_type, "_x_")[[1]][1])
-  n_folds <- as.numeric(str_split(cv_type, "_x_")[[1]][2])
-  
-  for (i in 1:n_repeats) {
-    fold <- d %>% 
-      group_vfold_cv(group = subid, v = n_folds) %>% 
-      mutate(n_repeat = i)
-    
-    folds <- if (i == 1)
-      fold
-    else
-      rbind(folds, fold)
+  # bootstrap splits
+  if (cv_type == "boot") {
+    # add bootstap splits here
   }
   
-  return(folds)
+  kfold_type <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "kfold") {
+    "kfold"
+  } else if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
+    "group_kfold"
+  }
+  
+  
+  # kfold splits
+  if (kfold_type == "kfold"){ 
+    n_repeats <- as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][2])
+    n_folds <- as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][3])
+    
+    split <- d %>% 
+      vfold_cv(v = n_folds, repeats = n_repeats) 
+  }
+  
+  # grouped kfold splits 
+  # grouping variable is hardcoded to be subid
+  if (kfold_type == "group_kfold"){ 
+    n_repeats <- as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][3])
+    n_folds <- as.numeric(str_split(str_remove(cv_type, "_x"), "_")[[1]][4])
+    
+    for (i in 1:n_repeats) {
+      split <- d %>% 
+        group_vfold_cv(group = subid, v = n_folds) %>% 
+        mutate(n_repeat = i)
+      
+      splits <- if (i == 1)
+        split
+      else
+        rbind(splits, split)
+    }
+  }
+  
+  
+  return(splits)
 }
 
 
