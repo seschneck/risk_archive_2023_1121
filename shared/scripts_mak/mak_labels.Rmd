@@ -783,7 +783,7 @@ lapses <- lapses %>%
                              TRUE ~ lapse_end_time),
          lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ as_datetime(NA),
                              TRUE ~ lapse_end),
-         duration = case_when(response_id %in% future_lapse_start$response_id ~ difftime(NA, NA, "secs"),
+         duration = case_when(response_id %in% future_lapse_start$response_id ~ difftime(NA, NA, units = "hours"),
                              TRUE ~ duration))
 ```
 
@@ -912,10 +912,9 @@ Get valid lapse and no_lapse observations by hour
 the end of study (or last ema, whichever is earlier)
 * lapse column is true or false.  True for accurate lapse reports
 * no_lapse column is true or NA.  True for accurate no_lapse, NA for excluded periods
-These periods are excluded if there are with +-3 hours of a valid lapse period, or similar
+These periods are excluded if there are with +-24 hours of a valid lapse period, or similar
 periods around invalid lapse reports.  see function for more detail
 
-UPDATE- GAURAV USING 24 hours before lapse to exclude
 ```{r}   
 # Update dates to not include excluded subids
 dates <- dates %>% 
