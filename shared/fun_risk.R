@@ -148,7 +148,7 @@ get_lapse_labels <- function(lapses, dates) {
     stop("No all lapses accounted")
   }
   
-  # Step 2: Handle no_lapse exclusions for valid lapse periods +- 3 hours.  
+  # Step 2: Handle no_lapse exclusions for valid lapse periods +- 24 hours.  
   
   # First set an end time for valid lapses that have a missing end time (there are a couple)
   # We will be cautious and set longest valid lapse duration (24 hours)
@@ -159,9 +159,9 @@ get_lapse_labels <- function(lapses, dates) {
   
   for (i in 1:nrow(valid_lapses)) {
 
-    # exclude lapse +- 3 hours on each side
-    lapse_hours_exclude <- seq(valid_lapses$lapse_start[[i]] - hours(3), 
-                               valid_lapses$lapse_end[[i]] + hours(3), 
+    # exclude lapse +- 24 hours on each side
+    lapse_hours_exclude <- seq(valid_lapses$lapse_start[[i]] - hours(24), 
+                               valid_lapses$lapse_end[[i]] + hours(24), 
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
@@ -174,7 +174,7 @@ get_lapse_labels <- function(lapses, dates) {
   }
   
   # Step 3: Handle no_lapse exclusions for excluded periods with date but no times
-  # Exclude full date +- 3 hours
+  # Exclude full date +- 24 hours
   exclusions <- lapses %>% 
     filter(exclude & is.na(lapse_start) & is.na(lapse_end))
   
@@ -185,8 +185,8 @@ get_lapse_labels <- function(lapses, dates) {
                                  format = "%m-%d-%Y", tz = "America/Chicago")
       
       # exclude lapse +- 3 hours on each side
-      lapse_hours_exclude <- seq(lapse_start - hours(3), 
-                                 lapse_end + hours(27), # end of day + 3 hours
+      lapse_hours_exclude <- seq(lapse_start - hours(24), 
+                                 lapse_end + hours(48), # end of day + 24 hours
                                  by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
@@ -199,15 +199,15 @@ get_lapse_labels <- function(lapses, dates) {
   }
   
   # Step 4: Handle no_lapse exclusions for very long duration lapses (> 24 hours)
-  # Exclude full period +- 3 hours
+  # Exclude full period +- 24 hours
   exclusions <- lapses %>% 
     filter(exclude & duration > 24)
   
   for (i in 1:nrow(exclusions)) {
     
-    # exclude lapse +- 3 hours on each side
-    lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(3), 
-                               exclusions$lapse_end[[i]] + hours(3), 
+    # exclude lapse +- 24 hours on each side
+    lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(24), 
+                               exclusions$lapse_end[[i]] + hours(24), 
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
@@ -220,15 +220,15 @@ get_lapse_labels <- function(lapses, dates) {
   }
   
   # Step 5: Handle no_lapse exclusions for negative duration lapses
-  # Flip start and end time and then exclude full period +- 3 hours
+  # Flip start and end time and then exclude full period +- 24 hours
   exclusions <- lapses %>% 
-    filter(exclude & duration < 24)
+    filter(exclude & duration <= 24)
   
   for (i in 1:nrow(exclusions)) {
     
     # exclude lapse +- 3 hours on each side
-    lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(3), 
-                               exclusions$lapse_start[[i]] + hours(3), 
+    lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(24), 
+                               exclusions$lapse_start[[i]] + hours(24), 
                                by = "hours")
     
     for (lapse_hour in lapse_hours_exclude) {
