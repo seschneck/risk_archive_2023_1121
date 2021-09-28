@@ -267,8 +267,8 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
   
 }
 
-
-get_feature_period <- function(the_subid, hour, data, lead_hours, period_duration_hours) {
+ 
+get_feature_period <- function(the_subid, the_dttm_label, data, lead_hours, period_duration_hours) {
   
   # This function filters data rows based on a lapse label (subid and hour) passed in
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
@@ -280,10 +280,10 @@ get_feature_period <- function(the_subid, hour, data, lead_hours, period_duratio
   data <- data %>% 
     filter(subid == the_subid) %>% 
     # filter on period duration hours
-    mutate(period_start_dttm = hour - duration(period_duration_hours, "hours")) %>% 
+    mutate(period_start_dttm = the_dttm_label - duration(period_duration_hours, "hours")) %>% 
     filter(dttm_obs >= period_start_dttm) %>% 
     # filter on lead hours
-    mutate(diff_hours = as.numeric(difftime(hour, dttm_obs, units = "hours"))) %>%  
+    mutate(diff_hours = as.numeric(difftime(the_dttm_label, dttm_obs, units = "hours"))) %>%  
     filter(diff_hours >= lead_hours) %>% 
     select(-c(period_start_dttm, diff_hours))
   
@@ -304,6 +304,10 @@ make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_d
   
   # If using this function multiple times you should join returned feature set with 
   # previous feature set on subid and dttm_label
+  
+  # when defining statistical functions you should use an if else statement to run safely 
+  # mean = function(.x) {if (length(.x) > 0) round(mean(.x, na.rm = TRUE), 2)
+  #                        else  as.numeric(NA)}
   
   # filter down data
   data <- get_feature_period(the_subid, the_dttm_label, data, lead_hours, period_duration_hours)

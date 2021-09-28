@@ -18,12 +18,9 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-These labels are now complete once John finalizes his review (including investigating 
-the note below). See conclusions for important decisions and notes related to the processing 
+These labels are now complete. See conclusions for important decisions and notes related to the processing 
 of these labels.   
 
-NOTE: lapse times are in both central standard time (CST) and central daylight time (CDT) 
-after recoded in military format. See fix statement in script.
 
 
 ### Conclusions   
@@ -536,13 +533,6 @@ lapses <- lapses %>%
          lapse_end_date = ema_1_3, lapse_end_time, lapse_end, duration, source, 
          ema_1_6, response_id)
 ```
-
-
-FIX: Some timezones are central standard time and some are central daylight time
-```{r}
-lapses$lapse_start
-```
-
 
 
 `r nrow(lapses)` lapses (valid and invalid) from `r length(unique(lapses$subid))` participants    
