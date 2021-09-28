@@ -1,6 +1,6 @@
 ---
 title: "Create lapse labels"
-author: "John Curtin"
+author: "John Curtin and Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
   html_document:
@@ -18,8 +18,7 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-These labels are now complete. See conclusions for important decisions and notes related to the processing 
-of these labels.   
+These labels are now complete. See conclusions for important decisions and notes related to the  processing of these labels.   
 
 
 
@@ -769,6 +768,8 @@ and previous day from no lapse samples (prior day added via additional_lapses.cs
 lapses <- lapses %>%
   mutate(exclude = case_when(response_id %in% future_lapse_start$response_id ~ TRUE,
                              TRUE ~ exclude),
+         lapse_start_time = case_when(response_id %in% future_lapse_start$response_id ~ NA_character_,
+                             TRUE ~ lapse_start_time),
          lapse_end_time = case_when(response_id %in% future_lapse_start$response_id ~ NA_character_,
                              TRUE ~ lapse_end_time),
          lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ as_datetime(NA),
@@ -938,32 +939,90 @@ labels_05 <- sample_labels(labels_all, .05, 19690127) %>%
 ```
 
 
-#### EDA on Final Labels
+### EDA on Final Labels 
 
-Proportion lapses
+`r length(unique(labels_05$subid))` of `r length(unique(labels_all$subid))` subids have labels.  
+
+Check lapses make up 5% of retained labels   
 ```{r}
 labels_05 %>% 
   tabyl(label)
 ```
 
-`r length(unique(labels_05$subid))` subids have labels.    
+`r nrow(subset(labels_05, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in labels.  
+  
+Missing lapses
+```{r}
+lapses %>% 
+  filter(exclude == FALSE) %>% 
+  filter(!(lapse_start %in% subset(labels_05, label == "lapse")$dttm_label)) %>% 
+  print_kbl()
+```
 
-Observations per subid
+  
+`r length(unique(subset(labels_05, label == "no_lapse")$subid))` subids have no lapses in final labels.
 ```{r}
 labels_05 %>% 
+  filter(label == "no_lapse") %>% 
   tabyl(subid)
 ```
 
-Labels per subid
+lapses and no_lapses are negatively correlated
 ```{r}
 labels_05 %>% 
-  tabyl(subid, label)
+  count(subid, label) %>% 
+  pivot_wider(names_from = label, values_from = n) %>% 
+  select(-subid) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  round(2)
+```
+
+Check no excluded lapses were sampled
+```{r}
+labels_05 %>% 
+  filter(label == "lapse") %>% 
+  left_join(lapses %>% select(subid, lapse_start, exclude), 
+            by = c("subid", "dttm_label" = "lapse_start")) %>% 
+  tabyl(exclude)
+```
+
+Excluded lapse included in labels was excluded for being a future lapse
+```{r}
+labels_05 %>% 
+  filter(label == "lapse") %>% 
+  left_join(lapses, by = c("subid", "dttm_label" = "lapse_start")) %>% 
+  filter(exclude == TRUE) %>% 
+  glimpse()
+
+future_lapse_start %>% 
+  filter(response_id == "R_eWLl6bIFFddp6cV") %>% 
+  select(subid, lapse_start, ema_end_time, diff)
+```
+
+The same lapse is later reported and included (no longer a future lapse) - 2 different response_ids    
+Since this is a valid lapse it is okay that it is retained in our final labels
+```{r}
+lapses %>% 
+  filter(lapse_start == subset(future_lapse_start, response_id == "R_eWLl6bIFFddp6cV")$lapse_start)
+```
+
+EMA for valid lapse
+```{r}
+ema_all %>% 
+  filter(response_id == "R_UGFcl9goLnpGrwl")
+```
+
+
+
+Final labels per subid
+```{r}
+labels_05 %>% 
+  tabyl(subid, label) %>% 
+  adorn_totals("col")
 ```
 
 
 Consider number of valid labels vs. total number of hours on study for each subid
-
-consider correlation between n lapse vs. no_lapse
 
 
 ### Save
