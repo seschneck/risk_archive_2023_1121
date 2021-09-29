@@ -124,6 +124,7 @@ results_rf_down_extended <- collect_metrics(fits_rf_down_extended) %>%
   relocate(sens, .after = accuracy) %>%  # order metrics to bind with other algorithms
   relocate(spec, .after = sens)
 
+
 # plot hyperparameters
 results_rf_down_extended %>%
   mutate(min_n = factor(min_n, ordered = TRUE)) %>% 

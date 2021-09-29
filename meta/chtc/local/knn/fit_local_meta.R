@@ -25,7 +25,7 @@ set.seed(102030)
 folds <- make_splits(d = d, cv_type = "group_kfold_1_x_10")
 
 
-# GLMNET ----------------
+# KNN ----------------
 grid_penalty <- expand_grid(neighbors = seq(5, 75, length.out = 15))
 
 
@@ -75,7 +75,7 @@ results_knn_down %>%
   write_csv(., "results_knn_down.csv")
 
 # save model fits
-saveRDS(fits_knn_down, "fits_knn_down.rds")
+saveRDS(fits_knn_down, "fits_knn_down_1.rds")
 
 # no resample ---------------- 
 # build recipe 
@@ -175,7 +175,7 @@ saveRDS(fits_knn_smote, "fits_knn_smote.rds")
 
 # upsample ---------------- 
 # build recipe 
-rec <- build_recipe(d = d, algorithm = "knn", resample = "up")
+rec <- build_recipe(d = d, algorithm = "knn", resample = "up_1")
 
 # fit model
 # fits_knn_up <- readRDS("fits_knn_up.rds")

@@ -68,13 +68,60 @@ make_splits <- function(d, cv_type) {
 }
 
 
+# build_recipe <- function(d, algorithm, resample) {
+# 
+#   # d: (training) dataset from which to build recipe
+#   # algorithm: glmnet or random_forest
+#   # lapse = outcome variable (lapse/no lapse)
+#   # resample = none, up, down, or smote
+# 
+# 
+#   rec <- recipe(lapse ~ ., data = d) %>%
+#     step_string2factor(lapse, levels = c("no", "yes")) %>%
+#     update_role(subid, dttm_label, new_role = "id variable") %>%
+#     step_string2factor(all_nominal()) %>%
+#     step_impute_median(all_numeric()) %>%
+#     step_impute_mode(all_nominal(), -lapse) %>%
+#     step_zv(all_predictors()) %>%
+#     step_dummy(all_nominal(), -lapse)
+# 
+# 
+#   # control for unbalanced outcome variable
+#   if (resample == "up") {
+#     rec <- rec %>%
+#       themis::step_upsample(lapse, seed = 10)
+#   } else if (resample == "down") {
+#     rec <- rec %>%
+#       themis::step_downsample(lapse, seed = 10)
+#   } else if (resample == "smote") {
+#     rec <- rec %>%
+#       themis::step_smote(lapse, seed = 10)
+#   }
+# 
+#   # algorithm specific steps
+#   if (algorithm == "glmnet" | algorithm == "knn") {
+#     rec <- rec %>%
+#       step_normalize(all_predictors())
+#   }
+# 
+#   return(rec)
+# }
+
 build_recipe <- function(d, algorithm, resample) {
   
   # d: (training) dataset from which to build recipe
-  # algorithm: glmnet or random_forest
   # lapse = outcome variable (lapse/no lapse)
-  # resample = none, up, down, or smote
-
+  # feature_set = all_features or passive_only
+  # resample = type + under_ratio or none
+  
+  
+  if (resample == "none") {
+    resample <- resample
+  } else {
+    under_ratio <- as.numeric(str_split(resample, "_")[[1]][2])
+    resample <- str_split(resample, "_")[[1]][1]
+  }
+  
   
   rec <- recipe(lapse ~ ., data = d) %>%
     step_string2factor(lapse, levels = c("no", "yes")) %>% 
@@ -84,18 +131,23 @@ build_recipe <- function(d, algorithm, resample) {
     step_impute_mode(all_nominal(), -lapse) %>% 
     step_zv(all_predictors()) %>% 
     step_dummy(all_nominal(), -lapse)
-    
+  
+  
   
   # control for unbalanced outcome variable
   if (resample == "up") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
     rec <- rec %>% 
-      themis::step_upsample(lapse)
+      themis::step_upsample(lapse, over_ratio = over_ratio, seed = 10)
   } else if (resample == "down") {
     rec <- rec %>% 
-      themis::step_downsample(lapse) 
+      themis::step_downsample(lapse, under_ratio = under_ratio, seed = 10) 
   } else if (resample == "smote") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
     rec <- rec %>% 
-      themis::step_smote(lapse) 
+      themis::step_smote(lapse, over_ratio = over_ratio, seed = 10) 
   }
   
   # algorithm specific steps
