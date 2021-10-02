@@ -772,7 +772,8 @@ lapses <- lapses %>%
                              TRUE ~ lapse_start_time),
          lapse_end_time = case_when(response_id %in% future_lapse_start$response_id ~ NA_character_,
                              TRUE ~ lapse_end_time),
-         lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ as_datetime(NA),
+         lapse_end = case_when(response_id %in% future_lapse_start$response_id ~ 
+                                 as_datetime(NA, tz = "America/Chicago"),
                              TRUE ~ lapse_end),
          duration = case_when(response_id %in% future_lapse_start$response_id ~ difftime(NA, NA, units = "hours"),
                              TRUE ~ duration))
@@ -951,7 +952,9 @@ labels_05 %>%
 
 `r nrow(subset(labels_05, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in labels.  
   
-Missing lapses
+**Missing lapses**   
+
+FIX: John - The lapse start for all lapses are on the start study date for each subid. So they are reporting a lapse for their first day on study. These SHOULD be included as valid lapses since they start the study at midnight the day after intake.   
 ```{r}
 lapses %>% 
   filter(exclude == FALSE) %>% 
