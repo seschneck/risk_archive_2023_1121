@@ -80,17 +80,17 @@ merge_lapses <- function(lapses) {
   return(lapses)
 }
 
-
-get_study_hours <- function(subid, study_start, study_end, ema_end) {
+get_study_hours <- function(subid, study_start, study_end, ema_end, buffer_hours = 0) {
   # Returns a tibble for one subject with columns for subid (numeric) and 
   #   dttm_label (dttm).  
-  #   First hour is midnight on study day 2
+  #   buffer_hours adds buffer time between study start and first lapses used 
+  #   First hour for lapses is midnight on study day 1 by default (buffer_hours = 0)
   #   Last hour is earlier of the hour preceding the final EMA or 11 pm on the last day
   #   of the study
   # Inputs:
   #   all dttm in America/Chicago
   
-  hour_start <- study_start + days(1)
+  hour_start <- study_start + hours(buffer_hours)
   
   # calculate hour_end in three steps
   study_end <- study_end + (hours(23))  # 11 pm on study_end date
