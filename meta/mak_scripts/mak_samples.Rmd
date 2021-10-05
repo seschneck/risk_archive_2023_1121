@@ -1,0 +1,295 @@
+---
+title: "Make samples"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code Status
+
+This code is complete.      
+
+
+
+### Conclusions   
+
+- This script marks subids to be held out as a test sample or eyeball sample. It 
+returns a dataframe of subids (one row per subid).   
+
+- 30% of subids with lapses and 30% of subids without lapses are marked as the held 
+out test (`test = TRUE`).    
+
+- The remaining 70% (`test = FALSE`) make up the train set.      
+
+- 20% of subids with lapses and 20% of subids without lapses in the training set 
+are marked as an eyeball sample for EDA (`eyeball = TRUE`).     
+
+
+### Set Up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(vroom)
+library(janitor)
+library(lubridate)
+
+theme_set(theme_classic())
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_lab_support, "print_kbl.R"))
+source(here("shared/fun_risk.R"))
+```
+
+### Read in data
+
+Get lapses
+```{r}
+lapses <- vroom::vroom(here(path_shared, "lapses.csv"), col_types = vroom::cols()) %>% 
+  # put all date times in Central time
+  mutate(lapse_start = with_tz(lapse_start, "America/Chicago"),
+         lapse_end = with_tz(lapse_end, "America/Chicago"),
+         ema_end = with_tz(ema_end, "America/Chicago")) %>% 
+  # keep only valid lapses
+  filter(!exclude) %>% 
+  glimpse()
+```
+
+Get all subids from labels
+```{r}
+subids <- vroom::vroom(here(path_meta, "labels_all.csv"), col_types = vroom::cols()) %>% 
+  select(subid) %>% 
+  unique()
+```
+
+
+### Create two groups of subids
+
+`r length(unique(lapses$subid))` subids with lapses
+```{r}
+subs_lapses <- lapses %>% 
+  count(subid) %>% 
+  rename(n_lapses = n)
+
+subs_lapses %>% 
+  arrange(desc(n_lapses))
+```
+
+
+`r length(unique(subset(subids, !subid %in% subs_lapses$subid)$subid))` subids without any lapses
+```{r}
+subs_no_lapses <- subids %>% 
+  filter(!subid %in% subs_lapses$subid) %>% 
+  mutate(n_lapses = 0)
+  
+subs_no_lapses %>% 
+  arrange(subid)
+```
+
+### Create test set
+
+set seed
+```{r}
+set.seed(102030)
+```
+
+Select random sample of 30% of subids with lapses and 30% of subids without lapses  
+30% of 84 subids with lapses = `r round(84 * .3)`   
+30% of 67 subids with no lapses = `r round(67 * .3)`   
+```{r}
+subs_test <- slice_sample(subs_lapses, n = 25) %>% 
+  bind_rows(slice_sample(subs_no_lapses, n = 20)) %>% 
+  mutate(test = TRUE)
+```
+
+`r nrow(subs_test)` subids in held out test set     
+45/151 = `r round(45/151, 2)`
+```{r}
+subs_test
+```
+
+
+### Create eyeball sample
+
+Select random sample of 20% of subids with lapses and of those only not in test set and 20% without lapses    
+20% of 84 subids with lapses = `r round(84 * .2)`   
+20% of 67 subids with no lapses = `r round(67 * .2)`   
+```{r}
+subs_eyeball <- slice_sample(subs_lapses %>% filter(!subid %in% subs_test$subid), 
+                             n = 17) %>% 
+  bind_rows(slice_sample(subs_no_lapses %>% filter(!subid %in% subs_test$subid),
+                         n = 13)) %>% 
+  mutate(eyeball = TRUE)
+```
+
+`r nrow(subs_eyeball)` subids in eyeball set     
+30/151 = `r round(30/151, 2)`  
+```{r}
+subs_eyeball
+```
+
+
+
+### Create final `samples` dataframe
+
+Bind subids with lapses and without lapses
+```{r}
+samples <- subs_lapses %>% 
+  bind_rows(subs_no_lapses) %>% 
+  glimpse()
+```
+
+Add `test` and `eyeball`
+```{r}
+samples <- samples %>%
+  mutate(eyeball = if_else(subid %in% subs_eyeball$subid, TRUE, FALSE),
+         test = if_else(subid %in% subs_test$subid, TRUE, FALSE)) %>% 
+  glimpse()
+```
+
+Check subids are not in both test and eyeball sample
+```{r}
+samples %>% 
+  tabyl(eyeball, test)
+```
+
+
+
+### Eyeball Sample EDA
+
+Join samples df to lapses    
+```{r}
+lapses <- lapses %>% 
+  left_join(samples, by = "subid")
+```
+
+`r nrow(subset(lapses, eyeball))` lapses in eyeball set.   
+
+
+Visualize lapse days and times     
+
+Hours
+```{r}
+lapses %>% 
+  filter(eyeball) %>% 
+  rowwise() %>% 
+  mutate(hours = str_split(lapse_start, pattern = " ")[[1]][2],
+         hours = str_split(hours, pattern = ":")[[1]][1],
+         hours = factor(as.numeric(hours), levels = c(1:24), ordered = TRUE)) %>% 
+  ggplot(aes(x = hours)) +
+  geom_bar(aes(y = ..count../sum(..count..))) +
+  ylab("proportion") +
+  scale_x_discrete(drop = FALSE)
+```
+
+
+Days
+```{r}
+lapses %>% 
+  filter(eyeball) %>% 
+  mutate(day = wday(lapse_start, label = TRUE)) %>% 
+  ggplot(aes(x = day)) +
+  geom_bar(aes(y = ..count../sum(..count..))) +
+  ylab("proportion")
+```
+
+
+
+Hours and Days
+
+```{r fig.width = 10}
+lapses %>% 
+  filter(eyeball) %>% 
+  rowwise() %>% 
+  mutate(hours = str_split(lapse_start, pattern = " ")[[1]][2],
+         hours = str_split(hours, pattern = ":")[[1]][1],
+         hours = factor(as.numeric(hours), levels = c(1:24), ordered = TRUE)) %>% 
+  mutate(day = wday(lapse_start, label = TRUE)) %>% 
+  tabyl(day, hours) %>% 
+  pivot_longer(cols = c(2:25), names_to = "hour") %>% 
+  mutate(day_hour = str_c(as.character(day), hour, sep = " ")) %>% 
+  mutate(day_hour = factor(day_hour, levels = day_hour, ordered = TRUE)) %>% 
+  ggplot(aes(x = day_hour, y = value/nrow(subset(lapses, eyeball)))) +
+  geom_bar(stat = "identity") +
+  scale_x_discrete(drop = FALSE) +
+  ylab("proportion") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5, size = 7))
+```
+
+```{r fig.height = 7}
+lapses %>% 
+  filter(eyeball) %>% 
+  rowwise() %>% 
+  mutate(hours = str_split(lapse_start, pattern = " ")[[1]][2],
+         hours = str_split(hours, pattern = ":")[[1]][1],
+         hours = factor(as.numeric(hours), levels = c(1:24), ordered = TRUE)) %>% 
+  mutate(day = wday(lapse_start, label = TRUE)) %>% 
+  ggplot(aes(x = hours)) +
+  geom_bar(aes(y = ..count../sum(..count..))) +
+  facet_wrap(~ day, ncol = 2) +
+  ylab("proportion") +
+  scale_x_discrete(drop = FALSE) 
+```
+
+
+
+### Save samples
+
+```{r}
+samples %>% 
+  write_csv(here(path_meta, "samples.csv")) %>% 
+  glimpse()
+```
+
