@@ -33,10 +33,11 @@ Discuss with JC:
 
 These features will be further broken down into different feature sets:     
 
-- feat_baseline_id - Only static/ID features and features engineered from lapse date/time.    
-- feat_baseline_temporal - Only features derived from log meta data (includes context information).   
+- feat_baseline_id - Only static/ID features    
+- feat_baseline_temporal - Only features derived from temporal features about label      
 - feat_all - All features.   
-- feat_all_passive - All features except those derived from context information.   
+- feat_all_passive - All features except those derived from context information.     
+- feat_logs - Only features derived from log and context info     
 
 
 ### Notes
@@ -824,11 +825,13 @@ Day of week and time of lapse
 meta_features <- meta_features %>% 
   rowwise() %>% 
   mutate(label_weekday = wday(dttm_label, label = TRUE),
-         label_hour = str_split(dttm_label, pattern = " ")[[1]][2],
-         label_hour = str_split(label_hour, pattern = ":")[[1]][1]) %>% 
+         label_hour = hour(dttm_label),
+         label_hour = case_when(label_hour == 0 ~ 24,
+                                TRUE ~ as.numeric(label_hour))) %>% 
   ungroup() %>% 
   glimpse()
 ```
+
 
 Holidays (+/- 1 day)    
 Note: only using federal holidays and easter for now   

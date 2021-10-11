@@ -6,10 +6,10 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "period_168_lead_0.csv"
-name_job <- "glmnet_knn_rf" # the name of the job to set folder names
+name_job <- "test" # the name of the job to set folder names
 feature_set <- c("feat_baseline_id", "feat_baseline_temporal", "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
-algorithm <- c("glmnet", "knn", "random_forest") # 1+ algorithm (glmnet, random_forest) 
-resample <- c("none", "up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
+algorithm <- c("glmnet") # 1+ algorithm (glmnet, random_forest) 
+resample <- c("none", "down_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y <- "y" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
@@ -21,11 +21,8 @@ group <- "subid" # grouping variable for grouped k-fold - remove if not using gr
 hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
 hp2_glmnet_min <- -9 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
-hp2_glmnet_out <- 100 # length of penalty grid
-hp1_knn <- seq(5, 75, length.out = 15) # neighbors
-hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 10, 20) # min_n
-hp3_rf <- 2800 # trees (10 x's number of predictors)
+hp2_glmnet_out <- 50 # length of penalty grid
+
 
 # CHANGE STUDY PATHS -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs" # location of where you want your jobs to be setup
