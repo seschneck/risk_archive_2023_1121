@@ -16,6 +16,8 @@ cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 # format for kfold should be kfold_n_repeats_x_n_folds (e.g., kfold_1_x_10, group_kfold_10_x_10)
 # determine where to pass in global cv_type parameter
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
+perf_metric <- "bal_accuracy" # used for determining best model in post-processing script 
+# note other classification metrics will still be collected (bal_accuracy, roc_auc, sens, spec, accuracy)
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
 hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
@@ -65,16 +67,35 @@ build_recipe <- function(d, job, y) {
     update_role(subid, dttm_label, new_role = "id variable") %>%
     # reference group will be first level in factor - specify levels to choose reference group
     step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
-    step_string2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+    step_num2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
                                               "14", "15", "16", "17", "18", "19", "20", "21", "22",
                                               "23", "24", "1", "2", "3")) %>%
     step_string2factor(label_season, levels = c("Spring", "Summer", "Fall", "Winter")) %>% 
     step_string2factor(all_nominal()) %>% 
     step_impute_median(all_numeric()) %>% 
     step_impute_mode(all_nominal(), -y) %>% 
-    step_zv(all_predictors()) %>% 
-    step_dummy(all_nominal(), -y) 
+    step_zv(all_predictors()) 
   
+  
+    # step_novel(id_past_3_mo_urge_hallucinogen, new_level = "Monthly") %>% 
+    # step_novel(id_past_3_mo_fail_expect_tobacco, new_level = "Monthly") %>% 
+    # step_novel(id_past_3_mo_fail_expect_amphetamine, new_level = "Once or Twice") %>% 
+    # step_novel(id_lifetime_concern_cocaine, new_level = "Monthly") %>% 
+    # step_novel(id_lifetime_concern_inhalant, new_level = "Once or Twice") %>% 
+    # step_novel(id_lifetime_concern_sedative, new_level = "Monthly or Weekly") %>% 
+    # step_novel(id_lifetime_cutback_inhalant, new_level = "Once or Twice") %>% 
+    # step_novel(id_lifetime_cutback_sedative, new_level = "Monthly") 
+ 
+  # FIX: handle missing levels:   
+  #  - id_past_3_mo_urge_hallucinogen (Monthly)
+  #  - id_past_3_mo_fail_expect_tobacco (Monthly)
+  #  - id_past_3_mo_fail_expect_amphetamine (Once or Twice)
+  #  - id_lifetime_concern_cocaine (Monthly)
+  #  - id_lifetime_concern_inhalant (Once or Twice)
+  #  - id_lifetime_concern_sedative (Monthly)
+  #  - id_lifetime_concern_sedative (Weekly)
+  #  - id_lifetime_cutback_inhalant (Once or Twice)
+  #  - id_lifetime_cutback_sedative (Weekly)
   
   # If statements for filtering features based on feature set
   if (feature_set == "feat_all_passive") {
@@ -118,7 +139,8 @@ build_recipe <- function(d, job, y) {
   
   # algorithm specific steps
   if (algorithm == "glmnet" | algorithm == "knn") {
-    rec <- rec %>% 
+    rec <- rec  %>% 
+      step_dummy(all_nominal(), -y) %>% 
       step_normalize(all_predictors())
   } 
   

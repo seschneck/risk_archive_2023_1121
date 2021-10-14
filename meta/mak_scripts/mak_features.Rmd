@@ -155,7 +155,7 @@ fun_list_yes <- list(n_yes = ~sum(.x == "yes", na.rm = TRUE),
 
 # Counts and proportions for incoming/outgoing logs and total logs
 fun_list_originated <- list(n_incoming = ~sum(.x == "incoming", na.rm = TRUE), 
-                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), 
+                            n_outgoing = ~sum(.x == "outgoing", na.rm = TRUE), # rate for incoming only
                             prop_incoming = function (.x) {
                               if (length(.x) > 0) {
                               round(sum(.x == "incoming", na.rm = TRUE)/n(), 2)
