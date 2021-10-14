@@ -292,7 +292,8 @@ get_feature_period <- function(the_subid, the_dttm_label, data, lead_hours, peri
 
 
 
-make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_duration_hours, data_type, col_list, fun_list){
+make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_duration_hours, 
+                           study_start, data_type, col_list, fun_list){
   
   # This function takes a list of columns and list of functions to use for feature engineering 
   # It maps over a lapse label row taking in subid and hour
@@ -311,17 +312,30 @@ make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_d
   
   # filter down data
   data <- get_feature_period(the_subid, the_dttm_label, data, lead_hours, period_duration_hours)
+  relative_hours <- get_relative_hours(the_subid, the_dttm_label, study_start, period_duration_hours)
   
   # create features
   data_feat <- data %>% 
     # all_of is for strict selection - error thrown if any variables are missing
     summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.fn}_{.col}")) %>% 
     mutate(subid = the_subid,
-           dttm_label = the_dttm_label) %>% 
-    relocate(subid, dttm_label)
+           dttm_label = the_dttm_label,
+           relative_hours = relative_hours) %>% 
+    relocate(subid, dttm_label, relative_hours)
   
   data_feat
   
 }
 
+get_relative_hours <- function(the_subid, the_dttm_label, study_start, period_duration_hours) {
+  
+  # pass in tibble of subids and study_start date - dates should be in central time
+  # pass in the period_duration_hours 
+  # pass in subid and label
+
+  study_start_date <- subset(study_start, subid == the_subid)$start_study
+  relative_hours <- as.numeric(difftime(the_dttm_label, study_start_date, units = "hours"))
+  if (relative_hours >= period_duration_hours) return(period_duration_hours)
+   else return(relative_hours)
+}
 
