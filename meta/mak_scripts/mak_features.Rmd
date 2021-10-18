@@ -156,6 +156,26 @@ study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vr
   mutate(start_study = with_tz(start_study, tz = "America/Chicago"))
 ```
 
+Add relative_hours to labels
+```{r}
+labels_05 <- labels_05 %>% 
+  left_join(study_start, by = "subid") %>% 
+  rowwise() %>% 
+  mutate(relative_hours = get_relative_hours(subid, dttm_label, study_start, period_duration_hours)) %>% 
+  ungroup() %>% 
+  select(-start_study) %>% 
+  glimpse()
+```
+
+`r nrow(subset(labels_05, relative_hours < period_duration_hours))` labels with relative rate less than period duration    
+`period_duration_hours` = `r period_duration_hours`    
+`relative_hours` range from `r min(labels_05$relative_hours)` to `r max(labels_05$relative_hours)`
+```{r}
+labels_05 %>% 
+  filter(relative_hours < period_duration_hours) %>% 
+  glimpse()
+```
+
 
 Start of Generalizable functions
 ```{r}
@@ -206,8 +226,8 @@ meta_features %>%
 
 
 
-
-
+Options for calculating relative rates:   
+- 
 
 
 
