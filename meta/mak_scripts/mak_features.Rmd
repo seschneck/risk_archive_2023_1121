@@ -117,16 +117,13 @@ source(here(path_lab_support, "print_kbl.R"))
 Meta logs dataframe  
 ```{r}
 logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
-  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
-  glimpse()
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago"))
 
 logs_sms <- logs %>% 
-  filter(log_type == "sms") %>% 
-  glimpse()
+  filter(log_type == "sms") 
 
 logs_voice <- logs %>% 
-  filter(log_type == "voice") %>% 
-  glimpse()
+  filter(log_type == "voice") 
 ```
 
 Lapse labels dataframe
@@ -149,7 +146,7 @@ period_duration_hours <- 48
 lead_hours <-  0 
 ```
 
-Read in study start date (for now using this to get relative rate)
+Read in study start date 
 ```{r}
 study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
   select(subid, start_study) %>% 
@@ -159,39 +156,47 @@ study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vr
                                  TRUE ~ start_study))
 ```
 
-Add relative_hours to labels
+Add first day of communications to study start
 ```{r}
-labels_05 <- labels_05 %>%
-  left_join(study_start, by = "subid") %>%
-  rowwise() %>%
-  mutate(relative_hours = get_relative_hours(subid, dttm_label, study_start, period_duration_hours)) %>%
-  ungroup() %>%
-  select(-start_study) %>%
+start_dates <- study_start %>% 
+  right_join(logs %>% 
+  group_by(subid) %>% 
+  arrange(subid, dttm_obs) %>% 
+  slice(1) %>% 
+  select(subid, start_comm = dttm_obs), by = "subid") %>% 
   glimpse()
 ```
 
-`r nrow(subset(labels_05, relative_hours < period_duration_hours))` labels with relative rate less than period duration    
-`period_duration_hours` = `r period_duration_hours`    
-`relative_hours` range from `r min(labels_05$relative_hours)` to `r max(labels_05$relative_hours)`
+
+
+Add relative_hours to labels (temp check of get_relative_hours function)
 ```{r}
-labels_05 %>% 
-  filter(relative_hours < period_duration_hours) %>% 
+labels_05 <- labels_05 %>% 
+  rowwise() %>%
+  mutate(relative_hours = get_relative_hours(subid, dttm_label, start_dates, period_duration_hours)) %>%
+  ungroup() %>%
+  glimpse()
+```
+
+`r nrow(subset(labels_05, relative_hours < period_duration_hours))` labels with relative rate less than period duration     
+`period_duration_hours` = `r period_duration_hours`     
+`relative_hours` range from `r round(min(labels_05$relative_hours))` to `r max(labels_05$relative_hours)`
+```{r}
+labels_05 %>%
+  filter(relative_hours < period_duration_hours) %>%
   glimpse()
 ```
 
 
 Start of Generalizable functions
 ```{r}
-fun_originated <- list(# sum of all incoming calls
-                       n_incoming = ~sum(.x == "incoming", na.rm = TRUE),
-                       # Incoming calls per hour
+fun_incoming <- list(# Incoming calls per hour (need to change to proper denominator)
                        n_incoming_per_hour = function (.x) { 
                             sum(.x == "incoming", na.rm = TRUE) / period_duration_hours},
-                       # Incoming calls per hour relative to time on study
-                       # n_incoming_per_hour_relative = function (.x) {
+                       # Update to incoming calls per hour on study
+                       # n_incoming_per_hour = function (.x) {
                        #      sum(.x == "incoming", na.rm = TRUE) / relative_hours},
-                       n_total = ~n(),
-                        # proportion of all calls that are incoming
+                       # proportion of all calls that are incoming
                        prop_incoming = function (.x) { 
                             if (length(.x) > 0) {
                               round(sum(.x == "incoming", na.rm = TRUE)/n(), 2)
@@ -207,7 +212,8 @@ labels_test <- slice_sample(labels_05, n = 20)
 
 Call function     
 
-*Note 0 log entries for a duration period will return a rate of 0*
+*Note 0 log entries for a duration period will return a rate of 0*    
+*0 log entries for a duration period will return NA for proportions*
 ```{r}
 meta_features <- map2_dfr(labels_test$subid,
                           labels_test$dttm_label,
@@ -217,10 +223,11 @@ meta_features <- map2_dfr(labels_test$subid,
                               data = logs_sms,
                               lead_hours = lead_hours, 
                               period_duration_hours = period_duration_hours,
-                              study_start = study_start,
-                              data_type = "all",
+                              start_dates = start_dates,
+                              data_type = "sms",
                               col_list = c("originated"),
-                              fun_list = fun_originated)) %>% 
+                              fun_list = fun_incoming)) %>% 
+  rename_with(~str_replace(.x, "_originated", "")) %>%
   glimpse()
 
 meta_features %>% 
