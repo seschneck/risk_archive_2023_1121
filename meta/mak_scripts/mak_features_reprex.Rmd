@@ -1,0 +1,206 @@
+---
+title: "Feature Engineering"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code status
+
+First run at making features for meta project. Still working on implementation of features for dates, numbers, and combined features.   
+
+Discuss with JC:   
+- Writing functions to manipulate dates   
+- Writing more complex functions using multiple columns (i.e., n incoming calls from supportive contacts)    
+- Add general descriptives about social network based on all logs with static/snapshot screening variables   
+
+
+### Conclusions
+
+These features will be further broken down into different feature sets:     
+
+- feat_baseline_id - Only static/ID features    
+- feat_baseline_temporal - Only features derived from temporal features about label      
+- feat_all - All features.   
+- feat_all_passive - All features except those derived from context information.     
+- feat_logs - Only features derived from log and context info     
+
+
+### Notes
+
+This script returns a dataframe of features to be used as inputs into a machine learning model and the output label.      
+
+Input:   
+
+- meta_logs.csv (path_meta)   
+- labels_05.csv (path_shared)   
+- screen.csv (path_shared)
+
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+Relative paths
+```{r}
+path_fun_risk <- "shared"
+path_lab_support <- "../lab_support"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)  # always need this
+library(janitor) # cleaning and EDA
+library(lubridate)
+library(purrr)
+library(vroom)
+
+# for plots and tables
+library(ggplot2)
+theme_set(theme_bw()) # or theme_set(theme_classic())
+library(kableExtra)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_fun_risk, "fun_risk.R"))
+source(here(path_lab_support, "print_kbl.R"))
+```
+
+### Read in Data
+
+Meta logs dataframe  
+```{r}
+logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
+  glimpse()
+
+logs_sms <- logs %>% 
+  filter(log_type == "sms") %>% 
+  glimpse()
+```
+
+Lapse labels dataframe
+```{r}
+labels_05 <- vroom(here(path_meta, "labels_05.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
+  glimpse()
+```
+
+
+### Make Features
+
+### New function demo
+
+Set period duration and lead hours   
+
+*Using 48 hours for now to shorten time to knit*
+```{r}
+period_duration_hours <- 48
+lead_hours <-  0 
+```
+
+Read in study start date (for now using this to get relative rate)
+```{r}
+study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
+  select(subid, start_study) %>% 
+  mutate(start_study = with_tz(start_study, tz = "America/Chicago"))
+```
+
+Add relative_hours to labels (remove if not using pmap)
+```{r}
+# labels_05 <- labels_05 %>% 
+#   left_join(study_start, by = "subid") %>% 
+#   rowwise() %>% 
+#   mutate(relative_hours = get_relative_hours(subid, dttm_label, study_start, period_duration_hours)) %>% 
+#   ungroup() %>% 
+#   select(-start_study) %>% 
+#   glimpse()
+```
+
+
+Slice out test set of labels
+```{r}
+set.seed(102030)
+labels_test <- slice_sample(labels_05, n = 20)
+```
+
+
+Define function
+```{r}
+fun_incoming <- list(# Incoming calls per hour relative to time on study
+                       n_incoming_per_hour = function (.x) {
+                            sum(.x == "incoming", na.rm = TRUE) / relative_hours})
+
+```
+
+
+
+
+Call function     
+
+*Note 0 log entries for a duration period will return a rate of 0*
+```{r}
+meta_features <- map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          ~make_features(
+                              the_subid = .x,
+                              the_dttm_label = .y,
+                              data = logs_sms,
+                              lead_hours = lead_hours, 
+                              period_duration_hours = period_duration_hours,
+                              study_start = study_start,
+                              data_type = "sms",
+                              col_list = c("originated"),
+                              fun_list = fun_incoming)) %>% 
+  glimpse()
+
+meta_features %>% 
+  print_kbl()
+```
+
