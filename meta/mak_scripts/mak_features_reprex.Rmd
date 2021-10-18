@@ -171,36 +171,47 @@ labels_test <- slice_sample(labels_05, n = 20)
 ```
 
 
-Define function
-```{r}
-fun_incoming <- list(# Incoming calls per hour relative to time on study
-                       n_incoming_per_hour = function (.x) {
-                            sum(.x == "incoming", na.rm = TRUE) / relative_hours})
-
-```
-
-
-
 
 Call function     
 
 *Note 0 log entries for a duration period will return a rate of 0*
 ```{r}
-meta_features <- map2_dfr(labels_test$subid,
+map2_dfr(labels_test$subid,
                           labels_test$dttm_label,
-                          ~make_features(
-                              the_subid = .x,
-                              the_dttm_label = .y,
-                              data = logs_sms,
-                              lead_hours = lead_hours, 
-                              period_duration_hours = period_duration_hours,
-                              study_start = study_start,
-                              data_type = "sms",
-                              col_list = c("originated"),
-                              fun_list = fun_incoming)) %>% 
+                          score_ratecount_value,
+                              x_all  = logs_sms,
+                              period_duration_hours,
+                              lead_hours, 
+                              study_start, 
+                              col_name = "originated", 
+                              value = "incoming", 
+                              data_type = "sms") %>% 
   glimpse()
+```
 
-meta_features %>% 
-  print_kbl()
+```{r}
+features <- map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = logs_sms,
+                              period_duration_hours,
+                              lead_hours, 
+                              study_start, 
+                              col_name = "originated", 
+                              value = "incoming", 
+                              data_type = "sms")
+
+features <- features %>% 
+  full_join(map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = logs_sms,
+                              period_duration_hours,
+                              lead_hours, 
+                              study_start, 
+                              col_name = "originated", 
+                              value = "outgoing", 
+                              data_type = "sms"),
+            by = c("subid", "dttm_label"))
 ```
 
