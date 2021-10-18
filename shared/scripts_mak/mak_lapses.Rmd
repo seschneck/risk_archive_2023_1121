@@ -42,7 +42,7 @@ to whether a lapse/non-lapse is reliable or whether it should be excluded from s
   - lapses that have a negative duration   
   - lapses that have a duration longer than 24 hours     
   - future lapses (lapse start > ema end time)   
-   
+  
    
 - John and Kendra have decided to drop subid 104's data for the following reasons:   
   - They had lapses every day on study except one day.    
@@ -94,6 +94,14 @@ the following reasons:
 - Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. 
 After Kendra and John reviewed this situation, it was concluded that it was likely they were 
 still drinking at time of EMA (i.e., no end time). Changing end time to NA in this script.    
+  
+
+- Subid 74 broke their phone before followup 1 so we were not able to download 
+cellular communications at followup 1 (only 2 SMS/voice log files in Raw data).      
+  - As a result their cellular communications don't start until day 33 on study.    
+  - Unclear how this impacts other data sources yet     
+  - In meta `mak_labels` script John and Kendra decided to change Subid 74's start date to 
+  2018-07-06 - the day after their first cellular communication (2018-07-05).    
   
   
 - Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 
@@ -202,6 +210,7 @@ dates <- get_study_dates(here(path_processed, "visit_dates.csv"),
   select(-followup_complete) %>%
   glimpse()
 ```
+
 
 ### Log
 
