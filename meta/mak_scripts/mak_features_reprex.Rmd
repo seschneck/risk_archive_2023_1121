@@ -165,17 +165,16 @@ Call function
 
 *Note 0 log entries for a duration period will return a rate of 0*
 ```{r}
-map2_dfr(labels_test$subid,
-                          labels_test$dttm_label,
-                          score_ratecount_value,
-                              x_all  = logs_sms,
-                              period_durations = c(24, 48),
-                              lead = 0, 
-                              data_start = data_start, 
-                              col_name = "originated", 
-                              value = "incoming", 
-                              data_type = "sms",
-                              context = "all") %>% 
+map2_dfr(labels_test$subid, labels_test$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_sms,
+            period_durations = c(24, 48),
+            lead = 0, 
+            data_start = data_start, 
+            col_name = "originated", 
+            value = "incoming", 
+            data_type = "sms",
+            context = "all") %>% 
   glimpse()
 ```
 
@@ -189,7 +188,8 @@ features <- map2_dfr(labels_test$subid,
                               data_start = data_start, 
                               col_name = "originated", 
                               value = "incoming", 
-                              data_type = "sms")
+                              data_type = "sms",
+                              context = "all")
 
 features <- features %>% 
   full_join(map2_dfr(labels_test$subid,
@@ -201,7 +201,30 @@ features <- features %>%
                               data_start = data_start, 
                               col_name = "originated", 
                               value = "outgoing", 
-                              data_type = "sms"),
+                              data_type = "sms",
+                              context = "all"),
             by = c("subid", "dttm_label"))
+```
+
+
+```{r}
+x_drinker <- x_all %>%
+  filter(drink_status == "Drinker")
+
+features <- features %>% 
+  full_join(map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = x_drinker,
+                              period_duration = c(24, 48),
+                              lead = 0, 
+                              data_start = data_start, 
+                              col_name = "originated", 
+                              value = "outgoing", 
+                              data_type = "sms",
+                              context = "all"),
+            by = c("subid", "dttm_label"))
+
+
 ```
 

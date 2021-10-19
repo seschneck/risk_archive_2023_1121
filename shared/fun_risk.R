@@ -371,3 +371,65 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
   
   return(features)
 }
+
+
+score_ratesum <- function(the_subid, the_dttm_label, x_all, 
+                                  period_durations, lead, data_start, 
+                                  col_name, value, data_type, context) {
+  # Counts the number of matches for col_name == value and converts to a rate
+  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
+  # rates (dratecount for diff between rate in period and rate across all data; 
+  # pratecount for percent change between rate in period and rate across all data)
+  
+  # the_subid: single integer subid
+  # the_dttm_label: dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with min(study_start_date, first communication date) for all subids
+  # col_name: column name for raw data for feature as string
+  # value: the value to count within the col_name.  Can be string or numeric
+  # data_type: a prefix for the feature name (e.g., sms)
+  # context: a final identifier for what data were used (e.g, all, supportive, etc)
+  
+  # this will change for other feature score functions
+  ratecount <- function(.x, value, duration) {
+    if (length(.x) > 0) {
+      the_count <- sum(.x == value, na.rm = TRUE)
+    } else the_count <- 0
+    
+    return(the_count / duration)
+  }
+  
+  base_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                           data_start, Inf)  # use Inf to ignore period_duration
+  baseline <- x_all %>% 
+    filter(subid == the_subid) %>%
+    summarise("base" := ratecount(.data[[col_name]], value, base_duration)) %>%
+    pull(base)
+  
+  # loop over period_durations
+  features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
+    
+    x_period <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    
+    true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                    data_start, period_duration)
+    
+    raw_rate <- x_period %>% 
+      summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
+      pull(raw)
+    
+    rates <- tibble(
+      "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}" := raw_rate,
+      "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}" := raw_rate - baseline,
+      "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}" := (raw_rate - baseline) / baseline)
+  }
+  
+  features <- features %>% 
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>% 
+    relocate(subid, dttm_label)
+  
+  return(features)
+}
