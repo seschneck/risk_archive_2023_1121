@@ -294,29 +294,29 @@ get_feature_period <- function(the_subid, the_dttm_label, x_all, lead_hours, per
 
 
 
-correct_period_duration <- function(the_subid, the_dttm_label, study_start, period_duration_hours) {
+correct_period_duration <- function(the_subid, the_dttm_label, data_start, period_duration) {
   
   # pass in tibble of subids and study_start date - dates should be in central time
   # pass in the period_duration_hours 
   # pass in subid and label
 
-  start_study_date <- study_start %>% 
+  start_study_date <- data_start %>% 
     filter(subid == the_subid) %>% 
     pull(start_study)
   
   start_study_hours <- as.numeric(difftime(the_dttm_label, start_study_date, units = "hours"))
 
-  period_duration_hours <- if_else(start_study_hours < period_duration_hours, 
+  period_duration <- if_else(start_study_hours < period_duration, 
                                    start_study_hours,
-                                   period_duration_hours)
+                                   period_duration)
   
-  return(period_duration_hours)
+  return(period_duration)
 }
 
 
 
 score_ratecount_value <- function(the_subid, the_dttm_label, x_all, 
-                                  period_duration_hours, lead_hours, study_start, 
+                                  period_durations, lead, data_start, 
                                   col_name, value, data_type) {
   
   # this will change for other feature score functions
@@ -328,13 +328,21 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
     return(the_count / duration)
   }
   
-  x <- get_feature_period(the_subid, the_dttm_label, x_all, lead_hours, period_duration_hours)
-  true_duration_hours <- correct_period_duration(the_subid, the_dttm_label, 
-                                                   study_start, period_duration_hours)
+  # loop over period_durations
+  features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
+    
+    x <- get_feature_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    true_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                     data_start, period_duration)
+    
+    x %>% 
+      summarise("{data_type}_period{period_duration}_lead{lead}_ratecount_{col_name}_{value}" := ratecount(.data[[col_name]], value, true_duration))
+  }
   
-  x %>% 
-    summarise("{data_type}_period{period_duration_hours}_lead{lead_hours}_ratecount_{col_name}" := ratecount(.data[[col_name]], value, true_duration_hours)) %>% 
+  features <- features %>% 
     mutate(subid = the_subid,
-           dttm_label = the_dttm_label) %>% 
+         dttm_label = the_dttm_label) %>% 
     relocate(subid, dttm_label)
+  
+  return(features)
 }
