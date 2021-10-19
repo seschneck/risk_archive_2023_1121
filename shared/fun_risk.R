@@ -268,7 +268,7 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
 }
 
  
-get_feature_period <- function(the_subid, the_dttm_label, data, lead_hours, period_duration_hours) {
+get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration) {
   
   # This function filters data rows based on a lapse label (subid and hour) passed in
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
@@ -277,71 +277,164 @@ get_feature_period <- function(the_subid, the_dttm_label, data, lead_hours, peri
   # Set lead_hours parameter to number of hours out from lapse you wish to predict 
   # Set period duration hours to set the duration over which you wish to use data from  
   
-  data <- data %>% 
+  x_all %>% 
     filter(subid == the_subid) %>% 
+    
     # filter on period duration hours
-    mutate(period_start_dttm = the_dttm_label - duration(period_duration_hours, "hours")) %>% 
+    mutate(period_start_dttm = the_dttm_label - duration(period_duration, "hours")) %>% 
     filter(dttm_obs >= period_start_dttm) %>% 
+    
     # filter on lead hours
     mutate(diff_hours = as.numeric(difftime(the_dttm_label, dttm_obs, units = "hours"))) %>%  
-    filter(diff_hours >= lead_hours) %>% 
+    filter(diff_hours >= lead) %>% 
     select(-c(period_start_dttm, diff_hours))
-  
-  data
 }
 
 
 
-make_features <- function (the_subid, the_dttm_label, data, lead_hours, period_duration_hours, 
-                           start_dates, data_type, col_list, fun_list){
+
+correct_period_duration <- function(the_subid, the_dttm_label, data_start, period_duration) {
   
-  # This function takes a list of columns and list of functions to use for feature engineering 
-  # It maps over a lapse label row taking in subid and hour
-  # It calls the get_feature_period function and passes in the subid, hour, lead_hours 
-  # and period_duration_hours parameters to narrow down the data to the appropriate 
-  # rows for a lapse observation
-  # It returns a single row of features (data_feat) for each lapse label 
-  # data type is used for naming features
+# set period_duration <- Inf to ignore and just get period duration based on data_start
+
+  data_start <- data_start %>% 
+    filter(subid == the_subid) %>% 
+    pull(start_study)
   
-  # If using this function multiple times you should join returned feature set with 
-  # previous feature set on subid and dttm_label
+  # FIX: make sure this pulls min_start
   
-  # when defining statistical functions you should use an if else statement to run safely 
-  # mean = function(.x) {if (length(.x) > 0) round(mean(.x, na.rm = TRUE), 2)
-  #                        else  as.numeric(NA)}
+  data_start_hours <- as.numeric(difftime(the_dttm_label, data_start, units = "hours"))
+
+
+  period_duration <- if_else(data_start_hours < period_duration, 
+                             data_start_hours,
+                             period_duration)
   
-  # filter down data
-  data <- get_feature_period(the_subid, the_dttm_label, data, lead_hours, period_duration_hours)
-  relative_hours <- get_relative_hours(the_subid, the_dttm_label, start_dates, period_duration_hours)
+  return(period_duration)
+}
+
+
+
+score_ratecount_value <- function(the_subid, the_dttm_label, x_all, 
+                                  period_durations, lead, data_start, 
+                                  col_name, value, data_type, context) {
+  # Counts the number of matches for col_name == value and converts to a rate
+  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
+  # rates (dratecount for diff between rate in period and rate across all data; 
+  # pratecount for percent change between rate in period and rate across all data)
   
-  # create features
-  data_feat <- data %>% 
-    # all_of is for strict selection - error thrown if any variables are missing
-    summarise(across(all_of(col_list), fun_list, .names = "{data_type}_{.fn}_{.col}")) %>% 
+  # the_subid: single integer subid
+  # the_dttm_label: dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with min(study_start_date, first communication date) for all subids
+  # col_name: column name for raw data for feature as string
+  # value: the value to count within the col_name.  Can be string or numeric
+  # data_type: a prefix for the feature name (e.g., sms)
+  # context: a final identifier for what data were used (e.g, all, supportive, etc)
+  
+  # this will change for other feature score functions
+  ratecount <- function(.x, value, duration) {
+    if (length(.x) > 0) {
+      the_count <- sum(.x == value, na.rm = TRUE)
+    } else the_count <- 0
+    
+    return(the_count / duration)
+  }
+  
+  base_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                           data_start, Inf)  # use Inf to ignore period_duration
+  baseline <- x_all %>% 
+    filter(subid == the_subid) %>%
+    summarise("base" := ratecount(.data[[col_name]], value, base_duration)) %>%
+    pull(base)
+    
+  # loop over period_durations
+  features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
+    
+    x_period <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    
+    true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                     data_start, period_duration)
+    
+    raw_rate <- x_period %>% 
+      summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
+      pull(raw)
+    
+    rates <- tibble(
+      "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}" := raw_rate,
+      "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}" := raw_rate - baseline,
+      "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}" := (raw_rate - baseline) / baseline)
+  }
+  
+  features <- features %>% 
     mutate(subid = the_subid,
-           dttm_label = the_dttm_label,
-           relative_hours = relative_hours) %>% 
-    relocate(subid, dttm_label, relative_hours)
+         dttm_label = the_dttm_label) %>% 
+    relocate(subid, dttm_label)
   
-  data_feat
-  
+  return(features)
+
 }
 
-get_relative_hours <- function(the_subid, the_dttm_label, start_dates, period_duration_hours) {
-  
-  # pass in tibble of subids and start dates - dates should be in central time
-  # pass in the period_duration_hours 
-  # pass in subid and label
-  # function updates start_date to be the min of first communication and official study start date
-  
-  # Update study start date if first communication log is prior to study start    
-  comm_start_date <- subset(start_dates, subid == the_subid)$start_comm
-  study_start_date <- subset(start_dates, subid == the_subid)$start_study
 
-  min_date <- if_else(comm_start_date < study_start_date, comm_start_date, study_start_date)
+score_ratesum <- function(the_subid, the_dttm_label, x_all, 
+                                  period_durations, lead, data_start, 
+                                  col_name, value, data_type, context) {
+  # Counts the number of matches for col_name == value and converts to a rate
+  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
+  # rates (dratecount for diff between rate in period and rate across all data; 
+  # pratecount for percent change between rate in period and rate across all data)
   
-  relative_hours <- as.numeric(difftime(the_dttm_label, min_date, units = "hours"))
-  if (relative_hours >= period_duration_hours) return(period_duration_hours)
-   else return(relative_hours)
+  # the_subid: single integer subid
+  # the_dttm_label: dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with min(study_start_date, first communication date) for all subids
+  # col_name: column name for raw data for feature as string
+  # value: the value to count within the col_name.  Can be string or numeric
+  # data_type: a prefix for the feature name (e.g., sms)
+  # context: a final identifier for what data were used (e.g, all, supportive, etc)
+  
+  # this will change for other feature score functions
+  ratecount <- function(.x, value, duration) {
+    if (length(.x) > 0) {
+      the_count <- sum(.x == value, na.rm = TRUE)
+    } else the_count <- 0
+    
+    return(the_count / duration)
+  }
+  
+  base_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                           data_start, Inf)  # use Inf to ignore period_duration
+  baseline <- x_all %>% 
+    filter(subid == the_subid) %>%
+    summarise("base" := ratecount(.data[[col_name]], value, base_duration)) %>%
+    pull(base)
+  
+  # loop over period_durations
+  features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
+    
+    x_period <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    
+    true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                    data_start, period_duration)
+    
+    raw_rate <- x_period %>% 
+      summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
+      pull(raw)
+    
+    rates <- tibble(
+      "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}" := raw_rate,
+      "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}" := raw_rate - baseline,
+      "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}" := (raw_rate - baseline) / baseline)
+  }
+  
+  features <- features %>% 
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>% 
+    relocate(subid, dttm_label)
+  
+  return(features)
 }
-

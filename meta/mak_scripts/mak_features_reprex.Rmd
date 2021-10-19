@@ -10,13 +10,12 @@ output:
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
+    )
     rmarkdown::render(
       input,
+      "/Volumes/private/studydata/risk/knits/meta")
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/meta", 
-      "/Volumes/private/studydata/risk/knits/meta")
-    )
-  })
 ---
 
 ### Code status
@@ -146,23 +145,13 @@ lead_hours <-  0
 ```
 
 Read in study start date (for now using this to get relative rate)
+
+FIX: Need to update this to be min of first observation or first day on study
 ```{r}
-study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
+data_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
   select(subid, start_study) %>% 
   mutate(start_study = with_tz(start_study, tz = "America/Chicago"))
 ```
-
-Add relative_hours to labels (remove if not using pmap)
-```{r}
-# labels_05 <- labels_05 %>% 
-#   left_join(study_start, by = "subid") %>% 
-#   rowwise() %>% 
-#   mutate(relative_hours = get_relative_hours(subid, dttm_label, study_start, period_duration_hours)) %>% 
-#   ungroup() %>% 
-#   select(-start_study) %>% 
-#   glimpse()
-```
-
 
 Slice out test set of labels
 ```{r}
@@ -171,36 +160,71 @@ labels_test <- slice_sample(labels_05, n = 20)
 ```
 
 
-Define function
-```{r}
-fun_incoming <- list(# Incoming calls per hour relative to time on study
-                       n_incoming_per_hour = function (.x) {
-                            sum(.x == "incoming", na.rm = TRUE) / relative_hours})
-
-```
-
-
-
 
 Call function     
 
 *Note 0 log entries for a duration period will return a rate of 0*
 ```{r}
-meta_features <- map2_dfr(labels_test$subid,
-                          labels_test$dttm_label,
-                          ~make_features(
-                              the_subid = .x,
-                              the_dttm_label = .y,
-                              data = logs_sms,
-                              lead_hours = lead_hours, 
-                              period_duration_hours = period_duration_hours,
-                              study_start = study_start,
-                              data_type = "sms",
-                              col_list = c("originated"),
-                              fun_list = fun_incoming)) %>% 
+map2_dfr(labels_test$subid, labels_test$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_sms,
+            period_durations = c(24, 48),
+            lead = 0, 
+            data_start = data_start, 
+            col_name = "originated", 
+            value = "incoming", 
+            data_type = "sms",
+            context = "all") %>% 
   glimpse()
+```
 
-meta_features %>% 
-  print_kbl()
+```{r}
+features <- map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = logs_sms,
+                              period_duration = c(24, 48),
+                              lead = 0, 
+                              data_start = data_start, 
+                              col_name = "originated", 
+                              value = "incoming", 
+                              data_type = "sms",
+                              context = "all")
+
+features <- features %>% 
+  full_join(map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = logs_sms,
+                              period_duration = c(24, 48),
+                              lead = 0, 
+                              data_start = data_start, 
+                              col_name = "originated", 
+                              value = "outgoing", 
+                              data_type = "sms",
+                              context = "all"),
+            by = c("subid", "dttm_label"))
+```
+
+
+```{r}
+x_drinker <- x_all %>%
+  filter(drink_status == "Drinker")
+
+features <- features %>% 
+  full_join(map2_dfr(labels_test$subid,
+                          labels_test$dttm_label,
+                          score_ratecount_value,
+                              x_all  = x_drinker,
+                              period_duration = c(24, 48),
+                              lead = 0, 
+                              data_start = data_start, 
+                              col_name = "originated", 
+                              value = "outgoing", 
+                              data_type = "sms",
+                              context = "drinker"),
+            by = c("subid", "dttm_label"))
+
+
 ```
 
