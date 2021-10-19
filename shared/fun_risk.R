@@ -292,6 +292,7 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
 
 
 
+
 correct_period_duration <- function(the_subid, the_dttm_label, data_start, period_duration) {
   
 # set period_duration <- Inf to ignore and just get period duration based on data_start
@@ -300,7 +301,10 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
     filter(subid == the_subid) %>% 
     pull(start_study)
   
+  # FIX: make sure this pulls min_start
+  
   data_start_hours <- as.numeric(difftime(the_dttm_label, data_start, units = "hours"))
+
 
   period_duration <- if_else(data_start_hours < period_duration, 
                              data_start_hours,
@@ -370,6 +374,7 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
     relocate(subid, dttm_label)
   
   return(features)
+
 }
 
 

@@ -1,0 +1,242 @@
+---
+title: "Make Study Dates"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code Status
+
+This script creates a meta study-level dates file that includes the study start date, 
+the communication start date (first available cellular communication date), and the min 
+of these two dates.    
+
+
+It also includes study end and ema_end for use in mak_labels.     
+
+
+
+### Conclusions   
+
+- John and Kendra decided to change Subid 74's start date to 2018-07-06 - the day after 
+their first cellular communication (2018-07-05).    
+  - Participant broke their phone before followup 1 so we were not able to download 
+  cellular communications at followup 1 (only 2 SMS/voice log files in Raw data). 
+  Unclear how this impacted other data sources yet. 
+  - As a result their cellular communications don't start until day 33 on study.           
+  - Subid 74 had no lapses while on study.  
+  
+
+- John and Kendra have decided to drop subid 104's data for the following reasons:   
+  - They had lapses every day on study except one day.    
+  - Only had 75 surveys where a lapse was not reported.   
+  - Viewing their lapse times it appears they were drinking constantly (morning and 
+  night).   
+  - They consistently report being uncertain that their goal is to be abstinent 
+  (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
+  at followup 1 and 2.    
+  - They are ultimately discontinued since they were struggling to gain sobriety.   
+  - Unfortunately this drops 109 valid lapses.    
+
+
+- John and Kendra have decided to drop subid 269's data for the following reasons:       
+  - They completed 10-15 surveys on many days on study (avg number of surveys per 
+  day is 6.76).  
+  - Their responses indicate careless responding - they were filling 2-4 surveys out 
+  within an hour of each other and the responses to the questions were completely different.     
+  - They have questionable no lapse labels - they reported no lapses while on study but 
+  according to notes left two messages for study staff where they admitted to drinking 
+  over the weekend.   
+  
+
+- John and Kendra have decided to drop subid 204's data for the following reasons:    
+  - Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. 
+  They only did a total of 5 surveys between followup 2 and 3.    
+  - We don't trust their lapse labels - They report several lapses during their interviews 
+  but times appear questionable (same time every night). They only report 1 lapse with EMA.
+  - From notes - "Participant did not do many surveys during their second month of participation. 
+  At their Follow-up 2 visit they reported several lapses that were not documented in their 
+  EMAs - estimated lapse days/times in subid's raw data log."  
+  - JC note: "There are issues with 204. They are missing lapses reported by interview. But they  
+  also stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to 
+  drop them for lapse analyses for anything after 5/17.  Probably also need to add in their 
+  reported lapses at follow-up 2. OR we drop them at the end of follow-up 1 or wherever their 
+  ema gets sketchy"    
+
+
+- John and Kendra have decided to decided to retain 128's data even though they have over 100 lapses for 
+the following reasons:   
+  - Compliance is good (averaged over 3 surveys per day, no days without an EMA).       
+  - completed the study for the full 90 days.    
+  - appeared to still want abstinence as they reported they were uncertain to ema_1_5 
+  on only 3 surveys. They reported they were uncertain that their goal was to remain 
+  abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.    
+  - Has more non-lapse surveys than lapse surveys.   
+  
+
+- All final timezones are in America/Chicago timezone.    
+
+
+### Set Up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_meta <- "P:/studydata/risk/data_processed/meta"},
+
+        # IOS paths
+        Darwin = {
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+  conflict_prefer("filter", "dplyr")
+  conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(vroom)
+library(janitor)
+library(lubridate)
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+source(here("shared/fun_risk.R"))
+```
+
+### Visit/EMA Dates
+
+visit dates
+```{r}
+dates <- vroom::vroom(here(path_processed, "visit_dates.csv"), col_types = vroom::cols()) %>%
+  select(subid, study_start = start_study, study_end = end_study, followup_1) %>% 
+  mutate(study_start = force_tz(study_start, tzone = "America/Chicago"),
+         study_end = force_tz(study_end, tzone = "America/Chicago")) 
+```
+
+Change subid 74's study start date to day after first cellular communication.   
+
+- Participant broke their phone before followup 1 so we were not able to download 
+cellular communications at followup 1. Unclear how this impacted other data sources 
+- Subid 74 had no lapses while on study.    
+
+```{r}
+dates <- dates %>% 
+  mutate(study_start = case_when(subid == 74 ~ as_datetime("2018-07-06", tz = "America/Chicago"),
+                                 TRUE ~ study_start))
+```
+
+Filter out subids who did not make it to followup_1
+```{r}
+dates <- dates %>% 
+  filter(!is.na(followup_1)) %>% 
+  select(-followup_1)
+```
+
+Filter out excluded subids
+```{r}
+dates <- dates %>% 
+  filter(!subid %in% c(104, 269, 204)) %>% 
+  glimpse()
+```
+
+
+
+### Communication Log Dates
+
+logs
+```{r}
+logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
+  select(subid, comm_start = dttm_obs)
+```
+
+add first log communication to dates
+```{r}
+dates <- dates %>% 
+  left_join(logs %>% 
+  group_by(subid) %>% 
+  arrange(subid, comm_start) %>% 
+  slice(1), by = "subid")
+```
+
+
+### Min Start Date
+
+Add column for min_start
+```{r}
+dates <- dates %>% 
+  mutate(min_start = if_else(comm_start < study_start, comm_start, study_start)) 
+```
+
+
+### EMA End Date
+
+ema
+```{r}
+ema <- vroom(here(path_processed, "ema_morning.csv"), col_types = vroom::cols()) %>% 
+    select(subid, start_date) %>% 
+  bind_rows(vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols()) %>% 
+    select(subid, start_date)) %>% 
+  mutate(subid = as.numeric(subid),
+         start_date = with_tz(start_date, tzone = "America/Chicago")) %>% 
+  rename(ema_end = start_date)
+```
+
+
+Add ema_end date
+```{r}
+dates <- dates %>% 
+  left_join(ema %>% 
+  group_by(subid) %>% 
+  arrange(subid, desc(ema_end)) %>% 
+  slice(1), by = "subid") %>% 
+  relocate(subid, study_start, comm_start, min_start) 
+```
+
+
+
+### Save
+
+save dates
+```{r}
+dates %>% 
+  write_csv(here(path_meta, "study_dates.csv")) %>% 
+  glimpse()
+```
+

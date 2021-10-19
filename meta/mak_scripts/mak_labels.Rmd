@@ -40,7 +40,14 @@ These labels are now complete to be used for the meta project. This script makes
   - lapses that have a duration longer than 24 hours     
   - future lapses (lapse start > ema end time)   
 
-
+- John and Kendra decided to change Subid 74's start date to 2018-07-06 - the day after 
+their first cellular communication (2018-07-05).    
+  - Participant broke their phone before followup 1 so we were not able to download 
+  cellular communications at followup 1 (only 2 SMS/voice log files in Raw data). 
+  Unclear how this impacted other data sources yet. 
+  - As a result their cellular communications don't start until day 33 on study.           
+  - Subid 74 had no lapses while on study.  
+  
 
 - John and Kendra have decided to drop subid 104's data for the following reasons:   
   - They had lapses every day on study except one day.    
@@ -133,15 +140,13 @@ switch (Sys.info()[['sysname']],
         Windows = {
           path_raw <- "P:/studydata/risk/data_raw"
           path_processed <- "P:/studydata/risk/data_processed/shared"
-          path_meta <- "P:/studydata/risk/data_processed/meta"
-          path_lab_support <- "P:/toolboxes/lab_support"},
+          path_meta <- "P:/studydata/risk/data_processed/meta"},
 
         # IOS paths
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
           path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"}
         )
 ```
 
@@ -167,16 +172,14 @@ library(lubridate)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here(path_lab_support, "print_kbl.R"))
+source(here("../lab_support/print_kbl.R"))
 source(here("shared/fun_risk.R"))
 ```
 
 ### Read in lapses
 ```{r}
 lapses <- vroom::vroom(here(path_processed, "lapses.csv"), col_types = vroom::cols()) %>% 
-  mutate(lapse_start = with_tz(lapse_start, "America/Chicago"),
-         lapse_end = with_tz(lapse_end, "America/Chicago"),
-         ema_end = with_tz(ema_end, "America/Chicago")) %>% 
+  mutate(across(c(lapse_start, lapse_end, ema_end)), with_tz(., "America/Chicago")) %>% 
   glimpse()
 ```
 
@@ -189,19 +192,15 @@ We will not predict lapses outside of study participation dates. Need info on:
 * Who completed followup_1 so that they have context
 * Time of the last EMA so we can know the definite window for no_lapse sampling.
 We can assume no_lapse sampling starts with study_start but it end with the earlier
-of study_end or ema_end (time of the last ema that we trust has valid data)
+of study_end or ema_end (time of the last ema that we trust has valid data)     
 
-
+Read in dates from study level folder
 ```{r}
-dates <- get_study_dates(here(path_processed, "visit_dates.csv"),
-                         here(path_processed, "ema_morning.csv"),
-                         here(path_processed, "ema_later.csv")) %>%
-  filter(followup_complete) %>%
-  select(-followup_complete) %>%
-  # remove excluded subids
-  filter(!subid %in% c(104, 269, 204)) %>% 
+dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>%
+  mutate(across(study_start:ema_end), with_tz(., tz = "America/Chicago")) %>% 
   glimpse()
 ```
+
 
 
 ### Get valid observations of lapse and no_lapse
