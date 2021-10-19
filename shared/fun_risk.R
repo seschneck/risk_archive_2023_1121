@@ -268,7 +268,7 @@ sample_labels <- function(valid_labels, p_lapse, seed) {
 }
 
  
-get_feature_period <- function(the_subid, the_dttm_label, x_all, lead_hours, period_duration_hours) {
+get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration) {
   
   # This function filters data rows based on a lapse label (subid and hour) passed in
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
@@ -277,19 +277,17 @@ get_feature_period <- function(the_subid, the_dttm_label, x_all, lead_hours, per
   # Set lead_hours parameter to number of hours out from lapse you wish to predict 
   # Set period duration hours to set the duration over which you wish to use data from  
   
-  x <- x_all %>% 
+  x_all %>% 
     filter(subid == the_subid) %>% 
     
     # filter on period duration hours
-    mutate(period_start_dttm = the_dttm_label - duration(period_duration_hours, "hours")) %>% 
+    mutate(period_start_dttm = the_dttm_label - duration(period_duration, "hours")) %>% 
     filter(dttm_obs >= period_start_dttm) %>% 
     
     # filter on lead hours
     mutate(diff_hours = as.numeric(difftime(the_dttm_label, dttm_obs, units = "hours"))) %>%  
-    filter(diff_hours >= lead_hours) %>% 
+    filter(diff_hours >= lead) %>% 
     select(-c(period_start_dttm, diff_hours))
-  
-  return(x)
 }
 
 
@@ -331,10 +329,13 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
   # loop over period_durations
   features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
     
-    x <- get_feature_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    x <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
     true_duration <- correct_period_duration(the_subid, the_dttm_label, 
                                                      data_start, period_duration)
     
+    #FIX: Add other relative versions of function
+    # diff from all data
+    # diff/all data
     x %>% 
       summarise("{data_type}_period{period_duration}_lead{lead}_ratecount_{col_name}_{value}" := ratecount(.data[[col_name]], value, true_duration))
   }
