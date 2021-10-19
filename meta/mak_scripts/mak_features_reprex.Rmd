@@ -144,13 +144,12 @@ period_duration_hours <- 48
 lead_hours <-  0 
 ```
 
-Read in study start date (for now using this to get relative rate)
-
-FIX: Need to update this to be min of first observation or first day on study
+Read in study dates
 ```{r}
-data_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
-  select(subid, start_study) %>% 
-  mutate(start_study = with_tz(start_study, tz = "America/Chicago"))
+data_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  select(subid, study_start, comm_start, data_start) %>% 
+  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) %>% 
+  glimpse()
 ```
 
 Slice out test set of labels

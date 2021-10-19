@@ -196,12 +196,12 @@ dates <- dates %>%
 ```
 
 
-### Min Start Date
+### Data Start Date
 
-Add column for min_start
+Add column for data_start - will b emin of study start date and comm start date
 ```{r}
 dates <- dates %>% 
-  mutate(min_start = if_else(comm_start < study_start, comm_start, study_start)) 
+  mutate(data_start = if_else(comm_start < study_start, comm_start, study_start)) 
 ```
 
 
@@ -226,7 +226,7 @@ dates <- dates %>%
   group_by(subid) %>% 
   arrange(subid, desc(ema_end)) %>% 
   slice(1), by = "subid") %>% 
-  relocate(subid, study_start, comm_start, min_start) 
+  relocate(subid, study_start, comm_start, data_start) 
 ```
 
 

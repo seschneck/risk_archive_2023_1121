@@ -299,7 +299,7 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
 
   data_start <- data_start %>% 
     filter(subid == the_subid) %>% 
-    pull(start_study)
+    pull(data_start)
   
   # FIX: make sure this pulls min_start
   

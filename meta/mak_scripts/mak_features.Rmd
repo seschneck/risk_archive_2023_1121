@@ -148,14 +148,14 @@ lead_hours <-  0
 
 Read in study dates
 ```{r}
-study_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
-  select(subid, study_start, comm_start, min_start) %>% 
-  mutate(across(study_start:min_start), with_tz(., tz = "America/Chicago")) %>% 
+data_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  select(subid, study_start, comm_start, data_start) %>% 
+  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) %>% 
   glimpse()
 ```
 
 
-
+# start_dates need to be renamed to data_start
 
 Add relative_hours to labels (temp check of get_relative_hours function)
 ```{r}
