@@ -337,7 +337,7 @@ get_relative_hours <- function(the_subid, the_dttm_label, start_dates, period_du
   # Update study start date if first communication log is prior to study start    
   comm_start_date <- subset(start_dates, subid == the_subid)$start_comm
   study_start_date <- subset(start_dates, subid == the_subid)$start_study
-  # Add 1 day to first communication?
+
   min_date <- if_else(comm_start_date < study_start_date, comm_start_date, study_start_date)
   
   relative_hours <- as.numeric(difftime(the_dttm_label, min_date, units = "hours"))
