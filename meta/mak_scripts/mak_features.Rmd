@@ -146,26 +146,14 @@ period_duration_hours <- 48
 lead_hours <-  0 
 ```
 
-Read in study start date 
+Read in study dates
 ```{r}
-study_start <- vroom::vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
-  select(subid, start_study) %>% 
-  mutate(start_study = with_tz(start_study, tz = "America/Chicago")) %>% 
-  # update subid 74's start_date since they did not have logs for first month
-  mutate(start_study = case_when(subid == 74 ~ as_datetime("2018-07-06", tz = "America/Chicago"),
-                                 TRUE ~ start_study))
-```
-
-Add first day of communications to study start
-```{r}
-start_dates <- study_start %>% 
-  right_join(logs %>% 
-  group_by(subid) %>% 
-  arrange(subid, dttm_obs) %>% 
-  slice(1) %>% 
-  select(subid, start_comm = dttm_obs), by = "subid") %>% 
+study_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  select(subid, study_start, comm_start, min_start) %>% 
+  mutate(across(study_start:min_start), with_tz(., tz = "America/Chicago")) %>% 
   glimpse()
 ```
+
 
 
 

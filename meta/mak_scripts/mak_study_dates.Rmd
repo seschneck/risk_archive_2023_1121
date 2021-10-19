@@ -23,6 +23,9 @@ the communication start date (first available cellular communication date), and 
 of these two dates.    
 
 
+It also includes study end and ema_end for use in mak_labels.     
+
+
 
 ### Conclusions   
 
@@ -136,13 +139,14 @@ source(here("../lab_support/print_kbl.R"))
 source(here("shared/fun_risk.R"))
 ```
 
-### Visit Dates
+### Visit/EMA Dates
 
 visit dates
 ```{r}
 dates <- vroom::vroom(here(path_processed, "visit_dates.csv"), col_types = vroom::cols()) %>%
-  select(subid, study_start = start_study, followup_1) %>% 
-  mutate(study_start = with_tz(study_start, tz = "America/Chicago")) 
+  select(subid, study_start = start_study, study_end = end_study, followup_1) %>% 
+  mutate(study_start = force_tz(study_start, tzone = "America/Chicago"),
+         study_end = force_tz(study_end, tzone = "America/Chicago")) 
 ```
 
 Change subid 74's study start date to day after first cellular communication.   
@@ -192,14 +196,39 @@ dates <- dates %>%
 ```
 
 
-### Min Date
+### Min Start Date
 
 Add column for min_start
 ```{r}
-dates %>% 
-  mutate(min_date = if_else(comm_start < study_start, comm_start, study_start)) %>% 
-  glimpse()
+dates <- dates %>% 
+  mutate(min_start = if_else(comm_start < study_start, comm_start, study_start)) 
 ```
+
+
+### EMA End Date
+
+ema
+```{r}
+ema <- vroom(here(path_processed, "ema_morning.csv"), col_types = vroom::cols()) %>% 
+    select(subid, start_date) %>% 
+  bind_rows(vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols()) %>% 
+    select(subid, start_date)) %>% 
+  mutate(subid = as.numeric(subid),
+         start_date = with_tz(start_date, tzone = "America/Chicago")) %>% 
+  rename(ema_end = start_date)
+```
+
+
+Add ema_end date
+```{r}
+dates <- dates %>% 
+  left_join(ema %>% 
+  group_by(subid) %>% 
+  arrange(subid, desc(ema_end)) %>% 
+  slice(1), by = "subid") %>% 
+  relocate(subid, study_start, comm_start, min_start) 
+```
+
 
 
 ### Save
@@ -207,6 +236,7 @@ dates %>%
 save dates
 ```{r}
 dates %>% 
-  write_csv(here(path_meta, "study_dates.csv"))
+  write_csv(here(path_meta, "study_dates.csv")) %>% 
+  glimpse()
 ```
 
