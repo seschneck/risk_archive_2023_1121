@@ -10,13 +10,12 @@ output:
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
+    )
     rmarkdown::render(
       input,
+      "/Volumes/private/studydata/risk/knits/meta")
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/meta", 
-      "/Volumes/private/studydata/risk/knits/meta")
-    )
-  })
 ---
 
 ### Code status
@@ -175,7 +174,8 @@ map2_dfr(labels_test$subid,
                               data_start = data_start, 
                               col_name = "originated", 
                               value = "incoming", 
-                              data_type = "sms") %>% 
+                              data_type = "sms",
+                              context = "all") %>% 
   glimpse()
 ```
 
