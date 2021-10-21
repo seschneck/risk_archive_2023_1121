@@ -177,7 +177,7 @@ meta_features <- map2_dfr(labels_05$subid,
             lead = lead, 
             data_start = data_start, 
             col_name = "originated", 
-            value = "incoming", 
+            values = c("incoming", "outgoing"), 
             data_type = c("all", "sms", "voice"),
             context = "all") 
 ```
@@ -193,7 +193,7 @@ meta_features <- meta_features %>%
             lead = lead, 
             data_start = data_start, 
             col_name = "originated", 
-            value = "incoming", 
+            values = c("incoming", "outgoing"), 
             data_type = c("all", "sms", "voice"),
             context = "drink_status",
             context_value = "Drinker"), by = c("subid", "dttm_label"))
