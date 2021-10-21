@@ -179,8 +179,29 @@ meta_features <- map2_dfr(labels_05$subid,
             col_name = "originated", 
             value = "incoming", 
             data_type = c("all", "sms", "voice"),
-            context = "all") %>% 
-  glimpse()
+            context = "all") 
+```
+
+Incoming calls from Drinkers
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "originated", 
+            value = "incoming", 
+            data_type = c("voice"),
+            context = "drink_status",
+            context_value = "Drinker"), by = c("subid", "dttm_label"))
+```
+
+
+```{r}
+glimpse(meta_features)
 
 meta_features %>% 
   print_kbl()
@@ -211,11 +232,6 @@ meta_features %>%
 <!--   filter(relative_hours < period_duration_hours) %>% -->
 <!--   glimpse() -->
 <!-- ``` -->
-
-
-
-
-
 
 
 
