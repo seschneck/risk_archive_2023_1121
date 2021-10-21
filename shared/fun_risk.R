@@ -301,7 +301,7 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
     filter(subid == the_subid) %>% 
     pull(data_start)
   
-  # FIX: make sure this pulls min_start
+  
   
   data_start_hours <- as.numeric(difftime(the_dttm_label, data_start, units = "hours"))
 
@@ -351,21 +351,33 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
     pull(base)
     
   # loop over period_durations
-  features <- foreach (period_duration = period_durations, .combine=cbind) %do% {
+  features <- foreach (data_type = data_type, .combine=cbind) %do% {
     
-    x_period <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+    x_all <- if (data_type == "all") {
+      x_all
+    } else if (data_type == "sms") {
+      x_all %>% filter(log_type == "sms")
+    } else if (data_type == "voice") {
+      x_all %>% filter(log_type == "voice")
+    }
+      
     
-    true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
-                                                     data_start, period_duration)
-    
-    raw_rate <- x_period %>% 
-      summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
-      pull(raw)
-    
-    rates <- tibble(
-      "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}" := raw_rate,
-      "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}" := raw_rate - baseline,
-      "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}" := (raw_rate - baseline) / baseline)
+    foreach (period_duration = period_durations, .combine=cbind) %do% {
+      
+      x_period <- get_x_period(the_subid, the_dttm_label, x_all, lead, period_duration)
+      
+      true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                      data_start, period_duration)
+      
+      raw_rate <- x_period %>% 
+        summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
+        pull(raw)
+      
+      rates <- tibble(
+        "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}" := raw_rate,
+        "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}" := raw_rate - baseline,
+        "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}" := (raw_rate - baseline) / baseline)
+    }
   }
   
   features <- features %>% 
