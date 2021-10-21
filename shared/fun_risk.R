@@ -381,44 +381,18 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
         summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
         pull(raw)
       
-      # temporary counts to check rates
-      # REMOVE after testing
-      count <- function(.x, value) {
-        if (length(.x) > 0) {
-          the_count <- sum(.x == value, na.rm = TRUE)
-        } else the_count <- 0
-        
-        return(the_count)
-      }
-      
-      raw_count <- x_period %>% 
-        summarise("raw" := count(.data[[col_name]], value)) %>%
-        pull(raw)
-      
       
       rates <- if (!is_null(context_value)) {
         tibble(
         "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context_value}" := raw_rate,
         "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context_value}" := raw_rate - baseline,
-        "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context_value}" := (raw_rate - baseline) / baseline,
-      
-        # remove counts after testing
-        "{data_type}_period{period_duration}_lead{lead}_base_n_{col_name}_{value}_{context_value}" := baseline * base_duration,
-        "{data_type}_period{period_duration}_lead{lead}_base_duration_{col_name}_{value}_{context_value}" := base_duration,
-        "{data_type}_period{period_duration}_lead{lead}_n_{col_name}_{value}_{context_value}" := raw_count,
-        "{data_type}_period{period_duration}_lead{lead}_duration_{col_name}_{value}_{context_value}" := true_period_duration)
+        "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context_value}" := (raw_rate - baseline) / baseline)
       } else {
         # don't include context label when not using context
         tibble(
           "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}" := raw_rate,
           "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}" := raw_rate - baseline,
-          "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := (raw_rate - baseline) / baseline,
-          
-          # remove counts after testing
-          "{data_type}_period{period_duration}_lead{lead}_base_n_{col_name}_{value}" := baseline * base_duration,
-          "{data_type}_period{period_duration}_lead{lead}_base_duration_{col_name}_{value}" := base_duration,
-          "{data_type}_period{period_duration}_lead{lead}_n_{col_name}_{value}" := raw_count,
-          "{data_type}_period{period_duration}_lead{lead}_duration_{col_name}_{value}" := true_period_duration)
+          "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := (raw_rate - baseline) / baseline)
       }
     }
   }
