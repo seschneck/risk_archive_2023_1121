@@ -355,13 +355,14 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
 
   
   # loop over data types
-  foreach (data_type = data_types, .combine = "cbind") %do% {
+  features <- foreach (data_type = data_types, .combine = "cbind") %do% {
     
     if (data_type != "all") {
       x <- x_all %>% filter(log_type == data_type) 
+    } else x <- x_all
       
     # loop over period durations and column values
-    foreach (period_duration = period_durations, .combine = "cbind") %do% {
+      foreach (period_duration = period_durations, .combine = "cbind") %do% {
       
       x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
       
@@ -369,7 +370,7 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
                                                       data_start, period_duration)
     
       
-      foreach(value = values, .combine = "cbind") %do% { 
+    foreach(value = values, .combine = "cbind") %do% { 
           
           baseline <- x %>%
             filter(subid == the_subid) %>%
@@ -395,20 +396,14 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
                 "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := (raw_rate - baseline) / baseline)
             
               }
-          features <- features %>% 
-            bind_cols(rates)
         }
     }
     }
-    
-
   features <- features %>%
     mutate(subid = the_subid,
-         dttm_label = the_dttm_label) %>%
+           dttm_label = the_dttm_label) %>%
     relocate(subid, dttm_label)
-
   
-  }
   return(features)
 }
 
