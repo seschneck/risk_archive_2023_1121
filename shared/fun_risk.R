@@ -391,14 +391,15 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
               tibble(
                 "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context_value}" := raw_rate,
                 "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context_value}" := raw_rate - baseline,
-                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context_value}" := (raw_rate - baseline) / baseline)
+                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context_value}" := 
+                  if_else(baseline == 0, 0, (raw_rate - baseline) / baseline))
             } else {
               # don't include context label when not using context
               tibble(
                 "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}" := raw_rate,
                 "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}" := raw_rate - baseline,
-                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := (raw_rate - baseline) / baseline)
-            
+                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := 
+                  if_else(baseline == 0, 0, (raw_rate - baseline) / baseline))
               }
         }
     }
