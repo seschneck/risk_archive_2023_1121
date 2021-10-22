@@ -165,9 +165,9 @@ lead <-  0
 
 
 
-### Score rate count features
+### Rates and Proportions
 
-Incoming/Outgoing calls
+Incoming/Outgoing calls 
 ```{r}
 meta_features <- map2_dfr(labels_05$subid, 
          labels_05$dttm_label,
@@ -179,7 +179,18 @@ meta_features <- map2_dfr(labels_05$subid,
             col_name = "originated", 
             values = c("incoming", "outgoing"), 
             data_types = c("all", "sms", "voice"),
-            context = "all") 
+            context = "all") %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_types = c("all", "sms", "voice"),
+            context = "all"), by = c("subid", "dttm_label"))
+  
 ```
 
 Incoming/Outcoming calls from Drinkers and NonDrinkers
@@ -196,7 +207,47 @@ meta_features <- meta_features %>%
             values = c("incoming", "outgoing"), 
             data_type = c("all", "sms", "voice"),
             context = "drink_status",
+            context_values = c("Drinker", "NonDrinker")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_types = c("all", "sms", "voice"),
+            context = "drink_status",
             context_values = c("Drinker", "NonDrinker")), by = c("subid", "dttm_label"))
+```
+
+
+Incoming/Outcoming calls from Supportive, NonSupportive, and Mixed Contacts
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_type = c("all", "sms", "voice"),
+            context = "support_status",
+            context_values = c("Supportive", "Unsupportive", "Mixed")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_types = c("all", "sms", "voice"),
+            context = "support_status",
+            context_values = c("Supportive", "Unsupportive", "Mixed")), by = c("subid", "dttm_label"))
 ```
 
 
@@ -210,6 +261,10 @@ meta_features %>%
   print_kbl()
 ```
 
+
+```{r}
+
+```
 
 
 

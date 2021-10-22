@@ -416,5 +416,89 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
 
 
 
+score_propcount_value <- function(the_subid, the_dttm_label, x_all, 
+                                  period_durations, lead, col_name, values, 
+                                  data_types, context, context_values = NA) {
+  # Counts the number of matches for col_name == value and converts to a rate
+  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
+  # rates (dratecount for diff between rate in period and rate across all data; 
+  # pratecount for percent change between rate in period and rate across all data)
+  
+  # the_subid: single integer subid
+  # the_dttm_label: single dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of 1+ integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # col_name: column name for raw data for feature as string
+  # values: a vector of 1+ values to count within the col_name.  Can be string or numeric
+  # data_types: a vector of 1+ data types to filter on
+  # context: col_name of context feature
+  # context_values: a vector of 1+ context values to filter on
+  
+  
+  
+  # Loop over context values
+  features <- foreach (context_value = context_values, .combine = "cbind") %do% {
+    
+    # Filter data if context_value provided
+    if (!is.na(context_value)) {
+      x_c <- x_all %>%
+        filter(.data[[context]] == context_value) 
+    } else x_c <- x_all
+    
+    
+    # this will change for other feature score functions
+    propcount <- function(.x, value, n_rows) {
+      if (length(.x) > 0) {
+        the_count <- sum(.x == value, na.rm = TRUE)
+        return(the_count/n_rows)
+      } else return(0)
+    }
+    
+    
+    # loop over data types
+    foreach (data_type = data_types, .combine = "cbind") %do% {
+      
+      if (data_type != "all") {
+        x <- x_c %>% filter(log_type == data_type) 
+      } else x <- x_c
+      
+      # loop over period durations and column values
+      foreach (period_duration = period_durations, .combine = "cbind") %do% {
+        
+        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
+
+        
+        
+        foreach(value = values, .combine = "cbind") %do% { 
+
+          
+          prop <- x_period %>%
+            summarise("prop" := propcount(.data[[col_name]], value, nrow(x_period))) %>%
+            pull(prop)
+          
+          
+          rates <- if (!is.na(context_value)) {
+            tibble(
+              "{data_type}_period{period_duration}_lead{lead}_proptotal_{col_name}_{value}_{context_value}" := prop)
+          } else {
+            # don't include context label when not using context
+            tibble(
+              "{data_type}_period{period_duration}_lead{lead}_proptotal_{col_name}_{value}" := prop)
+          }
+        }
+      }
+    }
+  }
+  
+  features <- features %>%
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>%
+    relocate(subid, dttm_label)
+  
+  return(features)
+}
+
+
 
 
