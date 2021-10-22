@@ -1034,6 +1034,63 @@ Whether participant visits this contact's home monthly
 tabyl(logs$monthly_visit)
 ```
 
+## Clean variable names
+```{r}
+logs <- logs %>% 
+  rename(drank_w_contact_in_past = contact_drank_past,
+         drinker_status = drink_status,
+         contact_will_drink_in_presence = contact_drink_future,
+         recovery_status = recovery,
+         supportiveness = support_status,
+         experience_w_contact = contact_experience,
+         visited_monthly = monthly_visit) %>% 
+  mutate(contact_type = case_when(contact_type == "Aunt/Uncle" ~ "aunt_uncle",
+                                  contact_type == "Child" ~ "child",
+                                  contact_type == "Co-Worker/Business Contact" ~ "coworker",
+                                  contact_type == "Counselor" ~ "counselor",
+                                  contact_type == "Cousin" ~ "cousin",
+                                  contact_type == "Family-Other" ~ "family_other",
+                                  contact_type == "Friend" ~ "friend",
+                                  contact_type == "Grandparent" ~ "grandparent",
+                                  contact_type == "Irrelevant/spam" ~ "irrelevant",
+                                  contact_type == "Other" ~ "other",
+                                  contact_type == "Parent" ~ "parent",
+                                  contact_type == "Self" ~ "self",
+                                  contact_type == "Sibling" ~ "sibling",
+                                  contact_type == "Social Worker/Case Manager" ~ "social_worker",
+                                  contact_type == "Spouse/Significant Other" ~ "significant_other",
+                                  TRUE ~ contact_type),
+         drank_w_contact_in_past = case_when(drank_w_contact_in_past == "Almost Always/Always" ~ "always_almost_always",
+                                             drank_w_contact_in_past == "Never/Almost Never" ~ "never_almost_never",
+                                             drank_w_contact_in_past == "Occasionally" ~ "occasionally",
+                                             TRUE ~ drank_w_contact_in_past),
+         drinker_status = case_when(drinker_status == "Dont Know" ~ "dont_know",
+                                    drinker_status == "Drinker" ~ "drinker",
+                                    drinker_status == "Nondrinker" ~ "nondrinker",
+                                    TRUE ~ drinker_status),
+         contact_will_drink_in_presence = case_when(contact_will_drink_in_presence == "No" ~ "no",
+                                                    contact_will_drink_in_presence == "Uncertain" ~ "uncertain",
+                                                    contact_will_drink_in_presence == "Yes" ~ "yes",
+                                                    TRUE ~ contact_will_drink_in_presence),
+         recovery_status = case_when(recovery_status == "Dont Know" ~ "dont_know",
+                                     recovery_status == "No" ~ "no",
+                                     recovery_status == "Yes" ~ "yes",
+                                     TRUE ~ recovery_status),
+         supportiveness = case_when(supportiveness == "Dont Know" ~ "dont_know",
+                                    supportiveness == "Mixed" ~ "mixed",
+                                    supportiveness == "Neutral" ~ "neutral",
+                                    supportiveness == "Supportive" ~ "supportive",
+                                    supportiveness == "Unsupportive" ~ "unsupportive",
+                                    TRUE ~ supportiveness),
+         experience_w_contact = case_when(experience_w_contact == "Mixed" ~ "mixed",
+                                          experience_w_contact == "Neutral" ~ "neutral",
+                                          experience_w_contact == "Pleasant" ~ "pleasant",
+                                          experience_w_contact == "Unpleasant" ~ "unpleasant",
+                                          TRUE ~ experience_w_contact),
+         visited_monthly = case_when(visited_monthly == "No" ~ "no",
+                                     visited_monthly == "Yes" ~ "yes",
+                                     TRUE ~ visited_monthly))
+```
 
 ## Write csv
 ```{r}
