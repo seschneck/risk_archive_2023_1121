@@ -24,13 +24,13 @@ knit: (function(input, ...) {
 This script is in progress. It makes features for meta project.    
 
 
-John - since lead hours can only be a single value, can we remove it from each variable name?   
+*John - since lead hours can only be a single value, can we remove it from each variable name to shorten the names?*   
 
 
 Still need to do:   
-- Write functions to manipulate dates    
+- Write functions to manipulate dates
+- Engineer bursts of communications
 - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
-- Add features for duration variable (mean, sum all duration, n 0 duration)    
 - Possibly add general descriptives about social network based on all logs with static/snapshot screening variables (is significant other a drinker? Do they have friends in recovery?)    
 - EDA in separate script    
 
@@ -149,8 +149,8 @@ data_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom
 *Slice out test set of labels*    
 FIX: Remove this code block when ready to run script on all labels
 ```{r}
-set.seed(102030)
-labels_05 <- slice_sample(labels_05, n = 2)
+# set.seed(102030)
+# labels_05 <- slice_sample(labels_05, n = 20)
 ```
 
 
@@ -442,71 +442,15 @@ Feature engineer numbers (blocked, out of country, n unique numbers, repeated ou
 <!-- # count unique contacts that are supportive, in recovery, etc. -->
 <!-- ``` -->
 
-#### Feature engineering based on temporal info inherent in lapse label
 
-Days since quit date
-```{r}
-meta_features <- meta_features %>%
-  mutate(label_days_since_quit_date = round(as.numeric(difftime(dttm_label, id_quit_date, units = "days")), 2)) %>%
-  select(-id_quit_date) %>%
-  glimpse()
-```
+### Features from Dates
 
-Day of week and time of lapse
-```{r}
-meta_features <- meta_features %>%
-  rowwise() %>%
-  mutate(label_weekday = wday(dttm_label, label = TRUE),
-         label_hour = hour(dttm_label),
-         label_hour = case_when(label_hour == 0 ~ 24,
-                                TRUE ~ as.numeric(label_hour))) %>%
-  ungroup() %>%
-  glimpse()
-```
+<!-- Rates of communications at certain times, days, and frequency bursts -->
 
 
-Holidays (+/- 1 day)
-Note: only using federal holidays and easter for now
-Federal law defines 10 holidays. Four of them, NewYears, Independence, Veterans and Christmas, fall on the same date every year. The other six fall on particular days of the week and months (MLK, Presidents, Memorial, Labor, Columbus, and Thanksgiving).
-```{r}
-library(tis)
+### Additional feature engineering
 
-meta_features <- meta_features %>%
-  mutate(label_holiday = if_else(isHoliday(date(dttm_label), businessOnly = FALSE) |
-                                   isHoliday(date(dttm_label) + days(1), businessOnly = FALSE) |
-                                   isHoliday(date(dttm_label) - days(1), businessOnly  = FALSE) |
-                                   isEaster(date(dttm_label)) |
-                                   isEaster(date(dttm_label) + days(1)) |
-                                   isEaster(date(dttm_label) - days(1)),
-                                 "yes", "no")) %>%
-  glimpse()
-```
-
-Other holidays to consider:
-
-- mothers/fathers day (different date every year)
-- Halloween
-- personalized important days (Most are labeled as "Other" so unclear what significance is in these days)
-- Jewish Holidays
-
-
-Seasons
-Spring: Starts on March 20, and ends on June 20.
-Summer: Begins on June 21, and lasts until September 21.
-Fall: Goes from September 22 until December 20.
-Winter: Starts on December 21, and lasts until March 19.
-```{r}
-meta_features <- meta_features %>%
-  mutate(month = lubridate::month(dttm_label),
-         day = lubridate::day(dttm_label),
-         label_season = case_when(month %in% c(4, 5) | (month == 6 & day < 21) | (month == 3 & day >= 20) ~ "Spring",
-                                  month %in% c(7, 8) | (month == 9 & day < 22) | (month == 6 & day >= 21) ~ "Summer",
-                                  month %in% c(10, 11) | (month == 12 & day < 21) | (month == 9 & day >= 22) ~ "Fall",
-                                  month %in% c(1, 2) | (month == 3 & day < 20) | (month == 12 & day >= 21) ~ "Winter",
-                                  TRUE ~ NA_character_)) %>%
-  select(-c(month, day)) %>%
-  glimpse()
-```
+<!-- Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs family, drinkers they visit monthly -->
 
 
 ### ID Demographic Features and Snapshot Screening Data
@@ -514,8 +458,7 @@ meta_features <- meta_features %>%
 Read in screening data
 ```{r}
 screen <- vroom::vroom(here(path_shared, "screen.csv"), col_types = vroom::cols()) %>%
-  filter(subid %in% logs$subid) %>%
-  glimpse()
+  filter(subid %in% logs_all$subid)
 ```
 
 Select variables of interest
@@ -627,8 +570,7 @@ screen_select <- screen %>%
          id_lifetime_cutback_hallucinogen = assist_7_7,
          id_lifetime_cutback_opioid = assist_7_8,
          id_lifetime_drug_injection = assist_8,
-         id_dsm5_total) %>%
-  glimpse()
+         id_dsm5_total) 
 ```
 
 Score and add YAP
@@ -653,8 +595,7 @@ yap_past_year <- screen %>%
 # add to screen_select
 screen_select <- screen_select %>%
   full_join(yap_life, by = "subid") %>%
-  full_join(yap_past_year, by = "subid") %>%
-  glimpse()
+  full_join(yap_past_year, by = "subid")
 ```
 
 Score and add SCL-90
@@ -694,8 +635,7 @@ scl_90 <- screen %>%
   select(-c(scl90_1:scl90_90))
 
 screen_select <- screen_select %>%
-  full_join(scl_90, by = "subid") %>%
-  glimpse()
+  full_join(scl_90, by = "subid") 
 ```
 
 
@@ -714,8 +654,7 @@ ius <- screen %>%
   select(-c(ius_1:ius_27))
 
 screen_select <- screen_select %>%
-  full_join(ius, by = "subid") %>%
-  glimpse()
+  full_join(ius, by = "subid") 
 ```
 
 
@@ -737,8 +676,7 @@ asi3 <- screen %>%
   select(-c(asi3_1:asi3_18))
 
 screen_select <- screen_select %>%
-  full_join(asi3, by = "subid") %>%
-  glimpse()
+  full_join(asi3, by = "subid")
 ```
 
 
@@ -764,8 +702,7 @@ dts <- screen %>%
   select(-c(dts_1:dts_15))
 
 screen_select <- screen_select %>%
-  full_join(dts, by = "subid") %>%
-  glimpse()
+  full_join(dts, by = "subid") 
 ```
 
 Score and add FAD
@@ -802,8 +739,7 @@ fad <- screen %>%
   select(-c(fad_1:fad_60))
 
 screen_select <- screen_select %>%
-  full_join(fad, by = "subid") %>%
-  glimpse()
+  full_join(fad, by = "subid") 
 ```
 
 Score and add MPS
@@ -858,8 +794,7 @@ mps <- screen %>%
   select(-c(mps_1:mps_155))
 
 screen_select <- screen_select %>%
-  full_join(mps, by = "subid") %>%
-  glimpse()
+  full_join(mps, by = "subid")
 ```
 
 Add screen variables to feature set
@@ -872,20 +807,68 @@ meta_features <- meta_features %>%
 
 
 
+#### Feature engineering based on temporal info inherent in lapse label
+
+Days since quit date
+```{r}
+meta_features <- meta_features %>%
+  mutate(label_days_since_quit_date = round(as.numeric(difftime(dttm_label, id_quit_date, units = "days")), 2)) %>%
+  select(-id_quit_date) 
+```
+
+Day of week and time of lapse
+```{r}
+meta_features <- meta_features %>%
+  rowwise() %>%
+  mutate(label_weekday = wday(dttm_label, label = TRUE),
+         label_hour = hour(dttm_label),
+         label_hour = case_when(label_hour == 0 ~ 24,
+                                TRUE ~ as.numeric(label_hour))) %>%
+  ungroup()
+```
 
 
+Holidays (+/- 1 day)
+Note: only using federal holidays and easter for now
+Federal law defines 10 holidays. Four of them, NewYears, Independence, Veterans and Christmas, fall on the same date every year. The other six fall on particular days of the week and months (MLK, Presidents, Memorial, Labor, Columbus, and Thanksgiving).
+```{r}
+library(tis)
+
+meta_features <- meta_features %>%
+  mutate(label_holiday = if_else(isHoliday(date(dttm_label), businessOnly = FALSE) |
+                                   isHoliday(date(dttm_label) + days(1), businessOnly = FALSE) |
+                                   isHoliday(date(dttm_label) - days(1), businessOnly  = FALSE) |
+                                   isEaster(date(dttm_label)) |
+                                   isEaster(date(dttm_label) + days(1)) |
+                                   isEaster(date(dttm_label) - days(1)),
+                                 "yes", "no")) 
+```
+
+Other holidays to consider:
+
+- mothers/fathers day (different date every year)
+- Halloween
+- personalized important days (Most are labeled as "Other" so unclear what significance is in these days)
+- Jewish Holidays
 
 
+Seasons
+Spring: Starts on March 20, and ends on June 20.
+Summer: Begins on June 21, and lasts until September 21.
+Fall: Goes from September 22 until December 20.
+Winter: Starts on December 21, and lasts until March 19.
+```{r}
+meta_features <- meta_features %>%
+  mutate(month = lubridate::month(dttm_label),
+         day = lubridate::day(dttm_label),
+         label_season = case_when(month %in% c(4, 5) | (month == 6 & day < 21) | (month == 3 & day >= 20) ~ "Spring",
+                                  month %in% c(7, 8) | (month == 9 & day < 22) | (month == 6 & day >= 21) ~ "Summer",
+                                  month %in% c(10, 11) | (month == 12 & day < 21) | (month == 9 & day >= 22) ~ "Fall",
+                                  month %in% c(1, 2) | (month == 3 & day < 20) | (month == 12 & day >= 21) ~ "Winter",
+                                  TRUE ~ NA_character_)) %>%
+  select(-c(month, day)) 
+```
 
-<!-- #### Additional Feature engineering -->
-
-
-<!-- # feature engineering functions for call log datetime -->
-<!-- ```{r} -->
-<!-- # fun_list_dates <- list(n_logs_after_8_pm = function(.x) {nrow(subset(hour(.x) > 20))}) -->
-<!-- ``` -->
-
-<!-- Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs family, drinkers they visit monthly -->
 
 
 
@@ -910,7 +893,7 @@ meta_features %>%
 ```{r}
 vroom::vroom_write(meta_features, 
                    here(path_meta, 
-                        str_c("features/period_", period_duration_hours, "_lead_", lead_hours, ".csv")), ",") 
+                        str_c("features/features_2021_10_22.csv")), ",") 
 ```
 
 
