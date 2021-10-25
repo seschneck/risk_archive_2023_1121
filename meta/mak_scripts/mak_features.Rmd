@@ -24,9 +24,6 @@ knit: (function(input, ...) {
 This script is in progress. It makes features for meta project.    
 
 
-*John - since lead hours can only be a single value, can we remove it from each variable name to shorten the names?*   
-
-
 Still need to do:   
 - Write functions to manipulate dates
 - Engineer bursts of communications
@@ -249,8 +246,7 @@ meta_features <- meta_features %>%
             values = c("incoming", "outgoing"), 
             data_types = c("all", "sms", "voice"),
             context = "supportiveness",
-            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) %>% 
-  rename_with(~str_remove(.x, "_originated"))
+            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
 ```
 
 ```{r}
@@ -330,8 +326,7 @@ meta_features <- meta_features %>%
             values = c("family", "friend"), 
             data_types = c("all"),
             context = "is_drinker",
-            context_values = c("yes")), by = c("subid", "dttm_label")) %>% 
-  rename_with(~str_remove(.x, "_abr"))
+            context_values = c("yes")), by = c("subid", "dttm_label")) 
 ```
 
 Rate of total communications with people they visit monthly and who are likely to drink in front of them and proportion of people they communicate with that they visit monthly who are likely to drink in their presence
@@ -422,8 +417,7 @@ meta_features <- meta_features %>%
             values = c(0), 
             data_types = c("voice"),
             context = "originated",
-            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label")) %>% 
-  rename_with(~str_remove(.x, "_originated"))
+            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label"))
 ```
 
 
