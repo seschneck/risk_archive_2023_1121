@@ -315,9 +315,9 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
 
 
 
-score_ratecount_value <- function(the_subid, the_dttm_label, x_all, 
-                                  period_durations, lead, data_start, 
-                                  col_name, values, data_types, context = NA, context_values = NA) {
+score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durations, 
+                                  lead, data_start, col_name, col_values, data_type_col_name = NA, 
+                                  data_type_values = NA, context_col_name = NA, context_values = NA) {
   # Counts the number of matches for col_name == value and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -330,8 +330,9 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all,
   # lead: the lead time for prediction in hours (a single integer)
   # data_start: a df with data_start = min(study_start, comm_start) for all subids
   # col_name: column name for raw data for feature as string
-  # values: a vector of 1+ values to count within the col_name.  Can be string or numeric
-  # data_types: a vector of 1+ data types to filter on
+  # col_values: a vector of 1+ values to count within the col_name.  Can be string or numeric
+  # data_type_col_name: name of column name to filter on for data log type values (used in meta study)
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
 
@@ -343,15 +344,14 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
   # Filter data if context_value provided
   if (!is.na(context_value)) {
     x_c <- x_all %>%
-      filter(.data[[context]] == context_value) 
-  } else x_c <- x_all
+      filter(.data[[context_col_name]] == context_value) 
+  } else x_c <- x_all # renaming to avoid rewriting over x_all for next loop
   
   
-  # this will change for other feature score functions
+  # define function: this will change for other feature score functions
   ratecount <- function (.x, value, duration) {
     the_count <- if (length(.x) > 0) sum(.x == value, na.rm = TRUE)
       else 0
-    
     return(the_count / duration)
   }
   
@@ -360,11 +360,11 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
 
   
   # loop over data types
-  foreach (data_type = data_types, .combine = "cbind") %do% {
+  foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
     
-    if (data_type != "all") {
-      x <- x_c %>% filter(log_type == data_type) 
-    } else x <- x_c
+    if (!is.na(data_type_value)) {
+      x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+    } else x <- x_c # renaming to avoid rewriting over x_c for next loop
       
     # loop over period durations and column values
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
@@ -375,34 +375,29 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
                                                       data_start, period_duration)
     
       
-    foreach(value = values, .combine = "cbind") %do% { 
+    foreach(col_value = col_values, .combine = "cbind") %do% { 
           
           baseline <- x %>%
             filter(subid == the_subid) %>%
-            summarise("base" := ratecount(.data[[col_name]], value, base_duration)) %>%
+            summarise("base" := ratecount(.data[[col_name]], col_value, base_duration)) %>%
             pull(base)
 
           raw_rate <- x_period %>%
-            summarise("raw" := ratecount(.data[[col_name]], value, true_period_duration)) %>%
+            summarise("raw" := ratecount(.data[[col_name]], col_value, true_period_duration)) %>%
             pull(raw)
  
           
-          rates <- if (!is.na(context_value)) {
-              tibble(
-                "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}_{context}_{context_value}" := raw_rate,
-                "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}_{context}_{context_value}" := raw_rate - baseline,
-                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}_{context}_{context_value}" := 
-                  if_else(baseline == 0, 0, (raw_rate - baseline) / baseline))
-            } else {
-              # don't include context label when not using context
-              tibble(
-                "{data_type}_period{period_duration}_lead{lead}_rratecount_{col_name}_{value}" := raw_rate,
-                "{data_type}_period{period_duration}_lead{lead}_dratecount_{col_name}_{value}" := raw_rate - baseline,
-                "{data_type}_period{period_duration}_lead{lead}_pratecount_{col_name}_{value}" := 
-                  if_else(baseline == 0, 0, (raw_rate - baseline) / baseline))
-              }
-        }
+          rates <- 
+            tibble(
+              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := 
+                if_else(baseline == 0, 0, (raw_rate - baseline) / baseline)) %>% 
+            rename_with(~str_remove_all(.x, ".NA")) %>% 
+            rename_with(~str_remove(.x, "^NA."))
+        
     }
+  }
   }
 }
   
@@ -417,8 +412,9 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
 
 
 score_propcount_value <- function(the_subid, the_dttm_label, x_all, 
-                                  period_durations, lead, col_name, values, 
-                                  data_types, context = NA, context_values = NA) {
+                                  period_durations, lead, col_name, col_values, 
+                                  data_type_col_name = NA, data_type_values = NA, 
+                                  context_col_name = NA, context_values = NA) {
   # Counts the number of matches for col_name == value and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -430,9 +426,10 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
   # period_durations: vector of 1+ integer period_durations in hours
   # lead: the lead time for prediction in hours (a single integer)
   # col_name: column name for raw data for feature as string
-  # values: a vector of 1+ values to count within the col_name.  Can be string or numeric
-  # data_types: a vector of 1+ data types to filter on
-  # context: col_name of context feature
+  # col_values: a vector of 1+ values to count within the col_name.  Can be string or numeric
+  # data_type_col_name: name of column name to filter on for data log type values (used in meta study)
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
   
   
@@ -443,8 +440,8 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
     # Filter data if context_value provided
     if (!is.na(context_value)) {
       x_c <- x_all %>%
-        filter(.data[[context]] == context_value) 
-    } else x_c <- x_all
+        filter(.data[[context_col_name]] == context_value) 
+    } else x_c <- x_all # rename to avoid rewriting over x_all for next loop
     
     
     # this will change for other feature score functions
@@ -457,11 +454,11 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
     
     
     # loop over data types
-    foreach (data_type = data_types, .combine = "cbind") %do% {
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
-      if (data_type != "all") {
-        x <- x_c %>% filter(log_type == data_type) 
-      } else x <- x_c
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+      } else x <- x_c # rename to avoid rewriting over x for next loop
       
       # loop over period durations and column values
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
@@ -470,22 +467,19 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
 
         
         
-        foreach(value = values, .combine = "cbind") %do% { 
+        foreach(col_value = col_values, .combine = "cbind") %do% { 
 
           
           prop <- x_period %>%
-            summarise("prop" := propcount(.data[[col_name]], value, nrow(x_period))) %>%
+            summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
             pull(prop)
           
           
-          rates <- if (!is.na(context_value)) {
+          rates <- 
             tibble(
-              "{data_type}_period{period_duration}_lead{lead}_proptotal_{col_name}_{value}_{context}_{context_value}" := prop)
-          } else {
-            # don't include context label when not using context
-            tibble(
-              "{data_type}_period{period_duration}_lead{lead}_proptotal_{col_name}_{value}" := prop)
-          }
+              "{data_type_value}.p{period_duration}.l{lead}.proptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop) %>% 
+            rename_with(~str_remove_all(.x, ".NA")) %>% 
+            rename_with(~str_remove(.x, "^NA."))
         }
       }
     }
@@ -502,7 +496,8 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
 
 score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all, 
                                   period_durations, lead, data_start, 
-                                  col_name, data_types, context = NA, context_values = NA) {
+                                  col_name, data_type_col_name = NA, data_type_values = NA, 
+                                  context_col_name = NA, context_values = NA) {
   # Sums the value for col_name (i.e., duration) and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -515,8 +510,9 @@ score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all,
   # lead: the lead time for prediction in hours (a single integer)
   # data_start: a df with data_start = min(study_start, comm_start) for all subids
   # col_name: column name for raw data for feature as string - should be continuous var
-  # data_types: a vector of 1+ data types to filter on
-  # context: col_name of context feature
+  # data_type_col_name: name of column name to filter on for data log type values (used in meta study)
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
   
   
@@ -527,7 +523,7 @@ score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all,
     # Filter data if context_value provided
     if (!is.na(context_value)) {
       x_c <- x_all %>%
-        filter(.data[[context]] == context_value) 
+        filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
     
     
@@ -554,10 +550,10 @@ score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all,
     
     
     # loop over data types
-    foreach (data_type = data_types, .combine = "cbind") %do% {
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
-      if (data_type != "all") {
-        x <- x_c %>% filter(log_type == data_type) 
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
       
       # loop over period durations and column values
@@ -588,24 +584,16 @@ score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all,
           
           
           
-          rates <- if (!is.na(context_value)) {
+          rates <- 
             tibble(
-              "{data_type}_period{period_duration}_lead{lead}_rratesum_{col_name}_{context}_{context_value}" := raw_rate,
-              "{data_type}_period{period_duration}_lead{lead}_dratesum_{col_name}_{context}_{context_value}" := raw_rate - baseline,
-              "{data_type}_period{period_duration}_lead{lead}_pratesum_{col_name}_{context}_{context_value}" := (raw_rate - baseline) / baseline,
-              "{data_type}_period{period_duration}_lead{lead}_rmean_{col_name}_{context}_{context_value}" := raw_mean,
-              "{data_type}_period{period_duration}_lead{lead}_dmean_{col_name}_{context}_{context_value}" := raw_mean - baseline_mean,
-              "{data_type}_period{period_duration}_lead{lead}_pmean_{col_name}_{context}_{context_value}" := (raw_mean - baseline_mean) / baseline_mean)
-          } else {
-            # don't include context label when not using context
-            tibble(
-              "{data_type}_period{period_duration}_lead{lead}_rratesum_{col_name}" := raw_rate,
-              "{data_type}_period{period_duration}_lead{lead}_dratesum_{col_name}" := raw_rate - baseline,
-              "{data_type}_period{period_duration}_lead{lead}_pratesum_{col_name}" := (raw_rate - baseline) / baseline,
-              "{data_type}_period{period_duration}_lead{lead}_rmean_{col_name}" := raw_mean,
-              "{data_type}_period{period_duration}_lead{lead}_dmean_{col_name}" := raw_mean - baseline_mean,
-              "{data_type}_period{period_duration}_lead{lead}_pmean_{col_name}" := (raw_mean - baseline_mean) / baseline_mean)
-          }
+              "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}" := (raw_rate - baseline) / baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw_mean - baseline_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := (raw_mean - baseline_mean) / baseline_mean) %>% 
+            rename_with(~str_remove_all(.x, ".NA")) %>% 
+            rename_with(~str_remove(.x, "^NA."))
         }
     }
   }
