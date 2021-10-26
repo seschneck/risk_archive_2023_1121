@@ -1,196 +1,146 @@
----
-title: "Feature Engineering"
-author: "Kendra Wyant"
-date: "`r lubridate::today()`"
-output: 
-  html_document:
-    toc: true 
-    toc_depth: 4
-    code_folding: show
-editor_options: 
-  chunk_output_type: console
-knit: (function(input, ...) {
-    rmarkdown::render(
-      input,
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/meta", 
-      "/Volumes/private/studydata/risk/knits/meta")
-    )
-  })
----
+# 
+# 
+# ### Code status
+# 
+# This script is in progress. It makes features for meta project.    
+# 
+# 
+# Still need to do:   
+# - Write functions to manipulate dates
+# - Engineer bursts of communications
+# - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
+# - Possibly add general descriptives about social network based on all logs with static/snapshot screening variables (is significant other a drinker? Do they have friends in recovery?)    
+# - EDA in separate script    
+# 
+# ### Conclusions
+# 
+# These features will be further broken down into different feature sets:     
+# 
+# - feat_baseline_id - Only static/ID features    
+# - feat_baseline_temporal - Only features derived from temporal features about label      
+# - feat_all - All features.   
+# - feat_all_passive - All features except those derived from context information.     
+# - feat_logs - Only features derived from log and context info     
+# 
+# 
+# ### Notes
+# 
+# This script returns a dataframe of features to be used as inputs into a machine learning 
+# model and the yes/no outcome label (lapse).      
+# 
+# Input:   
+# 
+# - meta_logs.csv (path_meta)   
+# - labels_05.csv (path_shared)   
+# - screen.csv (path_shared)
 
-### Code status
-
-This script is in progress. It makes features for meta project.    
-
-
-Still need to do:   
-- Write functions to manipulate dates
-- Engineer bursts of communications
-- Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
-- Possibly add general descriptives about social network based on all logs with static/snapshot screening variables (is significant other a drinker? Do they have friends in recovery?)    
-- EDA in separate script    
-
-### Conclusions
-
-These features will be further broken down into different feature sets:     
-
-- feat_baseline_id - Only static/ID features    
-- feat_baseline_temporal - Only features derived from temporal features about label      
-- feat_all - All features.   
-- feat_all_passive - All features except those derived from context information.     
-- feat_logs - Only features derived from log and context info     
-
-
-### Notes
-
-This script returns a dataframe of features to be used as inputs into a machine learning 
-model and the yes/no outcome label (lapse).      
-
-Input:   
-
-- meta_logs.csv (path_meta)   
-- labels_05.csv (path_shared)   
-- screen.csv (path_shared)
-
-
-### Set up Environment
-
-Chunk Defaults
-```{r defaults, include=FALSE}
-knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
-
-options(tibble.width = Inf)
-options(tibble.print_max = Inf)
-```
-
-Absolute paths
-```{r, paths}
-switch (Sys.info()[['sysname']],
-        # PC paths
-        Windows = {
-          path_meta <- "P:/studydata/risk/data_processed/meta"
-          path_shared <- "P:/studydata/risk/data_processed/shared"},
-
-        # IOS paths
-        Darwin = {
-          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
-        )
-```
+# 
+# ### Set up Environment
+# 
+# Chunk Defaults
+# ```{r defaults, include=FALSE}
+# knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+# 
+# options(tibble.width = Inf)
+# options(tibble.print_max = Inf)
+# ```
+# 
+# Absolute paths
+# ```{r, paths}
+# switch (Sys.info()[['sysname']],
+#         # PC paths
+#         Windows = {
+#           path_meta <- "P:/studydata/risk/data_processed/meta"
+#           path_shared <- "P:/studydata/risk/data_processed/shared"},
+# 
+#         # IOS paths
+#         Darwin = {
+#           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+#           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+#         )
+# ```
 
 
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
+
 # detect and warn of conflicts
 library(conflicted) 
  conflict_prefer("filter", "dplyr")
  conflict_prefer("select", "dplyr")
 
 # set working directory to project
-library(here)
-```
+# library(here)
 
-Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
+
+# USE MIN PACKAGES
 # data wrangling
-library(tidyverse)  
-library(janitor) 
+library(tidyverse)  # minimize tidyverse
 library(lubridate)
 library(purrr)
 library(vroom)
 
-# plots and tables
-library(ggplot2)
-theme_set(theme_classic()) 
-library(kableExtra)
-```
+source("fun_risk.R")
 
-Source scripts
-```{r, source_script, message=FALSE, warning=FALSE}
-source(here("shared/fun_risk.R"))
-source(here("../lab_support/print_kbl.R"))
-```
+ # add 1 to process number variable
 
 ### Read in Data
 
-Meta logs dataframe  
-```{r}
-logs_all <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
-  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
-  glimpse()
+logs_all <- read_rds("meta_logs.csv", col_types = readr::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
 
-logs_sms <- logs_all %>% 
-  filter(log_type == "sms") 
-logs_voice <- logs_all %>% 
-  filter(log_type == "voice") 
-```
 
-Lapse labels dataframe
-```{r}
-labels_05 <- vroom(here(path_meta, "labels_05.csv"), col_types = vroom::cols()) %>% 
-  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
-  glimpse()
-```
+labels_05 <- read_rds("labels_05.csv", col_types = readr::cols()) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
 
-Read in study specific start dates
-```{r}
-data_start <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+
+
+data_start <- read_rds("study_dates.csv", col_types = readr::cols()) %>% 
   select(subid, study_start, comm_start, data_start) %>% 
-  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) %>% 
-  glimpse()
-```
+  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) 
 
 
-
-*Slice out test set of labels*    
-FIX: Remove this code block when ready to run script on all labels
-```{r}
-# set.seed(102030)
-# labels_05 <- slice_sample(labels_05, n = 20)
-```
-
-
+### Slice out label based on processing job number
+# slice out row from labels (arg should start at 1)
+# call label
 
 ### Initialize values for period duration and lead hours
 
-Period duration should be a vector containing 1+ values in hours
-```{r}
-period_durations <- c(24, 48) 
-```
 
-Lead should be a single value in hours
-```{r}
+period_durations <- c(6, 12, 24, 48, 72, 168) 
+
 lead <-  0 
-```
+
 
 
 
 ### Rates and Proportions
+# add job num at end and relocate to put in front
 
-Incoming/Outgoing calls 
-```{r}
-meta_features <- map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_types = c("all", "sms", "voice")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_types = c("all", "sms", "voice")), by = c("subid", "dttm_label"))
+meta_features <- score_ratecount_value(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "originated", 
+                          values = c("incoming", "outgoing"), 
+                          data_types = c("sms", "voice"))
+
+
+
+
+meta_features <- meta_features %>% 
+  full_join(score_propcount_value(label$subid, 
+                     label$dttm_label,
+                     x_all  = logs_all,
+                     period_durations = period_durations,
+                     lead = lead, 
+                     col_name = "originated", 
+                     values = c("incoming", "outgoing"), 
+                     data_types = c("sms", "voice")), by = c("subid", "dttm_label"))
+
+
   
-```
+
 
 Incoming/Outcoming calls from Drinkers and NonDrinkers
 ```{r}
@@ -204,7 +154,7 @@ meta_features <- meta_features %>%
             data_start = data_start, 
             col_name = "originated", 
             values = c("incoming", "outgoing"), 
-            data_type = c("all", "sms", "voice"),
+            data_type = c("sms", "voice"),
             context = "is_drinker",
             context_values = c("yes", "no")), by = c("subid", "dttm_label")) %>% 
   full_join(map2_dfr(labels_05$subid, 
@@ -215,7 +165,7 @@ meta_features <- meta_features %>%
             lead = lead, 
             col_name = "originated", 
             values = c("incoming", "outgoing"), 
-            data_types = c("all", "sms", "voice"),
+            data_types = c("sms", "voice"),
             context = "is_drinker",
             context_values = c("yes", "no")), by = c("subid", "dttm_label"))
 ```
