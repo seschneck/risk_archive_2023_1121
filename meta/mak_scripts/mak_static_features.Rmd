@@ -1,401 +1,70 @@
-# 
-# 
-# ### Code status
-# 
-# This script is in progress. It makes features for meta project.    
-# 
-# 
-# Still need to do:   
-# - Write functions to manipulate dates
-# - Engineer bursts of communications
-# - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
-# - Possibly add general descriptives about social network based on all logs with static/snapshot screening variables (is significant other a drinker? Do they have friends in recovery?)    
-# - EDA in separate script    
-# 
-# ### Conclusions
-# 
-# These features will be further broken down into different feature sets:     
-# 
-# - feat_baseline_id - Only static/ID features    
-# - feat_baseline_temporal - Only features derived from temporal features about label      
-# - feat_all - All features.   
-# - feat_all_passive - All features except those derived from context information.     
-# - feat_logs - Only features derived from log and context info     
-# 
-# 
-# ### Notes
-# 
-# This script returns a dataframe of features to be used as inputs into a machine learning 
-# model and the yes/no outcome label (lapse).      
-# 
-# Input:   
-# 
-# - meta_logs.csv (path_meta)   
-# - labels_05.csv (path_shared)   
-# - screen.csv (path_shared)
+---
+title: "make demographic summary for features"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
 
-# 
-# ### Set up Environment
-# 
-# Chunk Defaults
-# ```{r defaults, include=FALSE}
-# knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
-# 
-# options(tibble.width = Inf)
-# options(tibble.print_max = Inf)
-# ```
-# 
-# Absolute paths
-# ```{r, paths}
-# switch (Sys.info()[['sysname']],
-#         # PC paths
-#         Windows = {
-#           path_meta <- "P:/studydata/risk/data_processed/meta"
-#           path_shared <- "P:/studydata/risk/data_processed/shared"},
-# 
-#         # IOS paths
-#         Darwin = {
-#           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
-#           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
-#         )
-# ```
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_meta <- "P:/studydata/risk/data_processed/meta"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
 
 
-
-# detect and warn of conflicts
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
 library(conflicted) 
  conflict_prefer("filter", "dplyr")
  conflict_prefer("select", "dplyr")
 
-# set working directory to project
-# library(here)
+library(here)  
+```
 
-
-# USE MIN PACKAGES
-# data wrangling
-library(tidyverse)  # minimize tidyverse
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
 library(lubridate)
-library(purrr)
-library(vroom)
+library(ggplot2)
+library(kableExtra)
 
-source("fun_risk.R")
-
- # add 1 to process number variable
-
-### Read in Data
-
-logs_all <- read_rds("meta_logs.csv", col_types = readr::cols()) %>% 
-  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
-
-
-labels_05 <- read_rds("labels_05.csv", col_types = readr::cols()) %>% 
-  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
-
-
-
-data_start <- read_rds("study_dates.csv", col_types = readr::cols()) %>% 
-  select(subid, study_start, comm_start, data_start) %>% 
-  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) 
-
-
-### Slice out label based on processing job number
-# slice out row from labels (arg should start at 1)
-# call label
-
-### Initialize values for period duration and lead hours
-
-
-period_durations <- c(6, 12, 24, 48, 72, 168) 
-
-lead <-  0 
-
-
-
-
-### Rates and Proportions
-# add job num at end and relocate to put in front
-
-meta_features <- score_ratecount_value(label$subid, 
-                          label$dttm_label,
-                          x_all  = logs_all,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = data_start, 
-                          col_name = "originated", 
-                          values = c("incoming", "outgoing"), 
-                          data_types = c("sms", "voice"))
-
-
-
-
-meta_features <- meta_features %>% 
-  full_join(score_propcount_value(label$subid, 
-                     label$dttm_label,
-                     x_all  = logs_all,
-                     period_durations = period_durations,
-                     lead = lead, 
-                     col_name = "originated", 
-                     values = c("incoming", "outgoing"), 
-                     data_types = c("sms", "voice")), by = c("subid", "dttm_label"))
-
-
-  
-
-
-Incoming/Outcoming calls from Drinkers and NonDrinkers
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_type = c("sms", "voice"),
-            context = "is_drinker",
-            context_values = c("yes", "no")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_types = c("sms", "voice"),
-            context = "is_drinker",
-            context_values = c("yes", "no")), by = c("subid", "dttm_label"))
+theme_set(theme_classic()) 
 ```
-
-
-Incoming/Outcoming calls from Supportive, NonSupportive, and Mixed Contacts
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_type = c("all", "sms", "voice"),
-            context = "supportiveness",
-            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "originated", 
-            values = c("incoming", "outgoing"), 
-            data_types = c("all", "sms", "voice"),
-            context = "supportiveness",
-            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
-```
-
-```{r}
-glimpse(meta_features)
-```
-
-
-### Context info on its own 
-
-Contacts in recovery  
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "in_recovery", 
-            values = c("no", "yes", "dont_know"), 
-            data_types = c("all", "sms", "voice")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "in_recovery", 
-            values = c("no", "yes", "dont_know"), 
-            data_types = c("all", "sms", "voice")), by = c("subid", "dttm_label")) 
-```
-
-```{r}
-glimpse(meta_features)
-```
-
-
-### Context combinations
-
-abbreviate contact_type categories
-```{r}
-logs_all <- logs_all %>% 
-  mutate(contact_type_abr = case_when(contact_type %in% c("parent", "child", "aunt_uncle",
-                                                              "cousin", "family_other", "sibling",
-                                                              "grandparent", "significant_other") ~ "family",
-                                          contact_type == "friend" ~ "friend",
-                                          contact_type == "coworker" ~ "coworker",
-                                          contact_type %in% c("counselor", "social_worker") ~ "counselor_socialworker",
-                                          contact_type %in% c("irrelevant", "other", "self") ~ "irrelevant_or_unknown",
-                                          is.na(contact_type) ~ "irrelevant_or_unknown"))
-```
-
-
-rate of total communications with family vs friends who are drinkers and proportion of friends and family that participant communicated with that are drinkers
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "contact_type_abr", 
-            values = c("family", "friend"), 
-            data_types = c("all"),
-            context = "is_drinker",
-            context_values = c("yes")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "contact_type_abr", 
-            values = c("family", "friend"), 
-            data_types = c("all"),
-            context = "is_drinker",
-            context_values = c("yes")), by = c("subid", "dttm_label")) 
-```
-
-Rate of total communications with people they visit monthly and who are likely to drink in front of them and proportion of people they communicate with that they visit monthly who are likely to drink in their presence
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "visits_monthly", 
-            values = c("yes"), 
-            data_types = c("all"),
-            context = "will_drink_in_presence",
-            context_values = c("yes")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_propcount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            col_name = "visits_monthly", 
-            values = c("yes"), 
-            data_types = c("all"),
-            context = "will_drink_in_presence",
-            context_values = c("yes")), by = c("subid", "dttm_label"))
-```
-
-
-
-```{r}
-glimpse(meta_features)
-```
-
-
-### Continuous features
-
-Duration of voice calls - total mins (per hour), avg call length (current, difference, and proportion), sum 0 duration calls (per hour)
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecontinuous_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "call_duration", 
-            data_types = c("voice")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "call_duration", 
-            values = c(0), 
-            data_types = c("voice")), by = c("subid", "dttm_label"))
-```
-
-
-
-Duration by incoming/outgoing
-```{r}
-meta_features <- meta_features %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecontinuous_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "call_duration", 
-            data_types = c("voice"),
-            context = "originated",
-            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label")) %>% 
-  full_join(map2_dfr(labels_05$subid, 
-         labels_05$dttm_label,
-         score_ratecount_value,
-            x_all  = logs_all,
-            period_durations = period_durations,
-            lead = lead, 
-            data_start = data_start, 
-            col_name = "call_duration", 
-            values = c(0), 
-            data_types = c("voice"),
-            context = "originated",
-            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label"))
-```
-
-
-```{r}
-glimpse(meta_features)
-```
-
-
-
-### Features from phone numbers
-
-Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)
-<!-- ```{r} -->
-<!-- # unique numbers (sms, voice, and all) -->
-<!-- # Blocked/unknown numbers -->
-<!-- # count unique contacts that are supportive, in recovery, etc. -->
-<!-- ``` -->
-
-
-### Features from Dates
-
-<!-- Rates of communications at certain times, days, and frequency bursts -->
-
-
-### Additional feature engineering
-
-<!-- Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs family, drinkers they visit monthly -->
-
 
 ### ID Demographic Features and Snapshot Screening Data
 
@@ -514,7 +183,7 @@ screen_select <- screen %>%
          id_lifetime_cutback_hallucinogen = assist_7_7,
          id_lifetime_cutback_opioid = assist_7_8,
          id_lifetime_drug_injection = assist_8,
-         id_dsm5_total) 
+         id_dsm5_total)
 ```
 
 Score and add YAP
@@ -579,7 +248,7 @@ scl_90 <- screen %>%
   select(-c(scl90_1:scl90_90))
 
 screen_select <- screen_select %>%
-  full_join(scl_90, by = "subid") 
+  full_join(scl_90, by = "subid")
 ```
 
 
@@ -598,7 +267,7 @@ ius <- screen %>%
   select(-c(ius_1:ius_27))
 
 screen_select <- screen_select %>%
-  full_join(ius, by = "subid") 
+  full_join(ius, by = "subid")
 ```
 
 
@@ -646,7 +315,7 @@ dts <- screen %>%
   select(-c(dts_1:dts_15))
 
 screen_select <- screen_select %>%
-  full_join(dts, by = "subid") 
+  full_join(dts, by = "subid")
 ```
 
 Score and add FAD
@@ -683,7 +352,7 @@ fad <- screen %>%
   select(-c(fad_1:fad_60))
 
 screen_select <- screen_select %>%
-  full_join(fad, by = "subid") 
+  full_join(fad, by = "subid")
 ```
 
 Score and add MPS
@@ -741,110 +410,15 @@ screen_select <- screen_select %>%
   full_join(mps, by = "subid")
 ```
 
-Add screen variables to feature set
+
 ```{r}
-meta_features <- meta_features %>%
-  left_join(screen_select, by = "subid") %>%
+screen_select %>% 
+  write_csv(here(path_meta, "static_features.csv")) %>% 
   glimpse()
 ```
 
-
-
-
-#### Feature engineering based on temporal info inherent in lapse label
-
-Days since quit date
 ```{r}
-meta_features <- meta_features %>%
-  mutate(label_days_since_quit_date = round(as.numeric(difftime(dttm_label, id_quit_date, units = "days")), 2)) %>%
-  select(-id_quit_date) 
+screen_select %>% 
+  write_rds(here(path_meta, "static_features.rds"))
 ```
-
-Day of week and time of lapse
-```{r}
-meta_features <- meta_features %>%
-  rowwise() %>%
-  mutate(label_weekday = wday(dttm_label, label = TRUE),
-         label_hour = hour(dttm_label),
-         label_hour = case_when(label_hour == 0 ~ 24,
-                                TRUE ~ as.numeric(label_hour))) %>%
-  ungroup()
-```
-
-
-Holidays (+/- 1 day)
-Note: only using federal holidays and easter for now
-Federal law defines 10 holidays. Four of them, NewYears, Independence, Veterans and Christmas, fall on the same date every year. The other six fall on particular days of the week and months (MLK, Presidents, Memorial, Labor, Columbus, and Thanksgiving).
-```{r}
-library(tis)
-
-meta_features <- meta_features %>%
-  mutate(label_holiday = if_else(isHoliday(date(dttm_label), businessOnly = FALSE) |
-                                   isHoliday(date(dttm_label) + days(1), businessOnly = FALSE) |
-                                   isHoliday(date(dttm_label) - days(1), businessOnly  = FALSE) |
-                                   isEaster(date(dttm_label)) |
-                                   isEaster(date(dttm_label) + days(1)) |
-                                   isEaster(date(dttm_label) - days(1)),
-                                 "yes", "no")) 
-```
-
-Other holidays to consider:
-
-- mothers/fathers day (different date every year)
-- Halloween
-- personalized important days (Most are labeled as "Other" so unclear what significance is in these days)
-- Jewish Holidays
-
-
-Seasons
-Spring: Starts on March 20, and ends on June 20.
-Summer: Begins on June 21, and lasts until September 21.
-Fall: Goes from September 22 until December 20.
-Winter: Starts on December 21, and lasts until March 19.
-```{r}
-meta_features <- meta_features %>%
-  mutate(month = lubridate::month(dttm_label),
-         day = lubridate::day(dttm_label),
-         label_season = case_when(month %in% c(4, 5) | (month == 6 & day < 21) | (month == 3 & day >= 20) ~ "Spring",
-                                  month %in% c(7, 8) | (month == 9 & day < 22) | (month == 6 & day >= 21) ~ "Summer",
-                                  month %in% c(10, 11) | (month == 12 & day < 21) | (month == 9 & day >= 22) ~ "Fall",
-                                  month %in% c(1, 2) | (month == 3 & day < 20) | (month == 12 & day >= 21) ~ "Winter",
-                                  TRUE ~ NA_character_)) %>%
-  select(-c(month, day)) 
-```
-
-
-
-
-### Write Feature Set
-
-Add outcome label (lapse/no lapse) back in
-```{r}
-meta_features <- meta_features %>%
-  left_join(labels_05 %>%
-            mutate(label = dplyr::recode(label, "lapse" = "yes", "no_lapse" = "no")),
-            by = c("subid", "dttm_label"))
-```
-
-Final glimpse and print
-```{r}
-glimpse(meta_features)
-
-meta_features %>% 
-  print_kbl()
-```
-
-```{r}
-vroom::vroom_write(meta_features, 
-                   here(path_meta, 
-                        str_c("features/features_2021_10_22.csv")), ",") 
-```
-
-
-
-### EDA in separate script
-
-Notes:   
-- Check outgoing calls to self - likely indicates voicemail (don't count in typical outgoing counts?)  
-
 
