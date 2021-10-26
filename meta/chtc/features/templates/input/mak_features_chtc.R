@@ -411,9 +411,7 @@ meta_features <- meta_features %>%
 
 # Add screen variables to feature set ------------------
 meta_features <- meta_features %>%
-  left_join(screen_features, by = "subid") %>%
-  glimpse()
-
+  left_join(screen_features, by = "subid") 
 
 
 # Feature engineering based on temporal info inherent in lapse label ------------------
