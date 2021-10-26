@@ -1,0 +1,850 @@
+# 
+# 
+# ### Code status
+# 
+# This script is in progress. It makes features for meta project.    
+# 
+# 
+# Still need to do:   
+# - Write functions to manipulate dates
+# - Engineer bursts of communications
+# - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
+# - Possibly add general descriptives about social network based on all logs with static/snapshot screening variables (is significant other a drinker? Do they have friends in recovery?)    
+# - EDA in separate script    
+# 
+# ### Conclusions
+# 
+# These features will be further broken down into different feature sets:     
+# 
+# - feat_baseline_id - Only static/ID features    
+# - feat_baseline_temporal - Only features derived from temporal features about label      
+# - feat_all - All features.   
+# - feat_all_passive - All features except those derived from context information.     
+# - feat_logs - Only features derived from log and context info     
+# 
+# 
+# ### Notes
+# 
+# This script returns a dataframe of features to be used as inputs into a machine learning 
+# model and the yes/no outcome label (lapse).      
+# 
+# Input:   
+# 
+# - meta_logs.csv (path_meta)   
+# - labels_05.csv (path_shared)   
+# - screen.csv (path_shared)
+
+# 
+# ### Set up Environment
+# 
+# Chunk Defaults
+# ```{r defaults, include=FALSE}
+# knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+# 
+# options(tibble.width = Inf)
+# options(tibble.print_max = Inf)
+# ```
+# 
+# Absolute paths
+# ```{r, paths}
+# switch (Sys.info()[['sysname']],
+#         # PC paths
+#         Windows = {
+#           path_meta <- "P:/studydata/risk/data_processed/meta"
+#           path_shared <- "P:/studydata/risk/data_processed/shared"},
+# 
+#         # IOS paths
+#         Darwin = {
+#           path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"
+#           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+#         )
+# ```
+
+
+
+# detect and warn of conflicts
+library(conflicted) 
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+# set working directory to project
+# library(here)
+
+
+# USE MIN PACKAGES
+# data wrangling
+library(tidyverse)  # minimize tidyverse
+library(lubridate)
+library(purrr)
+library(vroom)
+
+source("fun_risk.R")
+
+ # add 1 to process number variable
+
+### Read in Data
+
+logs_all <- read_rds("meta_logs.csv", col_types = readr::cols()) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
+
+
+labels_05 <- read_rds("labels_05.csv", col_types = readr::cols()) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
+
+
+
+data_start <- read_rds("study_dates.csv", col_types = readr::cols()) %>% 
+  select(subid, study_start, comm_start, data_start) %>% 
+  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) 
+
+
+### Slice out label based on processing job number
+# slice out row from labels (arg should start at 1)
+# call label
+
+### Initialize values for period duration and lead hours
+
+
+period_durations <- c(6, 12, 24, 48, 72, 168) 
+
+lead <-  0 
+
+
+
+
+### Rates and Proportions
+# add job num at end and relocate to put in front
+
+meta_features <- score_ratecount_value(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "originated", 
+                          values = c("incoming", "outgoing"), 
+                          data_types = c("sms", "voice"))
+
+
+
+
+meta_features <- meta_features %>% 
+  full_join(score_propcount_value(label$subid, 
+                     label$dttm_label,
+                     x_all  = logs_all,
+                     period_durations = period_durations,
+                     lead = lead, 
+                     col_name = "originated", 
+                     values = c("incoming", "outgoing"), 
+                     data_types = c("sms", "voice")), by = c("subid", "dttm_label"))
+
+
+  
+
+
+Incoming/Outcoming calls from Drinkers and NonDrinkers
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_type = c("sms", "voice"),
+            context = "is_drinker",
+            context_values = c("yes", "no")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_types = c("sms", "voice"),
+            context = "is_drinker",
+            context_values = c("yes", "no")), by = c("subid", "dttm_label"))
+```
+
+
+Incoming/Outcoming calls from Supportive, NonSupportive, and Mixed Contacts
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_type = c("all", "sms", "voice"),
+            context = "supportiveness",
+            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "originated", 
+            values = c("incoming", "outgoing"), 
+            data_types = c("all", "sms", "voice"),
+            context = "supportiveness",
+            context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
+```
+
+```{r}
+glimpse(meta_features)
+```
+
+
+### Context info on its own 
+
+Contacts in recovery  
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "in_recovery", 
+            values = c("no", "yes", "dont_know"), 
+            data_types = c("all", "sms", "voice")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "in_recovery", 
+            values = c("no", "yes", "dont_know"), 
+            data_types = c("all", "sms", "voice")), by = c("subid", "dttm_label")) 
+```
+
+```{r}
+glimpse(meta_features)
+```
+
+
+### Context combinations
+
+abbreviate contact_type categories
+```{r}
+logs_all <- logs_all %>% 
+  mutate(contact_type_abr = case_when(contact_type %in% c("parent", "child", "aunt_uncle",
+                                                              "cousin", "family_other", "sibling",
+                                                              "grandparent", "significant_other") ~ "family",
+                                          contact_type == "friend" ~ "friend",
+                                          contact_type == "coworker" ~ "coworker",
+                                          contact_type %in% c("counselor", "social_worker") ~ "counselor_socialworker",
+                                          contact_type %in% c("irrelevant", "other", "self") ~ "irrelevant_or_unknown",
+                                          is.na(contact_type) ~ "irrelevant_or_unknown"))
+```
+
+
+rate of total communications with family vs friends who are drinkers and proportion of friends and family that participant communicated with that are drinkers
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "contact_type_abr", 
+            values = c("family", "friend"), 
+            data_types = c("all"),
+            context = "is_drinker",
+            context_values = c("yes")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "contact_type_abr", 
+            values = c("family", "friend"), 
+            data_types = c("all"),
+            context = "is_drinker",
+            context_values = c("yes")), by = c("subid", "dttm_label")) 
+```
+
+Rate of total communications with people they visit monthly and who are likely to drink in front of them and proportion of people they communicate with that they visit monthly who are likely to drink in their presence
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "visits_monthly", 
+            values = c("yes"), 
+            data_types = c("all"),
+            context = "will_drink_in_presence",
+            context_values = c("yes")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_propcount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            col_name = "visits_monthly", 
+            values = c("yes"), 
+            data_types = c("all"),
+            context = "will_drink_in_presence",
+            context_values = c("yes")), by = c("subid", "dttm_label"))
+```
+
+
+
+```{r}
+glimpse(meta_features)
+```
+
+
+### Continuous features
+
+Duration of voice calls - total mins (per hour), avg call length (current, difference, and proportion), sum 0 duration calls (per hour)
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecontinuous_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "call_duration", 
+            data_types = c("voice")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "call_duration", 
+            values = c(0), 
+            data_types = c("voice")), by = c("subid", "dttm_label"))
+```
+
+
+
+Duration by incoming/outgoing
+```{r}
+meta_features <- meta_features %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecontinuous_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "call_duration", 
+            data_types = c("voice"),
+            context = "originated",
+            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label")) %>% 
+  full_join(map2_dfr(labels_05$subid, 
+         labels_05$dttm_label,
+         score_ratecount_value,
+            x_all  = logs_all,
+            period_durations = period_durations,
+            lead = lead, 
+            data_start = data_start, 
+            col_name = "call_duration", 
+            values = c(0), 
+            data_types = c("voice"),
+            context = "originated",
+            context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label"))
+```
+
+
+```{r}
+glimpse(meta_features)
+```
+
+
+
+### Features from phone numbers
+
+Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)
+<!-- ```{r} -->
+<!-- # unique numbers (sms, voice, and all) -->
+<!-- # Blocked/unknown numbers -->
+<!-- # count unique contacts that are supportive, in recovery, etc. -->
+<!-- ``` -->
+
+
+### Features from Dates
+
+<!-- Rates of communications at certain times, days, and frequency bursts -->
+
+
+### Additional feature engineering
+
+<!-- Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs family, drinkers they visit monthly -->
+
+
+### ID Demographic Features and Snapshot Screening Data
+
+Read in screening data
+```{r}
+screen <- vroom::vroom(here(path_shared, "screen.csv"), col_types = vroom::cols()) %>%
+  filter(subid %in% logs_all$subid)
+```
+
+Select variables of interest
+```{r}
+screen_select <- screen %>%
+  # only 6 participants are Hispanic - consider removing
+  mutate(id_hispanic = if_else(dem_4 == "No, I am not of Hispanic, Latino, or Spanish origin",
+                            "no", "yes"),
+         id_employment = if_else(dem_6 == "Employed", dem_6_1, dem_6),
+         id_tx_long_term_residential = if_else(!is.na(auh_6_1), "yes", "no"),
+         id_tx_short_term_residential = if_else(!is.na(auh_6_2), "yes", "no"),
+         id_tx_outpatient = if_else(!is.na(auh_6_3), "yes", "no"),
+         id_tx_indiv_counseling = if_else(!is.na(auh_6_4), "yes", "no"),
+         id_tx_group_counseling = if_else(!is.na(auh_6_5), "yes", "no"),
+         id_tx_aa_or_na = if_else(!is.na(auh_6_6), "yes", "no"),
+         id_tx_other = if_else(!is.na(auh_6_7), "yes", "no"),
+         id_quit_date = as_datetime(str_c(screen$auh_8_month, " ",  screen$auh_8_day, " ", screen$auh_8_year),
+                                 tz = "america/Chicago", format = "%B %d %Y"),
+         across(dsm5_1:dsm5_11, ~if_else(.x == "Yes", 1, 0)),
+         across(assist_1_1:assist_1_8, ~if_else(.x == "Yes", 1, 0))) %>%
+  rowwise() %>%
+  mutate(id_dsm5_total = sum(c_across(dsm5_1:dsm5_11)),
+         id_lifetime_n_drugs_endorsed = sum(c_across(assist_1_1:assist_1_8))) %>%
+  ungroup() %>%
+  select(subid,
+         id_age = dem_1,
+         id_gender = dem_2,
+         id_race = dem_3,
+         id_hispanic,
+         id_education = dem_5,
+         id_employment,
+         id_income = dem_7,
+         id_marrital_status = dem_8,
+         id_age_first_drank = auh_1,
+         id_age_drank_regularly = auh_2,
+         id_age_believed_drinking_was_problem = auh_3,
+         id_age_first_quit_drinking = auh_4,
+         id_number_quit_attempts = auh_5,
+         id_tx_long_term_residential,
+         id_tx_short_term_residential,
+         id_tx_outpatient,
+         id_tx_indiv_counseling,
+         id_tx_group_counseling,
+         id_tx_aa_or_na,
+         id_tx_other,
+         id_aud_medication = auh_7,
+         id_quit_date,
+         id_days_per_week_drank_6_mos_before_quit = auh_9,
+         id_days_per_week_drank_heavily_6_mos_before_quit = auh_10,
+         id_avg_drinks_per_day_6_mos_before_quit = auh_11,
+         id_days_per_week_drank_6_mos_heaviest = auh_12,
+         id_days_per_week_drank_heavily_6_mos_heaviest = auh_13,
+         id_avg_drinks_per_day_6_mos_heaviest = auh_14,
+         id_lifetime_use_tobacco = assist_1_1,
+         id_lifetime_use_cannabis = assist_1_2,
+         id_lifetime_use_cocaine = assist_1_3,
+         id_lifetime_use_amphetamine = assist_1_4,
+         id_lifetime_use_inhalant = assist_1_5,
+         id_lifetime_use_sedative = assist_1_6,
+         id_lifetime_use_hallucinogen = assist_1_7,
+         id_lifetime_use_opioid = assist_1_8,
+         id_lifetime_n_drugs_endorsed,
+         id_past_3_mo_freq_tobacco = assist_2_1, # 3 months prior to screen date
+         id_past_3_mo_freq_cannabis = assist_2_2,
+         id_past_3_mo_freq_cocaine = assist_2_3,
+         id_past_3_mo_freq_amphetamine = assist_2_4,
+         id_past_3_mo_freq_inhalant = assist_2_5,
+         id_past_3_mo_freq_sedative = assist_2_6,
+         id_past_3_mo_freq_hallucinogen = assist_2_7,
+         id_past_3_mo_freq_opioid = assist_2_8,
+         id_past_3_mo_urge_tobacco = assist_3_1,
+         id_past_3_mo_urge_cannabis = assist_3_2,
+         id_past_3_mo_urge_cocaine = assist_3_3,
+         id_past_3_mo_urge_amphetamine = assist_3_4,
+         id_past_3_mo_urge_inhalant = assist_3_5,
+         id_past_3_mo_urge_sedative = assist_3_6,
+         id_past_3_mo_urge_hallucinogen = assist_3_7,
+         id_past_3_mo_urge_opioid = assist_3_8,
+         id_past_3_mo_problem_tobacco = assist_4_1,
+         id_past_3_mo_problem_cannabis = assist_4_2,
+         id_past_3_mo_problem_cocaine = assist_4_3,
+         id_past_3_mo_problem_amphetamine = assist_4_4,
+         id_past_3_mo_problem_inhalant = assist_4_5,
+         id_past_3_mo_problem_sedative = assist_4_6,
+         id_past_3_mo_problem_hallucinogen = assist_4_7,
+         id_past_3_mo_problem_opioid = assist_4_8,
+         id_past_3_mo_fail_expect_tobacco = assist_5_1,
+         id_past_3_mo_fail_expect_cannabis = assist_5_2,
+         id_past_3_mo_fail_expect_cocaine = assist_5_3,
+         id_past_3_mo_fail_expect_amphetamine = assist_5_4,
+         id_past_3_mo_fail_expect_inhalant = assist_5_5,
+         id_past_3_mo_fail_expect_sedative = assist_5_6,
+         id_past_3_mo_fail_expect_hallucinogen = assist_5_7,
+         id_past_3_mo_fail_expect_opioid = assist_5_8,
+         id_lifetime_concern_tobacco = assist_6_1,
+         id_lifetime_concern_cannabis = assist_6_2,
+         id_lifetime_concern_cocaine = assist_6_3,
+         id_lifetime_concern_amphetamine = assist_6_4,
+         id_lifetime_concern_inhalant = assist_6_5,
+         id_lifetime_concern_sedative = assist_6_6,
+         id_lifetime_concern_hallucinogen = assist_6_7,
+         id_lifetime_concern_opioid = assist_6_8,
+         id_lifetime_cutback_tobacco = assist_7_1,
+         id_lifetime_cutback_cannabis = assist_7_2,
+         id_lifetime_cutback_cocaine = assist_7_3,
+         id_lifetime_cutback_amphetamine = assist_7_4,
+         id_lifetime_cutback_inhalant = assist_7_5,
+         id_lifetime_cutback_sedative = assist_7_6,
+         id_lifetime_cutback_hallucinogen = assist_7_7,
+         id_lifetime_cutback_opioid = assist_7_8,
+         id_lifetime_drug_injection = assist_8,
+         id_dsm5_total) 
+```
+
+Score and add YAP
+```{r}
+yap_life <- screen %>%
+  select(subid, yap_1:yap_27) %>%
+  mutate(across(yap_1:yap_27, ~ if_else(.x == "No, never", 0, 1))) %>%
+  rowwise() %>%
+  mutate(id_yap_lifetime = sum(c_across(yap_1:yap_27))) %>%
+  select(subid, id_yap_lifetime)
+
+yap_past_year <- screen %>%
+  select(subid, yap_1:yap_27) %>%
+  mutate(across(yap_1:yap_27, ~ case_when(.x == "No, never" ~ 0,
+                                          .x == "Yes, but not in the past year" ~ 0,
+                                          TRUE ~ 1))) %>%
+  rowwise() %>%
+  mutate(id_yap_past_year = sum(c_across(yap_1:yap_27))) %>%
+  select(subid, id_yap_past_year)
+
+
+# add to screen_select
+screen_select <- screen_select %>%
+  full_join(yap_life, by = "subid") %>%
+  full_join(yap_past_year, by = "subid")
+```
+
+Score and add SCL-90
+```{r}
+scl_90 <- screen %>%
+  select(subid, contains("scl90")) %>%
+  mutate(across(scl90_1:scl90_90, ~ dplyr::recode(.x,
+                                                  "Not At All" = 0,
+                                                  "A Little Bit" = 1,
+                                                  "Moderately" = 2,
+                                                  "Quite A Bit" = 3,
+                                                  "Extremely" = 4))) %>%
+  rowwise() %>%
+  mutate(id_scl90_total = (sum(c_across(scl90_1:scl90_90)) - 90) / 90,
+         id_scl90_somatization = (sum(scl90_1, scl90_4, scl90_12, scl90_27, scl90_40,
+                                  scl90_42, scl90_48, scl90_49, scl90_52, scl90_53,
+                                  scl90_56, scl90_58) - 12) / 12,
+         id_scl90_obsess_compuls = (sum(scl90_3, scl90_9, scl90_10, scl90_28, scl90_38,
+                                     scl90_45, scl90_46, scl90_51, scl90_55, scl90_65) - 10) / 10,
+         id_scl90_interpers_sensibility = (sum(scl90_6, scl90_21, scl90_34, scl90_36,
+                                            scl90_37, scl90_41, scl90_61, scl90_69,
+                                            scl90_73) - 9) / 9,
+         id_scl90_depression = (sum(scl90_5, scl90_14, scl90_20, scl90_22, scl90_26,
+                                 scl90_29, scl90_30, scl90_31, scl90_32, scl90_54,
+                                 scl90_71, scl90_79) - 12) / 12,
+         id_scl90_anxiety = (sum(scl90_17, scl90_23, scl90_33, scl90_39, scl90_57,
+                              scl90_72, scl90_78, scl90_80, scl90_86) - 9) / 9,
+         id_scl90_anger_hostility = (sum(scl90_11, scl90_24, scl90_63, scl90_67,
+                                      scl90_74, scl90_81) - 6) / 6,
+         id_scl90_phobic_anxiety = (sum(scl90_13, scl90_25, scl90_47, scl90_50, scl90_70,
+                                     scl90_75, scl90_82) - 7) / 7,
+         id_scl90_paranoid = (sum(scl90_8, scl90_18, scl90_43, scl90_68, scl90_76,
+                               scl90_83) - 6) / 6,
+         id_scl90_psychoticism = (sum(scl90_7, scl90_16, scl90_35, scl90_62, scl90_77,
+                                   scl90_84, scl90_85, scl90_87, scl90_88, scl90_90) - 10) / 10) %>%
+  round(2) %>%
+  select(-c(scl90_1:scl90_90))
+
+screen_select <- screen_select %>%
+  full_join(scl_90, by = "subid") 
+```
+
+
+Score and add IUS
+```{r}
+ius <- screen %>%
+  select(subid, contains("ius")) %>%
+  mutate(across(ius_1:ius_27, ~ dplyr::recode(.x,
+                                              "Very untrue of me" = 1,
+                                              "Somewhat untrue of me" = 2,
+                                              "Neutral" = 3,
+                                              "Somewhat true of me" = 4,
+                                              "Very true of me" = 5))) %>%
+  rowwise() %>%
+  mutate(id_ius_total = sum(c_across(ius_1:ius_27))) %>%
+  select(-c(ius_1:ius_27))
+
+screen_select <- screen_select %>%
+  full_join(ius, by = "subid") 
+```
+
+
+Score and add ASI-3
+```{r}
+asi3 <- screen %>%
+  select(subid, contains("asi3")) %>%
+  mutate(across(asi3_1:asi3_18, ~ dplyr::recode(.x,
+                                              "Very untrue of me" = 0,
+                                              "Somewhat untrue of me" = 1,
+                                              "Neutral" = 2,
+                                              "Somewhat true of me" = 3,
+                                              "Very true of me" = 4))) %>%
+  rowwise() %>%
+  mutate(id_asi3_total = sum(c_across(asi3_1:asi3_18)) - 18,
+         id_asi3_phys_concerns = sum(asi3_4, asi3_12, asi3_8, asi3_7, asi3_15, asi3_3) - 6,
+         id_asi3_cog_concerns = sum(asi3_14, asi3_18, asi3_10, asi3_16, asi3_2, asi3_5) - 6,
+         id_asi3_soc_concerns = sum(asi3_9, asi3_6, asi3_11, asi3_13, asi3_17, asi3_1) - 6) %>%
+  select(-c(asi3_1:asi3_18))
+
+screen_select <- screen_select %>%
+  full_join(asi3, by = "subid")
+```
+
+
+Score and add DTS
+```{r}
+dts <- screen %>%
+  select(subid, contains("dts")) %>%
+  mutate(across(dts_1:dts_15, ~ dplyr::recode(.x,
+                                              "Very untrue of me" = 1,
+                                              "Somewhat untrue of me" = 2,
+                                              "Neutral" = 3,
+                                              "Somewhat true of me" = 4,
+                                              "Very true of me" = 5)),
+         # item 6 is reverse coded
+         dts_6 = dplyr::recode(dts_6, "1" = 5, "2" = 4, "3" = 3, "4" = 2, "5" = 1)) %>%
+  rowwise() %>%
+  mutate(id_dts_total = sum(c_across(dts_1:dts_15)) / 15,
+         id_dts_tolerance = sum(dts_1, dts_3, dts_5) / 3,
+         id_dts_absorption = sum(dts_2, dts_4, dts_15) / 3,
+         id_dts_appraisal = sum(dts_6, dts_7, dts_9, dts_10, dts_11, dts_12) / 6,
+         id_dts_regulation = sum(dts_8, dts_13, dts_14) / 3) %>%
+  round(2) %>%
+  select(-c(dts_1:dts_15))
+
+screen_select <- screen_select %>%
+  full_join(dts, by = "subid") 
+```
+
+Score and add FAD
+```{r}
+fad <- screen %>%
+  select(subid, contains("fad")) %>%
+  mutate(across(fad_1:fad_60, ~ dplyr::recode(.x,
+                                              "Strongly Disagree" = 1,
+                                              "Disagree" = 2,
+                                              "Agree" = 3,
+                                              "Strongly Agree" = 4)),
+         # reverse coded items
+         across(c(fad_14, fad_22, fad_35, fad_52, fad_4, fad_8, fad_15, fad_23,
+                  fad_34, fad_45, fad_53, fad_58, fad_9, fad_19, fad_28, fad_39,
+                  fad_5, fad_13, fad_25, fad_33, fad_37, fad_42, fad_54, fad_7,
+                  fad_17, fad_27, fad_44, fad_47, fad_48, fad_1, fad_11, fad_21,
+                  fad_31, fad_41, fad_51), ~ dplyr::recode(.x,
+                                                           "1" = 4,
+                                                           "2" = 3,
+                                                           "3" = 2,
+                                                           "4" = 1))) %>%
+  rowwise() %>%
+  mutate(id_fad_prob_solving = sum(fad_2, fad_12, fad_24, fad_38, fad_50, fad_60),
+         id_fad_communication = sum(fad_3, fad_18, fad_29, fad_43, fad_59, fad_14,
+                                 fad_22, fad_35, fad_52),
+         id_fad_roles = sum(fad_10, fad_30, fad_40, fad_4, fad_8, fad_15, fad_23,
+                         fad_34, fad_45, fad_53, fad_58),
+         id_fad_affective_resp = sum(fad_49, fad_57, fad_9, fad_19, fad_28, fad_39),
+         id_fad_affective_involv = sum(fad_5, fad_13, fad_25, fad_33, fad_37, fad_42, fad_54),
+         id_fad_behavior_control = sum(fad_20, fad_32, fad_55, fad_7, fad_17, fad_27, fad_44,
+                                    fad_47, fad_48),
+         id_fad_gen_functioning = sum(fad_6, fad_16, fad_26, fad_36, fad_46, fad_56,
+                                   fad_1, fad_11, fad_21, fad_31, fad_41, fad_51)) %>%
+  select(-c(fad_1:fad_60))
+
+screen_select <- screen_select %>%
+  full_join(fad, by = "subid") 
+```
+
+Score and add MPS
+```{r}
+mps <- screen %>%
+  select(subid, contains("mps")) %>%
+  mutate(across(where(is.logical), ~ as.numeric(.x) + 1)) %>%
+  # recode character strings
+  mutate(mps_17 = if_else(mps_17 == "I tend to seek the company of a friend.", 1, 2),
+         mps_34 = if_else(mps_34 == "Having a pilot announce that the plane has engine trouble and it may be necessary to make an emergency landing.", 1, 2),
+         mps_57 = if_else(mps_57 == "Having to walk around all day on a blistered foot,", 1, 2),
+         mps_69 = if_else(mps_69 == "Being out on a sailboat during a great storm at sea,", 1, 2),
+         mps_70 = if_else(mps_70 == "Stricter observance of major religious holidays", 1, 2),
+         mps_81 = if_else(mps_81 == "Being at the circus when two lions suddenly get loose down in the ring,", 1, 2),
+         mps_93 = if_else(mps_93 == "Riding a long stretch of rapids in a canoe,", 1, 2),
+         mps_105 = if_else(mps_105 == 'Being chosen as the "target" for a knife-throwing act,', 1, 2),
+         mps_129 = if_else(mps_129 == "Being in a flood", 1, 2),
+         mps_141 = if_else(mps_141 == "Being seasick every day for a week while on an ocean voyage", 1, 2)) %>%
+  # reverse coded items
+  mutate(across(c(mps_63, mps_98, mps_122, mps_134, mps_145, mps_64, mps_99, mps_17,
+                mps_28, mps_65, mps_89, mps_100, mps_124, mps_136, mps_148, mps_79,
+                mps_21, mps_33, mps_80, mps_152, mps_11, mps_22, mps_34, mps_46,
+                mps_69, mps_81, mps_93, mps_105, mps_129, mps_153, mps_47, mps_70,
+                mps_118, mps_4, mps_14, mps_37, mps_61, mps_84, mps_108, mps_131),
+                ~dplyr::recode(.x, "1" = 2, "2" = 1))) %>%
+  rowwise() %>%
+  mutate(id_mps_wellbeing = sum(mps_1, mps_26, mps_38, mps_50, mps_62, mps_74, mps_85,
+                             mps_97, mps_109, mps_121, mps_133, mps_144) - 12,
+         id_mps_social_potency = sum(mps_2, mps_15, mps_39, mps_51, mps_75, mps_87,
+                                  mps_110, mps_63, mps_98, mps_122, mps_134, mps_145) - 12,
+         id_mps_achievement = sum(mps_64, mps_99, mps_3, mps_16, mps_27, mps_52, mps_76,
+                               mps_88, mps_111, mps_123, mps_135, mps_146) - 12,
+         id_mps_social_closeness = sum(mps_17, mps_28, mps_65, mps_89, mps_100, mps_124,
+                                    mps_136, mps_148, mps_5, mps_40, mps_77, mps_112) - 12,
+         id_mps_stress_reaction = sum(mps_6, mps_18, mps_29, mps_41, mps_53, mps_78,
+                                   mps_90, mps_101, mps_113, mps_125, mps_137, mps_149) - 12,
+         id_mps_alienation = sum(mps_7, mps_19, mps_30, mps_42, mps_54, mps_66, mps_91,
+                              mps_102, mps_114, mps_126, mps_138, mps_150) - 12,
+         id_mps_aggression = sum(mps_8, mps_20, mps_31, mps_43, mps_55, mps_67, mps_103,
+                              mps_115, mps_127, mps_139, mps_151, mps_79) - 12,
+         id_mps_control = sum(mps_9, mps_44, mps_56, mps_68, mps_92, mps_116, mps_128,
+                           mps_140, mps_21, mps_33, mps_80, mps_152) - 12,
+         id_mps_harm_avoidance = sum(mps_57, mps_141, mps_11, mps_22, mps_34, mps_46,
+                                  mps_69, mps_81, mps_93, mps_105, mps_129, mps_153) - 12,
+         id_mps_traditionalism = sum(mps_12, mps_23, mps_35, mps_58, mps_82, mps_94,
+                                  mps_106, mps_142, mps_154, mps_47, mps_70, mps_118) - 12,
+         id_mps_absorption = sum(mps_13, mps_24, mps_36, mps_48, mps_59, mps_71, mps_83,
+                              mps_95, mps_107, mps_119, mps_130, mps_155) - 12,
+         id_mps_unlikely_virtues = sum(mps_25, mps_49, mps_72, mps_96, mps_120, mps_143,
+                                    mps_147, mps_4, mps_14, mps_37, mps_61, mps_84,
+                                    mps_108, mps_131) - 14) %>%
+  select(-c(mps_1:mps_155))
+
+screen_select <- screen_select %>%
+  full_join(mps, by = "subid")
+```
+
+Add screen variables to feature set
+```{r}
+meta_features <- meta_features %>%
+  left_join(screen_select, by = "subid") %>%
+  glimpse()
+```
+
+
+
+
+#### Feature engineering based on temporal info inherent in lapse label
+
+Days since quit date
+```{r}
+meta_features <- meta_features %>%
+  mutate(label_days_since_quit_date = round(as.numeric(difftime(dttm_label, id_quit_date, units = "days")), 2)) %>%
+  select(-id_quit_date) 
+```
+
+Day of week and time of lapse
+```{r}
+meta_features <- meta_features %>%
+  rowwise() %>%
+  mutate(label_weekday = wday(dttm_label, label = TRUE),
+         label_hour = hour(dttm_label),
+         label_hour = case_when(label_hour == 0 ~ 24,
+                                TRUE ~ as.numeric(label_hour))) %>%
+  ungroup()
+```
+
+
+Holidays (+/- 1 day)
+Note: only using federal holidays and easter for now
+Federal law defines 10 holidays. Four of them, NewYears, Independence, Veterans and Christmas, fall on the same date every year. The other six fall on particular days of the week and months (MLK, Presidents, Memorial, Labor, Columbus, and Thanksgiving).
+```{r}
+library(tis)
+
+meta_features <- meta_features %>%
+  mutate(label_holiday = if_else(isHoliday(date(dttm_label), businessOnly = FALSE) |
+                                   isHoliday(date(dttm_label) + days(1), businessOnly = FALSE) |
+                                   isHoliday(date(dttm_label) - days(1), businessOnly  = FALSE) |
+                                   isEaster(date(dttm_label)) |
+                                   isEaster(date(dttm_label) + days(1)) |
+                                   isEaster(date(dttm_label) - days(1)),
+                                 "yes", "no")) 
+```
+
+Other holidays to consider:
+
+- mothers/fathers day (different date every year)
+- Halloween
+- personalized important days (Most are labeled as "Other" so unclear what significance is in these days)
+- Jewish Holidays
+
+
+Seasons
+Spring: Starts on March 20, and ends on June 20.
+Summer: Begins on June 21, and lasts until September 21.
+Fall: Goes from September 22 until December 20.
+Winter: Starts on December 21, and lasts until March 19.
+```{r}
+meta_features <- meta_features %>%
+  mutate(month = lubridate::month(dttm_label),
+         day = lubridate::day(dttm_label),
+         label_season = case_when(month %in% c(4, 5) | (month == 6 & day < 21) | (month == 3 & day >= 20) ~ "Spring",
+                                  month %in% c(7, 8) | (month == 9 & day < 22) | (month == 6 & day >= 21) ~ "Summer",
+                                  month %in% c(10, 11) | (month == 12 & day < 21) | (month == 9 & day >= 22) ~ "Fall",
+                                  month %in% c(1, 2) | (month == 3 & day < 20) | (month == 12 & day >= 21) ~ "Winter",
+                                  TRUE ~ NA_character_)) %>%
+  select(-c(month, day)) 
+```
+
+
+
+
+### Write Feature Set
+
+Add outcome label (lapse/no lapse) back in
+```{r}
+meta_features <- meta_features %>%
+  left_join(labels_05 %>%
+            mutate(label = dplyr::recode(label, "lapse" = "yes", "no_lapse" = "no")),
+            by = c("subid", "dttm_label"))
+```
+
+Final glimpse and print
+```{r}
+glimpse(meta_features)
+
+meta_features %>% 
+  print_kbl()
+```
+
+```{r}
+vroom::vroom_write(meta_features, 
+                   here(path_meta, 
+                        str_c("features/features_2021_10_22.csv")), ",") 
+```
+
+
+
+### EDA in separate script
+
+Notes:   
+- Check outgoing calls to self - likely indicates voicemail (don't count in typical outgoing counts?)  
+
+
