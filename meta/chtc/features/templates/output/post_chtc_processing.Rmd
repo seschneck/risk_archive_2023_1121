@@ -140,19 +140,27 @@ features <- map_df(feat_files, ~read_rds(.x)) %>%
 ```
 
 
-check for missing jobs
-```{r}
-missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
-  filter(!label_num %in% features$label_num)
-```
+check for missing jobs    
 
 `r nrow(features)` rows from `r nrow(jobs)` jobs.      
 
 ```{r}
+missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
+  filter(!label_num %in% features$label_num)
+
 if (nrow(missing_job_nums) > 0) {
   print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
   } else print("No missing jobs")
 ```
+
+
+Check no duplicate labels
+```{r}
+features %>% 
+  count(subid, dttm_label) %>% 
+  filter(n > 1)
+```
+
 
 
 ### Print features
