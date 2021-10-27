@@ -5,7 +5,7 @@ suppressPackageStartupMessages({
 })
 
 # CHANGE ME
-name_job <- "features_1.1000"
+name_job <- "features_all"
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/features/"
 path_templates <- "./meta/chtc/features/templates"
 path_data <- "P:/studydata/risk/data_processed/meta" 
@@ -15,8 +15,8 @@ labels_file_name <- "labels_05.rds"
 raw_data_file_name <- "meta_logs.rds"
 start_dates_file_name <- "study_dates.rds"
 static_features_file_name <- "static_features.rds"
-jobs <- seq(1:1000) # this is equivalent to row numbers of labels that will be used 
-# likely will want to use all rows (1:nrow(data))
+n_jobs <- nrow(read_rds(file.path(path_data, labels_file_name)))
+jobs <- seq(1:n_jobs) # this is equivalent to row numbers of labels that will be used 
 
 # DON'T CHANGE
 # create new job directory (if it does not already exist) 
