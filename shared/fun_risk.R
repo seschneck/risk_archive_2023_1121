@@ -477,7 +477,8 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
         foreach(col_value = col_values, .combine = "cbind") %do% { 
 
           prop_baseline <- x %>% 
-            summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x)))
+            summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x))) %>% 
+            pull(prop)
           prop_raw <- x_period %>%
             summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
             pull(prop)
@@ -488,7 +489,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
               "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw,
               "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw - prop_baseline,
               "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := 
-                if_else(is.na(propbaseline), NA, (prop_raw - prop_baseline) / prop_baseline)) %>% 
+                if_else(is.na(prop_baseline), NA_real_, (prop_raw - prop_baseline) / prop_baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
