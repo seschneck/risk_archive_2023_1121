@@ -44,7 +44,7 @@ theme_set(theme_classic())
 
 Set additional paths
 ```{r}
-path_job <- here("P:/studydata/risk/chtc/meta/jobs/features/test")
+path_job <- here("P:/studydata/risk/chtc/meta/jobs/features/features_1.1000")
 path_output <- here(path_job, "output/output")
 path_features <-  here(path_job, "output/features")
 path_error <-  here(path_job, "output/error")
@@ -112,8 +112,8 @@ if (nrow(subset(err_files, size > 0)) > 0) {
     pull(path) 
   for (i in err_paths) {
     err_i <- read_csv(i, col_types = readr::cols()) %>% 
-      mutate(job_num = as.numeric(str_remove(str_split(str_split(i, "/")[[1]][10], "_")[[1]][2], ".err"))) %>% 
-      relocate(job_num)
+      mutate(label_num = as.numeric(str_remove(str_split(str_split(i, "/")[[1]][11], "_")[[1]][2], ".err"))) %>% 
+      relocate(label_num)
     errs <- if (i == err_paths[1]) {
       err_i
     } else rbind(errs, err_i)
@@ -121,17 +121,6 @@ if (nrow(subset(err_files, size > 0)) > 0) {
   
   # print error messages
   print_kbl(errs, align = "l")
-}
-```
-
-
-Job rows with error messages
-```{r}
-if (nrow(subset(err_files, size > 0)) > 0) {
-  # print jobs
- jobs %>%
-    inner_join(errs, by = c("label_num" = "job_num")) %>%
-    print_kbl(align = "l")
 } else print("no errors or warnings")
 ```
 
@@ -154,15 +143,15 @@ features <- map_df(feat_files, ~read_rds(.x)) %>%
 
 check for missing jobs
 ```{r}
-missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "job_num") %>% 
-  filter(!job_num %in% features$label_num)
+missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
+  filter(!label_num %in% features$label_num)
 ```
 
-`r nrow(features)` results from `r nrow(jobs)` jobs.      
+`r nrow(features)` rows from `r nrow(jobs)` jobs.      
 
 ```{r}
 if (nrow(missing_job_nums) > 0) {
-  print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$job_num), collapse=", ")))
+  print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
   } else print("No missing jobs")
 ```
 
@@ -170,9 +159,6 @@ if (nrow(missing_job_nums) > 0) {
 ### Print features
 
 ```{r}
-features %>% 
-  glimpse()
-
 print_kbl(features)
 ```
 
