@@ -285,7 +285,7 @@ meta_features <- meta_features %>%
 # Duration of voice calls - total mins (per hour), avg call length (current, difference, and proportion), 
 # sum 0 duration calls (per hour)
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous_value(label$subid, 
+  full_join(score_ratecontinuous(label$subid, 
                      label$dttm_label,
                      x_all  = logs_all,
                      period_durations = period_durations,
@@ -308,7 +308,7 @@ meta_features <- meta_features %>%
                      data_type_values = c("voi")), by = c("subid", "dttm_label"))
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous_value(label$subid, 
+  full_join(score_ratecontinuous(label$subid, 
                      label$dttm_label,
                      x_all  = logs_all,
                      period_durations = period_durations,

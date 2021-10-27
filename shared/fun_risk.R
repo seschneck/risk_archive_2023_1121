@@ -6,7 +6,7 @@ library(lubridate)
 library(foreach)
 
 # libraries added to this script but not to the tar should be specified below so 
-# KW can add them so we don't error out jobs on CHTC. If you add to the tar on the
+# Kendra can add them so we don't error out jobs on CHTC. If you add to the tar on the
 # server dont forget to bring back a copy to risk/chtc/tars. Also update package_names.txt 
 # so we can keep track on what packages are in the tar. 
 
@@ -456,7 +456,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
       if (length(.x) > 0) {
         the_count <- sum(.x == value, na.rm = TRUE)
         return(the_count/n_rows)
-      } else return(0)
+      } else return(NA) # Na because if they have no rows we cannot deduce a proportion - different than 0
     }
     
     
@@ -476,15 +476,19 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
         
         foreach(col_value = col_values, .combine = "cbind") %do% { 
 
-          
-          prop <- x_period %>%
+          prop_baseline <- x %>% 
+            summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x)))
+          prop_raw <- x_period %>%
             summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
             pull(prop)
           
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.proptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop) %>% 
+              "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw,
+              "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw - prop_baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := 
+                if_else(is.na(propbaseline), NA, (prop_raw - prop_baseline) / prop_baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
@@ -501,7 +505,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
 }
 
 
-score_ratecontinuous_value <- function(the_subid, the_dttm_label, x_all, 
+score_ratecontinuous <- function(the_subid, the_dttm_label, x_all, 
                                   period_durations, lead, data_start, 
                                   col_name, data_type_col_name = NA, data_type_values = NA, 
                                   context_col_name = NA, context_values = NA) {
