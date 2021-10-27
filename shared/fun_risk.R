@@ -7,7 +7,8 @@ library(foreach)
 
 # libraries added to this script but not to the tar should be specified below so 
 # KW can add them so we don't error out jobs on CHTC. If you add to the tar on the
-# server dont forget to bring back a copy to risk/chtc/tars
+# server dont forget to bring back a copy to risk/chtc/tars. Also update package_names.txt 
+# so we can keep track on what packages are in the tar. 
 
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
