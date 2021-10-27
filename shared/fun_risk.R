@@ -1,7 +1,13 @@
+# NOTE: Any library added here needs to also be accessible on CHTC
+# These are all in tidymodels.tar.gz
 library(dplyr)
 library(readr)
 library(lubridate)
 library(foreach)
+
+# libraries added to this script but not to the tar should be specified below so 
+# KW can add them so we don't error out jobs on CHTC. If you add to the tar on the
+# server dont forget to bring back a copy to risk/chtc/tars
 
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
