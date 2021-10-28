@@ -101,24 +101,22 @@ build_recipe <- function(d, job, y) {
   # If statements for filtering features based on feature set
   if (feature_set == "feat_all_passive") {
     rec <- rec %>%
-      step_rm(starts_with("context"))
+      step_rm(starts_with("sms") & !contains("passive"))
+      step_rm(starts_with("voi") & !contains("passive"))
   } else if (feature_set == "feat_baseline_id") {
     rec <- rec %>% 
       step_rm(starts_with("sms")) %>% 
       step_rm(starts_with("voi")) %>% 
-      # step_rm(starts_with("context")) %>% 
       step_rm(starts_with("label"))
   } else if (feature_set == "feat_baseline_temporal") {
     rec <- rec %>% 
       step_rm(starts_with("id")) %>% 
       step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voi")) # %>% 
-      # step_rm(starts_with("context"))
+      step_rm(starts_with("voi")) 
   } else if (feature_set == "feat_baseline_all") {
     rec <- rec %>% 
       step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voi")) # %>% 
-      # step_rm(starts_with("context"))
+      step_rm(starts_with("voi")) 
   } else if (feature_set == "feat_logs") {
     rec <- rec %>% 
       step_rm(starts_with("id")) %>% 

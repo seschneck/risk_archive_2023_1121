@@ -53,7 +53,8 @@ meta_features <- score_ratecount_value(label$subid,
                           col_name = "org", 
                           col_values = c("incoming", "outgoing"), 
                           data_type_col_name = "log_type",
-                          data_type_values = c("sms", "voi"))
+                          data_type_values = c("sms", "voi"),
+                          passive = TRUE)
 
 
 meta_features <- meta_features %>% 
@@ -65,7 +66,8 @@ meta_features <- meta_features %>%
                      col_name = "org", 
                      col_values = c("incoming", "outgoing"), 
                      data_type_col_name = "log_type",
-                     data_type_values = c("sms", "voi")), by = c("subid", "dttm_label"))
+                     data_type_values = c("sms", "voi"),
+                     passive = TRUE), by = c("subid", "dttm_label"))
 
 # with context
 meta_features <- meta_features %>% 
@@ -395,7 +397,8 @@ meta_features <- meta_features %>%
                                  data_start = data_start, 
                                  col_name = "duration",
                                  data_type_col_name = "log_type",
-                                 data_type_values = c("voi")), by = c("subid", "dttm_label"))
+                                 data_type_values = c("voi"),
+                                 passive = TRUE), by = c("subid", "dttm_label"))
 
 meta_features <- meta_features %>% 
   full_join(score_ratecount_value(label$subid, 
@@ -407,7 +410,8 @@ meta_features <- meta_features %>%
                                   col_name = "duration", 
                                   col_values = c(0), 
                                   data_type_col_name = "log_type",
-                                  data_type_values = c("voi")), by = c("subid", "dttm_label"))
+                                  data_type_values = c("voi"),
+                                  passive = TRUE), by = c("subid", "dttm_label"))
 
 # by incoming/outgoing
 meta_features <- meta_features %>% 
@@ -421,7 +425,8 @@ meta_features <- meta_features %>%
                                  data_type_col_name = "log_type",
                                  data_type_values = c("voi"),
                                  context_col_name = "org",
-                                 context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label")) 
+                                 context_values = c("incoming", "outgoing"),
+                                 passive = TRUE), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -436,7 +441,8 @@ meta_features <- meta_features %>%
                                   data_type_col_name = "log_type",
                                   data_type_values = c("voi"),
                                   context_col_name = "org",
-                                  context_values = c("incoming", "outgoing")), by = c("subid", "dttm_label"))
+                                  context_values = c("incoming", "outgoing"),
+                                  passive = TRUE), by = c("subid", "dttm_label"))
 
 # with context
 meta_features <- meta_features %>% 

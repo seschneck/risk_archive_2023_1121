@@ -395,13 +395,13 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
             summarise("raw" := ratecount(.data[[col_name]], col_value, true_period_duration)) %>%
             pull(raw)
  
-          passive <- if_else(passive, "passive", "NA")
+          passive_label <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := raw_rate,
-              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := raw_rate - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := 
+              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
                 if_else(baseline == 0, 0, (raw_rate - baseline) / baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
@@ -489,13 +489,13 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
             summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
             pull(prop)
           
-          passive <- if_else(passive, "passive", "NA")
+          passive_label <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := prop_raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := prop_raw - prop_baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := 
+              "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := prop_raw,
+              "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := prop_raw - prop_baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
                 if_else(is.na(prop_baseline), NA_real_, (prop_raw - prop_baseline) / prop_baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
@@ -554,7 +554,9 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
     ratecontinuous <- function (.x, duration) {
       if (length(.x) > 0) {
         the_sum <- sum(.x, na.rm = TRUE)
-        return(the_sum / duration)
+        if (the_sum != 0) {
+          return(the_sum / duration)
+        } else return (0)
       } else return(NA_real_ )   
     }
     
@@ -603,16 +605,16 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
             pull(raw)
           
           
-          passive <- if_else(passive, "passive", "NA")
+          passive_label <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_rate,
-              "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_rate - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := (raw_rate - baseline) / baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_mean,
-              "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_mean - baseline_mean,
-              "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive}" := (raw_mean - baseline_mean) / baseline_mean) %>% 
+              "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := (raw_rate - baseline) / baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_mean - baseline_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := (raw_mean - baseline_mean) / baseline_mean) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
@@ -626,5 +628,6 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
   
   return(features)
 }
+
 
 
