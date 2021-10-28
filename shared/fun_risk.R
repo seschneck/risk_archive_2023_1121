@@ -324,7 +324,8 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
 
 score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durations, 
                                   lead, data_start, col_name, col_values, data_type_col_name = NA, 
-                                  data_type_values = NA, context_col_name = NA, context_values = NA) {
+                                  data_type_values = NA, context_col_name = NA, context_values = NA,
+                                  passive = FALSE) {
   # Counts the number of matches for col_name == value and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -342,7 +343,8 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
-
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
 # Loop over context values
@@ -393,12 +395,13 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
             summarise("raw" := ratecount(.data[[col_name]], col_value, true_period_duration)) %>%
             pull(raw)
  
+          passive <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := raw_rate,
-              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := raw_rate - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}" := 
+              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := 
                 if_else(baseline == 0, 0, (raw_rate - baseline) / baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
@@ -421,7 +424,8 @@ features <- foreach (context_value = context_values, .combine = "cbind") %do% {
 score_propcount_value <- function(the_subid, the_dttm_label, x_all, 
                                   period_durations, lead, col_name, col_values, 
                                   data_type_col_name = NA, data_type_values = NA, 
-                                  context_col_name = NA, context_values = NA) {
+                                  context_col_name = NA, context_values = NA,
+                                  passive = FALSE) {
   # Counts the number of matches for col_name == value and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -438,6 +442,8 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
   
@@ -483,12 +489,13 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
             summarise("prop" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
             pull(prop)
           
+          passive <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := prop_raw - prop_baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}" := 
+              "{data_type_value}.p{period_duration}.l{lead}.rproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := prop_raw,
+              "{data_type_value}.p{period_duration}.l{lead}.dproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := prop_raw - prop_baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pproptotal.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive}" := 
                 if_else(is.na(prop_baseline), NA_real_, (prop_raw - prop_baseline) / prop_baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
@@ -509,7 +516,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
 score_ratecontinuous <- function(the_subid, the_dttm_label, x_all, 
                                   period_durations, lead, data_start, 
                                   col_name, data_type_col_name = NA, data_type_values = NA, 
-                                  context_col_name = NA, context_values = NA) {
+                                  context_col_name = NA, context_values = NA, passive = FALSE) {
   # Sums the value for col_name (i.e., duration) and converts to a rate
   # based on the period_duration.  Returns a raw rate (ratecount) and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
@@ -526,7 +533,8 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature
   # context_values: a vector of 1+ context values to filter on
-  
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
   # Loop over context values
@@ -595,15 +603,16 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
             pull(raw)
           
           
+          passive <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}" := raw_rate,
-              "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}" := raw_rate - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}" := (raw_rate - baseline) / baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw_mean,
-              "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw_mean - baseline_mean,
-              "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := (raw_mean - baseline_mean) / baseline_mean) %>% 
+              "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_rate,
+              "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_rate - baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive}" := (raw_rate - baseline) / baseline,
+              "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive}" := raw_mean - baseline_mean,
+              "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive}" := (raw_mean - baseline_mean) / baseline_mean) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }

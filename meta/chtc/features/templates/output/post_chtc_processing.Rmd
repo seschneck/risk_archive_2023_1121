@@ -205,14 +205,14 @@ features %>%
 proportions should be NA or between 0-1
 ```{r}
 features %>% 
-  summarise(across(contains("rproptotal"), list(min, max))) %>% 
+  summarise(across(contains("rproptotal"), list(min = min, max = max), na.rm = TRUE)) %>% 
   glimpse()
 ```
 
 ### Print features
 
 ```{r}
-print_kbl(features)
+# print_kbl(features)
 ```
 
 
