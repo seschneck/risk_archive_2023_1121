@@ -138,7 +138,7 @@ tabyl(out_files$size)
 read in all result CSVs
 ```{r}
 feat_files <- list.files(path_features, full.names = TRUE)
-features <- map_df(feat_files, ~read_rds(.x)) %>% 
+features <- map_dfr(feat_files, ~read_rds(.x)) %>% 
   glimpse()
 ```
 
@@ -154,6 +154,27 @@ missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num")
 if (nrow(missing_job_nums) > 0) {
   print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
   } else print("No missing jobs")
+```
+
+Add in missing jobs    
+*need to rerun locally or on chtc first*
+```{r}
+# if (nrow(missing_job_nums > 0)) {
+#   feat_files_add <- list.files(here(path_job, "output/missing_jobs"), full.names = TRUE)
+#   features_add <- map_dfr(feat_files_add, ~read_rds(.x)) %>% 
+#     glimpse()
+# 
+#   features <- features %>% 
+#     rbind(features_add)
+# 
+#   # recheck for missing jobs
+#   missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
+#     filter(!label_num %in% features$label_num)
+#   
+#   if (nrow(missing_job_nums) > 0) {
+#     print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
+#     } else print("No missing jobs")
+# }
 ```
 
 
@@ -175,7 +196,7 @@ naniar::miss_var_summary(features) %>%
 
 Check for NaN
 ```{r}
-test <- features %>% 
+features %>% 
   summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
   glimpse()
 ```
