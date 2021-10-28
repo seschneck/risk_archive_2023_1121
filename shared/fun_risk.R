@@ -456,7 +456,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
       if (length(.x) > 0) {
         the_count <- sum(.x == value, na.rm = TRUE)
         return(the_count/n_rows)
-      } else return(NA) # Na because if they have no rows we cannot deduce a proportion - different than 0
+      } else return(NA_real_) # Na because if they have no rows we cannot deduce a proportion - different than 0
     }
     
     
@@ -547,14 +547,14 @@ score_ratecontinuous <- function(the_subid, the_dttm_label, x_all,
       if (length(.x) > 0) {
         the_sum <- sum(.x, na.rm = TRUE)
         return(the_sum / duration)
-      } else return(NA_integer_ )   
+      } else return(NA_real_ )   
     }
     
     meancontinuous <- function (.x) {
       if (length(.x) > 0) {
         the_mean <- mean(.x, na.rm = TRUE) 
         return(the_mean)
-      } else return(NA_integer_)
+      } else return(NA_real_)
     }
     
     base_duration <- correct_period_duration(the_subid, the_dttm_label, 

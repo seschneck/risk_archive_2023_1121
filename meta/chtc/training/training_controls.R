@@ -5,9 +5,10 @@
 
 
 # SET GLOBAL PARAMETERS --------
-data_trn <- "period_168_lead_0.csv"
+data_trn <- "features_aggregate.csv"
 name_job <- "glmnet_knn_rf" # the name of the job to set folder names
-feature_set <- c("feat_baseline_id", "feat_baseline_temporal", "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
+feature_set <- c("feat_baseline_id", "feat_baseline_temporal", 
+                "feat_baseline_all",  "feat_all", "feat_logs") # 1+ feature sets 
 algorithm <- c("glmnet", "knn", "random_forest") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
@@ -104,22 +105,24 @@ build_recipe <- function(d, job, y) {
   } else if (feature_set == "feat_baseline_id") {
     rec <- rec %>% 
       step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voice")) %>% 
-      step_rm(starts_with("all")) %>% 
-      step_rm(starts_with("context")) %>% 
+      step_rm(starts_with("voi")) %>% 
+      # step_rm(starts_with("context")) %>% 
       step_rm(starts_with("label"))
   } else if (feature_set == "feat_baseline_temporal") {
     rec <- rec %>% 
       step_rm(starts_with("id")) %>% 
       step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voice")) %>% 
-      step_rm(starts_with("all")) %>% 
-      step_rm(starts_with("context"))
+      step_rm(starts_with("voi")) # %>% 
+      # step_rm(starts_with("context"))
+  } else if (feature_set == "feat_baseline_all") {
+    rec <- rec %>% 
+      step_rm(starts_with("sms")) %>% 
+      step_rm(starts_with("voi")) # %>% 
+      # step_rm(starts_with("context"))
   } else if (feature_set == "feat_logs") {
     rec <- rec %>% 
       step_rm(starts_with("id")) %>% 
       step_rm(starts_with("label"))
-  }
   
   # resampling options for unbalanced outcome variable
   if (resample == "down") {
@@ -138,7 +141,14 @@ build_recipe <- function(d, job, y) {
   }
   
   # algorithm specific steps
-  if (algorithm == "glmnet" | algorithm == "knn") {
+  if (algorithm == "glmnet") {
+    rec <- rec  %>% 
+      step_nzv(all_predictors()) %>% 
+      step_dummy(all_nominal(), -y) %>% 
+      step_normalize(all_predictors())
+  } 
+  
+  if (algorithm == "knn") {
     rec <- rec  %>% 
       step_dummy(all_nominal(), -y) %>% 
       step_normalize(all_predictors())

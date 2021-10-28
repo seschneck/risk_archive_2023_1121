@@ -68,6 +68,12 @@ theme_set(theme_classic())
 
 ### ID Demographic Features and Snapshot Screening Data
 
+Read in logs
+```{r}
+logs_all <- screen <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) 
+```
+
+
 Read in screening data
 ```{r}
 screen <- vroom::vroom(here(path_shared, "screen.csv"), col_types = vroom::cols()) %>%
@@ -185,6 +191,40 @@ screen_select <- screen %>%
          id_lifetime_drug_injection = assist_8,
          id_dsm5_total)
 ```
+
+Impute WHO-Assist NA values
+```{r}
+naniar::miss_var_summary(screen_select)
+
+screen_select <- screen_select %>% 
+  mutate(across(c(id_past_3_mo_freq_tobacco, id_past_3_mo_urge_tobacco, id_past_3_mo_problem_tobacco, 
+                  id_past_3_mo_fail_expect_tobacco, id_lifetime_concern_tobacco, id_lifetime_cutback_tobacco), 
+                ~ if_else(is.na(.x) & id_lifetime_use_tobacco == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_cannabis, id_past_3_mo_urge_cannabis, id_past_3_mo_problem_cannabis, 
+                  id_past_3_mo_fail_expect_cannabis, id_lifetime_concern_cannabis, id_lifetime_cutback_cannabis), 
+                ~ if_else(is.na(.x) & id_lifetime_use_cannabis == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_cocaine, id_past_3_mo_urge_cocaine, id_past_3_mo_problem_cocaine, 
+                  id_past_3_mo_fail_expect_cocaine, id_lifetime_concern_cocaine, id_lifetime_cutback_cocaine), 
+                ~ if_else(is.na(.x) & id_lifetime_use_cocaine == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_amphetamine, id_past_3_mo_urge_amphetamine, id_past_3_mo_problem_amphetamine, 
+                  id_past_3_mo_fail_expect_amphetamine, id_lifetime_concern_amphetamine, 
+                  id_lifetime_cutback_amphetamine), 
+                ~ if_else(is.na(.x) & id_lifetime_use_amphetamine == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_inhalant, id_past_3_mo_urge_inhalant, id_past_3_mo_problem_inhalant, 
+                  id_past_3_mo_fail_expect_inhalant, id_lifetime_concern_inhalant, id_lifetime_cutback_inhalant), 
+                ~ if_else(is.na(.x) & id_lifetime_use_inhalant == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_sedative, id_past_3_mo_urge_sedative, id_past_3_mo_problem_sedative, 
+                  id_past_3_mo_fail_expect_sedative, id_lifetime_concern_sedative, id_lifetime_cutback_sedative), 
+                ~ if_else(is.na(.x) & id_lifetime_use_sedative == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_hallucinogen, id_past_3_mo_urge_hallucinogen, id_past_3_mo_problem_hallucinogen, 
+                  id_past_3_mo_fail_expect_hallucinogen, id_lifetime_concern_hallucinogen, 
+                  id_lifetime_cutback_hallucinogen), 
+                ~ if_else(is.na(.x) & id_lifetime_use_hallucinogen == 0, "Never", .x)),
+         across(c(id_past_3_mo_freq_opioid, id_past_3_mo_urge_opioid, id_past_3_mo_problem_opioid, 
+                  id_past_3_mo_fail_expect_opioid, id_lifetime_concern_opioid, id_lifetime_cutback_opioid), 
+                ~ if_else(is.na(.x) & id_lifetime_use_opioid == 0, "Never", .x)))
+```
+
 
 Score and add YAP
 ```{r}

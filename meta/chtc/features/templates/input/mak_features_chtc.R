@@ -11,7 +11,6 @@ suppressPackageStartupMessages({
   source("fun_risk.R")
 })
 
-
 # get chtc process num ------------------
 # label_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
