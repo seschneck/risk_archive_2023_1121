@@ -5,14 +5,14 @@
 
 
 # SET GLOBAL PARAMETERS --------
-data_trn <- "features_aggregate.csv"
+data_trn <- "features_aggregate.rds"
 name_job <- "glmnet_knn_rf" # the name of the job to set folder names
 feature_set <- c("feat_baseline_id", "feat_baseline_temporal", 
-                "feat_baseline_all",  "feat_all", "feat_logs") # 1+ feature sets 
+                "feat_baseline_all",  "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
 algorithm <- c("glmnet", "knn", "random_forest") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
-y <- "y" # outcome variable - will be changed to y in recipe for consistency across studies 
+y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 # format for kfold should be kfold_n_repeats_x_n_folds (e.g., kfold_1_x_10, group_kfold_10_x_10)
 # determine where to pass in global cv_type parameter
@@ -31,21 +31,18 @@ hp2_rf <- c(2, 10, 20) # min_n
 hp3_rf <- 2800 # trees (10 x's number of predictors)
 
 # CHANGE STUDY PATHS -------------------- 
-path_jobs <- "P:/studydata/risk/chtc/meta/jobs" # location of where you want your jobs to be setup
-path_data <- "P:/studydata/risk/data_processed/meta/features" # location of data set
-
-
+path_jobs <- "P:/studydata/risk/chtc/meta/jobs/training" # location of where you want your jobs to be setup
+path_data <- "P:/studydata/risk/chtc/meta/jobs/features/features_all/output" # location of data set
 
 
 # BUILD RECIPE ---------
 
 # Classification recipe for meta study
 
-build_recipe <- function(d, job, y) {
+build_recipe <- function(d, job) {
   
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
-  # y = binary outcome variable (yes/no)
   
   # get relevant info from job (algorithm, feature_set, resample, under_ratio)
   algorithm <- job$algorithm
@@ -58,35 +55,32 @@ build_recipe <- function(d, job, y) {
     under_ratio <- as.numeric(str_split(job$resample, "_")[[1]][2])
   }
   
-  # Set outcome variable to y
-  d <- d %>% 
-    rename(y = y)
-  
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
-    step_string2factor(y, levels = c("no", "yes")) %>% 
     update_role(subid, dttm_label, new_role = "id variable") %>%
+    step_rm(label_num, id_quit_date) %>% 
+    step_string2factor(y, levels = c("no", "yes")) %>% 
     # reference group will be first level in factor - specify levels to choose reference group
     step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
     step_num2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
-                                              "14", "15", "16", "17", "18", "19", "20", "21", "22",
-                                              "23", "24", "1", "2", "3")) %>%
+                                           "14", "15", "16", "17", "18", "19", "20", "21", "22",
+                                           "23", "24", "1", "2", "3")) %>%
     step_string2factor(label_season, levels = c("Spring", "Summer", "Fall", "Winter")) %>% 
     step_string2factor(all_nominal()) %>% 
-    step_impute_median(all_numeric()) %>% 
-    step_impute_mode(all_nominal(), -y) %>% 
-    step_zv(all_predictors()) 
+    step_zv(all_predictors()) %>%
+    step_impute_median(all_numeric()) %>%
+    step_impute_mode(all_nominal(),  -y) 
   
   
-    # step_novel(id_past_3_mo_urge_hallucinogen, new_level = "Monthly") %>% 
-    # step_novel(id_past_3_mo_fail_expect_tobacco, new_level = "Monthly") %>% 
-    # step_novel(id_past_3_mo_fail_expect_amphetamine, new_level = "Once or Twice") %>% 
-    # step_novel(id_lifetime_concern_cocaine, new_level = "Monthly") %>% 
-    # step_novel(id_lifetime_concern_inhalant, new_level = "Once or Twice") %>% 
-    # step_novel(id_lifetime_concern_sedative, new_level = "Monthly or Weekly") %>% 
-    # step_novel(id_lifetime_cutback_inhalant, new_level = "Once or Twice") %>% 
-    # step_novel(id_lifetime_cutback_sedative, new_level = "Monthly") 
- 
+  # step_novel(id_past_3_mo_urge_hallucinogen, new_level = "Monthly") %>% 
+  # step_novel(id_past_3_mo_fail_expect_tobacco, new_level = "Monthly") %>% 
+  # step_novel(id_past_3_mo_fail_expect_amphetamine, new_level = "Once or Twice") %>% 
+  # step_novel(id_lifetime_concern_cocaine, new_level = "Monthly") %>% 
+  # step_novel(id_lifetime_concern_inhalant, new_level = "Once or Twice") %>% 
+  # step_novel(id_lifetime_concern_sedative, new_level = "Monthly or Weekly") %>% 
+  # step_novel(id_lifetime_cutback_inhalant, new_level = "Once or Twice") %>% 
+  # step_novel(id_lifetime_cutback_sedative, new_level = "Monthly") 
+  
   # FIX: handle missing levels:   
   #  - id_past_3_mo_urge_hallucinogen (Monthly)
   #  - id_past_3_mo_fail_expect_tobacco (Monthly)
@@ -101,8 +95,8 @@ build_recipe <- function(d, job, y) {
   # If statements for filtering features based on feature set
   if (feature_set == "feat_all_passive") {
     rec <- rec %>%
-      step_rm(starts_with("sms") & !contains("passive"))
-      step_rm(starts_with("voi") & !contains("passive"))
+      step_rm(starts_with("sms"), -contains("passive")) %>% 
+      step_rm(starts_with("voi"), -contains("passive"))
   } else if (feature_set == "feat_baseline_id") {
     rec <- rec %>% 
       step_rm(starts_with("sms")) %>% 
@@ -121,6 +115,7 @@ build_recipe <- function(d, job, y) {
     rec <- rec %>% 
       step_rm(starts_with("id")) %>% 
       step_rm(starts_with("label"))
+  }
   
   # resampling options for unbalanced outcome variable
   if (resample == "down") {
@@ -140,10 +135,10 @@ build_recipe <- function(d, job, y) {
   
   # algorithm specific steps
   if (algorithm == "glmnet") {
-    rec <- rec  %>% 
-      step_nzv(all_predictors()) %>% 
-      step_dummy(all_nominal(), -y) %>% 
-      step_normalize(all_predictors())
+    rec <- rec  %>%
+      step_dummy(all_nominal(), -y) %>%
+      step_nzv(all_predictors()) %>%
+      step_normalize(all_numeric())
   } 
   
   if (algorithm == "knn") {
