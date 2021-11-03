@@ -14,7 +14,7 @@ suppressPackageStartupMessages({
 # get chtc process num ------------------
 # label_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
-label_num <- as.numeric(args[1]) # CHTC arg starts at 1 becaus eusing passed in integers
+label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in integers
 
 # read in data ------------------
 logs_all <- read_rds("data.rds") %>% 

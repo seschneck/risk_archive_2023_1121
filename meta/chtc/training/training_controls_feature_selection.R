@@ -6,11 +6,11 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_aggregate.rds"
-name_job <- "glmnet_knn_rf" # the name of the job to set folder names
-feature_set <- c("feat_baseline_id", "feat_baseline_temporal", 
-                "feat_baseline_all",  "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
-algorithm <- c("glmnet", "knn", "random_forest") # 1+ algorithm (glmnet, random_forest) 
-resample <- c("none", "up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
+name_job <- "feature_selection" # the name of the job to set folder names
+feature_set <- c("feat_all", "feat_all_passive") # 1+ feature sets 
+feature_fun_type <- c("raw", "diff", "perc", "raw_diff", "diff_perc", "perc_raw", "raw_diff_perc")
+algorithm <- c("glmnet") # 1+ algorithm (glmnet, random_forest) 
+resample <- c("up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
@@ -25,10 +25,7 @@ hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture)
 hp2_glmnet_min <- -9 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 100 # length of penalty grid
-hp1_knn <- seq(5, 75, length.out = 15) # neighbors
-hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 10, 20) # min_n
-hp3_rf <- 2800 # trees (10 x's number of predictors)
+
 
 # CHANGE STUDY PATHS -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/training" # location of where you want your jobs to be setup
@@ -47,6 +44,7 @@ build_recipe <- function(d, job) {
   # get relevant info from job (algorithm, feature_set, resample, under_ratio)
   algorithm <- job$algorithm
   feature_set <- job$feature_set
+  feature_fun_type <- job$feature_fun_type
   
   if (job$resample == "none") {
     resample <- job$resample
@@ -58,63 +56,60 @@ build_recipe <- function(d, job) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     update_role(subid, dttm_label, new_role = "id variable") %>%
-    step_rm(label_num, id_quit_date) %>% 
+    step_rm(label_num, id_quit_date, starts_with("id_"), starts_with("label_")) %>% 
     step_string2factor(y, levels = c("no", "yes")) %>% 
     # reference group will be first level in factor - specify levels to choose reference group
-    step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
-    step_num2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
-                                           "14", "15", "16", "17", "18", "19", "20", "21", "22",
-                                           "23", "24", "1", "2", "3")) %>%
-    step_string2factor(label_season, levels = c("Spring", "Summer", "Fall", "Winter")) %>% 
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>%
     step_impute_median(all_numeric()) %>%
     step_impute_mode(all_nominal(),  -y) 
-  
-  
-  # step_novel(id_past_3_mo_urge_hallucinogen, new_level = "Monthly") %>% 
-  # step_novel(id_past_3_mo_fail_expect_tobacco, new_level = "Monthly") %>% 
-  # step_novel(id_past_3_mo_fail_expect_amphetamine, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_concern_cocaine, new_level = "Monthly") %>% 
-  # step_novel(id_lifetime_concern_inhalant, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_concern_sedative, new_level = "Monthly or Weekly") %>% 
-  # step_novel(id_lifetime_cutback_inhalant, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_cutback_sedative, new_level = "Monthly") 
-  
-  # FIX: handle missing levels:   
-  #  - id_past_3_mo_urge_hallucinogen (Monthly)
-  #  - id_past_3_mo_fail_expect_tobacco (Monthly)
-  #  - id_past_3_mo_fail_expect_amphetamine (Once or Twice)
-  #  - id_lifetime_concern_cocaine (Monthly)
-  #  - id_lifetime_concern_inhalant (Once or Twice)
-  #  - id_lifetime_concern_sedative (Monthly)
-  #  - id_lifetime_concern_sedative (Weekly)
-  #  - id_lifetime_cutback_inhalant (Once or Twice)
-  #  - id_lifetime_cutback_sedative (Weekly)
   
   # If statements for filtering features based on feature set
   if (feature_set == "feat_all_passive") {
     rec <- rec %>%
       step_rm(starts_with("sms"), -contains("passive")) %>% 
       step_rm(starts_with("voi"), -contains("passive"))
-  } else if (feature_set == "feat_baseline_id") {
+  } 
+  # filter based on feature function type
+  if (feature_fun_type == "raw") {
     rec <- rec %>% 
-      step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voi")) %>% 
-      step_rm(starts_with("label"))
-  } else if (feature_set == "feat_baseline_temporal") {
+      step_rm(contains("prate")) %>% 
+      step_rm(contains("pprop")) %>% 
+      step_rm(contains("drate")) %>% 
+      step_rm(contains("dprop")) %>% 
+      step_rm(contains("pmean")) %>% 
+      step_rm(contains("dmean"))
+  } else if (feature_fun_type == "perc") {
     rec <- rec %>% 
-      step_rm(starts_with("id")) %>% 
-      step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voi")) 
-  } else if (feature_set == "feat_baseline_all") {
+      step_rm(contains("rrate")) %>% 
+      step_rm(contains("rprop")) %>% 
+      step_rm(contains("drate")) %>% 
+      step_rm(contains("dprop")) %>% 
+      step_rm(contains("rmean")) %>% 
+      step_rm(contains("dmean"))
+  } else if (feature_fun_type == "diff") {
     rec <- rec %>% 
-      step_rm(starts_with("sms")) %>% 
-      step_rm(starts_with("voi")) 
-  } else if (feature_set == "feat_logs") {
+      step_rm(contains("rrate")) %>% 
+      step_rm(contains("rprop")) %>% 
+      step_rm(contains("prate")) %>% 
+      step_rm(contains("pprop")) %>% 
+      step_rm(contains("rmean")) %>% 
+      step_rm(contains("pmean"))
+  } else if (feature_fun_type == "raw_diff") {
     rec <- rec %>% 
-      step_rm(starts_with("id")) %>% 
-      step_rm(starts_with("label"))
+      step_rm(contains("prate")) %>% 
+      step_rm(contains("pprop")) %>% 
+      step_rm(contains("pmean"))
+  }  else if (feature_fun_type == "diff_perc") {
+    rec <- rec %>% 
+      step_rm(contains("rrate")) %>% 
+      step_rm(contains("rprop")) %>% 
+      step_rm(contains("rmean"))
+  }  else if (feature_fun_type == "perc_raw") {
+    rec <- rec %>% 
+      step_rm(contains("drate")) %>% 
+      step_rm(contains("dprop")) %>% 
+      step_rm(contains("dmean"))
   }
   
   # resampling options for unbalanced outcome variable

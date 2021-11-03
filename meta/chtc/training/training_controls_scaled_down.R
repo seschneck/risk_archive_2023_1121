@@ -6,10 +6,9 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_aggregate.rds"
-name_job <- "glmnet_knn_rf" # the name of the job to set folder names
-feature_set <- c("feat_baseline_id", "feat_baseline_temporal", 
-                "feat_baseline_all",  "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
-algorithm <- c("glmnet", "knn", "random_forest") # 1+ algorithm (glmnet, random_forest) 
+name_job <- "glmnet_knn_no_id" # the name of the job to set folder names
+feature_set <- c("feat_baseline_temporal", "feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets 
+algorithm <- c("glmnet", "knn") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("none", "up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -26,9 +25,7 @@ hp2_glmnet_min <- -9 # min for penalty grid - will be passed into exp(seq(min, m
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 100 # length of penalty grid
 hp1_knn <- seq(5, 75, length.out = 15) # neighbors
-hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 10, 20) # min_n
-hp3_rf <- 2800 # trees (10 x's number of predictors)
+
 
 # CHANGE STUDY PATHS -------------------- 
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/training" # location of where you want your jobs to be setup
@@ -58,7 +55,7 @@ build_recipe <- function(d, job) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     update_role(subid, dttm_label, new_role = "id variable") %>%
-    step_rm(label_num, id_quit_date) %>% 
+    step_rm(label_num, id_quit_date, starts_with("id_")) %>% 
     step_string2factor(y, levels = c("no", "yes")) %>% 
     # reference group will be first level in factor - specify levels to choose reference group
     step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
@@ -70,27 +67,7 @@ build_recipe <- function(d, job) {
     step_zv(all_predictors()) %>%
     step_impute_median(all_numeric()) %>%
     step_impute_mode(all_nominal(),  -y) 
-  
-  
-  # step_novel(id_past_3_mo_urge_hallucinogen, new_level = "Monthly") %>% 
-  # step_novel(id_past_3_mo_fail_expect_tobacco, new_level = "Monthly") %>% 
-  # step_novel(id_past_3_mo_fail_expect_amphetamine, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_concern_cocaine, new_level = "Monthly") %>% 
-  # step_novel(id_lifetime_concern_inhalant, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_concern_sedative, new_level = "Monthly or Weekly") %>% 
-  # step_novel(id_lifetime_cutback_inhalant, new_level = "Once or Twice") %>% 
-  # step_novel(id_lifetime_cutback_sedative, new_level = "Monthly") 
-  
-  # FIX: handle missing levels:   
-  #  - id_past_3_mo_urge_hallucinogen (Monthly)
-  #  - id_past_3_mo_fail_expect_tobacco (Monthly)
-  #  - id_past_3_mo_fail_expect_amphetamine (Once or Twice)
-  #  - id_lifetime_concern_cocaine (Monthly)
-  #  - id_lifetime_concern_inhalant (Once or Twice)
-  #  - id_lifetime_concern_sedative (Monthly)
-  #  - id_lifetime_concern_sedative (Weekly)
-  #  - id_lifetime_cutback_inhalant (Once or Twice)
-  #  - id_lifetime_cutback_sedative (Weekly)
+
   
   # If statements for filtering features based on feature set
   if (feature_set == "feat_all_passive") {
@@ -104,7 +81,6 @@ build_recipe <- function(d, job) {
       step_rm(starts_with("label"))
   } else if (feature_set == "feat_baseline_temporal") {
     rec <- rec %>% 
-      step_rm(starts_with("id")) %>% 
       step_rm(starts_with("sms")) %>% 
       step_rm(starts_with("voi")) 
   } else if (feature_set == "feat_baseline_all") {
@@ -113,7 +89,96 @@ build_recipe <- function(d, job) {
       step_rm(starts_with("voi")) 
   } else if (feature_set == "feat_logs") {
     rec <- rec %>% 
-      step_rm(starts_with("id")) %>% 
+      step_rm(starts_with("label"))
+  } else if (feature_set == "feat_all") {
+    rec <- rec %>% 
+      step_rm(starts_with("id_"))
+  }
+  
+  # resampling options for unbalanced outcome variable
+  if (resample == "down") {
+    rec <- rec %>% 
+      themis::step_downsample(y, under_ratio = under_ratio, seed = 10) 
+  } else if (resample == "smote") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
+    rec <- rec %>% 
+      themis::step_smote(y, over_ratio = over_ratio, seed = 10) 
+  } else if (resample == "up") {
+    if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
+    } else over_ratio <- under_ratio
+    rec <- rec %>% 
+      themis::step_upsample(y, over_ratio = over_ratio, seed = 10)
+  }
+  
+  # algorithm specific steps
+  if (algorithm == "glmnet") {
+    rec <- rec  %>%
+      step_dummy(all_nominal(), -y) %>%
+      step_normalize(all_numeric())
+  } 
+  
+  if (algorithm == "knn") {
+    rec <- rec  %>% 
+      step_dummy(all_nominal(), -y) %>% 
+      step_normalize(all_predictors())
+  } 
+  
+  return(rec)
+}
+
+build_recipe_nzv <- function(d, job) {
+  
+  # d: (training) dataset from which to build recipe
+  # job: single-row job-specific tibble
+  
+  # get relevant info from job (algorithm, feature_set, resample, under_ratio)
+  algorithm <- job$algorithm
+  feature_set <- job$feature_set
+  
+  if (job$resample == "none") {
+    resample <- job$resample
+  } else {
+    resample <- str_split(job$resample, "_")[[1]][1]
+    under_ratio <- as.numeric(str_split(job$resample, "_")[[1]][2])
+  }
+  
+  # Set recipe steps generalizable to all model configurations
+  rec <- recipe(y ~ ., data = d) %>%
+    update_role(subid, dttm_label, new_role = "id variable") %>%
+    step_rm(label_num, id_quit_date, starts_with("id_")) %>% 
+    step_string2factor(y, levels = c("no", "yes")) %>% 
+    # reference group will be first level in factor - specify levels to choose reference group
+    step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
+    step_num2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+                                           "14", "15", "16", "17", "18", "19", "20", "21", "22",
+                                           "23", "24", "1", "2", "3")) %>%
+    step_string2factor(label_season, levels = c("Spring", "Summer", "Fall", "Winter")) %>% 
+    step_string2factor(all_nominal()) %>% 
+    step_zv(all_predictors()) %>%
+    step_impute_median(all_numeric()) %>%
+    step_impute_mode(all_nominal(),  -y) 
+  
+  # If statements for filtering features based on feature set
+  if (feature_set == "feat_all_passive") {
+    rec <- rec %>%
+      step_rm(starts_with("sms"), -contains("passive")) %>% 
+      step_rm(starts_with("voi"), -contains("passive"))
+  } else if (feature_set == "feat_baseline_id") {
+    rec <- rec %>% 
+      step_rm(starts_with("sms")) %>% 
+      step_rm(starts_with("voi")) %>% 
+      step_rm(starts_with("label"))
+  } else if (feature_set == "feat_baseline_temporal") {
+    rec <- rec %>% 
+      step_rm(starts_with("sms")) %>% 
+      step_rm(starts_with("voi")) 
+  } else if (feature_set == "feat_baseline_all") {
+    rec <- rec %>% 
+      step_rm(starts_with("sms")) %>% 
+      step_rm(starts_with("voi")) 
+  } else if (feature_set == "feat_logs") {
+    rec <- rec %>% 
       step_rm(starts_with("label"))
   }
   
