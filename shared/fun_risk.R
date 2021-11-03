@@ -357,7 +357,10 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
     } else x_c <- x_all # renaming to avoid rewriting over x_all for next loop
     
     ratecount <- function (.x, value, duration) {
-      the_count <- if_else(length(.x) > 0, sum(.x == value, na.rm = TRUE), 0)
+      the_count <- if (length(.x) > 0) {
+        sum(.x == value, na.rm = TRUE)
+      } else 0
+      
       return(the_count / duration)
     }
     
@@ -534,7 +537,10 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
     
     
     ratesum <- function (.x, duration) {
-      the_sum <- if_else(length(.x) > 0, sum(.x, na.rm = TRUE), 0)
+      the_sum <- if (length(.x) > 0) {
+        sum(.x, na.rm = TRUE)
+      } else 0
+      
       return(the_sum / duration)
     }
     
@@ -620,7 +626,11 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
     } else x_c <- x_all
     
     periodmean <- function (.x) {
-      return(if_else(length(.x) > 0, mean(.x, na.rm = TRUE), 0))
+      the_mean <- if (length(.x) > 0) { 
+        mean(.x, na.rm = TRUE)
+      } else 0
+      
+      return(the_mean)
     }
     
     base_duration <- correct_period_duration(the_subid, the_dttm_label, 
