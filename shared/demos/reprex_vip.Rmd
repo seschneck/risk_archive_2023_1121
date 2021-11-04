@@ -1,0 +1,185 @@
+---
+title: "VIP reprex"
+author: "JJC"
+date: "11/4/2021"
+output: html_document
+---
+
+See the vip [tutorial](https://koalaverse.github.io/vip/articles/vip.html)
+
+See [tutorial](https://cran.r-project.org/web/packages/datarobot/vignettes/VariableImportance.html) on using permutation method for model agnostic vip
+
+
+packages
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(vip)
+```
+
+data
+```{r}
+data_trn <- tibble(x_1 = rnorm(100, 0, 1),
+            x_2 = rnorm(100, 0, 1),
+            x_3 = rnorm(100, 0, 1),
+            y = 1 * x_1 + -2 * x_2 + rnorm(100, 0, .1))
+```
+
+recipe and splits
+```{r}
+rec <- recipe(y ~ ., data = data_trn) %>% 
+  step_normalize(all_predictors())
+
+summary(rec)
+
+set.seed(20140102)
+splits_boot <- data_trn %>% 
+   bootstraps(times = 10, strata = "y")  # toy example with 10 splits
+
+splits_boot
+```
+
+
+
+Select best model configuration
+```{r}
+grid_hp <- expand_grid(penalty = exp(seq(-4, 4, length.out = 50)),
+                            mixture = seq(0, 1, .2))
+
+fits <-
+  linear_reg(penalty = tune(), 
+             mixture = tune()) %>% 
+  set_engine("glmnet") %>% 
+  tune_grid(preprocessor = rec, 
+            resamples = splits_boot, grid = grid_hp, 
+            metrics = metric_set(rmse))
+
+fits %>% show_best()
+```
+
+
+
+Final 
+```{r}
+feat_trn <- rec %>%
+  prep(training = data_trn, strings_as_factors = FALSE) %>%
+  bake(new_data = data_trn) %>% 
+  glimpse()
+
+fit <-
+  linear_reg(penalty = select_best(fits)$penalty, 
+             mixture = select_best(fits)$mixture) %>%
+  set_engine("glmnet") %>% 
+  fit(y ~ ., data = feat_trn)
+
+fit %>% 
+  tidy() %>% 
+  print()
+```
+
+model specific vip
+
+* If `lambda` is omitted, `vi` seems to default to specified penalty in fit
+* Can get other `lambda` values b/c fit fit a series of lambdas
+* `vi` seems to already remove sign when calculating `Importance`.  No need for `abs()`
+* `vi` sorts in decreasing importance by default
+```{r}
+fit %>%
+  vi() %>%   # but consider: lambda = select_best(fits)$penalty
+  mutate(
+    Variable = fct_reorder(Variable, Importance)  # this is for plotting order
+  ) %>%
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
+
+
+
+
+
+model agnostic vip
+```{r}
+
+rmse_perm <- function(actual, predicted) {
+  rmse_vec(actual, predicted)
+}
+
+pred_perm <- function(object, newdata) {
+  predict(object, newdata, s = .0116)[, 1]
+}
+
+pred_perm_best <- function(object, newdata) {
+  newdata <- as.data.frame(newdata)
+  predict(object, newdata) %>% 
+    pull(.pred)
+}
+
+x <- feat_trn %>% 
+  select(contains("x_")) %>% 
+  as.matrix()
+
+y <- feat_trn %>% 
+  pull(y)
+
+
+fit %>%
+  vi(method = "permute", 
+     train = x, 
+     target = y,
+     metric = rmse_perm,
+     pred_wrapper = pred_perm_best,   # function(object, newdata) predict(object, newdata)
+     smaller_is_better = TRUE) 
+
+# but consider: lambda = select_best(fits)$penalty
+  mutate(
+    Variable = fct_reorder(Variable, Importance)  # this is for plotting order
+  ) %>%
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
+
+
+Try with direct glmnet
+```{r}
+fit_glmnet <- glmnet(x = select(feat_trn, contains("x_")),
+                     y = feat_trn$y,
+                     family = "gaussian",
+                     alpha = .4)
+
+# need a metric with actual and predicted paramet
+rmse_perm <- function(actual, predicted) {
+  rmse_vec(actual, predicted)
+}
+
+pred_perm <- function(object, newdata) {
+  predict(object, newdata, s = .0116)[, 1]
+}
+
+x <- feat_trn %>% 
+  select(contains("x_")) %>% 
+  as.matrix()
+
+y <- feat_trn %>% 
+  pull(y)
+
+fit %>%
+  vi(method = "permute", 
+     train = x, 
+     target = y,
+     metric = rmse_perm,
+     pred_wrapper = pred_perm,   # function(object, newdata) predict(object, newdata)
+     smaller_is_better = TRUE) 
+
+# but consider: lambda = select_best(fits)$penalty
+  mutate(
+    Variable = fct_reorder(Variable, Importance)  # this is for plotting order
+  ) %>%
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
