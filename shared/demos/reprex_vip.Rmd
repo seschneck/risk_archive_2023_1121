@@ -5,10 +5,13 @@ date: "11/4/2021"
 output: html_document
 ---
 
+## Notes
 See the vip [tutorial](https://koalaverse.github.io/vip/articles/vip.html)
 
 See [tutorial](https://cran.r-project.org/web/packages/datarobot/vignettes/VariableImportance.html) on using permutation method for model agnostic vip
 
+
+## Setup
 
 packages
 ```{r}
@@ -39,7 +42,7 @@ splits_boot <- data_trn %>%
 splits_boot
 ```
 
-
+## Select and Train Best Model
 
 Select best model configuration
 ```{r}
@@ -58,8 +61,7 @@ fits %>% show_best()
 ```
 
 
-
-Final 
+Train Final Model
 ```{r}
 feat_trn <- rec %>%
   prep(training = data_trn, strings_as_factors = FALSE) %>%
@@ -77,7 +79,11 @@ fit %>%
   print()
 ```
 
-model specific vip
+## Model Specific VI
+
+Use `vi()` in `vip` package
+
+This is an example for glmnet.   Will add for random forest later.  
 
 * If `lambda` is omitted, `vi` seems to default to specified penalty in fit
 * Can get other `lambda` values b/c fit fit a series of lambdas
@@ -96,89 +102,56 @@ fit %>%
 ```
 
 
+## Model Agnostic VI
 
+This will calculate the difference (or ratio if set explicitly) in the performance metric that occurs when the 
+specific feature is permuted so that it is no longer related to the outcome.
 
-
-model agnostic vip
+Get x and y for use with vi_permute in vi()
 ```{r}
-
-rmse_perm <- function(actual, predicted) {
-  rmse_vec(actual, predicted)
-}
-
-pred_perm <- function(object, newdata) {
-  predict(object, newdata, s = .0116)[, 1]
-}
-
-pred_perm_best <- function(object, newdata) {
-  newdata <- as.data.frame(newdata)
-  predict(object, newdata) %>% 
-    pull(.pred)
-}
-
 x <- feat_trn %>% 
   select(contains("x_")) %>% 
   as.matrix()
 
 y <- feat_trn %>% 
   pull(y)
-
-
-fit %>%
-  vi(method = "permute", 
-     train = x, 
-     target = y,
-     metric = rmse_perm,
-     pred_wrapper = pred_perm_best,   # function(object, newdata) predict(object, newdata)
-     smaller_is_better = TRUE) 
-
-# but consider: lambda = select_best(fits)$penalty
-  mutate(
-    Variable = fct_reorder(Variable, Importance)  # this is for plotting order
-  ) %>%
-  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
-  geom_col() +
-  scale_x_continuous(expand = c(0, 0)) +
-  labs(y = NULL)
 ```
 
 
-Try with direct glmnet
-```{r}
-fit_glmnet <- glmnet(x = select(feat_trn, contains("x_")),
-                     y = feat_trn$y,
-                     family = "gaussian",
-                     alpha = .4)
+Functions for use with `vi_permute`
 
-# need a metric with actual and predicted paramet
+* metric function needs to have parameters named actual and predicted
+* prediction function needs parameters named object, and newdata.  Needs to return a vector for regression.
+Will need to adjust for other statistical algorithms and for classification.  
+* Should also note that the model (object) is extracted
+from the $fit field of the model fit object from tidy models internally by vi_permute()
+```{r}
+
 rmse_perm <- function(actual, predicted) {
   rmse_vec(actual, predicted)
 }
 
 pred_perm <- function(object, newdata) {
-  predict(object, newdata, s = .0116)[, 1]
+  predict(object, newdata, s = select_best(fits)$penalty)[, 1]  # HACK: using global variable for lambda in function.
 }
 
-x <- feat_trn %>% 
-  select(contains("x_")) %>% 
-  as.matrix()
+```
 
-y <- feat_trn %>% 
-  pull(y)
 
+```{r}
+set.seed(1234)  # for reproducibility in vi_permute ()
 fit %>%
   vi(method = "permute", 
      train = x, 
      target = y,
      metric = rmse_perm,
-     pred_wrapper = pred_perm,   # function(object, newdata) predict(object, newdata)
-     smaller_is_better = TRUE) 
-
-# but consider: lambda = select_best(fits)$penalty
+     pred_wrapper = pred_perm,   
+     smaller_is_better = TRUE, 
+     nsim = 100) %>%   # consider best value for nsim for stability
   mutate(
     Variable = fct_reorder(Variable, Importance)  # this is for plotting order
   ) %>%
-  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  ggplot(aes(x = Importance, y = Variable)) +
   geom_col() +
   scale_x_continuous(expand = c(0, 0)) +
   labs(y = NULL)
