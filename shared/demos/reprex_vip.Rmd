@@ -85,13 +85,14 @@ Use `vi()` in `vip` package
 
 This is an example for glmnet.   Will add for random forest later.  
 
-* If `lambda` is omitted, `vi` seems to default to specified penalty in fit
+* If `lambda` is omitted, `vi` seems to default to specified penalty in fit but this doesnt work in a classification model
+Should always specify lambda with glmnet to be safe?
 * Can get other `lambda` values b/c fit fit a series of lambdas
 * `vi` seems to already remove sign when calculating `Importance`.  No need for `abs()`
 * `vi` sorts in decreasing importance by default
 ```{r}
 fit %>%
-  vi() %>%   # but consider: lambda = select_best(fits)$penalty
+  vi(lambda = select_best(fits)$penalty) %>%   
   mutate(
     Variable = fct_reorder(Variable, Importance)  # this is for plotting order
   ) %>%
