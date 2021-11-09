@@ -8,8 +8,8 @@
 data_trn <- "features_aggregate.rds"
 name_job <- "feature_selection" # the name of the job to set folder names
 feature_set <- c("feat_all", "feat_all_passive") # 1+ feature sets 
-feature_fun_type <- c("raw", "diff", "perc", "raw_diff", "diff_perc", "perc_raw", "raw_diff_perc")
-algorithm <- c("glmnet") # 1+ algorithm (glmnet, random_forest) 
+feature_fun_type <- c("raw", "perc", "perc_raw")
+algorithm <- c("glmnet", "random_forest", "knn") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -76,41 +76,13 @@ build_recipe <- function(d, job) {
     rec <- rec %>% 
       step_rm(contains("prate")) %>% 
       step_rm(contains("pprop")) %>% 
-      step_rm(contains("drate")) %>% 
-      step_rm(contains("dprop")) %>% 
-      step_rm(contains("pmean")) %>% 
-      step_rm(contains("dmean"))
+      step_rm(contains("pmean"))
+
   } else if (feature_fun_type == "perc") {
     rec <- rec %>% 
       step_rm(contains("rrate")) %>% 
       step_rm(contains("rprop")) %>% 
-      step_rm(contains("drate")) %>% 
-      step_rm(contains("dprop")) %>% 
-      step_rm(contains("rmean")) %>% 
-      step_rm(contains("dmean"))
-  } else if (feature_fun_type == "diff") {
-    rec <- rec %>% 
-      step_rm(contains("rrate")) %>% 
-      step_rm(contains("rprop")) %>% 
-      step_rm(contains("prate")) %>% 
-      step_rm(contains("pprop")) %>% 
-      step_rm(contains("rmean")) %>% 
-      step_rm(contains("pmean"))
-  } else if (feature_fun_type == "raw_diff") {
-    rec <- rec %>% 
-      step_rm(contains("prate")) %>% 
-      step_rm(contains("pprop")) %>% 
-      step_rm(contains("pmean"))
-  }  else if (feature_fun_type == "diff_perc") {
-    rec <- rec %>% 
-      step_rm(contains("rrate")) %>% 
-      step_rm(contains("rprop")) %>% 
       step_rm(contains("rmean"))
-  }  else if (feature_fun_type == "perc_raw") {
-    rec <- rec %>% 
-      step_rm(contains("drate")) %>% 
-      step_rm(contains("dprop")) %>% 
-      step_rm(contains("dmean"))
   }
   
   # resampling options for unbalanced outcome variable
