@@ -25,12 +25,17 @@ data
 data_trn <- tibble(x_1 = rnorm(100, 0, 1),
             x_2 = rnorm(100, 0, 1),
             x_3 = rnorm(100, 0, 1),
-            y = 1 * x_1 + -2 * x_2 + rnorm(100, 0, .1))
+            z = 1 * x_1 + -2 * x_2,
+            p = exp(z) / (1 + exp(z)),
+            y = rbinom(100, 1, p)) %>% 
+  select(-p, -z) %>% 
+  glimpse()
 ```
 
 recipe and splits
 ```{r}
 rec <- recipe(y ~ ., data = data_trn) %>% 
+  step_num2factor(y, levels = c("no", "yes"), transform = function(x) x +1) %>% 
   step_normalize(all_predictors())
 
 summary(rec)
@@ -50,12 +55,12 @@ grid_hp <- expand_grid(penalty = exp(seq(-4, 4, length.out = 50)),
                             mixture = seq(0, 1, .2))
 
 fits <-
-  linear_reg(penalty = tune(), 
+  logistic_reg(penalty = tune(), 
              mixture = tune()) %>% 
   set_engine("glmnet") %>% 
   tune_grid(preprocessor = rec, 
             resamples = splits_boot, grid = grid_hp, 
-            metrics = metric_set(rmse))
+            metrics = metric_set(accuracy))
 
 fits %>% show_best()
 ```
@@ -69,7 +74,7 @@ feat_trn <- rec %>%
   glimpse()
 
 fit <-
-  linear_reg(penalty = select_best(fits)$penalty, 
+  logistic_reg(penalty = select_best(fits)$penalty, 
              mixture = select_best(fits)$mixture) %>%
   set_engine("glmnet") %>% 
   fit(y ~ ., data = feat_trn)
@@ -85,14 +90,19 @@ Use `vi()` in `vip` package
 
 This is an example for glmnet.   Will add for random forest later.  
 
-* If `lambda` is omitted, `vi` seems to default to specified penalty in fit but this doesnt work in a classification model
-Should always specify lambda with glmnet to be safe?
+* Must specify `lambda` or coefficients will not work.
 * Can get other `lambda` values b/c fit fit a series of lambdas
 * `vi` seems to already remove sign when calculating `Importance`.  No need for `abs()`
 * `vi` sorts in decreasing importance by default
 ```{r}
 fit %>%
-  vi(lambda = select_best(fits)$penalty) %>%   
+  vi(lambda = select_best(fits)$penalty) %>%  
+  mutate(
+    Variable = fct_reorder(Variable, Importance)  # this is for plotting order
+  ) 
+
+fit %>%
+  vi(lambda = select_best(fits)$penalty) %>%
   mutate(
     Variable = fct_reorder(Variable, Importance)  # this is for plotting order
   ) %>%
@@ -122,18 +132,21 @@ y <- feat_trn %>%
 Functions for use with `vi_permute`
 
 * metric function needs to have parameters named actual and predicted
-* prediction function needs parameters named object, and newdata.  Needs to return a vector for regression.
-Will need to adjust for other statistical algorithms and for classification.  
+* prediction function needs parameters named object, and newdata.  Needs to return a factor for classification
 * Should also note that the model (object) is extracted
 from the $fit field of the model fit object from tidy models internally by vi_permute()
 ```{r}
 
-rmse_perm <- function(actual, predicted) {
-  rmse_vec(actual, predicted)
+acc_perm <- function(actual, predicted) {
+  accuracy_vec(actual, predicted)
 }
 
 pred_perm <- function(object, newdata) {
-  predict(object, newdata, s = select_best(fits)$penalty)[, 1]  # HACK: using global variable for lambda in function.
+  preds <- predict(object, newdata, type = "response", s = select_best(fits)$penalty)[, 1]    # HACK: using global variable for lambda in function.
+  
+  preds <- if_else(preds>= .5, "yes", "no") 
+  preds <- factor(preds, levels = c("no", "yes"))
+  return(preds)
 }
 
 ```
@@ -145,9 +158,9 @@ fit %>%
   vi(method = "permute", 
      train = x, 
      target = y,
-     metric = rmse_perm,
+     metric = acc_perm,
      pred_wrapper = pred_perm,   
-     smaller_is_better = TRUE, 
+     smaller_is_better = FALSE, 
      nsim = 100) %>%   # consider best value for nsim for stability
   mutate(
     Variable = fct_reorder(Variable, Importance)  # this is for plotting order
