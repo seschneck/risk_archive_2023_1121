@@ -389,7 +389,7 @@ meta_features <- meta_features %>%
 # call duration
 # on own
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -399,6 +399,18 @@ meta_features <- meta_features %>%
                                  data_type_col_name = "log_type",
                                  data_type_values = c("voi"),
                                  passive = TRUE), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration",
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          passive = TRUE), by = c("subid", "dttm_label"))
 
 meta_features <- meta_features %>% 
   full_join(score_ratecount_value(label$subid, 
@@ -415,7 +427,7 @@ meta_features <- meta_features %>%
 
 # by incoming/outgoing
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -427,6 +439,20 @@ meta_features <- meta_features %>%
                                  context_col_name = "org",
                                  context_values = c("incoming", "outgoing"),
                                  passive = TRUE), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "org",
+                          context_values = c("incoming", "outgoing"),
+                          passive = TRUE), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -446,7 +472,7 @@ meta_features <- meta_features %>%
 
 # with context
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -457,6 +483,19 @@ meta_features <- meta_features %>%
                                  data_type_values = c("voi"),
                                  context_col_name = "drnk_past",
                                  context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "drnk_past",
+                          context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -475,7 +514,7 @@ meta_features <- meta_features %>%
 
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -486,6 +525,19 @@ meta_features <- meta_features %>%
                                  data_type_values = c("voi"),
                                  context_col_name = "drinker",
                                  context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "drinker",
+                          context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -504,7 +556,7 @@ meta_features <- meta_features %>%
 
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -515,6 +567,19 @@ meta_features <- meta_features %>%
                                  data_type_values = c("voi"),
                                  context_col_name = "drnk_presence",
                                  context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "drnk_presence",
+                          context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -533,7 +598,7 @@ meta_features <- meta_features %>%
 
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -544,6 +609,19 @@ meta_features <- meta_features %>%
                                  data_type_values = c("voi"),
                                  context_col_name = "recovery",
                                  context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "recovery",
+                          context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -561,7 +639,7 @@ meta_features <- meta_features %>%
                                   context_values = c("yes", "no")), by = c("subid", "dttm_label"))
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -572,6 +650,20 @@ meta_features <- meta_features %>%
                                  data_type_values = c("voi"),
                                  context_col_name = "supportive",
                                  context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
+
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "supportive",
+                          context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
 
 
 meta_features <- meta_features %>% 
@@ -589,7 +681,7 @@ meta_features <- meta_features %>%
                                   context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label"))
 
 meta_features <- meta_features %>% 
-  full_join(score_ratecontinuous(label$subid, 
+  full_join(score_ratesum(label$subid, 
                                  label$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations,
@@ -599,7 +691,20 @@ meta_features <- meta_features %>%
                                  data_type_col_name = "log_type",
                                  data_type_values = c("voi"),
                                  context_col_name = "experience",
-                                 context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label")) 
+                                 context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_mean(label$subid, 
+                          label$dttm_label,
+                          x_all  = logs_all,
+                          period_durations = period_durations,
+                          lead = lead, 
+                          data_start = data_start, 
+                          col_name = "duration", 
+                          data_type_col_name = "log_type",
+                          data_type_values = c("voi"),
+                          context_col_name = "experience",
+                          context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label"))
 
 
 meta_features <- meta_features %>% 
@@ -856,13 +961,6 @@ meta_features <- meta_features %>%
                                   context_values = c("pleasant", "unpleasant", "neutral", "mixed")), by = c("subid", "dttm_label")) 
 
 
-# Pull other static features from context - Does someone have a significant other that is a drinker, 
-# how many supportive contacts do they have?
-# Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, 
-# number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs 
-# family, drinkers they visit monthly  
-
-
 # Features from phone numbers ------------------
 
 # Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)
@@ -871,12 +969,248 @@ meta_features <- meta_features %>%
 
 # Features from Dates ------------------
 
-# Rates of communications at certain times, days, and frequency bursts (mins instead of hrs)
+# Rates of communications at certain times, days, and frequency bursts (mins instead of hrs) or bursts of
+# outgoing calls or communications w/single contact
 
+# proportion weekend communications - use at least one week for period duration
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
+
+# w/context
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drinker", 
+                               context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drnk_past", 
+                               context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drnk_presence", 
+                               context_values = c("no", "yes")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "recovery", 
+                               context_values = c("no", "yes")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "supportive", 
+                               context_values = c("supportive", "unsupportive", "mixed", "neutral")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "experience", 
+                               context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label"))
+
+# incoming vs outgoing
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 168],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(wday(get(dttm_col_name), label = TRUE) %in% c("Fri", "Sat", "Sun")), 
+                               dttm_description = "fri_sat_sun",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "org", 
+                               context_values = c("incoming", "outgoing"),
+                               passive = TRUE), by = c("subid", "dttm_label"))
+
+
+# proportion of evening calls - use at least 24 hours for period duration
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
+
+# w/context
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drinker", 
+                               context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drnk_past", 
+                               context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "drnk_presence", 
+                               context_values = c("no", "yes")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "recovery", 
+                               context_values = c("no", "yes")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "supportive", 
+                               context_values = c("supportive", "unsupportive", "mixed", "neutral")), by = c("subid", "dttm_label"))
+
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "experience", 
+                               context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label"))
+
+# incoming vs outgoing
+meta_features <- meta_features %>% 
+  full_join(score_propdatetime(label$subid, 
+                               label$dttm_label,
+                               x_all  = logs_all,
+                               period_durations = period_durations[period_durations >= 24],
+                               lead = lead, 
+                               dttm_col_name = "dttm_obs", 
+                               dttm_window = quote(hour(get(dttm_col_name)) %in% c(19, 20, 21, 22, 23, 24, 1)), 
+                               dttm_description = "7pm_to_1am",
+                               data_type_col_name = "log_type",
+                               data_type_values = c("sms", "voi"),
+                               context_col_name = "org", 
+                               context_values = c("incoming", "outgoing"),
+                               passive = TRUE), by = c("subid", "dttm_label"))
 
 # Additional feature engineering ------------------
 
+# Pull other static features from context - Does someone have a significant other that is a drinker, 
+# how many supportive contacts do they have?
+# Add general screenshot descriptives about social network - i.e., unique number of supportive contacts overall, 
+# number of family members that drink that they communicate with, how often do they communicate with friends vs co-workers vs 
+# family
 
+# combine response options within context variables?
 
 
 # Add screen variables to feature set ------------------
