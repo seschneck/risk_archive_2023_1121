@@ -152,7 +152,7 @@ get_lapse_labels <- function(lapses, dates) {
   
   # final check for lapses
   if (! (nrow(valid_lapses) == (sum(labels$lapse) + no_match))) {
-    stop("No all lapses accounted")
+    stop("Not all lapses accounted")
   }
   
   # Step 2: Handle no_lapse exclusions for valid lapse periods +- 24 hours.  
