@@ -357,7 +357,7 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
     } else x_c <- x_all # renaming to avoid rewriting over x_all for next loop
     
     ratecount <- function (.x, value, duration) {
-      the_count <- if (nrow(.x) > 0) {
+      the_count <- if (length(.x) > 0) {
         sum(.x == value, na.rm = TRUE)
       } else 0
       
@@ -452,7 +452,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
     
     
     propcount <- function (.x, value, n_rows) {
-      if (nrow(.x) > 0) {
+      if (length(.x) > 0) {
         the_count <- sum(.x == value, na.rm = TRUE)
         return(the_count / n_rows)
       } else return(NA_real_) # NA because if they have no rows we cannot deduce a proportion - different than 0
@@ -621,7 +621,7 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
     
     
     ratesum <- function (.x, duration) {
-      the_sum <- if (nrow(.x) > 0) {
+      the_sum <- if (length(.x) > 0) {
         sum(.x, na.rm = TRUE)
       } else 0
       
@@ -710,7 +710,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
     } else x_c <- x_all
     
     periodmean <- function (.x) {
-      the_mean <- if (nrow(.x) > 0) { 
+      the_mean <- if (length(.x) > 0) { 
         mean(.x, na.rm = TRUE)
       } else 0
       
