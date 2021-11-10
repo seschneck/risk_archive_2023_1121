@@ -1,26 +1,33 @@
 ---
-title: "Make GPS Dataset"
-author: "Hannah Moshontz"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+title: "Make processed GPS df"
+author: "Hannah Moshontz & John Curtin"
+date: "`r lubridate::today()`"
 output: 
   html_document:
-    code_folding: show
     toc: true 
     toc_depth: 3
 editor_options: 
   chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
 ---
 
 ### Code Update
 
-THIS CODE NEEDS REVIEW
+Code has had paths and other updates to github and current lab standards.
 
-Need to figure out paths.  Need to update other lab standards.  Need to evalute
-if it is final code
+The existing EDA looks fine but it is pretty coarse.  Consider adding more EDA
+as studies start to use these data
 
 
 ### Notes
-Purpose: This script creates the analysis gps dataset and conducts eda.
+Purpose: This script creates the analysis gps dataset and conducts EDA
 
 Inputs:
 
@@ -32,6 +39,32 @@ Outputs
 
 ### Setup
 
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_processed <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("first", "dplyr")
+conflict_prefer("last", "dplyr")
+conflict_prefer("hour", "lubridate")
+
+library(here)  # establish project directory consistently as working directory
+```
 
 
 Packages and Source
@@ -49,11 +82,6 @@ library(kableExtra)
 library(readxl)
 library(data.table)
 library(ggplot2)
-```
-
-Paths
-```{r}
-path_data <- "./analysis/shared/data"
 ```
 
 ### Functions
@@ -141,12 +169,12 @@ convert_followmee <- function(file_name){
 }
 ```
 
-Function to make the final gps rds (calls previous functions)
+Function to make the final gps df (calls previous functions)
 ```{r}
-make_gps <- function(subid) {
+make_gps <- function(subid, file_path) {
   
-  raw_file <- str_c("./raw_data/", subid)
-  location_file <- str_c("./raw_data/", subid, "/", subid, "_Locations.xlsx")
+  raw_file <- file.path(file_path, subid)
+  location_file <-  file.path(file_path, subid, str_c(subid, "_Locations.xlsx"))
   subid_numeric <- as.numeric(subid)
   
   message('...importing gps for subject ', subid)
@@ -220,15 +248,32 @@ make_gps <- function(subid) {
 
 Store subids
 ```{r}
-subid_all <- list.dirs("./raw_data", recursive = FALSE) %>% 
+subid_all <- list.dirs(path_raw, recursive = FALSE) %>% 
   str_extract("\\d{3}$") %>% 
   na.exclude()
 ```
 
+bind all individual files
+```{r}
+gps <- map_dfr(subid_all, ~make_gps(.x, file_path = path_raw)) %>% 
+  glimpse()
+```
+
+Handle/remove points without timestamps - we cant do anything with these points
+
+BUT: could look at raw data.  Note SUBIDs for further work on recovering these points
+```{r}
+gps %>% 
+  filter(is.na(time))
+
+gps <- gps %>% 
+  filter(!is.na(time))
+```
+
 Create and save the gps data
 ```{r}
-map_dfr(subid_all, ~make_gps(.x)) %>% 
-  write_csv(., file = file.path(path_data, "gps.csv"))
+gps %>% 
+  write_csv(file = file.path(path_processed, "gps.csv"))
 ```
 
 ## EDA
@@ -237,14 +282,14 @@ map_dfr(subid_all, ~make_gps(.x)) %>%
 
 GPS data
 ```{r}
-gps <- fread(file.path(path_data, "gps.csv"), #need fread because data is huge, crashes r otherwise
+gps <- fread(file.path(path_processed, "gps.csv"), #need fread because data is huge, crashes r otherwise
              stringsAsFactors = TRUE) %>%  
   mutate(raw_orig_time = as.character(time)) %>% 
   glimpse()
 
-notes <- read_csv("./raw_data/raw_notes.csv") 
+notes <- read_csv(here("shared/notes/raw_notes.csv")) 
 
-visit_dates <- read_csv(file.path(path_data, "visit_dates.csv"))
+visit_dates <- read_csv(file.path(path_processed, "visit_dates.csv"))
 
 ```
 
@@ -270,15 +315,11 @@ gps %>%
 There are no "Null Island" points at 0,0.
 
 #### Time
-
 ```{r}
 gps %>% 
   filter(is.na(time))
 ```
-
-**Potential errors**
-
-There are three observations where there is a location but no time. Consider removing these.
+No points b.c we filtered them out above
 
 #### Accuracy, speed, altitude, direction
 ```{r}
@@ -358,7 +399,7 @@ gps %>%
   group_by(subid) %>%
   summarise(avg_obs_per_day = mean(n_obs),
             min = min(n_obs),
-            max = max(n_obs)) %>% 
+            max = max(n_obs)) %>%  
   ggplot(aes(x = avg_obs_per_day)) +
   geom_histogram(bins = 10) +
   xlab("avg number of gps observations") +
