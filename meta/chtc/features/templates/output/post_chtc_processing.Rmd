@@ -188,7 +188,7 @@ features %>%
 ### Check for any unexpected values
 
 Missing values    
-All missing values are voice or ID features - makes sense
+All missing values should be proportions   
 ```{r}
 naniar::miss_var_summary(features) %>% 
   print(n = 200)
@@ -205,7 +205,7 @@ features %>%
 proportions should be NA or between 0-1
 ```{r}
 features %>% 
-  summarise(across(contains("rproptotal"), list(min = min, max = max), na.rm = TRUE)) %>% 
+  summarise(across(contains("rpropcount"), list(min = min, max = max), na.rm = TRUE)) %>% 
   glimpse()
 ```
 
@@ -223,5 +223,8 @@ features %>%
 ```{r}
 write_csv(features, here(path_job, "output/features_aggregate.csv")) %>% 
   glimpse()
+
+
+write_rds(features, here(path_job, "output/features_aggregate.rds"))
 ```
 
