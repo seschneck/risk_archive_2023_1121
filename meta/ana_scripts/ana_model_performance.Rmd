@@ -1,0 +1,263 @@
+---
+title: "Model Performance"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+### Setup
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Source training controls 
+```{r}
+source('./meta/chtc/training/training_controls_model_selection.R')
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# library(conflicted) 
+#  conflict_prefer("filter", "dplyr")
+#  conflict_prefer("select", "dplyr")
+#  conflict_prefer("spec", "yardstick")
+
+library(here)  
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+library(tictoc)
+
+theme_set(theme_classic()) 
+```
+
+Set additional paths
+```{r}
+path_models <- "./meta/ana_scripts/model_output"
+path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
+path_features <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/input"
+```
+
+Source function scripts from lab support
+```{r  source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/chtc/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+source(here("../lab_support/fun_modeling.R"))
+```
+
+### Notes
+This script does model comparisons on the best models for the meta project.
+
+### Read in results
+
+```{r}
+# individual results
+result_files <- list.files(path_results, full.names = TRUE)
+results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
+  glimpse()
+
+# aggregate results
+results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
+
+# features
+data_all <- read_rds(here(path_features, "data_trn.rds")) %>% 
+  rename(y = {{y_col_name}}) %>% 
+  glimpse()
+```
+
+
+### Model performance by algorithm
+
+Balanced accuracy by algorithm
+```{r}
+results_aggregate %>% 
+  group_by(algorithm) %>% 
+  arrange(desc(bal_accuracy)) %>% 
+  slice(1) %>% 
+  select(algorithm, feature_set, feature_fun_type, bal_accuracy)
+```
+
+
+Subset best fits for each top algorithm model
+```{r}
+results_best <- results_aggregate %>%
+  group_by(algorithm) %>% 
+  arrange(desc(bal_accuracy)) %>% 
+  slice(1) %>% 
+  mutate(algorithm_best = "best") %>% 
+  select(-c(accuracy:roc_auc)) %>% 
+  right_join(results_all, 
+             by = c("algorithm", "feature_set", "feature_fun_type", "resample", "hp1", "hp2", "hp3", "n_feats")) %>% 
+  filter(algorithm_best == "best") %>% 
+  select(-algorithm_best) %>% 
+  glimpse()
+```
+
+
+Plot performance metrics across folds   
+FIX: How to get different values for glmnet where its already averaged? Refit model?
+FIX: Put horizontal line through plot?
+```{r}
+results_best %>% 
+  mutate(n_fold = if_else(algorithm == "glmnet", 1, n_fold)) %>% 
+  group_by(algorithm) %>% 
+  ggplot(aes(x = n_fold, y = bal_accuracy, group = algorithm)) +
+  geom_bar(stat = "identity", color = "black", fill = "light grey") +
+  facet_wrap(~ algorithm) +
+  scale_x_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
+  xlab("balanced accuracy") 
+```
+
+
+
+### Best model 
+
+Best model
+```{r}
+best_model <- results_aggregate %>% 
+  slice_max(bal_accuracy) %>% 
+  glimpse()
+```
+
+
+#### Compared to Null   
+Bayesian correlated t-test (10 x 10 fold)
+```{r}
+# make splits 
+set.seed(102030)
+splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
+
+# make recipes
+rec_null <- recipe(y ~ ., data = data_all) %>%
+  step_string2factor(y, levels = c("no", "yes"))
+
+rec_best <- build_recipe(d = data_all, job = best_model)
+
+# fit null models
+null_fits <- null_model() %>%
+    set_engine("parsnip") %>% 
+    set_mode("classification") %>%
+    fit_resamples(preprocessor = rec_null,
+                  resamples = splits,
+                  metrics = metric_set(bal_accuracy))
+
+# fit best models
+if (best_model$algorithm == "glmnet") {
+  best_fits <- logistic_reg(penalty = best_model$hp2,
+                            mixture = best_model$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      fit_resamples(preprocessor = rec_best,
+                    resamples = splits,
+                    metrics = metric_set(bal_accuracy))
+  
+} else if (best_model$algorithm == "random_forest") {
+  best_fits <- rand_forest(mtry = best_model$hp1,
+                           min_n = best_model$hp2,
+                           trees = best_model$hp3) %>%
+      set_engine("ranger",
+                  importance = "impurity",
+                  respect.unordered.factors = "order",
+                  oob.error = FALSE,
+                  seed = 102030) %>%
+      set_mode("classification") %>%
+      fit_resamples(preprocessor = rec_best,
+                    resamples = splits,
+                    metrics = metric_set(bal_accuracy))
+  
+} else if (best_model$algorithm == "knn") {
+    best_fits <- nearest_neighbor(neighbors = best_model$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      fit_resamples(preprocessor = rec_best,
+                    resamples = splits,
+                    metrics = metric_set(bal_accuracy))
+}
+
+# save fits
+save_rds(null_fits., here(path_models, "null_10_x_10_fold_fits.rds"))
+save_rds(best_fits, here(path_models, "best_10_x_10_fold_fits.rds"))
+```
+
+
+Run bayesian correlate t-test - each have 100 bal_accuracy to pass into baysian correlated t
+```{r}
+rope_min <- -0.01
+rope_max <- 0.01
+plot_min = -.14 
+plot_max = .14 # may need to get bigger
+results_ttest <- bayesian_correlated_t_test(best_fits, best_null, 
+                                      rope_min = rope_min, 
+                                      rope_max = rope_max, 
+                                      k = 10, 
+                                      plot_min = plot_min, plot_max = plot_max)
+
+ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Full - Compact Model)",
+       y = "Posterior Probability")
+
+results_ttest$left
+results_ttest$rope
+results_ttest$right
+```
+
+#### Individual Predictions
+
+Pull out individual predictions
+```{r}
+predictions <- collect_predictions(best_fits, summarize = TRUE)
+```
+
+
+Check one prediction for each participant   
+```{r}
+if (nrow(predictions) == nrow(data_all)) {
+  print(str_c("number of predictions (", nrow(predictions), ") = number of observations (", nrow(d), ")")) 
+  } else if (nrow(predictions) > nrow(data_all)) { 
+    print(str_c("WARNING: number of predictions (", nrow(predictions), ") > number of observations (", 
+                nrow(data_all), ")"))
+    } else if (nrow(predictions) < nrow(data_all)) print(str_c("WARNING: number of predictions (", 
+                                                               nrow(predictions), ") < number of observations (", 
+                                                               nrow(data_all), ")"))
+}
+```
+
+
+plot predictions by participant   
+Fix: Change x-axis to day on study instead of exact date?   
+```{r fig.height = 60}
+pred_plot <- predictions %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = dttm_label, y = .pred_yes, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap(~ subid, scales = "free_x", ncol = 3) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1)
+
+pred_plot
+save_rds(pred_plot, here(path_job, "output/pred_plot.rds"))
+```

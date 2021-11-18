@@ -6,10 +6,10 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_aggregate.rds"
-name_job <- "model_selection" # the name of the job to set folder names
+name_job <- "knn" # the name of the job to set folder names
 feature_set <- c("feat_all", "feat_all_passive") # 1+ feature sets 
 feature_fun_type <- c("raw", "perc", "perc_raw")
-algorithm <- c("glmnet", "random_forest", "knn") # 1+ algorithm (glmnet, random_forest) 
+algorithm <- c("knn") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("up_1", "down_1", "smote_1") # 1+ resampling methods (up, down, smote, or none)
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -22,20 +22,14 @@ perf_metric <- "bal_accuracy" # used for determining best model in post-processi
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate features before removing nzv
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
-hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
-hp2_glmnet_min <- -9 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
-hp2_glmnet_max <- 2 # max for penalty grid
-hp2_glmnet_out <- 100 # length of penalty grid
 hp1_knn <- seq(5, 100, length.out = 20) # neighbors (must be integer)
-hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 10, 20) # min_n
-hp3_rf <- 10000 # trees (10 x's number of predictors)
+
 
 
 # CHANGE STUDY PATHS -------------------- 
-path_jobs <- "P:/studydata/risk/chtc/meta/jobs/training" # location of where you want your jobs to be setup
+path_jobs <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection" # location of where you want your jobs to be setup
 path_data <- "P:/studydata/risk/chtc/meta/jobs/features/features_all/output" # location of data set
-path_project <- "./meta/ana_scripts/model_output"
+path_project <- "./meta/ana_scripts"
 
 # BUILD RECIPE ---------
 
@@ -121,7 +115,7 @@ build_recipe <- function(d, job) {
       step_normalize(all_numeric()) %>% 
       # drop columns with NA values after imputation (100% NA)
       step_select(where(~ !any(is.na(.))))
+    
   } 
-  
   return(rec)
 }

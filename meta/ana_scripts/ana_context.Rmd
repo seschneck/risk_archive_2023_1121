@@ -1,0 +1,366 @@
+---
+title: "Context Analyses"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+### Setup
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Source training controls 
+```{r}
+source('./meta/chtc/training/training_controls_model_selection.R')
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# library(conflicted) 
+#  conflict_prefer("filter", "dplyr")
+#  conflict_prefer("select", "dplyr")
+#  conflict_prefer("spec", "yardstick")
+
+library(here)  
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+library(tictoc)
+
+theme_set(theme_classic()) 
+```
+
+Set additional paths
+```{r}
+path_models <- "./meta/ana_scripts/model_output"
+path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
+path_features <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/input"
+```
+
+Source function scripts from lab support
+```{r  source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/chtc/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+```
+
+### Notes
+This script does model comparisons on the best models for the meta project.
+
+### Read in results
+
+```{r}
+# individual results
+result_files <- list.files(path_results, full.names = TRUE)
+results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
+  glimpse()
+
+# aggregate results
+results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
+
+# features
+data_all <- read_rds(here(path_features, "data_trn.rds")) %>% 
+  rename(y = {{y_col_name}}) %>% 
+  glimpse()
+```
+
+
+### Active and Passive Model Performance
+
+Balanced accuracy by algorithm
+```{r}
+results_aggregate %>% 
+  group_by(feature_set) %>% 
+  arrange(desc(bal_accuracy)) %>% 
+  slice(1) %>% 
+  select(feature_set, algorithm, feature_fun_type, bal_accuracy)
+```
+
+
+### Best Active model compared to Best Passive model
+
+Best models
+```{r}
+best_active <- results_aggregate %>% 
+  filter(feature_set == "feat_all") %>% 
+  slice_max(bal_accuracy) %>% 
+  glimpse()
+
+best_passive <- results_aggregate %>% 
+  filter(feature_set == "feat_all_passive") %>% 
+  slice_max(bal_accuracy) %>% 
+  glimpse()
+```
+
+Bayesian correlated t-test (10 x 10 fold)
+```{r}
+# make splits 
+set.seed(102030)
+splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
+
+# build recipes
+rec_passive <- build_recipe(d = data_all, job = best_passive)
+rec_active <- build_recipe(d = data_all, job = best_active)
+
+# fit passive model
+if (best_passive$algorithm == "glmnet") {
+  best_passive_fits <- logistic_reg(penalty = best_passive$hp2,
+                                    mixture = best_passive$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      fit_resamples(preprocessor = rec_passive,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+  
+} else if (best_passive$algorithm == "random_forest") {
+  best_passive_fits <- rand_forest(mtry = best_passive$hp1,
+                        min_n = best_passive$hp2,
+                        trees = best_passive$hp3) %>%
+      set_engine("ranger",
+                  importance = "impurity",
+                  respect.unordered.factors = "order",
+                  oob.error = FALSE,
+                  seed = 102030) %>%
+      set_mode("classification") %>%
+      fit_resamples(preprocessor = rec_passive,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+  
+} else if (best_passive$algorithm == "knn") {
+    best_passive_fits <- nearest_neighbor(neighbors = best_passive$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      fit_resamples(preprocessor = rec_passive,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+}
+
+# fit active model
+if (best_active$algorithm == "glmnet") {
+    best_active_fits <- logistic_reg(penalty = best_active$hp2,
+                                    mixture = best_active$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      tune_grid(preprocessor = rec_active,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+  
+} else if (best_active$algorithm == "random_forest") {
+    best_active_fits <- rand_forest(mtry = best_active$hp1,
+                        min_n = best_active$hp2,
+                        trees = best_active$hp3) %>%
+      set_engine("ranger",
+                  importance = "impurity",
+                  respect.unordered.factors = "order",
+                  oob.error = FALSE,
+                  seed = 102030) %>%
+      set_mode("classification") %>%
+      tune_grid(preprocessor = rec_active,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+  
+} else if (best_active$algorithm == "knn") {
+    best_active_fits <- nearest_neighbor(neighbors = best_active$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      tune_grid(preprocessor = rec_active,
+                resamples = splits,
+                metrics = metric_set(bal_accuracy))
+}
+
+# save fits
+save_rds(best_passive_fits., here(path_models, "best_passive_10_x_10_fold_fits.rds"))
+save_rds(best_active_fits., here(path_models, "best_active_10_x_10_fold_fits.rds"))
+```
+
+Run bayesian correlate t-test - each have 100 bal_accuracy to pass into baysian correlated t
+```{r}
+rope_min <- -0.01
+rope_max <- 0.01
+plot_min = -.14 
+plot_max = .14 # may need to get bigger
+results_ttest <- bayesian_correlated_t_test(best_passive_fits, best_active_fits, 
+                                      rope_min = rope_min, 
+                                      rope_max = rope_max, 
+                                      k = 10, 
+                                      plot_min = plot_min, plot_max = plot_max)
+
+ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Full - Compact Model)",
+       y = "Posterior Probability")
+
+results_ttest$left
+results_ttest$rope
+results_ttest$right
+```
+
+
+### Top Features
+
+Best model's top features   
+FIX: do on active and passive separately?
+```{r}
+# fit best model on all data
+best_model <- slice_max(results_aggregate, bal_accuracy()) %>% 
+  glimpse()
+    
+rec <- build_recipe(d = data_all, job = best_model)
+
+feat_all <-  rec %>% 
+  step_rm(has_role(match = "id variable")) %>% 
+  prep(training = data_all, strings_as_factors = FALSE) %>% 
+  bake(new_data = data_all)
+    
+if (best_model$algorithm == "glmnet") {
+  model <- logistic_reg(penalty = best_model$hp2,
+                        mixture = best_model$hp1) %>% 
+    set_engine("glmnet") %>%
+    set_mode("classification") %>%
+    fit(y ~ .,
+        data = feat_all)
+  # view variable importance indexes
+  x <- feat_all %>% 
+    select(-y) %>% 
+    as.matrix()
+  y <- feat_all %>% 
+    pull(y)
+  
+  acc_perm <- function(actual, predicted) {
+    accuracy_vec(actual, predicted)
+    }
+      
+  pred_perm <- function(object, newdata) {
+    preds <- predict(object, newdata, type = "response", s = best_model$hp2)[, 1]  
+    preds <- if_else(preds >= .5, "yes", "no") 
+    preds <- factor(preds, levels = c("no", "yes"))
+    return(preds)
+    }
+       
+  set.seed(102030)  # for reproducibility in vi_permute ()
+  vi_plot <- model %>%
+    vip::vi(method = "permute", 
+            train = x, 
+            target = y,
+            metric = acc_perm,
+            pred_wrapper = pred_perm,  
+            smaller_is_better = FALSE, 
+            nsim = 1) %>% 
+    mutate(Variable = fct_reorder(Variable, Importance)) %>%  
+    filter(Importance != 0) %>% 
+    ggplot(aes(x = Importance, y = Variable)) +
+    geom_col() +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(y = NULL, title = k)
+      
+  vi_plot
+      
+  # save figure object for editing later
+  vi_path <- here(path_job, str_c("output/vi_", k, ".rds"))
+  write_rds(vi_plot, vi_path)
+
+} else if (best_model$algorithm == "random_forest") {
+  model <- rand_forest(mtry = best_model$hp1,
+                       min_n = best_model$hp2,
+                       trees = best_model$hp3) %>%
+    set_engine("ranger",
+               importance = "impurity",
+               respect.unordered.factors = "order",
+               seed = 102030) %>%
+    set_mode("classification") %>%
+    fit(y ~ .,
+        data = feat_all)
+      
+  # view variable importance indexes
+  x <- feat_all
+        
+  acc_perm <- function(actual, predicted) {
+    accuracy_vec(truth = actual, estimate = predicted)
+    }
+
+  pred_perm <- function(object, newdata) {
+    preds <- predict(object, data = newdata)$predictions
+    preds <- if_else(preds[, 2] >= .5, "yes", "no") 
+    preds <- factor(preds, levels = c("no", "yes"))
+    return(preds)
+    }
+        
+  set.seed(102030)  # for reproducibility in vi_permute ()
+  vi_plot <- model %>%
+    vip::vi(method = "permute", 
+            train = x, 
+            target = "y",
+            metric = acc_perm,
+            pred_wrapper = pred_perm,
+            smaller_is_better = FALSE, 
+            nsim = 1) %>% 
+    mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+    filter(Importance != 0) %>% 
+    ggplot(aes(x = Importance, y = Variable)) +
+    geom_col() +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(y = NULL, title = k)
+  vi_plot
+        
+  # save figure object for editing later
+  vi_path <- here(path_job, str_c("output/vi_", k, ".rds"))
+  write_rds(vi_plot, vi_path)
+
+  } else if (best_model$algorithm == "knn") {
+    model <- nearest_neighbor(neighbors = best_model$hp1) %>% 
+      set_engine("kknn") %>% 
+      set_mode("classification") %>% 
+      fit(y ~ .,
+          data = feat_all)
+          
+    x <- feat_trn 
+
+    acc_perm <- function(actual, predicted) {
+      accuracy_vec(truth = actual, estimate = predicted)
+      }
+
+    pred_perm <- function(object, newdata) {
+      predict(object, newdata)
+      }
+          
+    set.seed(102030)  # for reproducibility in vi_permute ()
+    vi_plot <- model %>%
+      vip::vi(method = "permute", 
+              train = x, 
+              target = "y",
+              metric = acc_perm,
+              pred_wrapper = pred_perm,  
+              smaller_is_better = FALSE, 
+              nsim = 1) %>%   # consider best value for nsim for stability
+      mutate(
+        Variable = fct_reorder(Variable, Importance)  # this is for plotting order
+        ) %>%
+      ggplot(aes(x = Importance, y = Variable)) +
+      geom_col() +
+      scale_x_continuous(expand = c(0, 0)) +
+      labs(y = NULL)
+    }
+```
+
