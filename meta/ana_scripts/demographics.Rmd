@@ -1,0 +1,103 @@
+---
+title: "Demographic Characteristics for Meta Study"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+
+
+### Setup
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# library(conflicted) 
+#  conflict_prefer("filter", "dplyr")
+#  conflict_prefer("select", "dplyr")
+#  conflict_prefer("spec", "yardstick")
+
+library(here)  
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+library(tictoc)
+
+theme_set(theme_classic()) 
+```
+
+Set additional paths
+```{r}
+path_models <- "meta/ana_scripts/model_output"
+path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
+path_features <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/input"
+path_figures <- "meta/ana_scripts/figures"
+path_meta <- "P:/studydata/risk/data_processed/meta"
+path_shared <- "P:/studydata/risk/data_processed/shared"
+```
+
+Source function scripts from lab support
+```{r  source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+```
+
+
+### Read in data
+
+```{r}
+study_dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  mutate(across(study_start:ema_end, ~with_tz(., tzone = "America/Chicago"))) %>% 
+  glimpse() 
+
+data_id <- vroom::vroom(here(path_meta, "static_features.csv"), col_types = vroom::cols()) %>%
+  mutate(id_quit_date = with_tz(id_quit_date, tzone = "America/Chicago")) %>% 
+  filter(subid %in% study_dates$subid) %>% 
+  glimpse()
+
+data_context <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% study_dates$subid) %>% 
+  glimpse()
+```
+
+### Summarize demographics and study characteristics
+
+Average days on study
+```{r}
+study_dates %>% 
+  mutate(study_days = round(as.numeric(difftime(study_end, study_start, "days")))) %>% 
+  ggplot(aes(x = study_days)) +
+  geom_histogram(bins = 20, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean(study_days)), study_dates %>% 
+  mutate(study_days = round(as.numeric(difftime(study_end, study_start, "days")))),
+  color = "red3") +
+  scale_x_continuous(breaks = c(0, 30, 60, 90), n.breaks = 4)
+```
+
+
+### Summarize context data
