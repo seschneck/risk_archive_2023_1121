@@ -188,8 +188,8 @@ if (best_active$algorithm == "glmnet") {
 }
 
 # save fits
-save_rds(best_passive_fits., here(path_models, "best_passive_10_x_10_fold_fits.rds"))
-save_rds(best_active_fits., here(path_models, "best_active_10_x_10_fold_fits.rds"))
+write_rds(best_passive_fits., here(path_models, "best_passive_10_x_10_fold_fits.rds"))
+write_rds(best_active_fits., here(path_models, "best_active_10_x_10_fold_fits.rds"))
 ```
 
 Run bayesian correlate t-test - each have 100 bal_accuracy to pass into baysian correlated t
@@ -221,10 +221,12 @@ results_ttest$right
 ### Top Features
 
 Best model's top features   
-FIX: do on active and passive separately?
+FIX: look at glmnet coefficients for interpretability
+FIX: add VI plot for all 3 algorithms
+FIX: add VI plot for active and passive
 ```{r}
 # fit best model on all data
-best_model <- slice_max(results_aggregate, bal_accuracy()) %>% 
+best_model <- slice_max(results_aggregate, bal_accuracy) %>% 
   glimpse()
     
 rec <- build_recipe(d = data_all, job = best_model)
@@ -267,19 +269,18 @@ if (best_model$algorithm == "glmnet") {
             metric = acc_perm,
             pred_wrapper = pred_perm,  
             smaller_is_better = FALSE, 
-            nsim = 1) %>% 
-    mutate(Variable = fct_reorder(Variable, Importance)) %>%  
-    filter(Importance != 0) %>% 
-    ggplot(aes(x = Importance, y = Variable)) +
-    geom_col() +
-    scale_x_continuous(expand = c(0, 0)) +
-    labs(y = NULL, title = k)
-      
-  vi_plot
-      
-  # save figure object for editing later
-  vi_path <- here(path_job, str_c("output/vi_", k, ".rds"))
-  write_rds(vi_plot, vi_path)
+            nsim = 1) 
+  
+  vi_plot %>% 
+      mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+      filter(Importance != 0) %>% 
+      ggplot(aes(x = Importance, y = Variable)) +
+      geom_col() +
+      scale_x_continuous(expand = c(0, 0)) +
+      labs(y = NULL, title = "glmnet")
+        
+  # save vi_plot for editing later
+  write_rds(vi_plot, here(path_models, "vi_glmnet.rds"))
 
 } else if (best_model$algorithm == "random_forest") {
   model <- rand_forest(mtry = best_model$hp1,
@@ -315,18 +316,17 @@ if (best_model$algorithm == "glmnet") {
             metric = acc_perm,
             pred_wrapper = pred_perm,
             smaller_is_better = FALSE, 
-            nsim = 1) %>% 
+            nsim = 1) 
+  vi_plot %>% 
     mutate(Variable = fct_reorder(Variable, Importance)) %>% 
     filter(Importance != 0) %>% 
     ggplot(aes(x = Importance, y = Variable)) +
     geom_col() +
     scale_x_continuous(expand = c(0, 0)) +
-    labs(y = NULL, title = k)
-  vi_plot
+    labs(y = NULL, title = "random forest")
         
-  # save figure object for editing later
-  vi_path <- here(path_job, str_c("output/vi_", k, ".rds"))
-  write_rds(vi_plot, vi_path)
+  # save vi_plot for editing later
+  write_rds(vi_plot, here(path_models, "vi_random_forest.rds"))
 
   } else if (best_model$algorithm == "knn") {
     model <- nearest_neighbor(neighbors = best_model$hp1) %>% 
@@ -353,14 +353,18 @@ if (best_model$algorithm == "glmnet") {
               metric = acc_perm,
               pred_wrapper = pred_perm,  
               smaller_is_better = FALSE, 
-              nsim = 1) %>%   # consider best value for nsim for stability
-      mutate(
-        Variable = fct_reorder(Variable, Importance)  # this is for plotting order
-        ) %>%
+              nsim = 1) 
+     
+    vi_plot %>% 
+      mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+      filter(Importance != 0) %>% 
       ggplot(aes(x = Importance, y = Variable)) +
       geom_col() +
       scale_x_continuous(expand = c(0, 0)) +
-      labs(y = NULL)
-    }
+      labs(y = NULL, title = "knn")
+        
+  # save vi_plot for editing later
+  write_rds(vi_plot, here(path_models, "vi_knn.rds"))
+  }
 ```
 

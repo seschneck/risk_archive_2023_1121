@@ -51,16 +51,17 @@ theme_set(theme_classic())
 
 Set additional paths
 ```{r}
-path_models <- "./meta/ana_scripts/model_output"
+path_models <- "meta/ana_scripts/model_output"
 path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
 path_features <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/input"
+path_figures <- "meta/ana_scripts/figures"
 ```
 
 Source function scripts from lab support
 ```{r  source_script, message=FALSE, warning=FALSE}
+source(here("meta/fun_meta.R"))
 source(here("../lab_support/chtc/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
-source(here("../lab_support/fun_modeling.R"))
 ```
 
 ### Notes
@@ -114,17 +115,57 @@ results_best <- results_aggregate %>%
 
 
 Plot performance metrics across folds   
-FIX: How to get different values for glmnet where its already averaged? Refit model?
-FIX: Put horizontal line through plot?
 ```{r}
-results_best %>% 
-  mutate(n_fold = if_else(algorithm == "glmnet", 1, n_fold)) %>% 
+# refit glmnet to pull out fold perf
+best_glmnet <- results_aggregate %>% 
+  filter(algorithm == "glmnet") %>% 
+  slice_max(., bal_accuracy)
+
+rec_glmnet <- build_recipe(data_all, best_glmnet)
+# remove nzv if training controls set to TRUE
+if (remove_nzv) {
+  rec_glmnet <- rec_glmnet %>% 
+    step_nzv(all_predictors())
+}
+
+# replicate chtc splits
+set.seed(102030)
+splits_glmnet <- make_splits(data_all, cv_type, group = group)
+
+fits_glmnet <- logistic_reg(penalty = best_glmnet$hp2,
+                            mixture = best_glmnet$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      fit_resamples(preprocessor = rec_glmnet,
+                resamples = splits_glmnet,
+                metrics = metric_set(bal_accuracy))
+
+results_glmnet <- collect_metrics(model = fits_glmnet, summarize = FALSE) %>% 
+    pivot_wider(., names_from = "metric",
+                values_from = "estimate") %>%   
+    bind_cols(best_glmnet, .)
+    
+
+ba_hist <- results_best %>% 
+  filter(algorithm != "glmnet") %>% 
+  bind_rows(results_glmnet) %>% 
   group_by(algorithm) %>% 
-  ggplot(aes(x = n_fold, y = bal_accuracy, group = algorithm)) +
-  geom_bar(stat = "identity", color = "black", fill = "light grey") +
+  ggplot(aes(x = bal_accuracy)) +
+  geom_histogram(color = "black", fill = "light grey") +
   facet_wrap(~ algorithm) +
-  scale_x_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
-  xlab("balanced accuracy") 
+  scale_y_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
+  xlab("balanced accuracy") +
+  labs(title = "model performance across 10 folds") +
+  geom_vline(aes(xintercept = mean_ba), results_best %>% 
+  filter(algorithm != "glmnet") %>% 
+  bind_rows(results_glmnet) %>% 
+  group_by(algorithm) %>% 
+  summarise(mean_ba = mean(bal_accuracy)))
+
+ba_hist
+
+# save figure
+ggsave("ba_hist.png", plot = ba_hist,  path_figures, width = 5, height = 7, units = "in", device = "png",  dpi = 500)
 ```
 
 
@@ -147,102 +188,204 @@ set.seed(102030)
 splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
 
 # make recipes
+# need all vars to be numeric
 rec_null <- recipe(y ~ ., data = data_all) %>%
-  step_string2factor(y, levels = c("no", "yes"))
+  update_role(subid, dttm_label, new_role = "id variable") %>%
+  step_rm(label_num, starts_with("id_"), starts_with("label_")) %>% 
+  step_string2factor(y, levels = c("no", "yes")) %>% 
+  step_string2factor(all_nominal()) %>%
+  step_dummy(all_nominal(), -y) %>% 
+  step_impute_median(all_numeric())
 
 rec_best <- build_recipe(d = data_all, job = best_model)
 
-# fit null models
-null_fits <- null_model() %>%
+
+# fit and save out each fold to make data smaller size to work with
+jobs <- expand.grid(n_fold = 1:10,
+                    n_repeat = 1:10) %>% 
+  rowid_to_column(var = "job_num")
+
+for (i in 1:max(jobs$job_num)) {
+  
+  job <- slice(jobs, i)
+  
+  # fit null model
+  features <- make_features(job = job, folds = splits, rec = rec_null, 
+                            cv_type = "group_kfold_10_x_10")
+  feat_in <- features$feat_in
+  feat_out <- features$feat_out
+  
+  fit_null <- null_model() %>%
     set_engine("parsnip") %>% 
     set_mode("classification") %>%
-    fit_resamples(preprocessor = rec_null,
-                  resamples = splits,
-                  metrics = metric_set(bal_accuracy))
-
-# fit best models
-if (best_model$algorithm == "glmnet") {
-  best_fits <- logistic_reg(penalty = best_model$hp2,
-                            mixture = best_model$hp1) %>%
-      set_engine("glmnet") %>%
-      set_mode("classification") %>%
-      fit_resamples(preprocessor = rec_best,
-                    resamples = splits,
-                    metrics = metric_set(bal_accuracy))
+    fit(y ~ .,
+        data = feat_in)
   
-} else if (best_model$algorithm == "random_forest") {
-  best_fits <- rand_forest(mtry = best_model$hp1,
-                           min_n = best_model$hp2,
-                           trees = best_model$hp3) %>%
+  # save results
+  get_metrics(model = fit_null, feat_out = feat_out) %>% 
+    pivot_wider(., names_from = "metric",
+                values_from = "estimate") %>%   
+    mutate(algorithm = "null_model",
+           rec = "rec_null") %>% 
+    relocate(algorithm, rec) %>% 
+    bind_cols(job, .)  %>% 
+    write_csv(., here(path_models, 
+                      str_c("null_model_fits/null_res_", 
+                            job$job_num, ".csv")))
+  
+  
+  # fit best model
+  features <- make_features(job = job, folds = splits, rec = rec_best, 
+                            cv_type = "group_kfold_10_x_10")
+  feat_in <- features$feat_in
+  feat_out <- features$feat_out
+  
+  if(best_model$algorithm == "random_forest") {
+    fit_best <- rand_forest(mtry = best_model$hp1,
+                            min_n = best_model$hp2,
+                            trees = best_model$hp3) %>%
       set_engine("ranger",
-                  importance = "impurity",
-                  respect.unordered.factors = "order",
-                  oob.error = FALSE,
-                  seed = 102030) %>%
+                 respect.unordered.factors = "order",
+                 oob.error = FALSE,
+                 seed = 102030) %>%
       set_mode("classification") %>%
-      fit_resamples(preprocessor = rec_best,
-                    resamples = splits,
-                    metrics = metric_set(bal_accuracy))
-  
-} else if (best_model$algorithm == "knn") {
-    best_fits <- nearest_neighbor(neighbors = best_model$hp1) %>% 
+      fit(y ~ .,
+          data = feat_in)
+  } else if(best_model$algorithm == "knn") {
+    fit_best <- nearest_neighbor(neighbors = best_model$hp1) %>% 
       set_engine("kknn") %>% 
       set_mode("classification") %>% 
-      fit_resamples(preprocessor = rec_best,
-                    resamples = splits,
-                    metrics = metric_set(bal_accuracy))
+      fit(y ~ .,
+          data = feat_in)
+    
+  } else if(best_model$algorithm == "glmnet") {
+    fit_best <- logistic_reg(penalty = best_model$hp2,
+                             mixture = best_model$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>% 
+      fit(y ~ .,
+          data = feat_in)
+  }
+ 
+  
+  # save results
+  get_metrics(model = fit_best, feat_out = feat_out) %>% 
+    pivot_wider(., names_from = "metric",
+                values_from = "estimate") %>%   
+    mutate(algorithm = best_model$algorithm,
+           rec = "rec_best") %>% 
+    relocate(algorithm, rec) %>% 
+    bind_cols(job, .) %>%
+    write_csv(., here(path_models, 
+                      str_c("best_model_fits/best_res_", 
+                            job$job_num, ".csv")))
+  
+  # save predictions for out of sample subids
+  predict(fit_best, feat_out, type = "prob") %>% 
+    select(pred_yes = `.pred_yes`) %>% 
+    bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>% 
+    write_csv(., here(path_models, 
+                      str_c("best_model_preds/preds_", 
+                            job$job_num, ".csv")))
+  
 }
+```
 
-# save fits
-save_rds(null_fits., here(path_models, "null_10_x_10_fold_fits.rds"))
-save_rds(best_fits, here(path_models, "best_10_x_10_fold_fits.rds"))
+Model fits
+```{r}
+results_best_files <- list.files(here(path_models, "best_model_fits"), 
+                              full.names = TRUE)
+results_best <- vroom::vroom(results_best_files, col_types = vroom::cols()) %>% 
+  glimpse()
+
+results_best %>% 
+  tabyl(bal_accuracy)
 ```
 
 
-Run bayesian correlate t-test - each have 100 bal_accuracy to pass into baysian correlated t
+Run bayesian correlate t-test - compare 100 bal_accuracies to NULL (bal_accuracy = .5)
 ```{r}
-rope_min <- -0.01
-rope_max <- 0.01
-plot_min = -.14 
-plot_max = .14 # may need to get bigger
-results_ttest <- bayesian_correlated_t_test(best_fits, best_null, 
+# pull out vector of estimates
+best_fits <- results_best$bal_accuracy
+
+rope_min <- .49
+rope_max <- .51
+plot_min = .1
+plot_max = 1.0 # may need to get bigger
+
+# fix pass in bal_accuracy estimates instead of model fits
+results_ttest <- bayesian_correlated_t_test(best_fits, 
                                       rope_min = rope_min, 
                                       rope_max = rope_max, 
                                       k = 10, 
                                       plot_min = plot_min, plot_max = plot_max)
 
-ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
+best_posterior <- ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
   geom_line() +
   geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
   geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
   scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
-  labs(x = "Accuracy Difference (Full - Compact Model)",
+  labs(x = "Accuracy Difference (Best - Null Model)",
        y = "Posterior Probability")
 
+best_posterior
+
+# save figure
+ggsave("best_posterior.png", plot = best_posterior,  path_figures, width = 9, height = 5, units = "in", device = "png",  dpi = 500)
+```
+
+get values
+```{r}
 results_ttest$left
 results_ttest$rope
 results_ttest$right
 ```
 
+
 #### Individual Predictions
 
 Pull out individual predictions
 ```{r}
-predictions <- collect_predictions(best_fits, summarize = TRUE)
+preds_files <- list.files(here(path_models, "best_model_preds"), 
+                              full.names = TRUE)
+predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
+  glimpse()
 ```
 
+<!-- FIX: temp fix to add dttm_label and y back in sample preds - will not need to do this after rerun -->
+<!-- ```{r} -->
+<!-- for (i in 1:10) { -->
+<!--   job <- slice(jobs, i) -->
 
-Check one prediction for each participant   
+<!--   features <- make_features(job = job, folds = splits, rec = rec_best,  -->
+<!--                             cv_type = "group_kfold_10_x_10") -->
+<!--   feat_out <- features$feat_out -->
+
+<!--   feat_labels <- if(i == 1) { -->
+<!--     feat_out %>% select(subid, dttm_label) -->
+<!--   } else { -->
+<!--     feat_labels %>% bind_rows(feat_out %>% select(subid, dttm_label)) -->
+<!--   } -->
+<!-- } -->
+<!-- predictions <- feat_labels %>% bind_cols(predictions %>% select(-subid)) -->
+
+<!-- predictions <- predictions %>% left_join(., data_all %>% select(subid, dttm_label, y),  -->
+<!--                                          by= c("subid", "dttm_label")) -->
+<!-- ``` -->
+
+
+Check 10 predictions for each observation (10 x 10 grouped kfold)
 ```{r}
-if (nrow(predictions) == nrow(data_all)) {
-  print(str_c("number of predictions (", nrow(predictions), ") = number of observations (", nrow(d), ")")) 
-  } else if (nrow(predictions) > nrow(data_all)) { 
-    print(str_c("WARNING: number of predictions (", nrow(predictions), ") > number of observations (", 
-                nrow(data_all), ")"))
-    } else if (nrow(predictions) < nrow(data_all)) print(str_c("WARNING: number of predictions (", 
-                                                               nrow(predictions), ") < number of observations (", 
-                                                               nrow(data_all), ")"))
-}
+predictions %>% 
+  count(subid, dttm_label) %>% 
+  tabyl(n)
+```
+
+Average over observations
+```{r}
+predictions <- predictions %>% 
+  group_by(subid, dttm_label) %>% 
+  summarise(mean = mean(pred_yes), .groups = "drop")
 ```
 
 
@@ -251,7 +394,7 @@ Fix: Change x-axis to day on study instead of exact date?
 ```{r fig.height = 60}
 pred_plot <- predictions %>% 
   group_by(subid) %>% 
-  ggplot(aes(x = dttm_label, y = .pred_yes, color = y)) +
+  ggplot(aes(x = dttm_label, y = mean, color = y)) +
   geom_point(size = .9) +
   facet_wrap(~ subid, scales = "free_x", ncol = 3) + 
   scale_color_manual(values = c("gray70", "red3")) +
@@ -259,5 +402,7 @@ pred_plot <- predictions %>%
   ylim(0, 1)
 
 pred_plot
-save_rds(pred_plot, here(path_job, "output/pred_plot.rds"))
+
+# save plot
+ggsave("pred_plot.png", plot = pred_plot,  path_figures, width = 5, height = 60, units = "in", device = "png",  dpi = 500, limitsize = FALSE)
 ```
