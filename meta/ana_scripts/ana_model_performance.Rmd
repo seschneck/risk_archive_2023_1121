@@ -115,14 +115,14 @@ results_best <- results_aggregate %>%
 ```
 
 
-Plot performance metrics across folds     
+Refit best glmnet to get metrics across folds   
 ```{r}
 # refit glmnet to pull out fold perf
 # Takes awhile to run so saving out results to be read in for knitting
-# best_glmnet <- results_aggregate %>% 
-#   filter(algorithm == "glmnet") %>% 
-#   slice_max(., bal_accuracy) %>% 
-#   glimpse()
+best_glmnet <- results_aggregate %>%
+  filter(algorithm == "glmnet") %>%
+  slice_max(., bal_accuracy) %>%
+  glimpse()
 # 
 # rec_glmnet <- build_recipe(data_all, best_glmnet)
 # # remove nzv if training controls set to TRUE
@@ -144,23 +144,23 @@ Plot performance metrics across folds
 #                 metrics = metric_set(bal_accuracy))
 
 # compare summary bal_accuracy to chtc
-collect_metrics(fits_glmnet) %>% 
-  glimpse()
+# collect_metrics(fits_glmnet) %>% 
+#   glimpse()
 
 # save individual folds
-collect_metrics(fits_glmnet, summarize = FALSE) %>% 
-  pivot_wider(., names_from = `.metric`,
-                values_from = `.estimate`) %>%   
-  bind_cols(best_glmnet %>% select(-c(accuracy:roc_auc)), .) %>% 
-  select(-c(`.estimator`, `.config`)) %>% 
-  write_csv(., here(path_models, "best_glmnet_fits.csv"))
+# collect_metrics(fits_glmnet, summarize = FALSE) %>% 
+#   pivot_wider(., names_from = `.metric`,
+#                 values_from = `.estimate`) %>%   
+#   bind_cols(best_glmnet %>% select(-c(accuracy:roc_auc)), .) %>% 
+#   select(-c(`.estimator`, `.config`)) %>% 
+#   write_csv(., here(path_models, "best_glmnet_fits.csv"))
 
 # read back in glmnet fits
-results_glmnet <- vroom::vroom(here(path_models, "best_glmnet_fits.csv"), col_types = vroom::cols())
+results_glmnet <- vroom::vroom(here(path_models, "best_glmnet_fits.csv"), col_types = vroom::cols()) %>% 
+  glimpse()
 
 # avg balance accuracy
-results_glmnet %>% 
-  summarise(mean_bal_accuracy = mean(bal_accuracy))
+mean(results_glmnet$bal_accuracy) # matches CHTC
 ```
 
 make histograms
@@ -295,8 +295,8 @@ best_fits <- results_best$bal_accuracy
 
 rope_min <- .49
 rope_max <- .51
-plot_min = .1
-plot_max = 1.0 # may need to get bigger
+plot_min = .4
+plot_max = .8 # may need to get bigger
 
 # fix pass in bal_accuracy estimates instead of model fits
 results_ttest <- bayesian_correlated_t_test(best_fits, 
