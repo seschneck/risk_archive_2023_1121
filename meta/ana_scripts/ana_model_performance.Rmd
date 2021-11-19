@@ -55,6 +55,7 @@ path_models <- "meta/ana_scripts/model_output"
 path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
 path_features <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/input"
 path_figures <- "meta/ana_scripts/figures"
+path_study_start <- "P:/studydata/risk/data_processed/meta"
 ```
 
 Source function scripts from lab support
@@ -114,46 +115,55 @@ results_best <- results_aggregate %>%
 ```
 
 
-Plot performance metrics across folds   
+Plot performance metrics across folds     
 ```{r}
 # refit glmnet to pull out fold perf
-best_glmnet <- results_aggregate %>% 
-  filter(algorithm == "glmnet") %>% 
-  slice_max(., bal_accuracy) %>% 
-  glimpse()
-
-rec_glmnet <- build_recipe(data_all, best_glmnet)
-# remove nzv if training controls set to TRUE
-if (remove_nzv) {
-  rec_glmnet <- rec_glmnet %>% 
-    step_nzv(all_predictors())
-}
-
-# replicate chtc splits
-set.seed(102030)
-splits_glmnet <- make_splits(data_all, cv_type, group = group)
-
-fits_glmnet <- logistic_reg(penalty = best_glmnet$hp2,
-                            mixture = best_glmnet$hp1) %>%
-  set_engine("glmnet") %>%
-  set_mode("classification") %>%
-  fit_resamples(preprocessor = rec_glmnet,
-                resamples = splits_glmnet,
-                metrics = metric_set(bal_accuracy))
+# Takes awhile to run so saving out results to be read in for knitting
+# best_glmnet <- results_aggregate %>% 
+#   filter(algorithm == "glmnet") %>% 
+#   slice_max(., bal_accuracy) %>% 
+#   glimpse()
+# 
+# rec_glmnet <- build_recipe(data_all, best_glmnet)
+# # remove nzv if training controls set to TRUE
+# if (remove_nzv) {
+#   rec_glmnet <- rec_glmnet %>% 
+#     step_nzv(all_predictors())
+# }
+# 
+# # replicate chtc splits
+# set.seed(102030)
+# splits_glmnet <- make_splits(data_all, cv_type, group = group)
+# 
+# fits_glmnet <- logistic_reg(penalty = best_glmnet$hp2,
+#                             mixture = best_glmnet$hp1) %>%
+#   set_engine("glmnet") %>%
+#   set_mode("classification") %>%
+#   fit_resamples(preprocessor = rec_glmnet,
+#                 resamples = splits_glmnet,
+#                 metrics = metric_set(bal_accuracy))
 
 # compare summary bal_accuracy to chtc
 collect_metrics(fits_glmnet) %>% 
   glimpse()
 
-# individual folds
-results_glmnet <- collect_metrics(fits_glmnet, summarize = FALSE) %>% 
+# save individual folds
+collect_metrics(fits_glmnet, summarize = FALSE) %>% 
   pivot_wider(., names_from = `.metric`,
                 values_from = `.estimate`) %>%   
   bind_cols(best_glmnet %>% select(-c(accuracy:roc_auc)), .) %>% 
-  select(-c(`.estimator`, `.config`)) 
+  select(-c(`.estimator`, `.config`)) %>% 
+  write_csv(., here(path_models, "best_glmnet_fits.csv"))
+
+# read back in glmnet fits
+results_glmnet <- vroom::vroom(here(path_models, "best_glmnet_fits.csv"), col_types = vroom::cols())
+
+# avg balance accuracy
+results_glmnet %>% 
+  summarise(mean_bal_accuracy = mean(bal_accuracy))
 ```
 
-histogram
+make histograms
 ```{r}
 ba_hist <- results_best %>% 
   filter(algorithm != "glmnet") %>% 
@@ -338,22 +348,56 @@ predictions %>%
 Average over observations
 ```{r}
 predictions <- predictions %>% 
-  group_by(subid, dttm_label) %>% 
+  group_by(subid, dttm_label, y) %>% 
   summarise(mean = mean(pred_yes), .groups = "drop")
 ```
 
 
 plot predictions by participant   
-Fix: Change x-axis to day on study instead of exact date?   
+
+Read in study start dates to get days on study for x axis
+```{r}
+study_start <- vroom::vroom(here(path_study_start, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  mutate(study_start = with_tz(study_start, tzone = "America/Chicago"),
+         study_end = with_tz(study_end, tzone = "America/Chicago") + days(1)) %>% 
+  select(subid, study_start, study_end)
+
+for(i in 1:nrow(study_start))  {
+  subid_dates <- tibble(subid = study_start$subid[i],
+                        hour = seq(study_start$study_start[i], 
+                                   study_start$study_end[i], "hours"))
+  subid_dates <- subid_dates %>% 
+    mutate(study_hour = seq(1:nrow(subid_dates)))
+  
+  study_dates <- if (i == 1) {
+    subid_dates
+  } else {
+    study_dates %>% 
+      bind_rows(subid_dates)
+  }
+}
+```
+
+Merge day on study with prediction dttm labels
+```{r}
+predictions <- predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
+  glimpse()
+```
+
+
+
 ```{r fig.height = 60}
 pred_plot <- predictions %>% 
   group_by(subid) %>% 
-  ggplot(aes(x = dttm_label, y = mean, color = y)) +
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
   geom_point(size = .9) +
-  facet_wrap(~ subid, scales = "free_x", ncol = 3) + 
+  facet_wrap(~ subid, ncol = 3) + 
   scale_color_manual(values = c("gray70", "red3")) +
   theme(legend.position = "none") +
   ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
   geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
 
 pred_plot
