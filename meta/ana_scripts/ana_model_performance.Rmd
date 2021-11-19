@@ -180,22 +180,12 @@ best_model <- results_aggregate %>%
 ```
 
 
-#### Compared to Null   
+#### Compared to a Null balanced accuracy of .5   
 Bayesian correlated t-test (10 x 10 fold)
 ```{r}
 # make splits 
 set.seed(102030)
 splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
-
-# make recipes
-# need all vars to be numeric
-rec_null <- recipe(y ~ ., data = data_all) %>%
-  update_role(subid, dttm_label, new_role = "id variable") %>%
-  step_rm(label_num, starts_with("id_"), starts_with("label_")) %>% 
-  step_string2factor(y, levels = c("no", "yes")) %>% 
-  step_string2factor(all_nominal()) %>%
-  step_dummy(all_nominal(), -y) %>% 
-  step_impute_median(all_numeric())
 
 rec_best <- build_recipe(d = data_all, job = best_model)
 
@@ -209,32 +199,7 @@ for (i in 1:max(jobs$job_num)) {
   
   job <- slice(jobs, i)
   
-  # fit null model
-  features <- make_features(job = job, folds = splits, rec = rec_null, 
-                            cv_type = "group_kfold_10_x_10")
-  feat_in <- features$feat_in
-  feat_out <- features$feat_out
-  
-  fit_null <- null_model() %>%
-    set_engine("parsnip") %>% 
-    set_mode("classification") %>%
-    fit(y ~ .,
-        data = feat_in)
-  
-  # save results
-  get_metrics(model = fit_null, feat_out = feat_out) %>% 
-    pivot_wider(., names_from = "metric",
-                values_from = "estimate") %>%   
-    mutate(algorithm = "null_model",
-           rec = "rec_null") %>% 
-    relocate(algorithm, rec) %>% 
-    bind_cols(job, .)  %>% 
-    write_csv(., here(path_models, 
-                      str_c("null_model_fits/null_res_", 
-                            job$job_num, ".csv")))
-  
-  
-  # fit best model
+  # fit model
   features <- make_features(job = job, folds = splits, rec = rec_best, 
                             cv_type = "group_kfold_10_x_10")
   feat_in <- features$feat_in
