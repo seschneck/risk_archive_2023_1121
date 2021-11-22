@@ -1,0 +1,128 @@
+---
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(here)
+library(papaja)
+library(knitr)
+library(tidyverse)
+library(kableExtra)
+library(lubridate)
+library(ggforce)
+
+theme_set(theme_classic()) 
+
+knitr::opts_chunk$set(echo = FALSE)
+
+path_models <- here("meta/ana_scripts/model_output")
+path_study_start <- "P:/studydata/risk/data_processed/meta"
+```
+
+
+# Results 
+## Participant Characteristics
+
+
+
+## Model Performance 
+
+We optimized each statistical algorithm by tuning hyperparameter values and fitting models across several feature set combinations (i.e., active or passive, and type of feature engineering). Each model configuration was fit using a grouped 1x10 resampling method. Table 1 shows the best performing model (i.e., highest balanced accuracy) for each statistical algorithm. Figure 1 shows the model's performance in each held out fold. 
+
+![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/ba_hist.png)
+Figure 1. Model performance in each held out fold during model selection.   
+
+
+To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get a balanced accuracy value with low variance. Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model with no signal. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model.
+
+
+![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/best_posterior.png)
+
+Figure 2. Model comparison of best model and null model. 
+
+Figure 3 shows our model predictions for each individual participant. These predictions are predicted probabilities of a lapse. Each observation was held out 10 times and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.   
+
+```{r fig.height = 60, fig.fullwidth = TRUE}
+preds_files <- list.files(here(path_models, "best_model_preds"), 
+                              full.names = TRUE)
+predictions <- vroom::vroom(preds_files, col_types = vroom::cols())
+
+# average over predictions
+predictions <- predictions %>% 
+  group_by(subid, dttm_label, y) %>% 
+  summarise(mean = mean(pred_yes), .groups = "drop")
+
+# read in study start dates for x-axis
+study_start <- vroom::vroom(here(path_study_start, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  mutate(study_start = with_tz(study_start, tzone = "America/Chicago"),
+         study_end = with_tz(study_end, tzone = "America/Chicago") + days(1)) %>% 
+  select(subid, study_start, study_end)
+
+for(i in 1:nrow(study_start))  {
+  subid_dates <- tibble(subid = study_start$subid[i],
+                        hour = seq(study_start$study_start[i], 
+                                   study_start$study_end[i], "hours"))
+  subid_dates <- subid_dates %>% 
+    mutate(study_hour = seq(1:nrow(subid_dates)))
+  
+  study_dates <- if (i == 1) {
+    subid_dates
+  } else {
+    study_dates %>% 
+      bind_rows(subid_dates)
+  }
+}
+
+# plot
+predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap(~ subid, ncol = 9) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
+
+
+predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap(~ subid, ncol = 9) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
+
+predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap(~ subid, ncol = 9) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
+```
+
+
+<!-- ![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/pred_plot.png)  -->
+
+Figure 3. Predicted probabilities of lapse for each participant. A grouped 10x10 resampling method was used to obtain these probabilities. Known lapses are in red. The red dashed line represents the threshold for classifying a probability as a lapse (i.e., everything above the line was predicted to be a lapse).  
+
+
+## Context Comparison
+
+
+## Top Predictors
+
