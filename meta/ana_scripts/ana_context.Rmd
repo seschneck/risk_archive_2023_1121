@@ -283,23 +283,25 @@ results_active <- vroom::vroom(results_active_files, col_types = vroom::cols()) 
   mutate(feature_set = "feat_all") %>% 
   glimpse()
 
-write_csv(here(path_models, "results_best_active.csv"))
+write_csv(results_active, here(path_models, "results_best_active.csv"))
 ```
 
 make histograms
 ```{r}
 act_pass_hist <- results_passive %>% 
-  bind_rows(results_active) %>%
-  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>%
-  group_by(feature_set) %>% 
+  bind_rows(results_active)%>% 
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
+  group_by(feature_set) %>%
   ggplot(aes(x = bal_accuracy)) +
   geom_histogram(bins = 20, color = "black", fill = "light grey") +
   facet_wrap(~ feature_set) +
   xlab("balanced accuracy") +
   labs(title = "model performance across 100 folds") +
-  geom_vline(aes(xintercept = mean_ba), results_passive %>% 
+  geom_vline(aes(xintercept = mean_ba), results_passive %>%
   bind_rows(results_active) %>%
-  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>%
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
   group_by(feature_set) %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 
@@ -354,7 +356,7 @@ if (best_model$feature_set == "feat_all") {
   # read in predictions
   preds_files <- list.files(here(path_models, "best_active_preds"), 
                               full.names = TRUE)
-  predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
+  predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>%
     glimpse()
   write_csv(predictions, here(path_models, "preds_best_active.csv"))
 

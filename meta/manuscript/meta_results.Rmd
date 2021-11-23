@@ -61,7 +61,14 @@ results_aggregate %>%
   group_by(algorithm) %>% 
   arrange(desc(bal_accuracy)) %>% 
   slice(1) %>% 
-  select(algorithm, feature_set, feature_fun_type, resample, bal_accuracy)
+  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>% 
+  select(algorithm, `feature set` = feature_set, `feature type` = feature_fun_type, resample, 
+         `balanced accuracy` = bal_accuracy) %>% 
+  arrange(desc(`balanced accuracy`)) %>% 
+  kbl(booktabs = TRUE,
+      digits = 2,
+      caption = "Best Balanced Accuracy for Each Statistical Algorithm across 10 Folds during Model Selection") %>% 
+  kable_styling()
 ```
 
 
@@ -89,7 +96,11 @@ results_best_model %>%
   bind_rows(cm %>% 
   summary(event_level = "second") %>% 
   select(metric = .metric, estimate = .estimate) %>% 
-  filter(metric %in% c("ppv", "npv")))
+  filter(metric %in% c("ppv", "npv"))) %>% 
+  kbl(booktabs = TRUE,
+      digits = 2,
+      caption = "Classification Performance Metrics for Best Model across 100 Folds") %>% 
+  kable_styling() 
 ```
 
 Table 3
@@ -158,80 +169,86 @@ A Bayesian correlated t-test revealed there were no differences between the best
 
 Table 4
 ```{r}
-# best_active <- results_aggregate %>% 
-#   filter(feature_set == "feat_all") %>% 
-#   slice_max(bal_accuracy)
-# 
-# results_best_active <- vroom::vroom(here(path_models, "results_best_model.csv"),
-#                                    col_types = vroom::cols())
-# 
-# preds_best_active <- vroom::vroom(here(path_models, "preds_best_model.csv"),
-#                                  col_types = vroom::cols())
-# 
-# cm <- preds_best_model %>% 
-#   mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
-#          pred_class = factor(pred_class, levels = c("no", "yes")),
-#          y = factor(y, levels = c("no", "yes"))) %>% 
-#   conf_mat(y, pred_class)
-# 
-# results_best_model %>% 
-#   summarise(bal_accuracy = mean(bal_accuracy),
-#             sens = mean(sens),
-#             spec = mean(spec),
-#             roc_auc = mean(roc_auc),
-#             accuracy = mean(accuracy)) %>% 
-#   pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>% 
-#   bind_rows(cm %>% 
-#   summary(event_level = "second") %>% 
-#   select(metric = .metric, estimate = .estimate) %>% 
-#   filter(metric %in% c("ppv", "npv")))
+best_active <- results_aggregate %>%
+  filter(feature_set == "feat_all") %>%
+  slice_max(bal_accuracy)
+
+results_best_active <- vroom::vroom(here(path_models, "results_best_active.csv"),
+                                   col_types = vroom::cols()) %>% 
+  select(-feature_set)
+
+preds_best_active <- vroom::vroom(here(path_models, "preds_best_active.csv"),
+                                 col_types = vroom::cols())
+
+cm <- preds_best_model %>%
+  mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
+         pred_class = factor(pred_class, levels = c("no", "yes")),
+         y = factor(y, levels = c("no", "yes"))) %>%
+  conf_mat(y, pred_class)
+
+results_best_model %>%
+  summarise(bal_accuracy = mean(bal_accuracy),
+            sens = mean(sens),
+            spec = mean(spec),
+            roc_auc = mean(roc_auc),
+            accuracy = mean(accuracy)) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
+  bind_rows(cm %>%
+  summary(event_level = "second") %>%
+  select(metric = .metric, estimate = .estimate) %>%
+  filter(metric %in% c("ppv", "npv"))) %>%
+kbl(booktabs = TRUE,
+      digits = 2) %>%
+  kable_styling()
 ```
 
-```{r}
-# results_best_model %>% 
-#   bind_rows(results_best_active) %>%
-#   mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>%
-#   group_by(feature_set) %>% 
-#   ggplot(aes(x = bal_accuracy)) +
-#   geom_histogram(bins = 20, color = "black", fill = "light grey") +
-#   facet_wrap(~ feature_set) +
-#   xlab("balanced accuracy") +
-#   labs(title = "model performance across 100 folds") +
-#   geom_vline(aes(xintercept = mean_ba), results_passive %>% 
-#   bind_rows(results_active) %>%
-#   mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>%
-#   group_by(feature_set) %>%
-#   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
+```{r fig.height = 4}
+results_best_model %>%
+  bind_rows(results_best_active) %>% 
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
+  group_by(feature_set) %>%
+  ggplot(aes(x = bal_accuracy)) +
+  geom_histogram(bins = 20, color = "black", fill = "light grey") +
+  facet_wrap(~ feature_set) +
+  xlab("balanced accuracy") +
+  labs(title = "model performance across 100 folds") +
+  geom_vline(aes(xintercept = mean_ba), results_best_model %>%
+  bind_rows(results_best_active) %>%
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
+  group_by(feature_set) %>%
+  summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 3. Histogram of model fits across 100 folds.
+Figure 3. Histogram of model fits across 100 folds. (FIX: 14 folds still running so only 86 splits in active)
 
 
-```{r}
-# best_passive_fits <- results_best_model$bal_accuracy
-# best_active_fits <- results_best_active$bal_accuracy
-# 
-# rope_min <- -.01
-# rope_max <- .01
-# plot_min = -.15
-# plot_max = .15
-# 
-# results_ttest <- bayesian_correlated_t_test(best_passive_fits, 
-#                                             best_active_fits, 
-#                                             rope_min = rope_min, 
-#                                             rope_max = rope_max, 
-#                                             k = 10, 
-#                                             plot_min = plot_min, 
-#                                             plot_max = plot_max)
-# 
-# ggplot(mapping = aes(x = results_ttest$plot_diffs, 
-#                                                  y = results_ttest$pdf)) +
-#   geom_line() +
-#   geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
-#   geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
-#   scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
-#   labs(x = "Accuracy Difference (Passive - Active Model)",
-#        y = "Posterior Probability")
+```{r fig.height = 4}
+best_passive_fits <- results_best_model$bal_accuracy
+best_active_fits <- results_best_active$bal_accuracy
+
+rope_min <- -.01
+rope_max <- .01
+plot_min = -.20
+plot_max = .20
+
+results_ttest <- bayesian_correlated_t_test(best_passive_fits,
+                                            best_active_fits,
+                                            rope_min = rope_min,
+                                            rope_max = rope_max,
+                                            k = 10,
+                                            plot_min = plot_min,
+                                            plot_max = plot_max)
+
+ggplot(mapping = aes(x = results_ttest$plot_diffs,
+                                                 y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Passive - Active Model)",
+       y = "Posterior Probability")
 ```
 
 Figure 4. Model comparison of passive and active model.
