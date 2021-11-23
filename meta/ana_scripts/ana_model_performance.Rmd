@@ -72,9 +72,7 @@ This script does model comparisons on the best models for the meta project.
 
 ```{r}
 # individual results
-result_files <- list.files(path_results, full.names = TRUE)
-results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
-  glimpse()
+results_all <- read_rds(here(path_models, "results_all.rds"))
 
 # aggregate results
 results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
@@ -161,20 +159,25 @@ results_glmnet <- vroom::vroom(here(path_models, "best_glmnet_fits.csv"), col_ty
 
 # avg balance accuracy
 mean(results_glmnet$bal_accuracy) # matches CHTC
+
+# save out best fits
+results_best <- results_best %>% 
+  filter(algorithm != "glmnet") %>% 
+  bind_rows(results_glmnet)
+
+write_csv(results_best, here(path_models, "results_best_all_algorithms.csv"))
 ```
 
 make histograms
 ```{r}
 ba_hist <- results_best %>% 
-  filter(algorithm != "glmnet") %>% 
-  bind_rows(results_glmnet) %>% 
   group_by(algorithm) %>% 
   ggplot(aes(x = bal_accuracy)) +
   geom_histogram(bins = 10, color = "black", fill = "light grey") +
   facet_wrap(~ algorithm) +
   scale_y_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
   xlab("balanced accuracy") +
-  labs(title = "model performance across 10 folds") +
+  labs(title = "Model performance across 10 folds") +
   geom_vline(aes(xintercept = mean_ba), results_best %>% 
   filter(algorithm != "glmnet") %>% 
   bind_rows(results_glmnet) %>% 
@@ -282,6 +285,8 @@ results_best_files <- list.files(here(path_models, "best_model_fits"),
                               full.names = TRUE)
 results_best <- vroom::vroom(results_best_files, col_types = vroom::cols()) %>% 
   glimpse()
+
+write_csv(results_best, here(path_models, "results_best_model.csv"))
 
 results_best %>% 
   tabyl(bal_accuracy)

@@ -17,32 +17,172 @@ knitr::opts_chunk$set(echo = FALSE)
 
 path_models <- here("meta/ana_scripts/model_output")
 path_study_start <- "P:/studydata/risk/data_processed/meta"
+path_results <- "P:/studydata/risk/chtc/meta/jobs/training/model_selection/output/results"
+
+source(here("meta/fun_meta.R"))
+source(here("../lab_support/chtc/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
 ```
 
 
 # Results 
+
+```{r}
+# individual results
+results_all <- read_rds(here(path_models, "results_all.rds"))
+
+
+# aggregate results
+results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), 
+                                  col_types = vroom::cols()) 
+
+# best model
+best_model <- results_aggregate %>% 
+  slice_max(bal_accuracy)
+```
+
 ## Participant Characteristics
 
 
 
-## Model Performance 
+## Model Selection 
 
 We optimized each statistical algorithm by tuning hyperparameter values and fitting models across several feature set combinations (i.e., active or passive, and type of feature engineering). Each model configuration was fit using a grouped 1x10 resampling method. Table 1 shows the best performing model (i.e., highest balanced accuracy) for each statistical algorithm. Figure 1 shows the model's performance in each held out fold. 
 
-![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/ba_hist.png)
+Our top performing model was a random forest statistical algorithm using passive features. Table 2 characterizes this model over several metrics appropriate for classification. Table 3 shows a confusion matrix where we can see how well the model predicts with negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get an estimate with low variance. 
+
+Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model with no signal. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model. 
+
+In the appendix we show that our best performing model has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.   
+
+Table 1
+```{r}
+results_aggregate %>% 
+  group_by(algorithm) %>% 
+  arrange(desc(bal_accuracy)) %>% 
+  slice(1) %>% 
+  select(algorithm, feature_set, feature_fun_type, bal_accuracy)
+```
+
+
+Table 2
+```{r}
+results_best_model <- vroom::vroom(here(path_models, "results_best_model.csv"),
+                                   col_types = vroom::cols())
+
+preds_best_model <- vroom::vroom(here(path_models, "preds_best_model.csv"),
+                                 col_types = vroom::cols())
+
+cm <- preds_best_model %>% 
+  mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
+         pred_class = factor(pred_class, levels = c("no", "yes")),
+         y = factor(y, levels = c("no", "yes"))) %>% 
+  conf_mat(y, pred_class)
+
+results_best_model %>% 
+  summarise(bal_accuracy = mean(bal_accuracy),
+            sens = mean(sens),
+            spec = mean(spec),
+            roc_auc = mean(roc_auc),
+            accuracy = mean(accuracy)) %>% 
+  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>% 
+  bind_rows(cm %>% 
+  summary(event_level = "second") %>% 
+  select(metric = .metric, estimate = .estimate) %>% 
+  filter(metric %in% c("ppv", "npv")))
+```
+
+Table 3
+```{r}
+cm
+```
+
+
+
+
+```{r fig.height = 4}
+results_best_all <- vroom::vroom(here(path_models, "results_best_all_algorithms.csv"), 
+                             col_types = vroom::cols())
+
+results_best_all %>% 
+  group_by(algorithm) %>% 
+  ggplot(aes(x = bal_accuracy)) +
+  geom_histogram(bins = 10, color = "black", fill = "light grey") +
+  facet_wrap(~ algorithm) +
+  scale_y_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
+  xlab("balanced accuracy") +
+  labs(title = "Model performance across 10 folds") +
+  geom_vline(aes(xintercept = mean_ba), results_best_all %>% 
+  group_by(algorithm) %>% 
+  summarise(mean_ba = mean(bal_accuracy)), color = "red3")
+```
+
 Figure 1. Model performance in each held out fold during model selection.   
 
 
-To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get a balanced accuracy value with low variance. Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model with no signal. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model.
 
+```{r fig.height = 4}
+best_fits <- results_best_model$bal_accuracy
 
-![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/best_posterior.png)
+rope_min <- .49
+rope_max <- .51
+plot_min = .4
+plot_max = .8 
+
+results_ttest <- bayesian_correlated_t_test(best_fits, 
+                           rope_min = rope_min, 
+                           rope_max = rope_max, 
+                           k = 10, 
+                           plot_min = plot_min, plot_max = plot_max)
+
+ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Best - Null Model)",
+       y = "Posterior Probability")
+```
+
 
 Figure 2. Model comparison of best model and null model. 
 
-Figure 3 shows our model predictions for each individual participant. These predictions are predicted probabilities of a lapse. Each observation was held out 10 times and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.   
+  
 
-```{r fig.height = 60, fig.fullwidth = TRUE}
+
+## Context Comparison
+
+Figure 3. Model comparison of passive and active model.
+
+## Top Predictors
+
+We conducted a permutation test of feature importance to see which features contributed most to our top performing model. Figure 4 shows which features when removed from the model had the greatest effect on performance. 
+
+
+```{r fig.height = 5}
+vi_best <- read_rds(here(path_models, str_c("vi_", best_model$algorithm, ".rds")))
+algorithm <- if_else(best_model$algorithm == "random_forest", "random forest",
+                     best_model$algorithm)
+feat_set <- if_else(best_model$feature_set == "feat_all", "active", "passive")
+vi_best %>% 
+      mutate(Variable = str_remove(Variable, ".passive"),
+             Variable = str_remove(Variable, ".l0"),
+             Variable = fct_reorder(Variable, Importance)) %>% 
+      filter(Importance != 0) %>% 
+      ggplot(aes(x = Importance, y = Variable)) +
+      geom_col() +
+      scale_x_continuous(expand = c(0, 0)) +
+      labs(y = NULL, title = str_c(algorithm, " ", feat_set))
+```
+
+Figure 4. Feature importance scores for best performing model. 
+
+
+
+
+# Appendix
+
+```{r fig.fullwidth = TRUE, fig.height = 11}
 preds_files <- list.files(here(path_models, "best_model_preds"), 
                               full.names = TRUE)
 predictions <- vroom::vroom(preds_files, col_types = vroom::cols())
@@ -73,40 +213,67 @@ for(i in 1:nrow(study_start))  {
   }
 }
 
+predictions <- predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour"))
+
 # plot
 predictions %>% 
-  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
   group_by(subid) %>% 
   ggplot(aes(x = study_hour, y = mean, color = y)) +
   geom_point(size = .9) +
-  facet_wrap(~ subid, ncol = 9) + 
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 10, page = 1) + 
   scale_color_manual(values = c("gray70", "red3")) +
   theme(legend.position = "none") +
   ylim(0, 1) +
   ylab("Predicted Probability of Lapse") +
   scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
   geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
-
+cat('\r\n\r\n')
 
 predictions %>% 
-  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
   group_by(subid) %>% 
   ggplot(aes(x = study_hour, y = mean, color = y)) +
   geom_point(size = .9) +
-  facet_wrap(~ subid, ncol = 9) + 
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 10, page = 2) + 
   scale_color_manual(values = c("gray70", "red3")) +
   theme(legend.position = "none") +
   ylim(0, 1) +
   ylab("Predicted Probability of Lapse") +
   scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
-  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3) 
+cat('\r\n\r\n')
 
 predictions %>% 
-  left_join(study_dates, by = c("subid", "dttm_label" = "hour")) %>% 
   group_by(subid) %>% 
   ggplot(aes(x = study_hour, y = mean, color = y)) +
   geom_point(size = .9) +
-  facet_wrap(~ subid, ncol = 9) + 
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 10, page = 3) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3) 
+cat('\r\n\r\n')
+
+predictions %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 10, page = 4) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3) 
+cat('\r\n\r\n')
+
+predictions %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 11, page = 5) + 
   scale_color_manual(values = c("gray70", "red3")) +
   theme(legend.position = "none") +
   ylim(0, 1) +
@@ -116,13 +283,5 @@ predictions %>%
 ```
 
 
-<!-- ![](C:/Users/kpaquette2/analysis_risk1/meta/ana_scripts/figures/pred_plot.png)  -->
-
-Figure 3. Predicted probabilities of lapse for each participant. A grouped 10x10 resampling method was used to obtain these probabilities. Known lapses are in red. The red dashed line represents the threshold for classifying a probability as a lapse (i.e., everything above the line was predicted to be a lapse).  
-
-
-## Context Comparison
-
-
-## Top Predictors
+Figure A1. Predicted probabilities of lapse for each participant. A grouped 10x10 resampling method was used to obtain these probabilities. Known lapses are in red. The red dashed line represents the threshold for classifying a probability as a lapse (i.e., everything above the line was predicted to be a lapse).  
 
