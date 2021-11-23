@@ -1,6 +1,6 @@
 ---
 title: "Clean and process location data from interviews"
-author: "John Curtin & Hannah Moshontz"
+author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
   html_document:
@@ -19,14 +19,29 @@ knit: (function(input, ...) {
 ---
 ### Code status
 
-
-This is not yet usable code!  See also cln_interviews
+This script should use the cleaning log if needed
+This script still needs improved EDA
 
 
 ### Notes
 
+This script opens the individual raw excel files for frequent locations in the 
+individual subject folders, merges them, and then does EDA.   Final clean, merged
+file is saved in shared folder
 
 ### Set up Environment
+
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
 
 Absolute paths
 ```{r, paths}
@@ -46,85 +61,40 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
-
-library(conflicted) # detect and warn about function conflicts
-conflict_prefer("filter", "dplyr")
-
-library(here)  # establish project directory consistently as working directory
-```
-
 Relative Paths 
 ```{r}
 path_log <- "shared/notes"
 ```
-
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 
 # for data wrangling
 library(tidyverse)  # always need this
-library(rsample)
 library(janitor)
-
 library(purrr)
-library(readx)
-```
+library(readxl)
 
-
-
-Functions
-```{r}
-import_w_subid <- function(xlsxfile){
-  read_excel(xlsxfile) %>% 
-    mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
-}
-
-merge_raw_files <- function(file_suffix) {
-  list.files(file.path(path_raw), 
-           recursive = TRUE,
-           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
-           full.names = TRUE) %>% 
-  as.list() %>% 
-  set_names(str_extract(., "\\d\\d\\d")) %>% 
-  map_df(~import_w_subid(.x) %>% 
-           clean_names() %>% 
-           mutate(across(everything(), as.character)))
-}
+source(here("shared", "fun_risk.R"))  # for merge_excel_files()
 ```
 
 
 ### Import locations files
 Import
 ```{r}
-known_locations <- merge_raw_files("Locations") %>% 
+locations <- merge_excel_files("Locations", path_raw) %>% 
+  relocate(subid) %>% 
   glimpse()
 ```
 
+### EDA
+
+TO DO
+
+
+### Save final locations file
 
 ```{r}
-list.files(file.path(path_raw), 
-           recursive = TRUE,
-           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
-           full.names = TRUE) %>% 
-  as.list() %>% 
-  set_names(str_extract(., "\\d\\d\\d")) %>% 
-  map_df(~import_w_subid(.x) %>% 
-           clean_names() %>% 
-           mutate(across(everything(), as.character)))
-```
-
-
-
-
-### Save final shared file
-
-# FIX: This is a temp save b/c JJC needs this file.   We still need to do EDA before trusting these data!
-```{r}
-# known_locations %>% 
-#   select(subid, utc, street_address, city, state, type, drank, alcohol, emotion, risk, avoid, vacation, lat, long) %>%   #added by JJC b.c of prob with extra columns
-#   write_csv(file.path(path_shared, "locations.csv"))
+locations %>% 
+  write_csv(here(path_shared, "locations.csv"))
 ```
