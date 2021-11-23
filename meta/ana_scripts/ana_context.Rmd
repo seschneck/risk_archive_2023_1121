@@ -72,9 +72,7 @@ This script does model comparisons on the best active and passive models for the
 
 ```{r}
 # individual results
-result_files <- list.files(path_results, full.names = TRUE)
-results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
-  glimpse()
+results_all <- read_rds(here(path_models, "results_all.rds"))
 
 # aggregate results
 results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
@@ -121,140 +119,140 @@ best_model <- results_aggregate %>%
 Bayesian correlated t-test (10 x 10 fold)  
 Note: one of the active of passive models is already fit 100 times for best model comparison
 ```{r}
-# make splits
-set.seed(102030)
-splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
-
-# build recipes
-rec_passive <- build_recipe(d = data_all, job = best_passive)
-rec_active <- build_recipe(d = data_all, job = best_active)
-
-# fit and save out each fold to make data smaller size to work with
-jobs <- expand.grid(n_fold = 1:10,
-                    n_repeat = 1:10) %>%
-  rowid_to_column(var = "job_num")
-
-# fit best passive models
-if (best_model$feature_set == "feat_all") {
-  for (i in 1:max(jobs$job_num)) {
-
-  job <- slice(jobs, i)
-
-  # fit models
-  features <- make_features(job = job, folds = splits, rec = rec_passive,
-                            cv_type = "group_kfold_10_x_10")
-  feat_in <- features$feat_in
-  feat_out <- features$feat_out
-
-  if(best_passive$algorithm == "random_forest") {
-    fit_best <- rand_forest(mtry = best_passive$hp1,
-                            min_n = best_passive$hp2,
-                            trees = best_passive$hp3) %>%
-      set_engine("ranger",
-                 respect.unordered.factors = "order",
-                 oob.error = FALSE,
-                 seed = 102030) %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-  } else if(best_passive$algorithm == "knn") {
-    fit_best <- nearest_neighbor(neighbors = best_passive$hp1) %>%
-      set_engine("kknn") %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-
-  } else if(best_passive$algorithm == "glmnet") {
-    fit_best <- logistic_reg(penalty = best_passive$hp2,
-                             mixture = best_passive$hp1) %>%
-      set_engine("glmnet") %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-  }
-
-
-  # save results
-  get_metrics(model = fit_best, feat_out = feat_out) %>%
-    pivot_wider(., names_from = "metric",
-                values_from = "estimate") %>%
-    mutate(algorithm = best_passive$algorithm,
-           rec = "rec_passive") %>%
-    relocate(algorithm, rec) %>%
-    bind_cols(job, .) %>%
-    write_csv(., here(path_models,
-                      str_c("best_passive_fits/fit_",
-                            job$job_num, ".csv")))
-  
-  # save predictions for ppv and npv
-  predict(fit_best, feat_out, type = "prob") %>%
-    select(pred_yes = `.pred_yes`) %>%
-    bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>%
-    write_csv(., here(path_models,
-                      str_c("best_passive_preds/preds_",
-                            job$job_num, ".csv")))
-  }
-}
-
-
- # fit best active models
-if (best_model$feature_set == "feat_all_passive") {
-  for (i in 1:max(jobs$job_num)) {
-
-  job <- slice(jobs, i)
-  features <- make_features(job = job, folds = splits, rec = rec_active,
-                            cv_type = "group_kfold_10_x_10")
-  feat_in <- features$feat_in
-  feat_out <- features$feat_out
-
-  if(best_active$algorithm == "random_forest") {
-    fit_best <- rand_forest(mtry = best_active$hp1,
-                            min_n = best_active$hp2,
-                            trees = best_active$hp3) %>%
-      set_engine("ranger",
-                 respect.unordered.factors = "order",
-                 oob.error = FALSE,
-                 seed = 102030) %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-  } else if(best_active$algorithm == "knn") {
-    fit_best <- nearest_neighbor(neighbors = best_active$hp1) %>%
-      set_engine("kknn") %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-
-  } else if(best_active$algorithm == "glmnet") {
-    fit_best <- logistic_reg(penalty = best_active$hp2,
-                             mixture = best_active$hp1) %>%
-      set_engine("glmnet") %>%
-      set_mode("classification") %>%
-      fit(y ~ .,
-          data = feat_in)
-  }
-
-  # save results
-  get_metrics(model = fit_best, feat_out = feat_out) %>%
-    pivot_wider(., names_from = "metric",
-                values_from = "estimate") %>%
-    mutate(algorithm = best_active$algorithm,
-           rec = "rec_active") %>%
-    relocate(algorithm, rec) %>%
-    bind_cols(job, .) %>%
-    write_csv(., here(path_models,
-                      str_c("best_active_fits/fit_",
-                            job$job_num, ".csv")))
-  
-  # save predictions for ppv and npv
-  predict(fit_best, feat_out, type = "prob") %>%
-    select(pred_yes = `.pred_yes`) %>%
-    bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>%
-    write_csv(., here(path_models,
-                      str_c("best_active_preds/preds_",
-                            job$job_num, ".csv")))
-  }
-}
+# # make splits
+# set.seed(102030)
+# splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
+# 
+# # build recipes
+# rec_passive <- build_recipe(d = data_all, job = best_passive)
+# rec_active <- build_recipe(d = data_all, job = best_active)
+# 
+# # fit and save out each fold to make data smaller size to work with
+# jobs <- expand.grid(n_fold = 1:10,
+#                     n_repeat = 1:10) %>%
+#   rowid_to_column(var = "job_num")
+# 
+# # fit best passive models
+# if (best_model$feature_set == "feat_all") {
+#   for (i in 1:max(jobs$job_num)) {
+# 
+#   job <- slice(jobs, i)
+# 
+#   # fit models
+#   features <- make_features(job = job, folds = splits, rec = rec_passive,
+#                             cv_type = "group_kfold_10_x_10")
+#   feat_in <- features$feat_in
+#   feat_out <- features$feat_out
+# 
+#   if(best_passive$algorithm == "random_forest") {
+#     fit_best <- rand_forest(mtry = best_passive$hp1,
+#                             min_n = best_passive$hp2,
+#                             trees = best_passive$hp3) %>%
+#       set_engine("ranger",
+#                  respect.unordered.factors = "order",
+#                  oob.error = FALSE,
+#                  seed = 102030) %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+#   } else if(best_passive$algorithm == "knn") {
+#     fit_best <- nearest_neighbor(neighbors = best_passive$hp1) %>%
+#       set_engine("kknn") %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+# 
+#   } else if(best_passive$algorithm == "glmnet") {
+#     fit_best <- logistic_reg(penalty = best_passive$hp2,
+#                              mixture = best_passive$hp1) %>%
+#       set_engine("glmnet") %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+#   }
+# 
+# 
+#   # save results
+#   get_metrics(model = fit_best, feat_out = feat_out) %>%
+#     pivot_wider(., names_from = "metric",
+#                 values_from = "estimate") %>%
+#     mutate(algorithm = best_passive$algorithm,
+#            rec = "rec_passive") %>%
+#     relocate(algorithm, rec) %>%
+#     bind_cols(job, .) %>%
+#     write_csv(., here(path_models,
+#                       str_c("best_passive_fits/fit_",
+#                             job$job_num, ".csv")))
+#   
+#   # save predictions for ppv and npv
+#   predict(fit_best, feat_out, type = "prob") %>%
+#     select(pred_yes = `.pred_yes`) %>%
+#     bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>%
+#     write_csv(., here(path_models,
+#                       str_c("best_passive_preds/preds_",
+#                             job$job_num, ".csv")))
+#   }
+# }
+# 
+# 
+#  # fit best active models
+# if (best_model$feature_set == "feat_all_passive") {
+#   for (i in 1:max(jobs$job_num)) {
+# 
+#   job <- slice(jobs, i)
+#   features <- make_features(job = job, folds = splits, rec = rec_active,
+#                             cv_type = "group_kfold_10_x_10")
+#   feat_in <- features$feat_in
+#   feat_out <- features$feat_out
+# 
+#   if(best_active$algorithm == "random_forest") {
+#     fit_best <- rand_forest(mtry = best_active$hp1,
+#                             min_n = best_active$hp2,
+#                             trees = best_active$hp3) %>%
+#       set_engine("ranger",
+#                  respect.unordered.factors = "order",
+#                  oob.error = FALSE,
+#                  seed = 102030) %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+#   } else if(best_active$algorithm == "knn") {
+#     fit_best <- nearest_neighbor(neighbors = best_active$hp1) %>%
+#       set_engine("kknn") %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+# 
+#   } else if(best_active$algorithm == "glmnet") {
+#     fit_best <- logistic_reg(penalty = best_active$hp2,
+#                              mixture = best_active$hp1) %>%
+#       set_engine("glmnet") %>%
+#       set_mode("classification") %>%
+#       fit(y ~ .,
+#           data = feat_in)
+#   }
+# 
+#   # save results
+#   get_metrics(model = fit_best, feat_out = feat_out) %>%
+#     pivot_wider(., names_from = "metric",
+#                 values_from = "estimate") %>%
+#     mutate(algorithm = best_active$algorithm,
+#            rec = "rec_active") %>%
+#     relocate(algorithm, rec) %>%
+#     bind_cols(job, .) %>%
+#     write_csv(., here(path_models,
+#                       str_c("best_active_fits/fit_",
+#                             job$job_num, ".csv")))
+#   
+#   # save predictions for ppv and npv
+#   predict(fit_best, feat_out, type = "prob") %>%
+#     select(pred_yes = `.pred_yes`) %>%
+#     bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>%
+#     write_csv(., here(path_models,
+#                       str_c("best_active_preds/preds_",
+#                             job$job_num, ".csv")))
+#   }
+# }
 ```
 
 Model fits
@@ -268,7 +266,6 @@ results_passive_files <- if (best_model$feature_set == "feat_all_passive") {
 }
 results_passive <- vroom::vroom(results_passive_files, col_types = vroom::cols()) %>% 
   arrange(job_num) %>% 
-  mutate(feature_set = "feat_all_passive") %>% 
   glimpse()
 
 results_active_files <- if (best_model$feature_set == "feat_all") {
@@ -280,7 +277,6 @@ results_active_files <- if (best_model$feature_set == "feat_all") {
 }
 results_active <- vroom::vroom(results_active_files, col_types = vroom::cols()) %>% 
   arrange(job_num) %>% 
-  mutate(feature_set = "feat_all") %>% 
   glimpse()
 
 write_csv(results_active, here(path_models, "results_best_active.csv"))
@@ -818,8 +814,10 @@ if (best_model$feature_set != "feat_all") {
   # view coefficients for interpretability
   model %>% 
     tidy() %>% 
-    filter(estimate != 0 & term != `(Intercept)`) %>% 
+    filter(estimate != 0) %>% 
     arrange(desc(abs(estimate)))
+  
+  write_rds(model, here(path_models, "glmnet_model.rds"))
   
   # view variable importance indexes
   x <- feat_all %>% 
@@ -967,7 +965,7 @@ if (best_model$feature_set != "feat_all") {
   # view coefficients for interpretability
   model %>% 
     tidy() %>% 
-    filter(estimate != 0 & term != `(Intercept)`) %>% 
+    filter(estimate != 0) %>% 
     arrange(desc(abs(estimate)))
   
   # view variable importance indexes
