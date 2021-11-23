@@ -230,6 +230,11 @@ Our third aim of the present study was to evaluate the importance of features wi
 
 # Results
 
+<!--Notes on table placement
+https://stackoverflow.com/questions/67685449/hold-apa-table-position-in-rmarkdown-papaja
+http://frederikaust.com/papaja_man/reporting.html#tables
+-->
+
 ```{r}
 # individual results
 results_all <- read_rds(here(path_models, "results_all.rds"))
@@ -268,16 +273,23 @@ results_aggregate %>%
   mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive"),
          algorithm = str_replace(algorithm, "_", " "),
          feature_fun_type = str_replace(feature_fun_type, "_", ", "),
+         feature_fun_type = str_replace(feature_fun_type, "perc", "relative"),
          resample = str_remove(resample, "_1")) %>% 
-  select(algorithm, `feature set` = feature_set, `feature type(s)` = feature_fun_type, resample, 
-         `balanced accuracy` = bal_accuracy) %>% 
+  select(algorithm, `feature set` = feature_set, `feature type(s)` = feature_fun_type, 
+         `class resample` = resample, `balanced accuracy` = bal_accuracy) %>% 
   arrange(desc(`balanced accuracy`)) %>% 
-  kbl(booktabs = TRUE,
-      digits = 2,
-      caption = "Best Balanced Accuracy for Each Statistical Algorithm across 10 Folds during Model Selection") %>% 
-  kable_styling()
+  apa_table(placement = "pt",
+            caption = "Balanced Accuracy for Best Configurations by Statistical Algorithm",
+            note = "Table reports the best model configuration for each statistical algorithm 
+            in separate rows.  Details about the model configuration are provided in subsequent 
+            columns.  Balanced accuracy was estimated by grouped 10-fold cross validation 
+            during model selection.",
+            digits = 2)
+  # kbl(booktabs = TRUE,
+  #     digits = 2,
+  #     caption = "Best Balanced Accuracy for Each Statistical Algorithm across 10 Folds during Model Selection") %>% 
+  # kable_styling()
 ```
-
 
 
 ```{r}
@@ -297,11 +309,17 @@ cm <- preds_best_model %>%
 tibble(Prediction = c("no", "yes"),
        no = c(unlist(tidy(cm)[1, 2]), unlist(tidy(cm)[2, 2])),
        yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>% 
-  kbl(booktabs = TRUE,
-      caption = "Confusion Matrix for Best Model (passive random forest)") %>% 
-  kable_styling() %>% 
-  add_header_above(c(" " = 1, "Truth" = 2)) %>% 
-  row_spec(0, align = "c")
+    apa_table(placement = "pt",
+              caption = "Confusion Matrix for Best Model Configuration",
+              note = "The best model configuration was XXXXX.     
+              Results based on grouped 10x10-fold cross validation.")
+# KENDRA add full description of this configuration to this note
+
+  # kbl(booktabs = TRUE,
+  #     caption = "Confusion Matrix for Best Model (passive random forest)") %>% 
+  # kable_styling() %>% 
+  # add_header_above(c(" " = 1, "Truth" = 2)) %>% 
+  # row_spec(0, align = "c")
 ```
 
 
@@ -310,22 +328,28 @@ tibble(Prediction = c("no", "yes"),
 results_best_model %>% 
   summarise(`balanced accuracy` = mean(bal_accuracy),
             accuracy = mean(accuracy),
-            sens = mean(sens),
-            spec = mean(spec)) %>%
+            sensitivity = mean(sens),
+            specificity = mean(spec)) %>%
   pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
   bind_rows(cm %>%
   summary(event_level = "second") %>%
   select(metric = .metric, estimate = .estimate) %>%
   filter(metric %in% c("ppv", "npv"))) %>%
   bind_rows(results_best_model %>% 
-              summarise(`area under the ROC curve` = mean(roc_auc)) %>% 
+              summarise(`Area under the ROC Curve` = mean(roc_auc)) %>% 
               pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
-  kbl(booktabs = TRUE,
-      digits = 2,
-      caption = "Classification Performance Metrics for Best Model (random forest passive) across 100 Folds") %>% 
-  kable_styling() %>% 
-  pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
-  pack_rows(start_row = 7, end_row = 7, indent = FALSE)
+  apa_table(placement = "pt", digits = 2, 
+            caption = "Performance Metrics for Best Model Configuration",
+            note = "The best model configuration was XXXXX.     
+              Performance estimated by grouped 10x10-fold cross validation.")
+# KENDRA add full description of this configuration to this note
+
+  # kbl(booktabs = TRUE,
+  #     digits = 2,
+  #     caption = "Classification Performance Metrics for Best Model (random forest passive) across 100 Folds") %>% 
+  # kable_styling() %>% 
+  # pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
+  # pack_rows(start_row = 7, end_row = 7, indent = FALSE)
 ```
 
 
@@ -366,6 +390,7 @@ Our best performing active model using all the features available was a glmnet a
 
 A Bayesian correlated t-test revealed there were no differences between the best active and best passive models. The posterior probability that was between the ROPE was .19 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models with active features.  
 
+<!--JJC: I don't think this table is necessary
 
 ```{r}
 # Table 4
@@ -399,13 +424,17 @@ results_best_active %>%
   bind_rows(results_best_active %>% 
               summarise(`area under the ROC curve` = mean(roc_auc)) %>% 
               pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
-kbl(booktabs = TRUE,
-    digits = 2,
-    caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds") %>%
-  kable_styling() %>% 
-  pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
-  pack_rows(start_row = 7, end_row = 7, indent = FALSE)
+  apa_table(digits = 2,
+            caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds")
+# kbl(booktabs = TRUE,
+#     digits = 2,
+#     caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds") %>%
+#   kable_styling() %>% 
+#   pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
+#   pack_rows(start_row = 7, end_row = 7, indent = FALSE)
 ```
+
+-->
 
 ```{r fig.height = 3}
 results_best_model %>%

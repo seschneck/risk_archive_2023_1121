@@ -1,81 +1,92 @@
 \begin{table*}[hbt]
 \ifnextchar[{\eatarg}{}
+[pt]
 
+\begin{center}
+\begin{threeparttable}
 
-\caption{\label{tab:unnamed-chunk-3}Best Balanced Accuracy for Each Statistical Algorithm across 10 Folds during Model Selection}
-\centering
-\begin{tabular}[t]{llllr}
+\caption{\label{tab:unnamed-chunk-3}Balanced Accuracy for Best Configurations by Statistical Algorithm}
+
+\begin{tabular}{lllll}
 \toprule
-algorithm & feature set & feature type(s) & resample & balanced accuracy\\
+algorithm & \multicolumn{1}{c}{feature set} & \multicolumn{1}{c}{feature type(s)} & \multicolumn{1}{c}{class resample} & \multicolumn{1}{c}{balanced accuracy}\\
 \midrule
-random forest & passive & perc, raw & down & 0.61\\
+random forest & passive & relative, raw & down & 0.61\\
 glmnet & active & raw & up & 0.60\\
 knn & passive & raw & down & 0.58\\
 \bottomrule
+\addlinespace
 \end{tabular}
+
+\begin{tablenotes}[para]
+\normalsize{\textit{Note.} Table reports the best model configuration for each statistical algorithm
+            in separate rows.  Details about the model configuration are provided in subsequent
+            columns.  Balanced accuracy was estimated by grouped 10-fold cross validation
+            during model selection.}
+\end{tablenotes}
+
+\end{threeparttable}
+\end{center}
+
 \end{table*}
 \begin{table*}[hbt]
 \ifnextchar[{\eatarg}{}
+[pt]
 
+\begin{center}
+\begin{threeparttable}
 
-\caption{\label{tab:unnamed-chunk-4}Confusion Matrix for Best Model (passive random forest)}
-\centering
-\begin{tabular}[t]{lrr}
+\caption{\label{tab:unnamed-chunk-4}Confusion Matrix for Best Model Configuration}
+
+\begin{tabular}{lll}
 \toprule
-\multicolumn{1}{c}{ } & \multicolumn{2}{c}{Truth} \\
-\cmidrule(l{3pt}r{3pt}){2-3}
-\multicolumn{1}{c}{Prediction} & \multicolumn{1}{c}{no} & \multicolumn{1}{c}{yes}\\
+Prediction & \multicolumn{1}{c}{no} & \multicolumn{1}{c}{yes}\\
 \midrule
 no & 143196 & 5386\\
 yes & 52314 & 4904\\
 \bottomrule
+\addlinespace
 \end{tabular}
+
+\begin{tablenotes}[para]
+\normalsize{\textit{Note.} The best model configuration was XXXXX.
+              Results based on grouped 10x10-fold cross validation.}
+\end{tablenotes}
+
+\end{threeparttable}
+\end{center}
+
 \end{table*}
 \begin{table*}[hbt]
 \ifnextchar[{\eatarg}{}
+[pt]
 
+\begin{center}
+\begin{threeparttable}
 
-\caption{\label{tab:unnamed-chunk-5}Classification Performance Metrics for Best Model (random forest passive) across 100 Folds}
-\centering
-\begin{tabular}[t]{lr}
+\caption{\label{tab:unnamed-chunk-5}Performance Metrics for Best Model Configuration}
+
+\begin{tabular}{ll}
 \toprule
-metric & estimate\\
+metric & \multicolumn{1}{c}{estimate}\\
 \midrule
 balanced accuracy & 0.60\\
 accuracy & 0.72\\
-\addlinespace[0.3em]
-\multicolumn{2}{l}{\textbf{}}\\
-sens & 0.46\\
-spec & 0.73\\
+sensitivity & 0.46\\
+specificity & 0.73\\
 ppv & 0.09\\
 npv & 0.96\\
-\addlinespace[0.3em]
-\multicolumn{2}{l}{\textbf{}}\\
-area under the ROC curve & 0.64\\
+Area under the ROC Curve & 0.64\\
 \bottomrule
+\addlinespace
 \end{tabular}
-\end{table*}
-\begin{table*}[hbt]
-\ifnextchar[{\eatarg}{}
 
+\begin{tablenotes}[para]
+\normalsize{\textit{Note.} The best model configuration was XXXXX.
+              Performance estimated by grouped 10x10-fold cross validation.}
+\end{tablenotes}
 
-\caption{\label{tab:unnamed-chunk-7}Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds}
-\centering
-\begin{tabular}[t]{lr}
-\toprule
-metric & estimate\\
-\midrule
-balanced accuracy & 0.59\\
-accuracy & 0.73\\
-\addlinespace[0.3em]
-\multicolumn{2}{l}{\textbf{}}\\
-sens & 0.44\\
-spec & 0.74\\
-ppv & 0.09\\
-npv & 0.96\\
-\addlinespace[0.3em]
-\multicolumn{2}{l}{\textbf{}}\\
-area under the ROC curve & 0.63\\
-\bottomrule
-\end{tabular}
+\end{threeparttable}
+\end{center}
+
 \end{table*}
