@@ -1,0 +1,159 @@
+---
+title: "make RSET object for gps train and test per GA tech splits"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/gps", 
+      "/Volumes/private/studydata/risk/knits/gps")
+    )
+  })
+---
+### Updates Needed
+It still needs to have X added to the data at some point.  Right now the splits are
+done only on the labels
+
+### Notes
+
+This script makes and saves an RSET object that includes train/test splits
+defined by GA Tech for use across our labs. It saves this rset in the gps study 
+data folder on the server for use with this study
+
+
+### Set up Environment
+
+Absolute paths
+```{r, paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_gps <- "P:/studydata/risk/data_processed/gps"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_lab_support <- "/Volumes/toolboxes/lab_support"}
+        )
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+# for data wrangling
+library(tidyverse)  # always need this
+library(rsample)
+library(janitor)
+
+source(here("gps", "fun_gps.R"))  # for make_rset()
+```
+
+
+### Make RSET
+
+Get labels and subids for splits. 
+
+* subids for train sets in separate columns of train_ids
+* d contains both X and Y for entire sample
+
+FIX: Need to update to add raw X to d
+```{r}
+d <- read_csv(here(path_gps, "labels_05.csv")) %>% 
+  glimpse()
+
+
+train_ids <- read_csv(here(path_gps, "train_ids.csv"), col_names = FALSE, 
+                      col_types = cols()) %>% 
+  glimpse()
+```
+
+Make rset
+```{r}
+rset <- make_rset(train_ids, d)
+```
+
+### Some EDA
+```{r}
+rset
+```
+
+Split 1
+```{r}
+rset$splits[[1]]
+
+analysis(rset$splits[[1]]) %>% 
+  glimpse()
+
+assessment(rset$splits[[1]]) %>% 
+  glimpse()
+
+subid_in_1 <- analysis(rset$splits[[1]]) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  print()
+  
+subid_out_1 <- assessment(rset$splits[[1]]) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  print()
+
+length(subid_in_1)
+length(subid_out_1)
+any(subid_in_1 %in% subid_out_1)
+any(subid_out_1 %in% subid_in_1)
+
+
+```
+
+Split 2
+```{r}
+rset$splits[[2]]
+subid_in_2 <- analysis(rset$splits[[2]]) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  print()
+  
+subid_out_2 <- assessment(rset$splits[[2]]) %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  print()
+
+length(subid_in_2)
+length(subid_out_2)
+any(subid_in_2 %in% subid_out_2)
+any(subid_out_2 %in% subid_in_2)
+```
+
+Compare test for splits 1 and 2.  Should not be fully overlapping but some 
+overlap is expected b/c this is NOT k-fold
+```{r}
+sum(subid_out_1 %in% subid_out_2)
+```
+
+### Save RSET
+```{r}
+rset %>% 
+  glimpse() %>% 
+  write_rds(here(path_gps, "rset.rds"))
+```
