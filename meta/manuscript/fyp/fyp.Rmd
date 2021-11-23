@@ -116,6 +116,8 @@ library(lubridate)
 library(ggplot2)
 library(ggforce)
 
+theme_set(theme_classic())
+
 source(here("meta/fun_meta.R"))
 source(here("../lab_support/chtc/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
@@ -425,7 +427,7 @@ results_best_model %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 2. Histogram of model fits across 100 folds. (FIX: 14 folds still running so only 86 splits in active)
+Figure 2. Histogram of model fits across 100 folds for best active and passive model. 
 
 
 ```{r fig.height = 3}
