@@ -1,0 +1,81 @@
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+
+
+\caption{\label{tab:unnamed-chunk-3}Best Balanced Accuracy for Each Statistical Algorithm across 10 Folds during Model Selection}
+\centering
+\begin{tabular}[t]{llllr}
+\toprule
+algorithm & feature set & feature type(s) & resample & balanced accuracy\\
+\midrule
+random forest & passive & perc, raw & down & 0.61\\
+glmnet & active & raw & up & 0.60\\
+knn & passive & raw & down & 0.58\\
+\bottomrule
+\end{tabular}
+\end{table*}
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+
+
+\caption{\label{tab:unnamed-chunk-4}Confusion Matrix for Best Model (passive random forest)}
+\centering
+\begin{tabular}[t]{lrr}
+\toprule
+\multicolumn{1}{c}{ } & \multicolumn{2}{c}{Truth} \\
+\cmidrule(l{3pt}r{3pt}){2-3}
+\multicolumn{1}{c}{Prediction} & \multicolumn{1}{c}{no} & \multicolumn{1}{c}{yes}\\
+\midrule
+no & 143196 & 5386\\
+yes & 52314 & 4904\\
+\bottomrule
+\end{tabular}
+\end{table*}
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+
+
+\caption{\label{tab:unnamed-chunk-5}Classification Performance Metrics for Best Model (random forest passive) across 100 Folds}
+\centering
+\begin{tabular}[t]{lr}
+\toprule
+metric & estimate\\
+\midrule
+balanced accuracy & 0.60\\
+accuracy & 0.72\\
+\addlinespace[0.3em]
+\multicolumn{2}{l}{\textbf{}}\\
+sens & 0.46\\
+spec & 0.73\\
+ppv & 0.09\\
+npv & 0.96\\
+\addlinespace[0.3em]
+\multicolumn{2}{l}{\textbf{}}\\
+area under the ROC curve & 0.64\\
+\bottomrule
+\end{tabular}
+\end{table*}
+\begin{table*}[hbt]
+\ifnextchar[{\eatarg}{}
+
+
+\caption{\label{tab:unnamed-chunk-7}Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds}
+\centering
+\begin{tabular}[t]{lr}
+\toprule
+metric & estimate\\
+\midrule
+balanced accuracy & 0.59\\
+accuracy & 0.73\\
+\addlinespace[0.3em]
+\multicolumn{2}{l}{\textbf{}}\\
+sens & 0.44\\
+spec & 0.74\\
+ppv & 0.09\\
+npv & 0.96\\
+\addlinespace[0.3em]
+\multicolumn{2}{l}{\textbf{}}\\
+area under the ROC curve & 0.63\\
+\bottomrule
+\end{tabular}
+\end{table*}
