@@ -45,24 +45,28 @@ best_model <- results_aggregate %>%
 
 
 
-## Model Selection 
+## Best Model Performance 
 
 We optimized each statistical algorithm by tuning hyperparameter values and fitting models across several feature set combinations (i.e., active or passive, and type of feature engineering). Each model configuration was fit using a grouped 1x10 resampling method. Table 1 shows the best performing model (i.e., highest balanced accuracy) for each statistical algorithm. Figure 1 shows the model's performance in each held out fold. 
 
-Our top performing model, with the highest balanced accuracy, was a random forest statistical algorithm using passive features. To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get an estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 2 characterizes this model over several metrics appropriate for classification. Table 3 shows a confusion matrix where we can see how well the model predicts with negative cases (i.e., no lapse) compared to positive cases (i.e., lapses).  
+Our top performing model, with the highest balanced accuracy, was a random forest statistical algorithm using passive features. To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get an estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 2 shows a confusion matrix where we can see how well the model predicts with negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 3 characterizes our best model over several metrics appropriate for classification.   
 
-Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model with no signal. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model. 
+Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model with no signal. 
 
 In the appendix we show that our best performing model has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.   
 
-Table 1
+
 ```{r}
+# Table 1
 results_aggregate %>% 
   group_by(algorithm) %>% 
   arrange(desc(bal_accuracy)) %>% 
   slice(1) %>% 
-  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive")) %>% 
-  select(algorithm, `feature set` = feature_set, `feature type` = feature_fun_type, resample, 
+  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive"),
+         algorithm = str_replace(algorithm, "_", " "),
+         feature_fun_type = str_replace(feature_fun_type, "_", ", "),
+         resample = str_remove(resample, "_1")) %>% 
+  select(algorithm, `feature set` = feature_set, `feature type(s)` = feature_fun_type, resample, 
          `balanced accuracy` = bal_accuracy) %>% 
   arrange(desc(`balanced accuracy`)) %>% 
   kbl(booktabs = TRUE,
@@ -72,8 +76,9 @@ results_aggregate %>%
 ```
 
 
-Table 2
+
 ```{r}
+# Table 2
 results_best_model <- vroom::vroom(here(path_models, "results_best_model.csv"),
                                    col_types = vroom::cols())
 
@@ -86,61 +91,52 @@ cm <- preds_best_model %>%
          y = factor(y, levels = c("no", "yes"))) %>% 
   conf_mat(y, pred_class)
 
+tibble(Prediction = c("no", "yes"),
+       no = c(unlist(tidy(cm)[1, 2]), unlist(tidy(cm)[2, 2])),
+       yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>% 
+  kbl(booktabs = TRUE,
+      caption = "Confusion Matrix for Best Model (passive random forest)") %>% 
+  kable_styling() %>% 
+  add_header_above(c(" " = 1, "Truth" = 2)) %>% 
+  row_spec(0, align = "c")
+```
+
+
+```{r}
+# Table 3
 results_best_model %>% 
-  summarise(bal_accuracy = mean(bal_accuracy),
+  summarise(`balanced accuracy` = mean(bal_accuracy),
+            accuracy = mean(accuracy),
             sens = mean(sens),
-            spec = mean(spec),
-            roc_auc = mean(roc_auc),
-            accuracy = mean(accuracy)) %>% 
-  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>% 
-  bind_rows(cm %>% 
-  summary(event_level = "second") %>% 
-  select(metric = .metric, estimate = .estimate) %>% 
-  filter(metric %in% c("ppv", "npv"))) %>% 
+            spec = mean(spec)) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
+  bind_rows(cm %>%
+  summary(event_level = "second") %>%
+  select(metric = .metric, estimate = .estimate) %>%
+  filter(metric %in% c("ppv", "npv"))) %>%
+  bind_rows(results_best_model %>% 
+              summarise(`area under the ROC curve` = mean(roc_auc)) %>% 
+              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
   kbl(booktabs = TRUE,
       digits = 2,
-      caption = "Classification Performance Metrics for Best Model across 100 Folds") %>% 
-  kable_styling() 
-```
-
-Table 3
-```{r}
-cm
+      caption = "Classification Performance Metrics for Best Model (random forest passive) across 100 Folds") %>% 
+  kable_styling() %>% 
+  pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
+  pack_rows(start_row = 7, end_row = 7, indent = FALSE)
 ```
 
 
 
-
-```{r fig.height = 4}
-results_best_all <- vroom::vroom(here(path_models, "results_best_all_algorithms.csv"), 
-                             col_types = vroom::cols())
-
-results_best_all %>% 
-  group_by(algorithm) %>% 
-  ggplot(aes(x = bal_accuracy)) +
-  geom_histogram(bins = 10, color = "black", fill = "light grey") +
-  facet_wrap(~ algorithm) +
-  scale_y_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
-  xlab("balanced accuracy") +
-  labs(title = "Model performance across 10 folds") +
-  geom_vline(aes(xintercept = mean_ba), results_best_all %>% 
-  group_by(algorithm) %>% 
-  summarise(mean_ba = mean(bal_accuracy)), color = "red3")
-```
-
-Figure 1. Model performance in each held out fold during model selection.   
-
-
-
-```{r fig.height = 4}
+```{r fig.height = 3}
 best_fits <- results_best_model$bal_accuracy
+null_fits <- vroom::vroom(here(path_models, "null_model_fits.csv"), col_types = vroom::cols())$bal_accuracy
 
-rope_min <- .49
-rope_max <- .51
-plot_min = .4
-plot_max = .8 
+rope_min <- -.01
+rope_max <- .01
+plot_min = -.1
+plot_max = .3 
 
-results_ttest <- bayesian_correlated_t_test(best_fits, 
+results_ttest <- bayesian_correlated_t_test(best_fits, null_fits,
                            rope_min = rope_min, 
                            rope_max = rope_max, 
                            k = 10, 
@@ -156,19 +152,20 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
 ```
 
 
-Figure 2. Model comparison of best model and null model. 
+Figure 1. Model comparison of best model (passive random forest) and null model (intercept only). 
 
   
 
 
-## Context Comparison
+## Model Comparison between Active and Passive
 
 Our best performing active model using all the features available was a glmnet algorithm with a balanced accuracy of XX. Table 4 characterizes our best active model using various performance metrics. Figure 3 shows the balanced accuracy estimates for passive and active models over 100 fits. 
 
-A Bayesian correlated t-test revealed there were no differences between the best active and best passive models, ROPE = XX (Figure 4). This suggests we can predict lapses just as well with only passive features.  
+A Bayesian correlated t-test revealed there were no differences between the best active and best passive models. The posterior probability that was between the ROPE was .19 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models with active features.  
 
-Table 4
+
 ```{r}
+# Table 4
 best_active <- results_aggregate %>%
   filter(feature_set == "feat_all") %>%
   slice_max(bal_accuracy)
@@ -186,45 +183,50 @@ cm <- preds_best_model %>%
          y = factor(y, levels = c("no", "yes"))) %>%
   conf_mat(y, pred_class)
 
-results_best_model %>%
-  summarise(bal_accuracy = mean(bal_accuracy),
+results_best_active %>%
+  summarise(`balanced accuracy` = mean(bal_accuracy),
+            accuracy = mean(accuracy),
             sens = mean(sens),
-            spec = mean(spec),
-            roc_auc = mean(roc_auc),
-            accuracy = mean(accuracy)) %>%
+            spec = mean(spec)) %>%
   pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
   bind_rows(cm %>%
   summary(event_level = "second") %>%
   select(metric = .metric, estimate = .estimate) %>%
   filter(metric %in% c("ppv", "npv"))) %>%
+  bind_rows(results_best_active %>% 
+              summarise(`area under the ROC curve` = mean(roc_auc)) %>% 
+              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
 kbl(booktabs = TRUE,
-      digits = 2) %>%
-  kable_styling()
+    digits = 2,
+    caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds") %>%
+  kable_styling() %>% 
+  pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
+  pack_rows(start_row = 7, end_row = 7, indent = FALSE)
 ```
 
-```{r fig.height = 4}
+```{r fig.height = 3}
 results_best_model %>%
   bind_rows(results_best_active) %>% 
   rename(feature_set = rec) %>% 
-  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
+  mutate(feature_set = if_else(feature_set == "rec_best", "Passive (random forest)", "Active (glmnet)")) %>%
   group_by(feature_set) %>%
   ggplot(aes(x = bal_accuracy)) +
   geom_histogram(bins = 20, color = "black", fill = "light grey") +
   facet_wrap(~ feature_set) +
   xlab("balanced accuracy") +
-  labs(title = "model performance across 100 folds") +
+  labs(title = "Model performance across 100 folds") +
   geom_vline(aes(xintercept = mean_ba), results_best_model %>%
   bind_rows(results_best_active) %>%
   rename(feature_set = rec) %>% 
-  mutate(feature_set = if_else(feature_set == "rec_best", "passive", "active")) %>%
+  mutate(feature_set = if_else(feature_set == "rec_best", "Passive (random forest)", "Active (glmnet)")) %>%
   group_by(feature_set) %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 3. Histogram of model fits across 100 folds. (FIX: 14 folds still running so only 86 splits in active)
+Figure 2. Histogram of model fits across 100 folds. (FIX: 14 folds still running so only 86 splits in active)
 
 
-```{r fig.height = 4}
+```{r fig.height = 3}
 best_passive_fits <- results_best_model$bal_accuracy
 best_active_fits <- results_best_active$bal_accuracy
 
@@ -233,8 +235,8 @@ rope_max <- .01
 plot_min = -.20
 plot_max = .20
 
-results_ttest <- bayesian_correlated_t_test(best_passive_fits,
-                                            best_active_fits,
+results_ttest <- bayesian_correlated_t_test(best_active_fits,
+                                            best_passive_fits,
                                             rope_min = rope_min,
                                             rope_max = rope_max,
                                             k = 10,
@@ -247,19 +249,19 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs,
   geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
   geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
   scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
-  labs(x = "Accuracy Difference (Passive - Active Model)",
+  labs(x = "Accuracy Difference (Active - Passive Model)",
        y = "Posterior Probability")
 ```
 
-Figure 4. Model comparison of passive and active model.
+Figure 3. Model comparison of the best passive (random forest) and best active (glmnet) models.
 
 
-## Top Predictors
+## Top Features
 
 We conducted a permutation test of feature importance to see which features contributed most to our top performing model. Figure 4 shows which features when removed from the model had the greatest effect on performance. Figure 5 shows the top features for the best active model.
 
 
-```{r fig.height = 5}
+```{r fig.height = 5, fig.width = 8}
 vi_best <- read_rds(here(path_models, str_c("vi_", best_model$algorithm, ".rds")))
 algorithm <- if_else(best_model$algorithm == "random_forest", "random forest",
                      best_model$algorithm)
@@ -267,30 +269,46 @@ feat_set <- if_else(best_model$feature_set == "feat_all", "active", "passive")
 vi_best %>% 
       mutate(Variable = str_remove(Variable, ".passive"),
              Variable = str_remove(Variable, ".l0"),
+             Variable = str_remove(Variable, ".org"),
+             Variable = str_remove(Variable, ".dttm_obs"),
+             Variable = str_replace(Variable, "pratecount", "perc_rate"),
+             Variable = str_replace(Variable, "rratecount", "raw_rate"),
+             Variable = str_replace(Variable, "pratesum_duration", "perc_sum.duration"),
+             Variable = str_replace(Variable, "pmean_duration", "perc_mean.duration"),
+             Variable = str_replace(Variable, "rmean_duration", "raw_mean.duration"),
+             Variable = str_replace(Variable, "ppropdatetime", "perc_prop"),
+             Variable = str_replace(Variable, "rpropdatetime", "raw_prop"),
+             Variable = str_replace(Variable, "rpropcount", "raw_prop"),
+             Variable = str_replace(Variable, "ppropcount", "perc_prop"),
+             Variable = str_replace(Variable, "p6", "6hrs"),
+             Variable = str_replace(Variable, "p12", "12hrs"),
+             Variable = str_replace(Variable, "p24", "24hrs"),
+             Variable = str_replace(Variable, "p48", "48hrs"),
+             Variable = str_replace(Variable, "p72", "72hrs"),
+             Variable = str_replace(Variable, "p168", "168hrs"),
              Variable = fct_reorder(Variable, Importance)) %>% 
       filter(Importance != 0) %>% 
       ggplot(aes(x = Importance, y = Variable)) +
       geom_col(color = "black", fill = "light grey") +
       scale_x_continuous(expand = c(0, 0)) +
-      labs(y = NULL, title = str_c(algorithm, " ", feat_set))
+      labs(y = NULL, title = str_c("Top features for best model (", feat_set, " ", algorithm, ")"))
 ```
 
 Figure 4. Feature importance scores for best performing model (Passive Random Forest). 
 
 
 
-```{r fig.height = 5}
-# vi_active <- read_rds(here(path_models, str_c("vi_active.rds")))
-# feat_set <- "active"
-# vi_active %>% 
-#       mutate(Variable = str_remove(Variable, ".passive"),
-#              Variable = str_remove(Variable, ".l0"),
-#              Variable = fct_reorder(Variable, Importance)) %>% 
-#       filter(Importance != 0) %>% 
-#       ggplot(aes(x = Importance, y = Variable)) +
-#       geom_col(color = "black", fill = "light grey") +
-#       scale_x_continuous(expand = c(0, 0)) +
-#       labs(y = NULL, title = str_c(best_active$algorithm, " ", feat_set))
+```{r fig.height = 3}
+vi_active <- read_rds(here(path_models, str_c("vi_glmnet.rds")))
+vi_active %>%
+      mutate(Variable = str_remove(Variable, ".passive"),
+             Variable = str_remove(Variable, ".l0"),
+             Variable = fct_reorder(Variable, Importance)) %>%
+      filter(Importance != 0) %>%
+      ggplot(aes(x = Importance, y = Variable)) +
+      geom_col(color = "black", fill = "light grey") +
+      scale_x_continuous(expand = c(0, 0)) +
+      labs(y = NULL, title = "Top features for best active model (glmnet)")
 ```
 
 Figure 5. Feature importance scores for best performing active model (glmnet). 
