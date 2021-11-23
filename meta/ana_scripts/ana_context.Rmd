@@ -282,6 +282,8 @@ results_active <- vroom::vroom(results_active_files, col_types = vroom::cols()) 
   arrange(job_num) %>% 
   mutate(feature_set = "feat_all") %>% 
   glimpse()
+
+write_csv(here(path_models, "results_best_active.csv"))
 ```
 
 make histograms
@@ -324,6 +326,7 @@ if (best_model$feature_set == "feat_all") {
                               full.names = TRUE)
   predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
     glimpse()
+  write_csv(predictions, here(path_models, "preds_best_passive.csv"))
 
   cm <- predictions %>% 
     mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
@@ -353,6 +356,7 @@ if (best_model$feature_set == "feat_all") {
                               full.names = TRUE)
   predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
     glimpse()
+  write_csv(predictions, here(path_models, "preds_best_active.csv"))
 
   cm <- predictions %>% 
     mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
@@ -418,178 +422,193 @@ results_ttest$right
 
 Best model's top features   
 ```{r}
-rec <- build_recipe(d = data_all, job = best_model)
+# rec <- build_recipe(d = data_all, job = best_model)
+# 
+# feat_all <-  rec %>% 
+#   step_rm(has_role(match = "id variable")) %>% 
+#   prep(training = data_all, strings_as_factors = FALSE) %>% 
+#   bake(new_data = data_all)
+#     
+# if (best_model$algorithm == "glmnet") {
+#   model <- logistic_reg(penalty = best_model$hp2,
+#                         mixture = best_model$hp1) %>% 
+#     set_engine("glmnet") %>%
+#     set_mode("classification") %>%
+#     fit(y ~ .,
+#         data = feat_all)
+#   
+#   # view coefficients for interpretability
+#   model %>% 
+#     tidy() %>% 
+#     filter(estimate != 0 & term != `(Intercept)`) %>% 
+#     arrange(desc(abs(estimate)))
+#   
+#   # view variable importance indexes
+#   x <- feat_all %>% 
+#     select(-y) %>% 
+#     as.matrix()
+#   y <- feat_all %>% 
+#     pull(y)
+#   
+#   acc_perm <- function(actual, predicted) {
+#     accuracy_vec(actual, predicted)
+#     }
+#       
+#   pred_perm <- function(object, newdata) {
+#     preds <- predict(object, newdata, type = "response", s = best_model$hp2)[, 1]  
+#     preds <- if_else(preds >= .5, "yes", "no") 
+#     preds <- factor(preds, levels = c("no", "yes"))
+#     return(preds)
+#     }
+#        
+#   set.seed(102030)  # for reproducibility in vi_permute ()
+#   vi_plot <- model %>%
+#     vip::vi(method = "permute", 
+#             train = x, 
+#             target = y,
+#             metric = acc_perm,
+#             pred_wrapper = pred_perm,  
+#             smaller_is_better = FALSE, 
+#             nsim = 1) 
+#   
+#   vi_plot %>% 
+#       mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+#       filter(Importance != 0) %>% 
+#       ggplot(aes(x = Importance, y = Variable)) +
+#       geom_col() +
+#       scale_x_continuous(expand = c(0, 0)) +
+#       labs(y = NULL, title = "glmnet")
+#         
+#   # save vi_plot for editing later
+#   write_rds(vi_plot, here(path_models, "vi_glmnet.rds"))
+# 
+# } else if (best_model$algorithm == "random_forest") {
+#   model <- rand_forest(mtry = best_model$hp1,
+#                        min_n = best_model$hp2,
+#                        trees = best_model$hp3) %>%
+#     set_engine("ranger",
+#                importance = "impurity",
+#                respect.unordered.factors = "order",
+#                seed = 102030) %>%
+#     set_mode("classification") %>%
+#     fit(y ~ .,
+#         data = feat_all)
+#       
+#   # view variable importance indexes
+#   x <- feat_all
+#         
+#   acc_perm <- function(actual, predicted) {
+#     accuracy_vec(truth = actual, estimate = predicted)
+#     }
+# 
+#   pred_perm <- function(object, newdata) {
+#     preds <- predict(object, data = newdata)$predictions
+#     preds <- if_else(preds[, 2] >= .5, "yes", "no") 
+#     preds <- factor(preds, levels = c("no", "yes"))
+#     return(preds)
+#     }
+#         
+#   set.seed(102030)  # for reproducibility in vi_permute ()
+#   vi_plot <- model %>%
+#     vip::vi(method = "permute", 
+#             train = x, 
+#             target = "y",
+#             metric = acc_perm,
+#             pred_wrapper = pred_perm,
+#             smaller_is_better = FALSE, 
+#             nsim = 1) 
+#   vi_plot %>% 
+#     mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+#     filter(Importance != 0) %>% 
+#     ggplot(aes(x = Importance, y = Variable)) +
+#     geom_col() +
+#     scale_x_continuous(expand = c(0, 0)) +
+#     labs(y = NULL, title = "random forest")
+#         
+#   # save vi_plot for editing later
+#   write_rds(vi_plot, here(path_models, "vi_random_forest.rds"))
+# 
+#   } else if (best_model$algorithm == "knn") {
+#     model <- nearest_neighbor(neighbors = best_model$hp1) %>% 
+#       set_engine("kknn") %>% 
+#       set_mode("classification") %>% 
+#       fit(y ~ .,
+#           data = feat_all)
+#           
+#     x <- feat_trn 
+# 
+#     acc_perm <- function(actual, predicted) {
+#       accuracy_vec(truth = actual, estimate = predicted)
+#       }
+# 
+#     pred_perm <- function(object, newdata) {
+#       predict(object, newdata)
+#       }
+#           
+#     set.seed(102030)  # for reproducibility in vi_permute ()
+#     vi_plot <- model %>%
+#       vip::vi(method = "permute", 
+#               train = x, 
+#               target = "y",
+#               metric = acc_perm,
+#               pred_wrapper = pred_perm,  
+#               smaller_is_better = FALSE, 
+#               nsim = 1) 
+#      
+#     vi_plot %>% 
+#       mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+#       filter(Importance != 0) %>% 
+#       ggplot(aes(x = Importance, y = Variable)) +
+#       geom_col() +
+#       scale_x_continuous(expand = c(0, 0)) +
+#       labs(y = NULL, title = "knn")
+#         
+#   # save vi_plot for editing later
+#   write_rds(vi_plot, here(path_models, "vi_knn.rds"))
+#   }
 
-feat_all <-  rec %>% 
-  step_rm(has_role(match = "id variable")) %>% 
-  prep(training = data_all, strings_as_factors = FALSE) %>% 
-  bake(new_data = data_all)
-    
-if (best_model$algorithm == "glmnet") {
-  model <- logistic_reg(penalty = best_model$hp2,
-                        mixture = best_model$hp1) %>% 
-    set_engine("glmnet") %>%
-    set_mode("classification") %>%
-    fit(y ~ .,
-        data = feat_all)
-  
-  # view coefficients for interpretability
-  model %>% 
-    tidy() %>% 
-    filter(estimate != 0 & term != `(Intercept)`) %>% 
-    arrange(desc(abs(estimate)))
-  
-  # view variable importance indexes
-  x <- feat_all %>% 
-    select(-y) %>% 
-    as.matrix()
-  y <- feat_all %>% 
-    pull(y)
-  
-  acc_perm <- function(actual, predicted) {
-    accuracy_vec(actual, predicted)
-    }
-      
-  pred_perm <- function(object, newdata) {
-    preds <- predict(object, newdata, type = "response", s = best_model$hp2)[, 1]  
-    preds <- if_else(preds >= .5, "yes", "no") 
-    preds <- factor(preds, levels = c("no", "yes"))
-    return(preds)
-    }
-       
-  set.seed(102030)  # for reproducibility in vi_permute ()
-  vi_plot <- model %>%
-    vip::vi(method = "permute", 
-            train = x, 
-            target = y,
-            metric = acc_perm,
-            pred_wrapper = pred_perm,  
-            smaller_is_better = FALSE, 
-            nsim = 1) 
-  
-  vi_plot %>% 
-      mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+
+vi_best <- read_rds(here(path_models, str_c("vi_", best_model$algorithm, ".rds")))
+algorithm <- if_else(best_model$algorithm == "random_forest", "random forest",
+                     best_model$algorithm)
+feat_set <- if_else(best_model$feature_set == "feat_all", "active", "passive")
+vi_best %>% 
+      mutate(Variable = str_remove(Variable, ".passive"),
+             Variable = str_remove(Variable, ".l0"),
+             Variable = fct_reorder(Variable, Importance)) %>% 
       filter(Importance != 0) %>% 
       ggplot(aes(x = Importance, y = Variable)) +
       geom_col() +
       scale_x_continuous(expand = c(0, 0)) +
-      labs(y = NULL, title = "glmnet")
-        
-  # save vi_plot for editing later
-  write_rds(vi_plot, here(path_models, "vi_glmnet.rds"))
-
-} else if (best_model$algorithm == "random_forest") {
-  model <- rand_forest(mtry = best_model$hp1,
-                       min_n = best_model$hp2,
-                       trees = best_model$hp3) %>%
-    set_engine("ranger",
-               importance = "impurity",
-               respect.unordered.factors = "order",
-               seed = 102030) %>%
-    set_mode("classification") %>%
-    fit(y ~ .,
-        data = feat_all)
-      
-  # view variable importance indexes
-  x <- feat_all
-        
-  acc_perm <- function(actual, predicted) {
-    accuracy_vec(truth = actual, estimate = predicted)
-    }
-
-  pred_perm <- function(object, newdata) {
-    preds <- predict(object, data = newdata)$predictions
-    preds <- if_else(preds[, 2] >= .5, "yes", "no") 
-    preds <- factor(preds, levels = c("no", "yes"))
-    return(preds)
-    }
-        
-  set.seed(102030)  # for reproducibility in vi_permute ()
-  vi_plot <- model %>%
-    vip::vi(method = "permute", 
-            train = x, 
-            target = "y",
-            metric = acc_perm,
-            pred_wrapper = pred_perm,
-            smaller_is_better = FALSE, 
-            nsim = 1) 
-  vi_plot %>% 
-    mutate(Variable = fct_reorder(Variable, Importance)) %>% 
-    filter(Importance != 0) %>% 
-    ggplot(aes(x = Importance, y = Variable)) +
-    geom_col() +
-    scale_x_continuous(expand = c(0, 0)) +
-    labs(y = NULL, title = "random forest")
-        
-  # save vi_plot for editing later
-  write_rds(vi_plot, here(path_models, "vi_random_forest.rds"))
-
-  } else if (best_model$algorithm == "knn") {
-    model <- nearest_neighbor(neighbors = best_model$hp1) %>% 
-      set_engine("kknn") %>% 
-      set_mode("classification") %>% 
-      fit(y ~ .,
-          data = feat_all)
-          
-    x <- feat_trn 
-
-    acc_perm <- function(actual, predicted) {
-      accuracy_vec(truth = actual, estimate = predicted)
-      }
-
-    pred_perm <- function(object, newdata) {
-      predict(object, newdata)
-      }
-          
-    set.seed(102030)  # for reproducibility in vi_permute ()
-    vi_plot <- model %>%
-      vip::vi(method = "permute", 
-              train = x, 
-              target = "y",
-              metric = acc_perm,
-              pred_wrapper = pred_perm,  
-              smaller_is_better = FALSE, 
-              nsim = 1) 
-     
-    vi_plot %>% 
-      mutate(Variable = fct_reorder(Variable, Importance)) %>% 
-      filter(Importance != 0) %>% 
-      ggplot(aes(x = Importance, y = Variable)) +
-      geom_col() +
-      scale_x_continuous(expand = c(0, 0)) +
-      labs(y = NULL, title = "knn")
-        
-  # save vi_plot for editing later
-  write_rds(vi_plot, here(path_models, "vi_best.rds"))
-  }
+      labs(y = NULL, title = str_c(algorithm, " ", feat_set))
 ```
 
 View coefficients for glmnet for interpretability
 ```{r}
-best_glmnet <- results_aggregate %>% 
-    filter(algorithm == "glmnet") %>%
-    slice_max(., bal_accuracy) %>%
-    glimpse()
-
-rec <- build_recipe(d = data_all, job = best_glmnet)
-
-feat_all <-  rec %>%
-  step_rm(has_role(match = "id variable")) %>%
-  prep(training = data_all, strings_as_factors = FALSE) %>%
-  bake(new_data = data_all)
-
-model <- logistic_reg(penalty = best_glmnet$hp2,
-                      mixture = best_glmnet$hp1) %>%
-  set_engine("glmnet") %>%
-  set_mode("classification") %>%
-  fit(y ~ .,
-      data = feat_all)
-
-  # view coefficients for interpretability
-model %>%
-  tidy() %>%
-  filter(estimate != 0) %>%
-  arrange(desc(abs(estimate)))
+# best_glmnet <- results_aggregate %>% 
+#     filter(algorithm == "glmnet") %>%
+#     slice_max(., bal_accuracy) %>%
+#     glimpse()
+# 
+# rec <- build_recipe(d = data_all, job = best_glmnet)
+# 
+# feat_all <-  rec %>%
+#   step_rm(has_role(match = "id variable")) %>%
+#   prep(training = data_all, strings_as_factors = FALSE) %>%
+#   bake(new_data = data_all)
+# 
+# model <- logistic_reg(penalty = best_glmnet$hp2,
+#                       mixture = best_glmnet$hp1) %>%
+#   set_engine("glmnet") %>%
+#   set_mode("classification") %>%
+#   fit(y ~ .,
+#       data = feat_all)
+# 
+#   # view coefficients for interpretability
+# model %>%
+#   tidy() %>%
+#   filter(estimate != 0) %>%
+#   arrange(desc(abs(estimate)))
 ```
 
 
