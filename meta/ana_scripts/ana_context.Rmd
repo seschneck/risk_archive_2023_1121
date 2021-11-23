@@ -72,9 +72,7 @@ This script does model comparisons on the best active and passive models for the
 
 ```{r}
 # individual results
-result_files <- list.files(path_results, full.names = TRUE)
-results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
-  glimpse()
+results_all <- read_rds(here(path_models, "results_all.rds"))
 
 # aggregate results
 results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
@@ -268,7 +266,6 @@ results_passive_files <- if (best_model$feature_set == "feat_all_passive") {
 }
 results_passive <- vroom::vroom(results_passive_files, col_types = vroom::cols()) %>% 
   arrange(job_num) %>% 
-  mutate(feature_set = "feat_all_passive") %>% 
   glimpse()
 
 results_active_files <- if (best_model$feature_set == "feat_all") {
@@ -817,8 +814,10 @@ if (best_model$feature_set != "feat_all") {
   # view coefficients for interpretability
   model %>% 
     tidy() %>% 
-    filter(estimate != 0 & term != `(Intercept)`) %>% 
+    filter(estimate != 0) %>% 
     arrange(desc(abs(estimate)))
+  
+  write_rds(model, here(path_models, "glmnet_model.rds"))
   
   # view variable importance indexes
   x <- feat_all %>% 
@@ -966,7 +965,7 @@ if (best_model$feature_set != "feat_all") {
   # view coefficients for interpretability
   model %>% 
     tidy() %>% 
-    filter(estimate != 0 & term != `(Intercept)`) %>% 
+    filter(estimate != 0) %>% 
     arrange(desc(abs(estimate)))
   
   # view variable importance indexes
