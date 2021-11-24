@@ -217,7 +217,7 @@ Our first study aim was to train and evaluate the best performing machine learni
 
 Balanced accuracy was our performance metric for both model selection and evaluation.  However, we also report other performance metrics (sensitivity, specificity, positive predictive value, negative predictive value) to fully characterize model performance of our best performing model(s).  We also visually inspected lapse probability predictions by participant to further probe model performance.
 
-We used grouped 10-fold resampling without repeats (i.e, 1 set of 10 grouped folds) to estimate balanced accuracy to select the top performing model (statistical algorithm and combination of features).  All folds were grouped by participant ID so that a single participant's data were not being used to predict future data by the same participant. In other words, all data from a participant was either included in the training or held-out validation set, but not both.  <!-- Maybe consider calling sets either training or validation since we didnt have a "test" set?-->
+We used grouped 10-fold cross-validation (grouped 10X cv) without repeats (i.e, 1 set of 10 grouped folds) to estimate balanced accuracy to select the top performing model (statistical algorithm and combination of features).  All folds were grouped by participant ID so that a single participant's data were not being used to predict future data by the same participant. In other words, all data from a participant was either included in the training or held-out validation set, but not both.  <!-- Maybe consider calling sets either training or validation since we didnt have a "test" set?-->
 
 We estimated model performance for our top performing model using 10 repeats of grouped 10-fold resampling (i.e., grouped 10x10-fold). We opted to use resampling for model evaluation instead of a held-out test set because, with our limited sample size, averaging balanced accuracy over 100 held-out validation sets gives us a more stable (i.e., low variance) and less biased estimate of model performance than other available options using a single, explicitly held-out, test set. 
 
@@ -256,13 +256,13 @@ best_model <- results_aggregate %>%
 
 ## Best Model Performance 
 
-We optimized each statistical algorithm by tuning hyperparameter values and fitting models across several feature set combinations (i.e., active or passive, and type of feature engineering). Each model configuration was fit using a grouped 1x10 resampling method. Table 1 shows the best performing model (i.e., highest balanced accuracy) for each statistical algorithm. Figure 1 shows the model's performance in each held out fold. 
+We optimized each statistical algorithm by tuning hyperparameter values and training models across several feature set combinations (i.e., active or passive, and type of resampling and feature engineering). Each model configuration was trained using a grouped 10-fold cross-validation (grouped 10-fold cv) resampling method. We selected our top candidate configurations on balanced accuracy. Table 1 shows the best performing model configuration (i.e., highest balanced accuracy) for each statistical algorithm (glmnet, random forest, Knn). We selected the statistical algorithm with highest balanced accuracy to be our top performing model configuration. 
 
-Our top performing model, with the highest balanced accuracy, was a random forest statistical algorithm using passive features. To reduce the effects of optimization bias on our model evaluation of predictive performance, we refit the top performing model 100 times (grouped 10x10 resampling). We then averaged across performance estimates to get an estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 2 shows a confusion matrix where we can see how well the model predicts with negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 3 characterizes our best model over several metrics appropriate for classification.   
+Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we retrained the top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 cv). This means we trained our model configuration on 100 different subsets of data and predicted on the held out validation set. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 2 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 3 characterizes our best model configuration over several metrics appropriate for classification.   
 
-Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model's performance compared to a null model (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our model was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our model and a null model with no signal. 
+Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model configuration's performance compared to a null model configuration (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our top model configuration was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our selected model configuration and a null model configuration with no signal. 
 
-In the appendix we show that our best performing model has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.   
+In the appendix we show that our best performing model configuration has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times (grouped 10x10 cv) and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.    
 
 
 ```{r}
@@ -306,27 +306,29 @@ cm <- preds_best_model %>%
          pred_class = factor(pred_class, levels = c("no", "yes")),
          y = factor(y, levels = c("no", "yes"))) %>% 
   conf_mat(y, pred_class)
-
+# 
 tibble(Prediction = c("no", "yes"),
        no = c(unlist(tidy(cm)[1, 2]), unlist(tidy(cm)[2, 2])),
-       yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>% 
+       yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>%
     apa_table(placement = "pt",
               caption = "Confusion Matrix for Best Model Configuration",
-              note = "The best model configuration was XXXXX.     
-              Results based on grouped 10x10-fold cross validation.")
+              note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Results based on grouped 10x10-fold cross validation.")
 # KENDRA add full description of this configuration to this note
 
-  # kbl(booktabs = TRUE,
-  #     caption = "Confusion Matrix for Best Model (passive random forest)") %>% 
-  # kable_styling() %>% 
-  # add_header_above(c(" " = 1, "Truth" = 2)) %>% 
-  # row_spec(0, align = "c")
+# tibble(Prediction = c("no", "yes"),
+#        no = c(unlist(tidy(cm)[1, 2]), unlist(tidy(cm)[2, 2])),
+#        yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>% 
+#   kbl(booktabs = TRUE,
+#       caption = "Confusion Matrix for Best Model (passive random forest)") %>%
+#   kable_styling() %>%
+#   add_header_above(c(" " = 1, "Truth" = 2)) %>%
+#   row_spec(0, align = "c") 
 ```
 
 
 ```{r}
 # Table 3
-results_best_model %>% 
+results_best_model %>%
   summarise(`balanced accuracy` = mean(bal_accuracy),
             accuracy = mean(accuracy),
             sensitivity = mean(sens),
@@ -336,21 +338,33 @@ results_best_model %>%
   summary(event_level = "second") %>%
   select(metric = .metric, estimate = .estimate) %>%
   filter(metric %in% c("ppv", "npv"))) %>%
-  bind_rows(results_best_model %>% 
-              summarise(`Area under the ROC Curve` = mean(roc_auc)) %>% 
-              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
-  apa_table(placement = "pt", digits = 2, 
+  bind_rows(results_best_model %>%
+              summarise(`Area under the ROC Curve` = mean(roc_auc)) %>%
+              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>%
+  apa_table(placement = "pt", digits = 2,
             caption = "Performance Metrics for Best Model Configuration",
-            note = "The best model configuration was XXXXX.     
-              Performance estimated by grouped 10x10-fold cross validation.")
+            note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Performance estimated by grouped 10x10-fold cross validation.")
 # KENDRA add full description of this configuration to this note
 
-  # kbl(booktabs = TRUE,
-  #     digits = 2,
-  #     caption = "Classification Performance Metrics for Best Model (random forest passive) across 100 Folds") %>% 
-  # kable_styling() %>% 
-  # pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
-  # pack_rows(start_row = 7, end_row = 7, indent = FALSE)
+# results_best_model %>% 
+#   summarise(`balanced accuracy` = mean(bal_accuracy),
+#             accuracy = mean(accuracy),
+#             sensitivity = mean(sens),
+#             specificity = mean(spec)) %>%
+#   pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
+#   bind_rows(cm %>%
+#   summary(event_level = "second") %>%
+#   select(metric = .metric, estimate = .estimate) %>%
+#   filter(metric %in% c("ppv", "npv"))) %>%
+#   bind_rows(results_best_model %>% 
+#               summarise(`Area under the ROC Curve` = mean(roc_auc)) %>% 
+#               pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
+#   kbl(booktabs = TRUE,
+#       digits = 2,
+#       caption = "Classification Performance Metrics for Best Model (random forest passive) across 100 Folds") %>%
+#   kable_styling() %>%
+#   pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>%
+#   pack_rows(start_row = 7, end_row = 7, indent = FALSE) 
 ```
 
 
@@ -380,16 +394,16 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
 ```
 
 
-Figure 1. Model comparison of best model (passive random forest) and null model (intercept only). 
+Figure 1. Model comparison of best model (passive random forest) and null model (intercept only) configurations. 
 
   
 
 
 ## Model Comparison between Active and Passive
 
-Our best performing active model using all the features available was a glmnet algorithm with a balanced accuracy of .60. Table 4 characterizes our best active model using various performance metrics. Figure 3 shows the balanced accuracy estimates for passive and active models over 100 fits. 
+Our best performing active model configuration (i.e., using all the features available) was a glmnet algorithm using up-sampling. We retrained this model configuration on 100 subsets of data and predicted on the held out validation set 100 times (grouped 10x10 cv). This gave us an averaged balanced accuracy of .60. 
 
-A Bayesian correlated t-test revealed there were no differences between the best active and best passive models. The posterior probability that was between the ROPE was .34 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models with active features.  
+Figure 3 shows the balanced accuracy estimates for passive and active model configurations over the 100 resamples. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that was between the ROPE was .34 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models using active features.  
 
 
 ```{r fig.height = 3}
@@ -421,7 +435,7 @@ results_best_model %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 2. Histogram of best active (glmnet) and passive (random forest) model fits across 100 folds. 
+Figure 2. Histogram of best active (glmnet) and passive (random forest) model configuration balanced accuracies across 100 folds. 
 
 
 ```{r fig.height = 3}
@@ -451,15 +465,15 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs,
        y = "Posterior Probability")
 ```
 
-Figure 3. Model comparison of the best active (glmnet) and best passive (random forest) models.
+Figure 3. Model comparison of the best active (glmnet) and best passive (random forest) model configurations.
 
 
 ## Top Features
 
-We conducted a permutation test of feature importance to see which features contributed most to our top performing model. Figure 4 shows which features when removed from the model had the greatest effect on performance. 
+We conducted a permutation test of feature importance to see which features contributed most to our top performing model configuration (passive random forest). Figure 4 shows which features when removed from the model configuration had the greatest effect on performance. 
 
 
-```{r fig.height = 5, fig.width = 8}
+```{r fig.height = 6, fig.width = 8}
 vi_best <- read_rds(here(path_models, str_c("vi_", best_model$algorithm, ".rds")))
 algorithm <- if_else(best_model$algorithm == "random_forest", "random forest",
                      best_model$algorithm)
@@ -492,7 +506,7 @@ vi_best %>%
       labs(y = NULL, title = str_c("Top features for best model (", feat_set, " ", algorithm, ")"))
 ```
 
-Figure 4. Feature importance scores for best performing model (Passive Random Forest). 
+Figure 4. Feature importance scores for best performing model configuration (Passive Random Forest). 
 
 
 
