@@ -31,11 +31,6 @@ options(tibble.print_max = Inf)
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-# library(conflicted) 
-#  conflict_prefer("filter", "dplyr")
-#  conflict_prefer("select", "dplyr")
-#  conflict_prefer("spec", "yardstick")
-
 library(here)  
 ```
 
@@ -86,6 +81,88 @@ data_context <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroo
 ```
 
 ### Summarize demographics and study characteristics
+
+```{r}
+dem <- data_id %>% 
+  summarise(mean = as.character(round(mean(id_age, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(id_age, na.rm = TRUE), 1))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(data_id %>% 
+  select(var = id_gender) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_race) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_hispanic) %>% 
+  mutate(var = case_when(var == "no" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_education) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_employment) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Full-time", "Part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  summarise(mean = as.character(round(mean(id_income, na.rm = TRUE), 0)),
+            SD = as.character(round(sd(id_income, na.rm = TRUE), 0))) %>% 
+  mutate(var = "Income",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(var = id_marrital_status) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never Married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+dem %>% 
+  kbl(booktabs = TRUE,
+      caption = "Demographics",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>%
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>%
+  pack_rows("Education", 11, 16, bold = FALSE) %>%
+  pack_rows("Employment", 17, 25, bold = FALSE) %>%
+  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
 
 Average days on study
 ```{r}
