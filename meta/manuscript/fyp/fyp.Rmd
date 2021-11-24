@@ -255,7 +255,9 @@ best_model <- results_aggregate %>%
 
 ## Participant Characteristics
 
-Participants were on study for an average of 85 days out of the possible 90 days. Table 1 shows the demographic breakdown for the 151 participants used in our analyses. Table 2 shows the relevant drug and alcohol history for these participants and table 3 characterizes our participants mental health. 
+Participants were on study for an average of 85 days out of the possible 90 days. All participants provided at least one month of data. Table 1 shows the demographic breakdown for the 151 participants used in our analyses. The majority of participants identified as white (86.8%). Just over half of participants identified as male (51%) and 49% identified as female. Table 2 shows the relevant drug and alcohol history for these participants and table 3 characterizes our participants mental health. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 criteria for alcohol use disorder. With only a score of 2 needed for mild alcohol use disorder, we can see our participants scored very high on this scale, all ranging from moderate to severe alcohol use disorder. 
+
+On average participants had about 32 contacts (SD = 22) they frequently communicated with. Figures 1 - 6 show the distribution of participant responses about their frequent contacts to each of our six context questions. Seventy-two percent of our participants (*N* = 109) have at least one person they frequently communicate with who they used to drink with regularly (always/almost always). Additionally, 99% of our participants (*N* = 150) regularly communicate with at least one person they know to be a drinker. In fact, each participant communicate with on average 18 people (*M* = 17.7, *SD* = 15.0) who are known drinkers and 95% of participants (*N* = 143) said that at least one of these contacts are likely to drink in front of them in the future. On the recovery-positive side of these communications, 99% of participants (*N* = 149) have a supportive contact they frequently communicate with and 80% (*N* = 120) have regular communications with someone else in recovery. Finally, on average across participants, 75% of communications (*SD* = .17) were reported to be pleasant.   
 
 
 ```{r}
@@ -786,6 +788,203 @@ data_id %>%
 ```
 
 
+```{r fig.height = 3}
+# fig 1
+data_context <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroom::cols()) %>%
+  filter(subid %in% study_dates$subid) %>% 
+  # filter out spam contacts and self
+  filter(contact_type != "Irrelevant/Spam" & contact_type != "Self")
+
+data_context %>% 
+  select(subid, contact_drank_past) %>% 
+  group_by(subid) %>% 
+  count(contact_drank_past) %>% 
+  mutate(contact_drank_past = if_else(contact_drank_past == "Almost Always/Always",
+                                      "Always/Almost Always", contact_drank_past)) %>% 
+  mutate(contact_drank_past = factor(contact_drank_past, 
+                                     levels = c("Always/Almost Always", "Occasionally",
+                                                "Never/Almost Never"))) %>% 
+  drop_na(contact_drank_past) %>% 
+  ggplot(aes(x = n, group = contact_drank_past)) +
+  facet_wrap(~ contact_drank_past) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_drank_past) %>% 
+  group_by(subid) %>% 
+  count(contact_drank_past) %>%
+  mutate(contact_drank_past = if_else(contact_drank_past == "Almost Always/Always",
+                                      "Always/Almost Always", contact_drank_past)) %>% 
+  mutate(contact_drank_past = factor(contact_drank_past, 
+                                     levels = c("Always/Almost Always", "Occasionally",
+                                                "Never/Almost Never"))) %>% 
+  ungroup() %>% 
+  group_by(contact_drank_past) %>% 
+  drop_na(contact_drank_past) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Have you drank alcohol with this person?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 1. Have you drank alcohol with this person? Distribution of number of contacts each participant has for each response option (Always/Almost Always, Occassionally, Never/Almost Never). Mean number of contacts is depicted as the solid red line.
+
+```{r fig.height = 3}
+# figure 2
+data_context %>% 
+  select(subid, drink_status) %>% 
+  group_by(subid) %>% 
+  count(drink_status) %>% 
+  mutate(drink_status = case_when(drink_status == "Dont Know" ~ "Don't Know",
+                                  drink_status == "NonDrinker" ~ "Non-drinker",
+                                  TRUE ~ drink_status)) %>%
+  mutate(drink_status = factor(drink_status,
+                               levels = c("Drinker", "Non-drinker",
+                                                "Don't Know"))) %>%
+  drop_na(drink_status) %>% 
+  ggplot(aes(x = n, group = drink_status)) +
+  facet_wrap(~ drink_status) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, drink_status) %>% 
+  group_by(subid) %>% 
+  count(drink_status) %>%
+  mutate(drink_status = case_when(drink_status == "Dont Know" ~ "Don't Know",
+                                  drink_status == "NonDrinker" ~ "Non-drinker",
+                                  TRUE ~ drink_status)) %>%
+  mutate(drink_status = factor(drink_status,
+                               levels = c("Drinker", "Non-drinker",
+                                                "Don't Know"))) %>%
+  ungroup() %>% 
+  group_by(drink_status) %>% 
+  drop_na(drink_status) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "What is their drinking status?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 2. What is their drinking status? Distribution of number of contacts each participant has for each response option (Drinker, Non-drinker, Don't Know). Mean number of contacts is depicted as the solid red line.
+
+```{r fig.height = 3}
+# figure 3
+data_context %>% 
+  select(subid, contact_drink_future) %>% 
+  group_by(subid) %>% 
+  count(contact_drink_future) %>% 
+  mutate(contact_drink_future = factor(contact_drink_future,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  drop_na(contact_drink_future) %>% 
+  ggplot(aes(x = n, group = contact_drink_future)) +
+  facet_wrap(~ contact_drink_future) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_drink_future) %>% 
+  group_by(subid) %>% 
+  count(contact_drink_future) %>%
+ mutate(contact_drink_future = factor(contact_drink_future,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  ungroup() %>% 
+  group_by(contact_drink_future) %>% 
+  drop_na(contact_drink_future) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Would you expect them to drink in your presence?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 3. Would you expect them to drink in your presence? Distribution of number of contacts each participant has for each response option (Yes, No, Uncertain). Mean number of contacts is depicted as the solid red line.
+
+```{r fig.height = 3}
+# figure 4
+data_context %>% 
+  select(subid, recovery) %>% 
+  group_by(subid) %>% 
+  count(recovery) %>%
+  mutate(recovery = if_else(recovery == "Dont Know", "Uncertain", recovery)) %>% 
+  mutate(recovery = factor(recovery,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  drop_na(recovery) %>% 
+  ggplot(aes(x = n, group = recovery)) +
+  facet_wrap(~ recovery) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, recovery) %>% 
+  group_by(subid) %>% 
+  count(recovery) %>%
+  mutate(recovery = if_else(recovery == "Dont Know", "Uncertain", recovery)) %>% 
+  mutate(recovery = factor(recovery,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  ungroup() %>% 
+  group_by(recovery) %>% 
+  drop_na(recovery) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Are they currently in recovery from alcohol or other substances?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 4. Are they currently in recovery from alcohol or other substances? Distribution of number of contacts each participant has for each response option (Yes, No, Uncertain). Mean number of contacts is depicted as the solid red line.
+
+```{r fig.height = 3}
+# figure 5
+data_context %>% 
+  select(subid, support_status) %>% 
+  group_by(subid) %>% 
+  count(support_status) %>%
+  mutate(support_status = if_else(support_status == "Dont Know", 
+                                  "Don't Know", support_status)) %>% 
+  mutate(support_status = factor(support_status,
+                               levels = c("Supportive", "Neutral", "Mixed", "Unsupportive", 
+                                          "Don't Know"))) %>%
+  drop_na(support_status) %>% 
+  ggplot(aes(x = n, group = support_status)) +
+  facet_wrap(~ support_status) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, support_status) %>% 
+  group_by(subid) %>% 
+  count(support_status) %>%
+  mutate(support_status = if_else(support_status == "Dont Know", 
+                                  "Don't Know", support_status)) %>% 
+  mutate(support_status = factor(support_status,
+                               levels = c("Supportive", "Neutral", "Mixed", "Unsupportive", 
+                                          "Don't Know"))) %>%
+  ungroup() %>% 
+  group_by(support_status) %>% 
+  drop_na(support_status) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Do they know about your recovery goals and if so are they supportive?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 5. Do they know about your recovery and if so are they supportive? Distribution of number of contacts each participant has for each response option (Supportive, Neutral, Mixed, Unsupportive, Don't Know). Mean number of contacts is depicted as the solid red line.
+
+
+
+```{r fig.height = 3}
+# figure 6
+data_context %>% 
+  select(subid, contact_experience) %>% 
+  group_by(subid) %>% 
+  count(contact_experience) %>%
+  mutate(contact_experience = factor(contact_experience,
+                               levels = c("Pleasant", "Neutral", "Mixed", "Unpleasant"))) %>%
+  drop_na(contact_experience) %>% 
+  ggplot(aes(x = n, group = contact_experience)) +
+  facet_wrap(~ contact_experience, nrow = 1) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_experience) %>% 
+  group_by(subid) %>% 
+  count(contact_experience) %>%
+  mutate(contact_experience = factor(contact_experience,
+                               levels = c("Pleasant", "Neutral", "Mixed", "Unpleasant"))) %>%
+  ungroup() %>% 
+  group_by(contact_experience) %>% 
+  drop_na(contact_experience) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "How would you describe your typical experience with this person?") +
+  xlab("number of contacts per participant")
+```
+
+Figure 6. How would you describe your typical experience with this person? Distribution of number of contacts each participant has for each response option (Pleasant, Neutral, Mixed, Unpleasant). Mean number of contacts is depicted as the solid red line.
+  
 
 ## Best Model Performance 
 
@@ -793,7 +992,7 @@ We optimized each statistical algorithm by tuning hyperparameter values and trai
 
 Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we retrained the top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 cv). This means we trained our model configuration on 100 different subsets of data and predicted on the held out validation set. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 5 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 6 characterizes our best model configuration over several metrics appropriate for classification.   
 
-Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model configuration's performance compared to a null model configuration (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our top model configuration was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our selected model configuration and a null model configuration with no signal. 
+Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model configuration's performance compared to a null model configuration (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our top model configuration was above the Region of Practical Equivalence (ROPE) is .999 (Figure 7). This suggests there is a meaningful difference between our selected model configuration and a null model configuration with no signal. 
 
 In the appendix we show that our best performing model configuration has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times (grouped 10x10 cv) and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.    
 
@@ -927,7 +1126,7 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
 ```
 
 
-Figure 1. Model comparison of best model (passive random forest) and null model (intercept only) configurations. 
+Figure 7. Model comparison of best model (passive random forest) and null model (intercept only) configurations. 
 
   
 
@@ -936,7 +1135,7 @@ Figure 1. Model comparison of best model (passive random forest) and null model 
 
 Our best performing active model configuration (i.e., using all the features available) was a glmnet algorithm using up-sampling. We retrained this model configuration on 100 subsets of data and predicted on the held out validation set 100 times (grouped 10x10 cv). This gave us an averaged balanced accuracy of .60. 
 
-Figure 3 shows the balanced accuracy estimates for passive and active model configurations over the 100 resamples. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that was between the ROPE was .34 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models using active features.  
+Figure 8 shows the balanced accuracy estimates for passive and active model configurations over the 100 resamples. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that was between the ROPE was .34 (Figure 9). This suggests we can predict lapses just as well with only passive features compared to models using active features.  
 
 
 ```{r fig.height = 3}
@@ -968,7 +1167,7 @@ results_best_model %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 2. Histogram of best active (glmnet) and passive (random forest) model configuration balanced accuracies across 100 folds. 
+Figure 8. Histogram of best active (glmnet) and passive (random forest) model configuration balanced accuracies across 100 folds. 
 
 
 ```{r fig.height = 3}
@@ -998,12 +1197,12 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs,
        y = "Posterior Probability")
 ```
 
-Figure 3. Model comparison of the best active (glmnet) and best passive (random forest) model configurations.
+Figure 9. Model comparison of the best active (glmnet) and best passive (random forest) model configurations.
 
 
 ## Top Features
 
-We conducted a permutation test of feature importance to see which features contributed most to our top performing model configuration (passive random forest). Figure 4 shows which features when removed from the model configuration had the greatest effect on performance. 
+We conducted a permutation test of feature importance to see which features contributed most to our top performing model configuration (passive random forest). Figure 10 shows which features when removed from the model configuration had the greatest effect on performance. 
 
 
 ```{r fig.height = 6, fig.width = 8}
@@ -1039,7 +1238,7 @@ vi_best %>%
       labs(y = NULL, title = str_c("Top features for best model (", feat_set, " ", algorithm, ")"))
 ```
 
-Figure 4. Feature importance scores for best performing model configuration (Passive Random Forest). 
+Figure 10. Feature importance scores for best performing model configuration (Passive Random Forest). 
 
 
 
