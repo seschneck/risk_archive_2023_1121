@@ -340,6 +340,220 @@ data_id %>%
   footnote("N = 151")
 ```
 
+```{r}
+# drug and alcohol characteristics
+ data_id %>%
+  summarise(mean = mean(id_age_first_drank, na.rm = TRUE),
+            SD = sd(id_age_first_drank, na.rm = TRUE)) %>%
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_drank_regularly, na.rm = TRUE),
+            SD = sd(id_age_drank_regularly, na.rm = TRUE)) %>%
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_believed_drinking_was_problem, na.rm = TRUE),
+            SD = sd(id_age_believed_drinking_was_problem, na.rm = TRUE)) %>%
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_first_quit_drinking, na.rm = TRUE),
+            SD = sd(id_age_first_quit_drinking, na.rm = TRUE)) %>%
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_number_quit_attempts, na.rm = TRUE),
+            SD = sd(id_number_quit_attempts, na.rm = TRUE)) %>%
+  mutate(var = "Number of Quit Attempts",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_days_per_week_drank_6_mos_before_quit, na.rm = TRUE),
+            SD = sd(id_days_per_week_drank_6_mos_before_quit, na.rm = TRUE)) %>%
+  mutate(var = "Days (per week) Drinking 6 Mos Before Quit Date",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_long_term_residential) %>%
+  mutate(var = case_when(var == "yes" ~ "Long-term residential (6+ mos.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_short_term_residential) %>%
+  mutate(var = case_when(var == "yes" ~ "Short-term residential (< 6 mos.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_outpatient) %>%
+  mutate(var = case_when(var == "yes" ~ "Outpatient",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_indiv_counseling) %>%
+  mutate(var = case_when(var == "yes" ~ "Individual counseling",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_group_counseling) %>%
+  mutate(var = case_when(var == "yes" ~ "Group counseling",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_aa_or_na) %>%
+  mutate(var = case_when(var == "yes" ~ "Alcoholics Anonymous/Narcotics Anonymous",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_other) %>%
+  mutate(var = case_when(var == "yes" ~ "Other",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_aud_medication) %>%
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(id_dsm5_total) %>% 
+  summarise(mean = mean(id_dsm5_total),
+            SD = sd(id_dsm5_total)) %>%
+  mutate(var = "AUD DSM-5 Symptom Count",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_tobacco) %>%
+  mutate(var = case_when(var == 1 ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_cannabis) %>%
+  mutate(var = case_when(var == 1 ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_cocaine) %>%
+  mutate(var = case_when(var == 1 ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_amphetamine) %>%
+  mutate(var = case_when(var == 1 ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_inhalant) %>%
+  mutate(var = case_when(var == 1 ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_sedative) %>%
+  mutate(var = case_when(var == 1 ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_hallucinogen) %>%
+  mutate(var = case_when(var == 1 ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_opioid) %>%
+  mutate(var = case_when(var == 1 ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(id_lifetime_n_drugs_endorsed) %>% 
+  summarise(mean = mean(id_lifetime_n_drugs_endorsed),
+            SD = sd(id_lifetime_n_drugs_endorsed)) %>%
+  mutate(var = "Lifetime Drugs Endorsed",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>%
+  select(var = id_lifetime_drug_injection) %>%
+  mutate(var = if_else(var == "No, never", "No", "Yes")) %>% 
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  kbl(booktabs = TRUE,
+      caption = "History of Lifetime Drug and Alcohol Use",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>%
+  pack_rows("Types of Treatment (Can choose more than 1)", 7, 13, bold = FALSE) %>%
+  pack_rows("Received Medication for AUD", 14, 15, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Use", 17, 24, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Injection", 26, 27, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
+```{r}
+# mental health characteristics
+```
+
+
 
 ## Best Model Performance 
 
