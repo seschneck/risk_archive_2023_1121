@@ -255,6 +255,9 @@ best_model <- results_aggregate %>%
 
 ## Participant Characteristics
 
+Participants were on study for an average of 85 days out of the possible 90 days. Table 1 shows the demographic breakdown for the 151 participants used in our analyses. Table 2 shows the relevant drug and alcohol history for these participants and table 3 characterizes our participants mental health. 
+
+
 ```{r}
 # Demographics Table
 study_dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
@@ -551,15 +554,244 @@ data_id %>%
 
 ```{r}
 # mental health characteristics
+data_id %>% 
+  select(id_scl90_total) %>% 
+  summarise(mean = mean(id_scl90_total),
+            SD = sd(id_scl90_total)) %>%
+  mutate(var = "Total Score") %>%
+  select(var, everything()) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_somatization) %>% 
+  summarise(mean = mean(id_scl90_somatization),
+            SD = sd(id_scl90_somatization)) %>%
+  mutate(var = "Somatization Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_obsess_compuls) %>% 
+  summarise(mean = mean(id_scl90_obsess_compuls),
+            SD = sd(id_scl90_obsess_compuls)) %>%
+  mutate(var = "Obsessive-compulsive Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_interpers_sensibility) %>% 
+  summarise(mean = mean(id_scl90_interpers_sensibility),
+            SD = sd(id_scl90_interpers_sensibility)) %>%
+  mutate(var = "Interpersonal Sensibility Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_depression) %>% 
+  summarise(mean = mean(id_scl90_depression),
+            SD = sd(id_scl90_depression)) %>%
+  mutate(var = "Depression Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_anxiety) %>% 
+  summarise(mean = mean(id_scl90_anxiety),
+            SD = sd(id_scl90_anxiety)) %>%
+  mutate(var = "Anxiety Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_anger_hostility) %>% 
+  summarise(mean = mean(id_scl90_anger_hostility),
+            SD = sd(id_scl90_anger_hostility)) %>%
+  mutate(var = "Anger-hostility Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_phobic_anxiety) %>% 
+  summarise(mean = mean(id_scl90_phobic_anxiety),
+            SD = sd(id_scl90_phobic_anxiety)) %>%
+  mutate(var = "Phobic-anxiety Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_somatization) %>% 
+  summarise(mean = mean(id_scl90_somatization),
+            SD = sd(id_scl90_somatization)) %>%
+  mutate(var = "Somatization Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_paranoid) %>% 
+  summarise(mean = mean(id_scl90_paranoid),
+            SD = sd(id_scl90_paranoid)) %>%
+  mutate(var = "Paranoid Ideation Subscale") %>%
+  select(var,everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_psychoticism) %>% 
+  summarise(mean = mean(id_scl90_psychoticism),
+            SD = sd(id_scl90_psychoticism)) %>%
+  mutate(var = "Psychoticism Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_ius_total) %>% 
+  summarise(mean = mean(id_ius_total),
+            SD = sd(id_ius_total)) %>%
+  mutate(var = "Intolerance of Uncertainty") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_asi3_total) %>% 
+  summarise(mean = mean(id_asi3_total),
+            SD = sd(id_asi3_total)) %>%
+  mutate(var = "Total Score") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_phys_concerns) %>% 
+  summarise(mean = mean(id_asi3_phys_concerns),
+            SD = sd(id_asi3_phys_concerns)) %>%
+  mutate(var = "Physical Concerns Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_cog_concerns) %>% 
+  summarise(mean = mean(id_asi3_cog_concerns),
+            SD = sd(id_asi3_cog_concerns)) %>%
+  mutate(var = "Cognitive Concerns Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_soc_concerns) %>% 
+  summarise(mean = mean(id_asi3_soc_concerns),
+            SD = sd(id_asi3_soc_concerns)) %>%
+  mutate(var = "Social Concerns Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_dts_total) %>% 
+  summarise(mean = mean(id_dts_total),
+            SD = sd(id_dts_total)) %>%
+  mutate(var = "Distress Tolerance Scale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_prob_solving ) %>% 
+  summarise(mean = mean(id_fad_prob_solving ),
+            SD = sd(id_fad_prob_solving )) %>%
+  mutate(var = "Problem Solving Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_communication) %>% 
+  summarise(mean = mean(id_fad_communication),
+            SD = sd(id_fad_communication)) %>%
+  mutate(var = "Communications Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_roles) %>% 
+  summarise(mean = mean(id_fad_roles),
+            SD = sd(id_fad_roles)) %>%
+  mutate(var = "Roles Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_affective_resp) %>% 
+  summarise(mean = mean(id_fad_affective_resp),
+            SD = sd(id_fad_affective_resp)) %>%
+  mutate(var = "Affective Responsiveness Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_affective_involv) %>% 
+  summarise(mean = mean(id_fad_affective_involv),
+            SD = sd(id_fad_affective_involv)) %>%
+  mutate(var = "Affective Involvement Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_behavior_control) %>% 
+  summarise(mean = mean(id_fad_behavior_control),
+            SD = sd(id_fad_behavior_control)) %>%
+  mutate(var = "Behavior Control Subscale") %>%
+  select(var,everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_gen_functioning) %>% 
+  summarise(mean = mean(id_fad_gen_functioning),
+            SD = sd(id_fad_gen_functioning)) %>%
+  mutate(var = "General Functioning Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_wellbeing) %>% 
+  summarise(mean = mean(id_mps_wellbeing),
+            SD = sd(id_mps_wellbeing)) %>%
+  mutate(var = "Wellbeing Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_social_potency) %>% 
+  summarise(mean = mean(id_mps_social_potency),
+            SD = sd(id_mps_social_potency)) %>%
+  mutate(var = "Social Potency Subscale") %>%
+  select(var,everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_achievement) %>% 
+  summarise(mean = mean(id_mps_achievement),
+            SD = sd(id_mps_achievement)) %>%
+  mutate(var = "Achievement Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_social_closeness) %>% 
+  summarise(mean = mean(id_mps_social_closeness),
+            SD = sd(id_mps_social_closeness)) %>%
+  mutate(var = "Social Closeness Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_stress_reaction) %>% 
+  summarise(mean = mean(id_mps_stress_reaction),
+            SD = sd(id_mps_stress_reaction)) %>%
+  mutate(var = "Stress Reaction Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_alienation) %>% 
+  summarise(mean = mean(id_mps_alienation),
+            SD = sd(id_mps_alienation)) %>%
+  mutate(var = "Alienation Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_aggression) %>% 
+  summarise(mean = mean(id_mps_aggression),
+            SD = sd(id_mps_aggression)) %>%
+  mutate(var = "Aggression Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_control) %>% 
+  summarise(mean = mean(id_mps_control),
+            SD = sd(id_mps_control)) %>%
+  mutate(var = "Control Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_harm_avoidance) %>% 
+  summarise(mean = mean(id_mps_harm_avoidance),
+            SD = sd(id_mps_harm_avoidance)) %>%
+  mutate(var = "Harm Avoidance Subscale") %>%
+  select(var, everything()), by = c("var",  "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_traditionalism) %>% 
+  summarise(mean = mean(id_mps_traditionalism),
+            SD = sd(id_mps_traditionalism)) %>%
+  mutate(var = "Traditionalism Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_absorption ) %>% 
+  summarise(mean = mean(id_mps_absorption ),
+            SD = sd(id_mps_absorption )) %>%
+  mutate(var = "Absorption Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_unlikely_virtues) %>% 
+  summarise(mean = mean(id_mps_unlikely_virtues),
+            SD = sd(id_mps_unlikely_virtues)) %>%
+  mutate(var = "Unlikely Virtues Subscale") %>%
+  select(var, everything()), by = c("var", "mean", "SD")) %>%
+   kbl(booktabs = TRUE,
+      caption = "Mental Health Characterization",
+      col.names = c("", "M", "SD"),
+      align = c("l", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Symptom Checklist 90", 1, 10, bold = FALSE) %>%
+  pack_rows("Anxiety Sensitivity Index", 12, 15, bold = FALSE) %>%
+  pack_rows("McMaster Family Assessment Device", 17, 23, bold = FALSE) %>%
+  pack_rows("Multidimensional Personality Questionnaire Short Form", 24, 35, bold = FALSE) %>%
+  footnote("N = 151")
 ```
 
 
 
 ## Best Model Performance 
 
-We optimized each statistical algorithm by tuning hyperparameter values and training models across several feature set combinations (i.e., active or passive, and type of resampling and feature engineering). Each model configuration was trained using a grouped 10-fold cross-validation (grouped 10-fold cv) resampling method. We selected our top candidate configurations on balanced accuracy. Table 1 shows the best performing model configuration (i.e., highest balanced accuracy) for each statistical algorithm (glmnet, random forest, Knn). We selected the statistical algorithm with highest balanced accuracy to be our top performing model configuration. 
+We optimized each statistical algorithm by tuning hyperparameter values and training models across several feature set combinations (i.e., active or passive, and type of resampling and feature engineering). Each model configuration was trained using a grouped 10-fold cross-validation (grouped 10-fold cv) resampling method. We selected our top candidate configurations on balanced accuracy. Table 4 shows the best performing model configuration (i.e., highest balanced accuracy) for each statistical algorithm (glmnet, random forest, Knn). We selected the statistical algorithm with highest balanced accuracy to be our top performing model configuration. 
 
-Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we retrained the top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 cv). This means we trained our model configuration on 100 different subsets of data and predicted on the held out validation set. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 2 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 3 characterizes our best model configuration over several metrics appropriate for classification.   
+Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we retrained the top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 cv). This means we trained our model configuration on 100 different subsets of data and predicted on the held out validation set. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 5 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 6 characterizes our best model configuration over several metrics appropriate for classification.   
 
 Since we did not have an independent held out test set we were not able to completely remove optimization bias. So, we performed a model comparison to assess our model configuration's performance compared to a null model configuration (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our top model configuration was above the Region of Practical Equivalence (ROPE) is .999 (Figure 2). This suggests there is a meaningful difference between our selected model configuration and a null model configuration with no signal. 
 
@@ -567,7 +799,7 @@ In the appendix we show that our best performing model configuration has variati
 
 
 ```{r}
-# Table 1
+# Table 4
 results_aggregate %>% 
   group_by(algorithm) %>% 
   arrange(desc(bal_accuracy)) %>% 
@@ -595,7 +827,7 @@ results_aggregate %>%
 
 
 ```{r}
-# Table 2
+# Table 5
 results_best_model <- vroom(here(path_models, "results_best_model.csv"),
                                    col_types = vroom::cols())
 
@@ -628,7 +860,7 @@ tibble(Prediction = c("no", "yes"),
 
 
 ```{r}
-# Table 3
+# Table 6
 results_best_model %>%
   summarise(`balanced accuracy` = mean(bal_accuracy),
             accuracy = mean(accuracy),
@@ -915,6 +1147,15 @@ Figure A1. Predicted probabilities of lapse for each participant. A grouped 10x1
 
 # Discussion
 
+
+ideas: 
+- more feature engineering. For example just based on the hour we are predicting for we can get similar accuracy (temporal features). We also have not fully used context to its potential. Also are not using the vast amounts of information from the ID variables (tables 1-3). This was in an effort to reduce the high dimensionality of the feature matrix and isolate the predictive value of meta logs.  
+
+- no ppv - day level predictions 
+
+- lag (models with different lags - 0 lag for immediate interventions but other interventions will benefit from other lags)
+
+- starting steps to not just detect lapse but when to intervene (context bandits, microinterventions)
 
 \newpage
 
