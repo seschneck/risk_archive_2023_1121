@@ -115,6 +115,7 @@ library(kableExtra)
 library(lubridate)
 library(ggplot2)
 library(ggforce)
+theme_set(theme_classic())
 
 source(here("meta/fun_meta.R"))
 source(here("../lab_support/chtc/fun_chtc.R"))
@@ -386,57 +387,22 @@ Figure 1. Model comparison of best model (passive random forest) and null model 
 
 ## Model Comparison between Active and Passive
 
-Our best performing active model using all the features available was a glmnet algorithm with a balanced accuracy of XX. Table 4 characterizes our best active model using various performance metrics. Figure 3 shows the balanced accuracy estimates for passive and active models over 100 fits. 
+Our best performing active model using all the features available was a glmnet algorithm with a balanced accuracy of .60. Table 4 characterizes our best active model using various performance metrics. Figure 3 shows the balanced accuracy estimates for passive and active models over 100 fits. 
 
-A Bayesian correlated t-test revealed there were no differences between the best active and best passive models. The posterior probability that was between the ROPE was .19 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models with active features.  
+A Bayesian correlated t-test revealed there were no differences between the best active and best passive models. The posterior probability that was between the ROPE was .34 (Figure 4). This suggests we can predict lapses just as well with only passive features compared to models with active features.  
 
-<!--JJC: I don't think this table is necessary
 
-```{r}
-# Table 4
+```{r fig.height = 3}
 best_active <- results_aggregate %>%
   filter(feature_set == "feat_all") %>%
   slice_max(bal_accuracy)
 
 results_best_active <- vroom(here(path_models, "results_best_active.csv"),
-                                   col_types = vroom::cols()) %>% 
-  select(-feature_set)
+                                   col_types = vroom::cols()) 
 
 preds_best_active <- vroom(here(path_models, "preds_best_active.csv"),
                                  col_types = vroom::cols())
 
-cm <- preds_best_model %>%
-  mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
-         pred_class = factor(pred_class, levels = c("no", "yes")),
-         y = factor(y, levels = c("no", "yes"))) %>%
-  conf_mat(y, pred_class)
-
-results_best_active %>%
-  summarise(`balanced accuracy` = mean(bal_accuracy),
-            accuracy = mean(accuracy),
-            sens = mean(sens),
-            spec = mean(spec)) %>%
-  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
-  bind_rows(cm %>%
-  summary(event_level = "second") %>%
-  select(metric = .metric, estimate = .estimate) %>%
-  filter(metric %in% c("ppv", "npv"))) %>%
-  bind_rows(results_best_active %>% 
-              summarise(`area under the ROC curve` = mean(roc_auc)) %>% 
-              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>% 
-  apa_table(digits = 2,
-            caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds")
-# kbl(booktabs = TRUE,
-#     digits = 2,
-#     caption = "Classification Performance Metrics for Best Active Model (glmnet) across 100 Folds") %>%
-#   kable_styling() %>% 
-#   pack_rows(start_row = 3, end_row = 6, indent = FALSE) %>% 
-#   pack_rows(start_row = 7, end_row = 7, indent = FALSE)
-```
-
--->
-
-```{r fig.height = 3}
 results_best_model %>%
   bind_rows(results_best_active) %>% 
   rename(feature_set = rec) %>% 
@@ -455,7 +421,7 @@ results_best_model %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 2. Histogram of model fits across 100 folds. (FIX: 14 folds still running so only 86 splits in active)
+Figure 2. Histogram of best active (glmnet) and passive (random forest) model fits across 100 folds. 
 
 
 ```{r fig.height = 3}
@@ -485,12 +451,12 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs,
        y = "Posterior Probability")
 ```
 
-Figure 3. Model comparison of the best passive (random forest) and best active (glmnet) models.
+Figure 3. Model comparison of the best active (glmnet) and best passive (random forest) models.
 
 
 ## Top Features
 
-We conducted a permutation test of feature importance to see which features contributed most to our top performing model. Figure 4 shows which features when removed from the model had the greatest effect on performance. Figure 5 shows the top features for the best active model.
+We conducted a permutation test of feature importance to see which features contributed most to our top performing model. Figure 4 shows which features when removed from the model had the greatest effect on performance. 
 
 
 ```{r fig.height = 5, fig.width = 8}
@@ -528,22 +494,6 @@ vi_best %>%
 
 Figure 4. Feature importance scores for best performing model (Passive Random Forest). 
 
-
-
-```{r fig.height = 3}
-vi_active <- read_rds(here(path_models, str_c("vi_glmnet.rds")))
-vi_active %>%
-      mutate(Variable = str_remove(Variable, ".passive"),
-             Variable = str_remove(Variable, ".l0"),
-             Variable = fct_reorder(Variable, Importance)) %>%
-      filter(Importance != 0) %>%
-      ggplot(aes(x = Importance, y = Variable)) +
-      geom_col(color = "black", fill = "light grey") +
-      scale_x_continuous(expand = c(0, 0)) +
-      labs(y = NULL, title = "Top features for best active model (glmnet)")
-```
-
-Figure 5. Feature importance scores for best performing active model (glmnet). 
 
 
 # Appendix
