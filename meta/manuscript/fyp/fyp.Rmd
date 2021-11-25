@@ -282,7 +282,8 @@ On average participants had about 32 contacts (*SD* = 22) they frequently commun
 study_dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
   mutate(across(study_start:ema_end, ~with_tz(., tzone = "America/Chicago"))) 
 data_id <- vroom::vroom(here(path_meta, "static_features.csv"), col_types = vroom::cols()) %>%
-  mutate(id_quit_date = with_tz(id_quit_date, tzone = "America/Chicago")) 
+  mutate(id_quit_date = with_tz(id_quit_date, tzone = "America/Chicago")) %>% 
+  filter(subid %in% study_dates$subid)
 
 data_id %>% 
   summarise(mean = as.character(round(mean(id_age, na.rm = TRUE), 1)),
