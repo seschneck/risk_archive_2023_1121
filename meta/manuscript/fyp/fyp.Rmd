@@ -1145,7 +1145,7 @@ Figure 9. Model comparison of best model (passive random forest) and null model 
 
 Our best performing active model configuration (i.e., using all the features available) was a glmnet algorithm using up-sampling. We retrained this model configuration on 100 subsets of data and predicted on the held out validation set 100 times (grouped 10x10 CV). This gave us an averaged balanced accuracy of .60. 
 
-Figure 10 shows the balanced accuracy estimates for passive and active model configurations over the 100 resamples. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that our active model performed meaningfully better (i.e., to the right of the ROPE) than the passive model was .37 (Figure 11).  Thus, there is not strong evidence to support the collection of context to calculate active features at this point.  
+Figure 10 shows the balanced accuracy estimates for passive and active model configurations over the 100 held-out validation sets. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that our active model performed meaningfully better (i.e., to the right of the ROPE) than the passive model was .37 (Figure 11).  Thus, there is not strong evidence to support the collection of context to calculate active features at this point.  
 
 
 ```{r fig.height = 3}
@@ -1177,7 +1177,7 @@ results_best_model %>%
   summarise(mean_ba = mean(bal_accuracy)), color = "red3")
 ```
 
-Figure 10. Histogram of best active (glmnet) and passive (random forest) model configuration balanced accuracies across 100 folds. 
+Figure 10. Histogram of best active (glmnet) and passive (random forest) model configuration balanced accuracies across 100 validation sets. 
 
 
 ```{r fig.height = 3}
@@ -1253,21 +1253,23 @@ Figure 12. Feature importance scores for best performing model configuration (Pa
 
 # Discussion
 
+The analyses in this paper make up the initial analyses for our study into how cellular communications and context can be used for alcohol lapse probability prediction. As of now, our top performing model configuration shows there is signal in the passive communication logs. However, it is far from achieving the level of precision necessary for clinical implementation. We especially see this with its poor positive predictive value. We know that positive predictive value is greatly impacted by imbalanced outcomes. Predicting at the level of the hour dramatically increases this imbalance. It is possible that with our data we may be more successful building models that predict lapse probability at the level of the day.
 
-ideas: 
-- more feature engineering. For example just based on the hour we are predicting for we can get similar accuracy (temporal features). We also have not fully used context to its potential. Also are not using the vast amounts of information from the ID variables (tables 1-3). This was in an effort to reduce the high dimensionality of the feature matrix and isolate the predictive value of meta logs.  Temporal lapse features could be added
+Surprisingly we found that active model configurations did not perform better than passive model configurations. One possible explanation for this is the high dimensional space that the active model configurations were being trained in. Whereas the passive models were only given 122-244 features, the active models were given up to 5,488 features. This is an especially large ratio of predictors to observations when we consider we are training our models on only about 18,500 observations (9/10ths of 20,580). It is possible that using this large number of features resulted in the model configurations overfitting to noise in the data. Thus, when making predictions on new data the performance suffered.
 
-- models quickly become high dimensionsal and complex. Need to put more thought into feature engineering.
+The feature importance plot shows that there are only a handful of features with substantial impact. With the features that do rank as highly important, we have no way of knowing which direction it is predictive of. For example, our top two features were the percent rate of incoming and outgoing text messages over the past six hours. This suggests that changes in frequency of text messaging over short time windows are highly related to lapse probability. What we don't know is whether increased text messaging is a protective factor or a risk factor when it comes to lapses. This is one difficulty that comes with trying to interpret less interpretable algorithms like random forest. One way we might be able to evaluate the direction of these predictors is to use partial regression plots. This would allow us to see the residuals of a model regressing the outcome label on all predictors except for the one of interest against the residuals of the predictor of interest regressed on all other predictors. 
 
-- Will also add other signals like text message content and geoposition.   Could add EMA but that might be too burdensome for long term implementation
+The most notable area for improving our models, however, is at the feature engineering stage. There are several additional ways we might be able to captilize on the data available to us. We opted to not use demographic, drug and alcohol use, and mental health characteristics of our participants (Tables 1-3) in an effort to reduce the number of features and focus on the predictive value of communication logs and context. Feature sets quickly become high dimensional and complex when adding these data. Therefore, the solution may be to put more thought into specific combinations of features or use other algorithms that may be more adept at handling this high dimensionality. In addition to participant characterization. We can likely gain good signal from temporal characteristics of the label. We might hypothesize that lapses are more common at night or on weekends. Therefore, the hour we are predicting on itself might serve as a predictor. 
 
-- no ppv - day level predictions 
+Although the present findings suggest there was no added value from active context. It is possible we are not using context to its full potential. Additional feature engineering that involves condensing response options to fewer groups, adding interactions between context and demographic or other static variables, examining different temporal windows, and using alternative statistics to describe the features could all serve to more efficiently extract lapse prediction signal. 
 
-- lag (models with different lags - 0 lag for immediate interventions but other interventions will benefit from other lags)
+We can also imagine that cellular communication signal could become much stronger if we also used the participant's own language (i.e., text message content) or we knew where the participant had recently been (i.e., geolocation). These are signals that we currently have access to and plan to implement as we build and train similar models. If we find that a combination of raw data streams are most effective for lapse probability prediction it would be no more difficult on the individual providing the data. All three of these data sources (communication logs, text message content, and geolocation) are passively sensed suggesting it is no more burdensome to collect all three data streams compared to just communication logs. 
 
-- starting steps to not just detect lapse but when to intervene (context bandits, microinterventions)
+As we have implied, a successful predictive algorithm that is able to detect when a lapse will occur using personal sensing is an important first step in improving digital therapeutics. The second step is to determine when to intervene and what intervention to provide. The present study predicts the onset of a lapse to the hour (0 lag). While this may be an important algorithm for deploying immediate interventions (e.g., urge surfing, connection to a sponsor) it may be too late for other interventions (e.g., seeing your therapist). Future research should look at varying lag windows that can predict a day or week out from a lapse. Once we know the optimal time window to intervene, we can then begin to look at treatment matching. Contextual bandit machine learning models can be used to help solve the issue of which treatment is right for an individual given what we know about them from their data. Micro-randomized trials can then be used to systematically evaluate the selected treatment's efficacy at a series of decision points. 
 
-- Use partial plots to determine which direction a feature is predicting for our top features
+Clearly there is much more work to be done in this area. However, our study provides a starting point that establishes cellular communication logs have predictive signal and that passive features can potentially be as effective as more active features.  
+
+
 
 
 
