@@ -19,28 +19,12 @@ affiliation:
     institution   : "Department of Psychology, University of Wisconsin-Madison"
 
 authornote: |
-  Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
-
-  Enter author note here.
 
 abstract: |
-  One or two sentences providing a **basic introduction** to the field,  comprehensible to a scientist in any discipline.
+ Alcohol use disorder is a chronic relapsing disease. People with alcohol use disorder must often monitor there risk of relapsing for years. Lapses occur when a person with a goal of abstinence has a drink. These are often referred to as a slip and in isolation are not indicative of relapse. Lapses are, however, often an early warning sign of relapse. People with alcohol use disorder can have difficulty recognizing when they are at a high probability of lapsing. Current digital therapeutics aimed to treat and monitor alcohol and substance use disorders provide treatment resources for people, but they are not able to helpful in identifying periods of high risk in real time. Personal sensing can be used to improve digital therapeutics by adding this temporal element - when is someone likely to lapse. Our study uses a novel method by combing a passive personal sensing data stream (cellular communication logs) with a more active data stream (self-reported context about communications). Here we show that cellular communication logs likely contain signal related to lapse risk. Additionally, our findings suggest that passively sensed data streams can potentially be as effective as more active data streams. This work sets the foundation for future research into optimizing digital therapeutics for long term lapse risk monitoring. 
+
   
-  Two to three sentences of **more detailed background**, comprehensible  to scientists in related disciplines.
-  
-  One sentence clearly stating the **general problem** being addressed by  this particular study.
-  
-  One sentence summarizing the main result (with the words "**here we show**" or their equivalent).
-  
-  Two or three sentences explaining what the **main result** reveals in direct comparison to what was thought to be the case previously, or how the  main result adds to previous knowledge.
-  
-  One or two sentences to put the results into a more **general context**.
-  
-  Two or three sentences to provide a **broader perspective**, readily comprehensible to a scientist in any discipline.
-  
-  <!-- https://tinyurl.com/ybremelq -->
-  
-keywords          : "keywords"
+keywords          : "personal sensing, digital phenotyping, alcohol use disorder, cellular communication logs, text messages"
 wordcount         : "X"
 
 bibliography: meta.bib
@@ -61,7 +45,6 @@ output            : papaja::apa6_pdf
 header-includes:
   - \raggedbottom
   - \usepackage{booktabs}
-  - \definecolor{lightred}{rgb}{1.0, 0.6, 0.6}
   
 knit: (function(input, ...) {
     rmarkdown::render(
@@ -73,9 +56,9 @@ knit: (function(input, ...) {
   })
 ---
 
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# Packages for lab workflow 
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
@@ -83,9 +66,9 @@ conflict_prefer("select", "dplyr")
 library(here)  # establish project directory consistently as working directory
 ```
 
-Absolute paths
-```{r, paths}
 
+```{r, paths}
+# Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
@@ -100,15 +83,16 @@ switch (Sys.info()[['sysname']],
 ```
 
 
-Relative paths
+
 ```{r}
+# Relative paths
 path_models <- "meta/ana_scripts/model_output"
 path_meta <- "P:/studydata/risk/data_processed/meta"
 path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
-Packages & Source
 ```{r setup, include = FALSE}
+#Packages & Source
 library("papaja")
 library(tidyverse)
 library(tidymodels)
@@ -142,14 +126,14 @@ best model configuration)
 ## Alcohol Use Disorder
 Paragraph on harms/costs/frequency of AUD
 
-Alcohol Use Disorder is a chronic relapsing disease [@rounsavilleLapseRelapseChasing2010; @scottPathwaysRelapsetreatmentrecoveryCycle2005]. People can relapse days, weeks, months, or even years after achieving abstinence [@witkiewitzLapsesFollowingAlcohol2008; @jinPredictorsRelapseLongterm1998; @anderssonRelapseInpatientSubstance2018; @millerHowEffectiveAlcoholism2001]. Lapses, an initial setback or slip, are often an early warning sign of relapse, a full return to previous drinking behavior [@witkiewitzRelapsePreventionAlcohol2004]. Studies show that lapses predict future lapses, with more frequent lapses resulting in increased chances of relapse [@rounsavilleLapseRelapseChasing2010]. Likewise, longer durations of abstinence is associated with decreased chances of lapse, suggesting the stability of a patient’s recovery itself as an important predictor of abstinence [@rounsavilleLapseRelapseChasing2010]. In fact, the most important predictor of relapse is whether the individual has already had a lapse during treatment [@hogstrombrandtPredictionSingleEpisodes1999]. This high correlation between an initial lapse and relapse is the abstinence violation effect, which states that people who internalize feelings of loss of control, guilt, and hopelessness after violating a self-imposed rule (i.e., abstinence) have a greater risk of relapse compared to those who view the lapse as external and controllable [@marlattRelapsePreventionAlcohol; @hogstrombrandtPredictionSingleEpisodes1999]. Thus, identifying when an initial lapse will occur is an important goal in preventing lapses, repeated lapses, and relapse. 
+Alcohol use disorder is a chronic relapsing disease [@rounsavilleLapseRelapseChasing2010; @scottPathwaysRelapsetreatmentrecoveryCycle2005]. People can relapse days, weeks, months, or even years after achieving abstinence [@witkiewitzLapsesFollowingAlcohol2008; @jinPredictorsRelapseLongterm1998; @anderssonRelapseInpatientSubstance2018; @millerHowEffectiveAlcoholism2001]. Lapses, an initial setback or slip, are often an early warning sign of relapse, a full return to previous drinking behavior [@witkiewitzRelapsePreventionAlcohol2004]. Studies show that lapses predict future lapses, with more frequent lapses resulting in increased chances of relapse [@rounsavilleLapseRelapseChasing2010]. Likewise, longer durations of abstinence is associated with decreased chances of lapse, suggesting the stability of a patient’s recovery itself as an important predictor of abstinence [@rounsavilleLapseRelapseChasing2010]. In fact, the most important predictor of relapse is whether the individual has already had a lapse during treatment [@hogstrombrandtPredictionSingleEpisodes1999]. This high correlation between an initial lapse and relapse is the abstinence violation effect, which states that people who internalize feelings of loss of control, guilt, and hopelessness after violating a self-imposed rule (i.e., abstinence) have a greater risk of relapse compared to those who view the lapse as external and controllable [@marlattRelapsePreventionAlcohol; @hogstrombrandtPredictionSingleEpisodes1999]. Thus, identifying when an initial lapse will occur is an important goal in preventing lapses, repeated lapses, and relapse. 
 
-Like most mental health disorders, Alcohol Use Disorder can be characterized by fluctuations in affective and behavioral states that covary with the severity of the underlying disorder and impact its treatment. The ability to detect these changes offers the opportunity to selectively deliver different interventions to patients that match their needs in that moment.  For example, during periods of stability, patients in recovery from Alcohol Use Disorder might benefit from interventions that help them modify their social network and daily activities to include more time with family and friends who support their recovery. In contrast, during times of peak stress and associated alcohol craving, they might need focused interventions that prevent an imminent lapse back to alcohol use. 
+Like most mental health disorders, alcohol use disorder can be characterized by fluctuations in affective and behavioral states that covary with the severity of the underlying disorder and impact its treatment. The ability to detect these changes offers the opportunity to selectively deliver different interventions to patients that match their needs in that moment.  For example, during periods of stability, patients in recovery from alcohol use disorder might benefit from interventions that help them modify their social network and daily activities to include more time with family and friends who support their recovery. In contrast, during times of peak stress and associated alcohol craving, they might need focused interventions that prevent an imminent lapse back to alcohol use. 
 
 ## Lapse Risk Factors
 Lapses may seem to come out of nowhere, but they are often preceded by changes in cognitive (e.g., negative affect, craving), situational (e.g., lack of social support, risky situations), and behavioral (e.g., decreased social interactions, coping strategies) factors [@rounsavilleLapseRelapseChasing2010; @jinPredictorsRelapseLongterm1998; @anderssonRelapseInpatientSubstance2018]. 
 
-These risk factors are known as proximal risk factors that are fluid and change over time (much like how mental health disorder symptoms can ebb and flow through periods of stability and periods of lapse) [@rounsavilleLapseRelapseChasing2010; @witkiewitzLapsesFollowingAlcohol2008]. Proximal risk factors contrast distal risk factors - stable states or traits that contribute to a mental health disorder, but do not change much over time. For example, one’s genetic makeup, the presence of co-occurring psychopathology, or Alcohol Use Disorder severity may contribute to whether one is predisposed to Alcohol Use Disorder, but they are less involved in the cyclical nature of lapses [@huffordRelapseNonlinearDynamic2003]. On the other hand, fluctuations in proximal factors often precipitate a lapse [@witkiewitzRelapsePreventionAlcohol2004; @chihPredictiveModelingAddiction2014; @larimerRelapsePrevention1999]. But due to the dynamic nature of these factors, traditional treatments (e.g., monthly therapy or counseling sessions) may not be best suited for monitoring for changes in lapse risk. 
+These risk factors are known as proximal risk factors that are fluid and change over time (much like how mental health disorder symptoms can ebb and flow through periods of stability and periods of lapse) [@rounsavilleLapseRelapseChasing2010; @witkiewitzLapsesFollowingAlcohol2008]. Proximal risk factors contrast distal risk factors - stable states or traits that contribute to a mental health disorder, but do not change much over time. For example, one’s genetic makeup, the presence of co-occurring psychopathology, or alcohol use disorder severity may contribute to whether one is predisposed to alcohol use disorder, but they are less involved in the cyclical nature of lapses [@huffordRelapseNonlinearDynamic2003]. On the other hand, fluctuations in proximal factors often precipitate a lapse [@witkiewitzRelapsePreventionAlcohol2004; @chihPredictiveModelingAddiction2014; @larimerRelapsePrevention1999]. But due to the dynamic nature of these factors, traditional treatments (e.g., monthly therapy or counseling sessions) may not be best suited for monitoring for changes in lapse risk. 
 
 Not all proximal risk factors are detectable within the same time window. Situational factors, such as passing a bar or being around people who are drinking may immediately precede a lapse. Other stressors, such as getting upsetting news from a family member or increased financial strain, may slowly increase lapse risk over hours, days or weeks. Thus, a system for continuously monitoring a person's lapse risk is critical in detecting when someone will lapse. 
 
@@ -193,9 +177,9 @@ This project performs the initial analyses on a subset of data collected from 20
 We value the principles of research transparency that are essential to the robustness and reproducibility of science [@schonbrodtVoluntaryCommitmentResearch2015]. Consequently, we maximized transparency by reporting all data exclusions, manipulations, and available measures in the study [@simmons21WordSolution2012]. We also made the data, analysis scripts and annotated results, self-report surveys, and other study materials associated with this study publicly available [<https://osf.io/brs68/>].
 
 ## Participants
-We recruited a community sample of people in initial stages of recovery for Alcohol Use Disorder from the Madison area. Avenues of recruitment included referrals from clinics, self-help groups, Facebook, radio, and television. Those who were interested in participating in our three-month study were given a brief description (i.e., told that our research focused on learning how mobile health technology can be used to provide individual support to anyone recovering from alcohol addiction) a short phone screen to determine initial eligibility (i.e., At least 18 years old, ability to read and write in English, and an eligible smartphone with existing cellphone plan).
+We recruited a community sample of people in initial stages of recovery for alcohol use disorder from the Madison area. Avenues of recruitment included referrals from clinics, self-help groups, Facebook, radio, and television. Those who were interested in participating in our three-month study were given a brief description (i.e., told that our research focused on learning how mobile health technology can be used to provide individual support to anyone recovering from alcohol addiction) a short phone screen to determine initial eligibility (i.e., At least 18 years old, ability to read and write in English, and an eligible smartphone with existing cellphone plan).
 
-One hundred ninety-two participants met criteria for enrollment after completing a more detailed in-person screening visit (Figure 1). We excluded potential participants if they did not meet the criteria for moderate or severe Alcohol Use Disorder (as defined by the DSM-5), did not have a goal of long-term abstinence, had not abstained from alcohol for at least one week, already had over two months of abstinence, or had severe symptoms of psychosis or paranoia. One hundred ninety-one participants consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Of the 169 participants enrolled in the study, 154 provided at least one month of communication logs and EMA surveys. This was an additional requirement for the current study because cellphone communications were collected at each one month follow-up. We dropped data from three participants due to concerns about the quality of their data. These exclusions occurred during the cleaning process and prior to any analyses. Our final analyses were on a sample of 151 participants. 
+One hundred ninety-two participants met criteria for enrollment after completing a more detailed in-person screening visit (Figure 1). We excluded potential participants if they did not meet the criteria for moderate or severe alcohol use disorder (as defined by the DSM-5), did not have a goal of long-term abstinence, had not abstained from alcohol for at least one week, already had over two months of abstinence, or had severe symptoms of psychosis or paranoia. One hundred ninety-one participants consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Of the 169 participants enrolled in the study, 154 provided at least one month of communication logs and EMA surveys. This was an additional requirement for the current study because cellphone communications were collected at each one month follow-up. We dropped data from three participants due to concerns about the quality of their data. These exclusions occurred during the cleaning process and prior to any analyses. Our final analyses were on a sample of 151 participants. 
 
 
 ![](../../ana_scripts/figures/fig_disposition.png)
