@@ -1,0 +1,444 @@
+---
+title: "FYP presentation figures"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+
+ 
+
+### Setup
+
+
+Absolute Paths 
+```{r}
+path_models <- "meta/ana_scripts/model_output"
+path_shared <- "P:/studydata/risk/data_processed/shared"
+path_meta <- "P:/studydata/risk/data_processed/meta"
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+# Detect and warn about function conflicts
+# library(conflicted) 
+# conflict_prefer("filter", "dplyr")
+
+# establish project directory consistently as working directory
+library(here)  
+```
+
+Packages and Source
+```{r, message = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(readxl)
+library(lubridate)
+library(janitor)
+library(ggforce)
+
+source(here("meta/fun_meta.R"))
+source(here("../lab_support/chtc/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+```
+
+Global Settings
+```{r}
+theme_set(theme_classic())
+options(tibble.print_max = Inf)
+options(tibble.width = Inf)
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+
+### Data
+```{r}
+logs <- read_rds(here(path_meta, "meta_logs.rds"))
+context <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroom::cols())
+sample <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols())
+```
+
+### phone number example
+```{r}
+set.seed(102030)
+context %>% 
+  slice_sample(n = 30) %>% 
+  select(phone_number) %>% 
+  mutate(phone_number = str_replace(phone_number, "[0-9]{4}$", "XXXX")) 
+
+# logs %>% 
+#   pull(number)
+```
+
+### Participant info
+```{r}
+screen <- read_csv(here(path_shared, "screen.csv"), col_types = cols()) %>% 
+  select(subid:dsm5_11) %>% 
+  filter(subid %in% sample$subid) 
+```
+
+Age
+```{r}
+age <- screen %>% 
+  ggplot(aes(x = dem_1)) +
+  geom_histogram(bins = 20, color = "white", fill = "black") +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA)
+        ) 
+age
+
+min(screen$dem_1)
+max(screen$dem_1)
+mean(screen$dem_1)
+sd(screen$dem_1)
+```
+
+```{r}
+# ggsave(plot = age,  "C:/Users/kpaquette2/Desktop/age.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+```
+
+income
+```{r}
+income <- screen %>% 
+  ggplot(aes(x = dem_7)) +
+  geom_histogram(bins = 20, color = "white", fill = "black") +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA)
+        ) 
+income
+
+min(screen$dem_7)
+max(screen$dem_7)
+mean(screen$dem_7)
+sd(screen$dem_7)
+```
+
+```{r}
+# ggsave(plot = income,  "C:/Users/kpaquette2/Desktop/income.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+```
+
+DSM 5
+```{r}
+dsm5 <- screen %>% 
+  mutate(dsm5_1 = if_else(dsm5_1 == "Yes", 1, 0),
+         dsm5_2 = if_else(dsm5_2 == "Yes", 1, 0),
+         dsm5_3 = if_else(dsm5_3 == "Yes", 1, 0),
+         dsm5_4 = if_else(dsm5_4 == "Yes", 1, 0),
+         dsm5_5 = if_else(dsm5_5 == "Yes", 1, 0),
+         dsm5_6 = if_else(dsm5_6 == "Yes", 1, 0),
+         dsm5_7 = if_else(dsm5_7 == "Yes", 1, 0),
+         dsm5_8 = if_else(dsm5_8 == "Yes", 1, 0),
+         dsm5_9 = if_else(dsm5_9 == "Yes", 1, 0),
+         dsm5_10 = if_else(dsm5_10 == "Yes", 1, 0),
+         dsm5_11 = if_else(dsm5_11 == "Yes", 1, 0)) %>% 
+  mutate(dsm_total = (dsm5_1 + dsm5_2 + dsm5_3 + dsm5_4 + dsm5_5 + dsm5_6 + dsm5_7 + dsm5_8 + dsm5_9 + dsm5_10 + dsm5_11)) 
+
+dsm_plot <- dsm5 %>% 
+  ggplot(aes(x = dsm_total)) +
+  geom_histogram(bins = 12, color = "white", fill = "black") +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), limits = c(1, 12)) +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.background = element_rect(fill = "transparent",colour = NA),
+        plot.background = element_rect(fill = "transparent",colour = NA)
+        ) 
+dsm_plot
+
+min(dsm5$dsm_total)
+max(dsm5$dsm_total)
+mean(dsm5$dsm_total)
+sd(dsm5$dsm_total)
+```
+
+```{r}
+# ggsave(plot = dsm_plot,  "C:/Users/kpaquette2/Desktop/dsm.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+```
+
+### Results 
+```{r}
+# individual results
+results_all <- read_rds(here(path_models, "results_all.rds"))
+
+
+# aggregate results
+results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), 
+                                  col_types = vroom::cols()) 
+
+# best model
+best_model <- results_aggregate %>% 
+  slice_max(bal_accuracy)
+```
+
+Aim 1
+```{r}
+results_aggregate %>% 
+  group_by(algorithm) %>% 
+  arrange(desc(bal_accuracy)) %>% 
+  slice(1) %>% 
+  mutate(feature_set = if_else(feature_set == "feat_all", "active", "passive"),
+         algorithm = str_replace(algorithm, "_", " "),
+         feature_fun_type = str_replace(feature_fun_type, "_", ", "),
+         feature_fun_type = str_replace(feature_fun_type, "perc", "relative"),
+         resample = str_remove(resample, "_1")) %>% 
+  select(algorithm, `feature set` = feature_set, `feature type(s)` = feature_fun_type, 
+         `class resample` = resample, `balanced accuracy` = bal_accuracy) %>% 
+  arrange(desc(`balanced accuracy`)) %>% 
+  apa_table(placement = "pt",
+            caption = "Balanced Accuracy for Best Configurations by Statistical Algorithm",
+            note = "Table reports the best model configuration for each statistical algorithm 
+            in separate rows.  Details about the model configuration are provided in subsequent 
+            columns.  Balanced accuracy was estimated by grouped 10-fold cross validation 
+            during model selection.",
+            digits = 2)
+
+
+results_best_model <- vroom::vroom(here(path_models, "results_best_model.csv"),
+                                   col_types = vroom::cols())
+
+preds_best_model <- vroom::vroom(here(path_models, "preds_best_model.csv"),
+                                 col_types = vroom::cols())
+
+cm <- preds_best_model %>% 
+  mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
+         pred_class = factor(pred_class, levels = c("no", "yes")),
+         y = factor(y, levels = c("no", "yes"))) %>% 
+  conf_mat(y, pred_class)
+ 
+tibble(Prediction = c("no", "yes"),
+       no = c(unlist(tidy(cm)[1, 2]), unlist(tidy(cm)[2, 2])),
+       yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>%
+    apa_table(placement = "pt",
+              caption = "Confusion Matrix for Best Model Configuration",
+              note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Results based on grouped 10x10-fold cross validation.",
+              col_spanners = list("Truth" = c(2, 3)))
+
+results_best_model %>%
+  summarise(`balanced accuracy` = mean(bal_accuracy),
+            accuracy = mean(accuracy),
+            sensitivity = mean(sens),
+            specificity = mean(spec)) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "estimate") %>%
+  bind_rows(cm %>%
+  summary(event_level = "second") %>%
+  select(metric = .metric, estimate = .estimate) %>%
+  filter(metric %in% c("ppv", "npv"))) %>%
+  bind_rows(results_best_model %>%
+              summarise(`Area under the ROC Curve` = mean(roc_auc)) %>%
+              pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>%
+  apa_table(placement = "pt", digits = 2,
+            caption = "Performance Metrics for Best Model Configuration",
+            note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Performance estimated by grouped 10x10-fold cross validation.")
+```
+
+```{r fig.height = 3}
+best_fits <- results_best_model$bal_accuracy
+null_fits <- vroom::vroom(here(path_models, "null_model_fits.csv"), col_types = vroom::cols())$bal_accuracy
+
+rope_min <- -.01
+rope_max <- .01
+plot_min = -.1
+plot_max = .3 
+
+results_ttest <- bayesian_correlated_t_test(best_fits, null_fits,
+                           rope_min = rope_min, 
+                           rope_max = rope_max, 
+                           k = 10, 
+                           plot_min = plot_min, plot_max = plot_max)
+
+best_null_plot <- ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Best - Null Model)",
+       y = "Posterior Probability")
+
+best_null_plot
+
+results_ttest$left
+
+results_ttest$right
+
+results_ttest$rope
+
+
+# ggsave(plot = best_null_plot,  "C:/Users/kpaquette2/Desktop/best_null.png", bg = "transparent", width = 8, height = 5, units = "in", device = "png", dpi = 800)
+```
+
+```{r fig.fullwidth = TRUE, fig.height = 11}
+# average over predictions
+predictions <- preds_best_model %>% 
+  group_by(subid, dttm_label, y) %>% 
+  summarise(mean = mean(pred_yes), .groups = "drop")
+
+# read in study start dates for x-axis
+study_start <- sample %>% 
+  mutate(study_start = with_tz(study_start, tzone = "America/Chicago"),
+         study_end = with_tz(study_end, tzone = "America/Chicago") + days(1)) %>% 
+  select(subid, study_start, study_end)
+
+for(i in 1:nrow(study_start))  {
+  subid_dates <- tibble(subid = study_start$subid[i],
+                        hour = seq(study_start$study_start[i], 
+                                   study_start$study_end[i], "hours"))
+  subid_dates <- subid_dates %>% 
+    mutate(study_hour = seq(1:nrow(subid_dates)))
+  
+  study_dates <- if (i == 1) {
+    subid_dates
+  } else {
+    study_dates %>% 
+      bind_rows(subid_dates)
+  }
+}
+
+predictions <- predictions %>% 
+  left_join(study_dates, by = c("subid", "dttm_label" = "hour"))
+
+# plot
+pred_plot <- predictions %>% 
+  group_by(subid) %>% 
+  ggplot(aes(x = study_hour, y = mean, color = y)) +
+  geom_point(size = .9) +
+  facet_wrap_paginate(~ subid, ncol = 3, nrow = 3, page = 1) + 
+  scale_color_manual(values = c("gray70", "red3")) +
+  theme(legend.position = "none") +
+  ylim(0, 1) +
+  ylab("Predicted Probability of Lapse") +
+  xlab("Hour on Study") +
+  scale_x_continuous(breaks = seq(1, 91*24, 30*24), labels = c("Start", "FU 1", "FU 2", "End")) +
+  geom_hline(yintercept = .5, linetype = "dashed", color = "red3", size = .3)
+
+pred_plot
+# ggsave(plot = pred_plot,  "C:/Users/kpaquette2/Desktop/preds.png", bg = "transparent", width = 8, height = 5, units = "in", device = "png", dpi = 1000)
+```
+
+
+Aim 2
+```{r}
+best_active <- results_aggregate %>%
+  filter(feature_set == "feat_all") %>%
+  slice_max(bal_accuracy)
+
+results_best_active <- vroom::vroom(here(path_models, "results_best_active.csv"),
+                                   col_types = vroom::cols()) 
+
+preds_best_active <- vroom::vroom(here(path_models, "preds_best_active.csv"),
+                                 col_types = vroom::cols())
+
+ap_folds <- results_best_model %>%
+  bind_rows(results_best_active) %>% 
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "Passive (random forest)", "Active (glmnet)")) %>%
+  group_by(feature_set) %>%
+  ggplot(aes(x = bal_accuracy)) +
+  geom_histogram(bins = 20, color = "black", fill = "light grey") +
+  facet_wrap(~ feature_set) +
+  xlab("balanced accuracy") +
+  geom_vline(aes(xintercept = mean_ba), results_best_model %>%
+  bind_rows(results_best_active) %>%
+  rename(feature_set = rec) %>% 
+  mutate(feature_set = if_else(feature_set == "rec_best", "Passive (random forest)", "Active (glmnet)")) %>%
+  group_by(feature_set) %>%
+  summarise(mean_ba = mean(bal_accuracy)), color = "#227AC4", size = .75)
+ap_folds
+
+# ggsave(plot = ap_folds,  "C:/Users/kpaquette2/Desktop/ap_folds.png", bg = "transparent", width = 10, height = 4, units = "in", device = "png", dpi = 2000)
+
+best_passive_fits <- results_best_model$bal_accuracy
+best_active_fits <- results_best_active$bal_accuracy
+
+rope_min <- -.01
+rope_max <- .01
+plot_min = -.20
+plot_max = .20
+
+results_ttest <- bayesian_correlated_t_test(best_active_fits,
+                                            best_passive_fits,
+                                            rope_min = rope_min,
+                                            rope_max = rope_max,
+                                            k = 10,
+                                            plot_min = plot_min,
+                                            plot_max = plot_max)
+
+ap_plot <- ggplot(mapping = aes(x = results_ttest$plot_diffs,
+                                                 y = results_ttest$pdf)) +
+  geom_line() +
+  geom_vline(mapping = aes(xintercept  = rope_min), linetype = "dashed") +
+  geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
+  scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
+  labs(x = "Accuracy Difference (Active - Passive Model)",
+       y = "Posterior Probability")
+
+ap_plot
+
+results_ttest$right
+results_ttest$rope
+results_ttest$left
+
+# ggsave(plot = ap_plot,  "C:/Users/kpaquette2/Desktop/ap_plot.png", bg = "transparent", width = 8, height = 5, units = "in", device = "png", dpi = 800)
+```
+
+Aim 3
+```{r fig.height = 6, fig.width = 8}
+vi_best <- read_rds(here(path_models, str_c("vi_", best_model$algorithm, ".rds")))
+algorithm <- if_else(best_model$algorithm == "random_forest", "random forest",
+                     best_model$algorithm)
+feat_set <- if_else(best_model$feature_set == "feat_all", "active", "passive")
+vi_plot <- vi_best %>% 
+      mutate(Variable = str_remove(Variable, ".passive"),
+             Variable = str_remove(Variable, ".l0"),
+             Variable = str_remove(Variable, ".org"),
+             Variable = str_remove(Variable, ".dttm_obs"),
+             Variable = str_replace(Variable, "pratecount", "perc_rate"),
+             Variable = str_replace(Variable, "rratecount", "raw_rate"),
+             Variable = str_replace(Variable, "pratesum_duration", "perc_sum.duration"),
+             Variable = str_replace(Variable, "pmean_duration", "perc_mean.duration"),
+             Variable = str_replace(Variable, "rmean_duration", "raw_mean.duration"),
+             Variable = str_replace(Variable, "ppropdatetime", "perc_prop"),
+             Variable = str_replace(Variable, "rpropdatetime", "raw_prop"),
+             Variable = str_replace(Variable, "rpropcount", "raw_prop"),
+             Variable = str_replace(Variable, "ppropcount", "perc_prop"),
+             Variable = str_replace(Variable, "p6", "6hrs"),
+             Variable = str_replace(Variable, "p12", "12hrs"),
+             Variable = str_replace(Variable, "p24", "24hrs"),
+             Variable = str_replace(Variable, "p48", "48hrs"),
+             Variable = str_replace(Variable, "p72", "72hrs"),
+             Variable = str_replace(Variable, "p168", "168hrs"),
+             Variable = fct_reorder(Variable, Importance)) %>% 
+      filter(Importance != 0) %>% 
+      ggplot(aes(x = Importance, y = Variable)) +
+      geom_col(color = "black", fill = "light grey") +
+      scale_x_continuous(expand = c(0, 0))
+
+vi_plot
+
+# ggsave(plot = vi_plot,  "C:/Users/kpaquette2/Desktop/vi_plot.png", bg = "transparent", width = 8, height = 7, units = "in", device = "png", dpi = 800)
+```
