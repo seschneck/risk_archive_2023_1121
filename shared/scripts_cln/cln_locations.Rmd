@@ -19,8 +19,8 @@ knit: (function(input, ...) {
 ---
 ### Code status
 
-This script should use the cleaning log if needed
-This script still needs improved EDA
+No cleaning of addresses at this point b/c we only use the GPS coordinates, not addresses
+for feature engineering at this point
 
 
 ### Notes
@@ -30,8 +30,6 @@ individual subject folders, merges them, and then does EDA.   Final clean, merge
 file is saved in shared folder
 
 ### Set up Environment
-
-
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
@@ -74,6 +72,7 @@ library(tidyverse)  # always need this
 library(janitor)
 library(purrr)
 library(readxl)
+library(stringr)
 
 source(here("shared", "fun_risk.R"))  # for merge_excel_files()
 ```
@@ -83,13 +82,82 @@ source(here("shared", "fun_risk.R"))  # for merge_excel_files()
 Import
 ```{r}
 locations <- merge_excel_files("Locations", path_raw) %>% 
-  relocate(subid) %>% 
-  glimpse()
+  relocate(subid)
+```
+
+### Cleaning
+
+Correct case to lower
+```{r}
+locations <- locations %>% 
+  mutate(type = str_to_lower(type),
+         drank = str_to_lower(drank),
+         alcohol = str_to_lower(alcohol),
+         emotion = str_to_lower(emotion),
+         risk = str_to_lower(risk),
+         avoid = str_to_lower(avoid),
+         vacation = str_to_lower(vacation))
+```
+
+Fix errors and mis-spellings
+
+Will also change 
+
+* coffee shop/cafe to cafe
+* gym/fitness center to fitness
+* aa/recovery meeting to aa
+* health care to healthcare
+* home of family member to family
+* home of friend  to friend
+* liquor store to liquorstore 
+```{r}
+locations <- locations %>% 
+  mutate(type = str_replace(type, "coffee shop/cafe", "cafe"),
+         type = str_replace(type, "coffe shop/café", "cafe"),
+         type = str_replace(type, "coffee shop/café", "cafe"),
+         type = str_replace(type, "gym/fitness center", "fitness"),
+         type = str_replace(type, "aa/recovery meeting", "aa"),
+         type = str_replace(type, "health care", "healthcare"),
+         type = str_replace(type, "home of family member", "family"),
+         type = str_replace(type, "home of friend", "friend"),
+         type = str_replace(type, "liquor store", "liquorstore"))
 ```
 
 ### EDA
 
-TO DO
+General
+```{r}
+locations %>% glimpse
+
+locations %>% 
+  pull(subid) %>% 
+  unique() %>% 
+  length()
+
+locations %>% 
+  tabyl(subid) %>% 
+  arrange(n)
+
+locations %>% 
+  tabyl(subid) %>% 
+  summarize(min(n), max(n))
+```
+
+Main context
+```{r}
+locations %>% tabyl(type)
+
+locations %>% 
+  filter(is.na(type)) %>% 
+  print
+
+locations %>% tabyl(drank)
+locations %>% tabyl(alcohol)
+locations %>% tabyl(emotion)
+locations %>% tabyl(risk)
+locations %>% tabyl(avoid)
+locations %>% tabyl(vacation)
+```
 
 
 ### Save final locations file
