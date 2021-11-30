@@ -2,18 +2,7 @@
 title: "Demographic Characteristics for Meta Study"
 author: "Kendra Wyant"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
-output: 
-  html_document:
-    toc: true 
-    toc_depth: 4
-knit: (function(input, ...) {
-    rmarkdown::render(
-      input,
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/meta", 
-      "/Volumes/private/studydata/risk/knits/meta")
-    )
-  })
+output: pdf_document
 ---
 
 
@@ -26,16 +15,12 @@ knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
+options(knitr.kable.NA = '')
 ```
 
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-# library(conflicted) 
-#  conflict_prefer("filter", "dplyr")
-#  conflict_prefer("select", "dplyr")
-#  conflict_prefer("spec", "yardstick")
-
 library(here)  
 ```
 
@@ -87,6 +72,607 @@ data_context <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroo
 
 ### Summarize demographics and study characteristics
 
+```{r}
+dem <- data_id %>% 
+  summarise(mean = as.character(round(mean(id_age, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(id_age, na.rm = TRUE), 1))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(data_id %>% 
+  select(var = id_gender) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_race) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_hispanic) %>% 
+  mutate(var = case_when(var == "no" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_education) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(var = id_employment) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Full-time", "Part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  summarise(mean = as.character(round(mean(id_income, na.rm = TRUE), 0)),
+            SD = as.character(round(sd(id_income, na.rm = TRUE), 0))) %>% 
+  mutate(var = "Income",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(var = id_marrital_status) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never Married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+dem %>% 
+  kbl(booktabs = TRUE,
+      caption = "Demographics",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>%
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>%
+  pack_rows("Education", 11, 16, bold = FALSE) %>%
+  pack_rows("Employment", 17, 25, bold = FALSE) %>%
+  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
+AUD 
+```{r}
+ aud <- data_id %>%
+  summarise(mean = mean(id_age_first_drank, na.rm = TRUE),
+            SD = sd(id_age_first_drank, na.rm = TRUE)) %>%
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_drank_regularly, na.rm = TRUE),
+            SD = sd(id_age_drank_regularly, na.rm = TRUE)) %>%
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_believed_drinking_was_problem, na.rm = TRUE),
+            SD = sd(id_age_believed_drinking_was_problem, na.rm = TRUE)) %>%
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_age_first_quit_drinking, na.rm = TRUE),
+            SD = sd(id_age_first_quit_drinking, na.rm = TRUE)) %>%
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_number_quit_attempts, na.rm = TRUE),
+            SD = sd(id_number_quit_attempts, na.rm = TRUE)) %>%
+  mutate(var = "Number of Quit Attempts",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  summarise(mean = mean(id_days_per_week_drank_6_mos_before_quit, na.rm = TRUE),
+            SD = sd(id_days_per_week_drank_6_mos_before_quit, na.rm = TRUE)) %>%
+  mutate(var = "Days (per week) Drinking 6 Mos Before Quit Date",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_long_term_residential) %>%
+  mutate(var = case_when(var == "yes" ~ "Long-term residential (6+ mos.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_short_term_residential) %>%
+  mutate(var = case_when(var == "yes" ~ "Short-term residential (< 6 mos.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_outpatient) %>%
+  mutate(var = case_when(var == "yes" ~ "Outpatient",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_indiv_counseling) %>%
+  mutate(var = case_when(var == "yes" ~ "Individual counseling",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_group_counseling) %>%
+  mutate(var = case_when(var == "yes" ~ "Group counseling",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_aa_or_na) %>%
+  mutate(var = case_when(var == "yes" ~ "Alcoholics Anonymous/Narcotics Anonymous",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_tx_other) %>%
+  mutate(var = case_when(var == "yes" ~ "Other",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_aud_medication) %>%
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(id_dsm5_total) %>% 
+  summarise(mean = mean(id_dsm5_total),
+            SD = sd(id_dsm5_total)) %>%
+  mutate(var = "AUD DSM-5 Symptom Count",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_tobacco) %>%
+  mutate(var = case_when(var == 1 ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_cannabis) %>%
+  mutate(var = case_when(var == 1 ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_cocaine) %>%
+  mutate(var = case_when(var == 1 ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_amphetamine) %>%
+  mutate(var = case_when(var == 1 ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_inhalant) %>%
+  mutate(var = case_when(var == 1 ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_sedative) %>%
+  mutate(var = case_when(var == 1 ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_hallucinogen) %>%
+  mutate(var = case_when(var == 1 ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>%
+  full_join(data_id %>%
+  select(var = id_lifetime_use_opioid) %>%
+  mutate(var = case_when(var == 1 ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ as.character(NA))) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 151) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(data_id %>% 
+  select(id_lifetime_n_drugs_endorsed) %>% 
+  summarise(mean = mean(id_lifetime_n_drugs_endorsed),
+            SD = sd(id_lifetime_n_drugs_endorsed)) %>%
+  mutate(var = "Lifetime Drugs Endorsed",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>%
+  select(var = id_lifetime_drug_injection) %>%
+  mutate(var = if_else(var == "No, never", "No", "Yes")) %>% 
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+aud %>% 
+  kbl(booktabs = TRUE,
+      caption = "History of Lifetime Drug and Alcohol Use",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>%
+  pack_rows("Types of Treatment (Can choose more than 1)", 7, 13, bold = FALSE) %>%
+  pack_rows("Received Medication for AUD", 14, 15, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Use", 17, 24, bold = FALSE) %>%
+  pack_rows("Lifetime Drug Injection", 26, 27, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
+
+Mental Health Characteristics
+```{r}
+data_id %>% 
+  select(id_scl90_total) %>% 
+  summarise(mean = mean(id_scl90_total),
+            SD = sd(id_scl90_total)) %>%
+  mutate(var = "Total Score",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_somatization) %>% 
+  summarise(mean = mean(id_scl90_somatization),
+            SD = sd(id_scl90_somatization)) %>%
+  mutate(var = "Somatization Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_obsess_compuls) %>% 
+  summarise(mean = mean(id_scl90_obsess_compuls),
+            SD = sd(id_scl90_obsess_compuls)) %>%
+  mutate(var = "Obsessive-compulsive Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_interpers_sensibility) %>% 
+  summarise(mean = mean(id_scl90_interpers_sensibility),
+            SD = sd(id_scl90_interpers_sensibility)) %>%
+  mutate(var = "Interpersonal Sensibility Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_depression) %>% 
+  summarise(mean = mean(id_scl90_depression),
+            SD = sd(id_scl90_depression)) %>%
+  mutate(var = "Depression Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_anxiety) %>% 
+  summarise(mean = mean(id_scl90_anxiety),
+            SD = sd(id_scl90_anxiety)) %>%
+  mutate(var = "Anxiety Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_anger_hostility) %>% 
+  summarise(mean = mean(id_scl90_anger_hostility),
+            SD = sd(id_scl90_anger_hostility)) %>%
+  mutate(var = "Anger-hostility Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_phobic_anxiety) %>% 
+  summarise(mean = mean(id_scl90_phobic_anxiety),
+            SD = sd(id_scl90_phobic_anxiety)) %>%
+  mutate(var = "Phobic-anxiety Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_somatization) %>% 
+  summarise(mean = mean(id_scl90_somatization),
+            SD = sd(id_scl90_somatization)) %>%
+  mutate(var = "Somatization Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_paranoid) %>% 
+  summarise(mean = mean(id_scl90_paranoid),
+            SD = sd(id_scl90_paranoid)) %>%
+  mutate(var = "Paranoid Ideation Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_scl90_psychoticism) %>% 
+  summarise(mean = mean(id_scl90_psychoticism),
+            SD = sd(id_scl90_psychoticism)) %>%
+  mutate(var = "Psychoticism Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_ius_total) %>% 
+  summarise(mean = mean(id_ius_total),
+            SD = sd(id_ius_total)) %>%
+  mutate(var = "Intolerance of Uncertainty",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(data_id %>% 
+  select(id_asi3_total) %>% 
+  summarise(mean = mean(id_asi3_total),
+            SD = sd(id_asi3_total)) %>%
+  mutate(var = "Total Score",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_phys_concerns) %>% 
+  summarise(mean = mean(id_asi3_phys_concerns),
+            SD = sd(id_asi3_phys_concerns)) %>%
+  mutate(var = "Physical Concerns Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_cog_concerns) %>% 
+  summarise(mean = mean(id_asi3_cog_concerns),
+            SD = sd(id_asi3_cog_concerns)) %>%
+  mutate(var = "Cognitive Concerns Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_asi3_soc_concerns) %>% 
+  summarise(mean = mean(id_asi3_soc_concerns),
+            SD = sd(id_asi3_soc_concerns)) %>%
+  mutate(var = "Social Concerns Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_dts_total) %>% 
+  summarise(mean = mean(id_dts_total),
+            SD = sd(id_dts_total)) %>%
+  mutate(var = "Distress Tolerance Scale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_prob_solving ) %>% 
+  summarise(mean = mean(id_fad_prob_solving ),
+            SD = sd(id_fad_prob_solving )) %>%
+  mutate(var = "Problem Solving Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_communication) %>% 
+  summarise(mean = mean(id_fad_communication),
+            SD = sd(id_fad_communication)) %>%
+  mutate(var = "Communications Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_roles) %>% 
+  summarise(mean = mean(id_fad_roles),
+            SD = sd(id_fad_roles)) %>%
+  mutate(var = "Roles Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_affective_resp) %>% 
+  summarise(mean = mean(id_fad_affective_resp),
+            SD = sd(id_fad_affective_resp)) %>%
+  mutate(var = "Affective Responsiveness Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_affective_involv) %>% 
+  summarise(mean = mean(id_fad_affective_involv),
+            SD = sd(id_fad_affective_involv)) %>%
+  mutate(var = "Affective Involvement Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_behavior_control) %>% 
+  summarise(mean = mean(id_fad_behavior_control),
+            SD = sd(id_fad_behavior_control)) %>%
+  mutate(var = "Behavior Control Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_fad_gen_functioning) %>% 
+  summarise(mean = mean(id_fad_gen_functioning),
+            SD = sd(id_fad_gen_functioning)) %>%
+  mutate(var = "General Functioning Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_wellbeing) %>% 
+  summarise(mean = mean(id_mps_wellbeing),
+            SD = sd(id_mps_wellbeing)) %>%
+  mutate(var = "Wellbeing Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_social_potency) %>% 
+  summarise(mean = mean(id_mps_social_potency),
+            SD = sd(id_mps_social_potency)) %>%
+  mutate(var = "Social Potency Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_achievement) %>% 
+  summarise(mean = mean(id_mps_achievement),
+            SD = sd(id_mps_achievement)) %>%
+  mutate(var = "Achievement Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_social_closeness) %>% 
+  summarise(mean = mean(id_mps_social_closeness),
+            SD = sd(id_mps_social_closeness)) %>%
+  mutate(var = "Social Closeness Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_stress_reaction) %>% 
+  summarise(mean = mean(id_mps_stress_reaction),
+            SD = sd(id_mps_stress_reaction)) %>%
+  mutate(var = "Stress Reaction Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_alienation) %>% 
+  summarise(mean = mean(id_mps_alienation),
+            SD = sd(id_mps_alienation)) %>%
+  mutate(var = "Alienation Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_aggression) %>% 
+  summarise(mean = mean(id_mps_aggression),
+            SD = sd(id_mps_aggression)) %>%
+  mutate(var = "Aggression Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_control) %>% 
+  summarise(mean = mean(id_mps_control),
+            SD = sd(id_mps_control)) %>%
+  mutate(var = "Control Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_harm_avoidance) %>% 
+  summarise(mean = mean(id_mps_harm_avoidance),
+            SD = sd(id_mps_harm_avoidance)) %>%
+  mutate(var = "Harm Avoidance Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_traditionalism) %>% 
+  summarise(mean = mean(id_mps_traditionalism),
+            SD = sd(id_mps_traditionalism)) %>%
+  mutate(var = "Traditionalism Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_absorption ) %>% 
+  summarise(mean = mean(id_mps_absorption ),
+            SD = sd(id_mps_absorption )) %>%
+  mutate(var = "Absorption Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+  full_join(data_id %>% 
+  select(id_mps_unlikely_virtues) %>% 
+  summarise(mean = mean(id_mps_unlikely_virtues),
+            SD = sd(id_mps_unlikely_virtues)) %>%
+  mutate(var = "Unlikely Virtues Subscale",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>%
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>%
+   kbl(booktabs = TRUE,
+      caption = "Mental Health Characterization",
+      col.names = c("", "n", "%", "M", "SD"),
+      align = c("l", "c", "c", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Symptom Checklist 90", 1, 10, bold = FALSE) %>%
+  pack_rows("Anxiety Sensitivity Index", 12, 15, bold = FALSE) %>%
+  pack_rows("McMaster Family Assessment Device", 17, 23, bold = FALSE) %>%
+  pack_rows("Multidimensional Personality Questionnaire Short Form", 24, 35, bold = FALSE) %>%
+  footnote("N = 151")
+```
+
+
+
+
 Average days on study
 ```{r}
 study_dates %>% 
@@ -97,7 +683,328 @@ study_dates %>%
   mutate(study_days = round(as.numeric(difftime(study_end, study_start, "days")))),
   color = "red3") +
   scale_x_continuous(breaks = c(0, 30, 60, 90), n.breaks = 4)
+
+
+study_dates %>% 
+  mutate(study_days = round(as.numeric(difftime(study_end, study_start, "days")))) %>% 
+  summarise(mean = mean(study_days))
 ```
 
 
 ### Summarize context data
+
+Number of contacts
+```{r}
+data_context <- data_context %>% 
+  # filter out spam contacts and self
+  filter(contact_type != "Irrelevant/Spam" & contact_type != "Self") %>% 
+  glimpse()
+
+data_context %>% 
+  group_by(subid) %>% 
+  summarise(n = n()) %>%
+  ungroup() %>% 
+  summarise(mean = mean(n),
+            sd = sd(n),
+            min = min(n),
+            max = max(n))
+```
+
+Perc participants who talk to someone they used to drink with
+```{r}
+data_context %>% 
+  select(subid, contact_drank_past) %>% 
+  group_by(subid) %>% 
+  count(contact_drank_past) %>% 
+  filter(contact_drank_past == "Almost Always/Always") %>% 
+  ungroup() %>% 
+  summarise (n_subids = n(),
+             mean = mean(n), 
+             sd = sd(n),
+             min = min(n),
+             max = max(n))
+
+data_context %>% 
+  select(subid, drink_status) %>% 
+  group_by(subid) %>% 
+  count(drink_status) %>% 
+  filter(drink_status == "Drinker") %>% 
+  ungroup() %>% 
+  bind_rows(., c(subid = 9999,
+           n = 0)) %>% 
+  summarise (n_subids = n(),
+             mean = mean(n), 
+             sd = sd(n),
+             min = min(n),
+             max = max(n)) 
+
+data_context %>% 
+  select(subid, contact_drink_future ) %>% 
+  group_by(subid) %>% 
+  count(contact_drink_future ) %>% 
+  filter(contact_drink_future  == "Yes") %>% 
+  ungroup() %>% 
+  summarise (n_subids = n(),
+             mean = mean(n), 
+             sd = sd(n),
+             min = min(n),
+             max = max(n))
+
+data_context %>% 
+  select(subid, recovery ) %>% 
+  group_by(subid) %>% 
+  count(recovery ) %>% 
+  filter(recovery  == "Yes") %>% 
+  ungroup() %>% 
+  summarise (n_subids = n(),
+             mean = mean(n), 
+             sd = sd(n),
+             min = min(n),
+             max = max(n))
+
+data_context %>% 
+  select(subid, support_status ) %>% 
+  group_by(subid) %>% 
+  count(support_status ) %>% 
+  filter(support_status  == "Supportive") %>% 
+  ungroup() %>% 
+  summarise (n_subids = n(),
+             mean = mean(n), 
+             sd = sd(n),
+             min = min(n),
+             max = max(n))
+
+data_context %>% 
+  select(subid, contact_experience ) %>% 
+  group_by(subid) %>% 
+  count(contact_experience ) %>% 
+  pivot_wider(id_cols = subid, names_from = contact_experience, values_from = n) %>% 
+  select(-`NA`) %>% 
+  rowwise() %>% 
+  mutate(prop_pleasant = Pleasant/sum(Mixed, Unpleasant, Neutral, Pleasant, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  summarise (mean = mean(prop_pleasant), 
+             sd = sd(prop_pleasant),
+             min = min(prop_pleasant),
+             max = max(prop_pleasant))
+
+
+data_context %>% 
+  select(subid, contact_experience ) %>% 
+  group_by(subid) %>% 
+  count(contact_experience ) %>% 
+  pivot_wider(id_cols = subid, names_from = contact_experience, values_from = n) %>% 
+  select(-`NA`) %>% 
+  rowwise() %>% 
+  mutate(prop_unpleasant = Unpleasant/sum(Mixed, Unpleasant, Neutral, Pleasant, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  summarise (mean = mean(prop_unpleasant, na.rm = TRUE), 
+             sd = sd(prop_unpleasant, na.rm = TRUE),
+             min = min(prop_unpleasant, na.rm = TRUE),
+             max = max(prop_unpleasant, na.rm = TRUE))
+
+data_context %>% 
+  select(subid, contact_experience ) %>% 
+  group_by(subid) %>% 
+  count(contact_experience ) %>% 
+  pivot_wider(id_cols = subid, names_from = contact_experience, values_from = n) %>% 
+  select(-`NA`) %>% 
+  rowwise() %>% 
+  mutate(prop_mixed = Mixed/sum(Mixed, Unpleasant, Neutral, Pleasant, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  summarise (mean = mean(prop_mixed, na.rm = TRUE), 
+             sd = sd(prop_mixed, na.rm = TRUE),
+             min = min(prop_mixed, na.rm = TRUE),
+             max = max(prop_mixed, na.rm = TRUE))
+```
+
+
+Histograms for context variables
+```{r fig.height = 3}
+# figure 1
+data_context %>% 
+  select(subid, contact_drank_past) %>% 
+  group_by(subid) %>% 
+  count(contact_drank_past) %>% 
+  mutate(contact_drank_past = if_else(contact_drank_past == "Almost Always/Always",
+                                      "Always/Almost Always", contact_drank_past)) %>% 
+  mutate(contact_drank_past = factor(contact_drank_past, 
+                                     levels = c("Always/Almost Always", "Occasionally",
+                                                "Never/Almost Never"))) %>% 
+  drop_na(contact_drank_past) %>% 
+  ggplot(aes(x = n, group = contact_drank_past)) +
+  facet_wrap(~ contact_drank_past) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_drank_past) %>% 
+  group_by(subid) %>% 
+  count(contact_drank_past) %>%
+  mutate(contact_drank_past = if_else(contact_drank_past == "Almost Always/Always",
+                                      "Always/Almost Always", contact_drank_past)) %>% 
+  mutate(contact_drank_past = factor(contact_drank_past, 
+                                     levels = c("Always/Almost Always", "Occasionally",
+                                                "Never/Almost Never"))) %>% 
+  ungroup() %>% 
+  group_by(contact_drank_past) %>% 
+  drop_na(contact_drank_past) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Have you drank alcohol with this person?") +
+  xlab("number of contacts per participant")
+```
+
+```{r fig.height = 3}
+# figure 2
+data_context %>% 
+  select(subid, drink_status) %>% 
+  group_by(subid) %>% 
+  count(drink_status) %>% 
+  mutate(drink_status = case_when(drink_status == "Dont Know" ~ "Don't Know",
+                                  drink_status == "NonDrinker" ~ "Non-drinker",
+                                  TRUE ~ drink_status)) %>%
+  mutate(drink_status = factor(drink_status,
+                               levels = c("Drinker", "Non-drinker",
+                                                "Don't Know"))) %>%
+  drop_na(drink_status) %>% 
+  ggplot(aes(x = n, group = drink_status)) +
+  facet_wrap(~ drink_status) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, drink_status) %>% 
+  group_by(subid) %>% 
+  count(drink_status) %>%
+  mutate(drink_status = case_when(drink_status == "Dont Know" ~ "Don't Know",
+                                  drink_status == "NonDrinker" ~ "Non-drinker",
+                                  TRUE ~ drink_status)) %>%
+  mutate(drink_status = factor(drink_status,
+                               levels = c("Drinker", "Non-drinker",
+                                                "Don't Know"))) %>%
+  ungroup() %>% 
+  group_by(drink_status) %>% 
+  drop_na(drink_status) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "What is their drinking status?") +
+  xlab("number of contacts per participant")
+```
+
+```{r fig.height = 3}
+# figure 3
+data_context %>% 
+  select(subid, contact_drink_future) %>% 
+  group_by(subid) %>% 
+  count(contact_drink_future) %>% 
+  mutate(contact_drink_future = factor(contact_drink_future,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  drop_na(contact_drink_future) %>% 
+  ggplot(aes(x = n, group = contact_drink_future)) +
+  facet_wrap(~ contact_drink_future) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_drink_future) %>% 
+  group_by(subid) %>% 
+  count(contact_drink_future) %>%
+ mutate(contact_drink_future = factor(contact_drink_future,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  ungroup() %>% 
+  group_by(contact_drink_future) %>% 
+  drop_na(contact_drink_future) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Would you expect them to drink in your presence?") +
+  xlab("number of contacts per participant")
+```
+
+```{r fig.height = 3}
+# figure 4
+data_context %>% 
+  select(subid, recovery) %>% 
+  group_by(subid) %>% 
+  count(recovery) %>%
+  mutate(recovery = if_else(recovery == "Dont Know", "Uncertain", recovery)) %>% 
+  mutate(recovery = factor(recovery,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  drop_na(recovery) %>% 
+  ggplot(aes(x = n, group = recovery)) +
+  facet_wrap(~ recovery) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, recovery) %>% 
+  group_by(subid) %>% 
+  count(recovery) %>%
+  mutate(recovery = if_else(recovery == "Dont Know", "Uncertain", recovery)) %>% 
+  mutate(recovery = factor(recovery,
+                               levels = c("Yes", "No", "Uncertain"))) %>%
+  ungroup() %>% 
+  group_by(recovery) %>% 
+  drop_na(recovery) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Are they currently in recovery from alcohol or other substances?") +
+  xlab("number of contacts per participant")
+```
+
+```{r fig.height = 3}
+# figure 5
+data_context %>% 
+  select(subid, support_status) %>% 
+  group_by(subid) %>% 
+  count(support_status) %>%
+  mutate(support_status = case_when(support_status == "Mixed" ~ "Neutral/Mixed",
+                                    support_status == "Neutral" ~ "Neutral/Mixed",
+                                    support_status == "Dont Know" ~ "Don't Know",
+                                    TRUE ~ support_status)) %>% 
+  mutate(support_status = factor(support_status,
+                               levels = c("Supportive", "Neutral/Mixed", "Unsupportive", 
+                                          "Don't Know"))) %>%
+  drop_na(support_status) %>% 
+  ggplot(aes(x = n, group = support_status)) +
+  facet_wrap(~ support_status) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, support_status) %>% 
+  group_by(subid) %>% 
+  count(support_status) %>%
+  mutate(support_status = case_when(support_status == "Mixed" ~ "Neutral/Mixed",
+                                    support_status == "Neutral" ~ "Neutral/Mixed",
+                                    support_status == "Dont Know" ~ "Don't Know",
+                                    TRUE ~ support_status)) %>% 
+  mutate(support_status = factor(support_status,
+                               levels = c("Supportive", "Neutral/Mixed", "Unsupportive", 
+                                          "Don't Know"))) %>%
+  ungroup() %>% 
+  group_by(support_status) %>% 
+  drop_na(support_status) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "Do they know about your recovery goals and if so are they supportive?") +
+  xlab("number of contacts per participant")
+```
+
+```{r fig.height = 3}
+# figure 6
+data_context %>% 
+  select(subid, contact_experience) %>% 
+  group_by(subid) %>% 
+  count(contact_experience) %>%
+  mutate(contact_experience = case_when(contact_experience == "Mixed" ~ "Neutral/Mixed",
+                                    contact_experience == "Neutral" ~ "Neutral/Mixed",
+                                    TRUE ~ contact_experience)) %>% 
+  mutate(contact_experience = factor(contact_experience,
+                               levels = c("Pleasant", "Neutral/Mixed", "Unpleasant"))) %>%
+  drop_na(contact_experience) %>% 
+  ggplot(aes(x = n, group = contact_experience)) +
+  facet_wrap(~ contact_experience) +
+  geom_histogram(bins = 25, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_count), data_context %>% 
+  select(subid, contact_experience) %>% 
+  group_by(subid) %>% 
+  count(contact_experience) %>%
+  mutate(contact_experience = case_when(contact_experience == "Mixed" ~ "Neutral/Mixed",
+                                    contact_experience == "Neutral" ~ "Neutral/Mixed",
+                                    TRUE ~ contact_experience)) %>% 
+  mutate(contact_experience = factor(contact_experience,
+                               levels = c("Pleasant", "Neutral/Mixed", "Unpleasant"))) %>%
+  ungroup() %>% 
+  group_by(contact_experience) %>% 
+  drop_na(contact_experience) %>% 
+  summarise(mean_count = mean(n, na.rm = TRUE)), color = "red3") +
+  labs(title = "How would you describe your typical experience with this person?") +
+  xlab("number of contacts per participant")
+```
+

@@ -72,9 +72,7 @@ This script does model comparisons on the best models for the meta project.
 
 ```{r}
 # individual results
-result_files <- list.files(path_results, full.names = TRUE)
-results_all <- vroom::vroom(result_files, col_types = vroom::cols()) %>% 
-  glimpse()
+results_all <- read_rds(here(path_models, "results_all.rds"))
 
 # aggregate results
 results_aggregate <- vroom::vroom(here(path_models, "results_aggregate.csv"), col_types = vroom::cols()) %>% 
@@ -161,20 +159,25 @@ results_glmnet <- vroom::vroom(here(path_models, "best_glmnet_fits.csv"), col_ty
 
 # avg balance accuracy
 mean(results_glmnet$bal_accuracy) # matches CHTC
+
+# save out best fits
+results_best <- results_best %>% 
+  filter(algorithm != "glmnet") %>% 
+  bind_rows(results_glmnet)
+
+write_csv(results_best, here(path_models, "results_best_all_algorithms.csv"))
 ```
 
 make histograms
 ```{r}
 ba_hist <- results_best %>% 
-  filter(algorithm != "glmnet") %>% 
-  bind_rows(results_glmnet) %>% 
   group_by(algorithm) %>% 
   ggplot(aes(x = bal_accuracy)) +
   geom_histogram(bins = 10, color = "black", fill = "light grey") +
   facet_wrap(~ algorithm) +
   scale_y_continuous(breaks = seq(1, 10, by = 1), labels = seq(1, 10, by = 1)) +
   xlab("balanced accuracy") +
-  labs(title = "model performance across 10 folds") +
+  labs(title = "Model performance across 10 folds") +
   geom_vline(aes(xintercept = mean_ba), results_best %>% 
   filter(algorithm != "glmnet") %>% 
   bind_rows(results_glmnet) %>% 
@@ -203,7 +206,7 @@ best_model <- results_aggregate %>%
 Bayesian correlated t-test (10 x 10 fold)    
 Results from 10 x 10 get saved out so dont need to rerun chunk below everytime
 ```{r}
-# make splits 
+## make splits
 # set.seed(102030)
 # splits <- make_splits(d = data_all, cv_type = "group_kfold_10_x_10", group = group)
 # 
@@ -212,19 +215,19 @@ Results from 10 x 10 get saved out so dont need to rerun chunk below everytime
 # 
 # # fit and save out each fold to make data smaller size to work with
 # jobs <- expand.grid(n_fold = 1:10,
-#                     n_repeat = 1:10) %>% 
+#                     n_repeat = 1:10) %>%
 #   rowid_to_column(var = "job_num")
 # 
 # for (i in 1:max(jobs$job_num)) {
-#   
+# 
 #   job <- slice(jobs, i)
-#   
+# 
 #   # fit model
-#   features <- make_features(job = job, folds = splits, rec = rec_best, 
+#   features <- make_features(job = job, folds = splits, rec = rec_best,
 #                             cv_type = "group_kfold_10_x_10")
 #   feat_in <- features$feat_in
 #   feat_out <- features$feat_out
-#   
+# 
 #   if(best_model$algorithm == "random_forest") {
 #     fit_best <- rand_forest(mtry = best_model$hp1,
 #                             min_n = best_model$hp2,
@@ -237,42 +240,42 @@ Results from 10 x 10 get saved out so dont need to rerun chunk below everytime
 #       fit(y ~ .,
 #           data = feat_in)
 #   } else if(best_model$algorithm == "knn") {
-#     fit_best <- nearest_neighbor(neighbors = best_model$hp1) %>% 
-#       set_engine("kknn") %>% 
-#       set_mode("classification") %>% 
+#     fit_best <- nearest_neighbor(neighbors = best_model$hp1) %>%
+#       set_engine("kknn") %>%
+#       set_mode("classification") %>%
 #       fit(y ~ .,
 #           data = feat_in)
-#     
+# 
 #   } else if(best_model$algorithm == "glmnet") {
 #     fit_best <- logistic_reg(penalty = best_model$hp2,
 #                              mixture = best_model$hp1) %>%
 #       set_engine("glmnet") %>%
-#       set_mode("classification") %>% 
+#       set_mode("classification") %>%
 #       fit(y ~ .,
 #           data = feat_in)
 #   }
-#  
-#   
+# 
+# 
 #   # save results
-#   get_metrics(model = fit_best, feat_out = feat_out) %>% 
+#   get_metrics(model = fit_best, feat_out = feat_out) %>%
 #     pivot_wider(., names_from = "metric",
-#                 values_from = "estimate") %>%   
+#                 values_from = "estimate") %>%
 #     mutate(algorithm = best_model$algorithm,
-#            rec = "rec_best") %>% 
-#     relocate(algorithm, rec) %>% 
+#            rec = "rec_best") %>%
+#     relocate(algorithm, rec) %>%
 #     bind_cols(job, .) %>%
-#     write_csv(., here(path_models, 
-#                       str_c("best_model_fits/fit_", 
+#     write_csv(., here(path_models,
+#                       str_c("best_model_fits/fit_",
 #                             job$job_num, ".csv")))
-#   
+# 
 #   # save predictions for out of sample subids
-#   predict(fit_best, feat_out, type = "prob") %>% 
-#     select(pred_yes = `.pred_yes`) %>% 
-#     bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>% 
-#     write_csv(., here(path_models, 
-#                       str_c("best_model_preds/preds_", 
+#   predict(fit_best, feat_out, type = "prob") %>%
+#     select(pred_yes = `.pred_yes`) %>%
+#     bind_cols(feat_out %>% select(subid, dttm_label, y), .) %>%
+#     write_csv(., here(path_models,
+#                       str_c("best_model_preds/preds_",
 #                             job$job_num, ".csv")))
-#   
+# 
 # }
 ```
 
@@ -283,9 +286,52 @@ results_best_files <- list.files(here(path_models, "best_model_fits"),
 results_best <- vroom::vroom(results_best_files, col_types = vroom::cols()) %>% 
   glimpse()
 
+write_csv(results_best, here(path_models, "results_best_model.csv"))
+
 results_best %>% 
   tabyl(bal_accuracy)
 ```
+
+Summary stats for best model from 100 fits
+```{r}
+results_best %>% 
+  summarise(mean_ba = mean(bal_accuracy),
+            mean_sens = mean(sens),
+            mean_spec = mean(spec),
+            mean_roc_auc = mean(roc_auc),
+            mean_acc = mean(accuracy)) %>% 
+  glimpse()
+```
+
+Confusion matrix
+```{r}
+# read in predicitons from top model
+preds_files <- list.files(here(path_models, "best_model_preds"), 
+                              full.names = TRUE)
+predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
+  glimpse()
+
+cm <- predictions %>% 
+  mutate(pred_class = if_else(pred_yes >= .5, "yes", "no"),
+         pred_class = factor(pred_class, levels = c("no", "yes")),
+         y = factor(y, levels = c("no", "yes"))) %>% 
+  conf_mat(y, pred_class)
+
+cm
+
+autoplot(cm)
+```
+
+
+Positive and negative predictive value
+```{r}
+cm %>% 
+  summary(event_level = "second") %>% 
+  select(-.estimator) %>% 
+  filter(.metric %in% c("ppv", "npv"))
+```
+
+
 
 
 Run bayesian correlate t-test - compare 100 bal_accuracies to NULL (bal_accuracy = .5)
@@ -327,15 +373,6 @@ results_ttest$right
 
 
 #### Individual Predictions
-
-Pull out individual predictions
-```{r}
-preds_files <- list.files(here(path_models, "best_model_preds"), 
-                              full.names = TRUE)
-predictions <- vroom::vroom(preds_files, col_types = vroom::cols()) %>% 
-  glimpse()
-```
-
 
 Check 10 predictions for each observation (10 x 10 grouped kfold)
 ```{r}

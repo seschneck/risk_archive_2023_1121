@@ -1,0 +1,95 @@
+---
+title: "make enriched gps/location"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/gps", 
+      "/Volumes/private/studydata/risk/knits/gps")
+    )
+  })
+---
+
+### Code Status
+
+under development
+
+### Notes   
+
+
+
+### Set Up Environment
+
+Constants
+```{r}
+dist_context_min <- 50  # must be within 50 meters to match geolocation to context
+```
+
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_gps <- "P:/studydata/risk/data_processed/gps"},
+
+        # IOS paths
+        Darwin = {
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(vroom)
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/fun_gps.R"))
+```
+
+
+### Begin Main Code
+
+```{r}
+gps <-  vroom(here(path_shared, "gps.csv")) %>% 
+  glimpse()
+locs <- vroom(here(path_shared, "locations.csv")) %>% 
+  mutate(subid = as.numeric(subid))
+
+```
+
+
+```{r}
+#g <- filter(gps, subid == 1)
+#l <- filter(locs, subid == 1)
+
+gps %>% 
+  full_join(map2_dfr(gps$lon, gps$lat, ~find_nearest_context(.x, .y, locs))) %>% 
+  glimpse()
+
+# find_nearest_context(g$lon[[1]], g$lat[[1]], l)
+```
+

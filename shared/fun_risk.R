@@ -4,11 +4,38 @@ library(dplyr)
 library(readr)
 library(lubridate)
 library(foreach)
+library(readxl)   #JJC added this library.  Add to tar
+library(purrr)   #JJC added this library.  Add to tar
 
 # libraries added to this script but not to the tar should be specified below so 
 # Kendra can add them so we don't error out jobs on CHTC. If you add to the tar on the
 # server dont forget to bring back a copy to risk/chtc/tars. Also update package_names.txt 
 # so we can keep track on what packages are in the tar. 
+
+
+merge_excel_files <- function(file_suffix, path_root) {
+  # Merges excel files that were created by the interview. For example,
+  # Locations, Contacts, Dates, etc.
+  # Returns one df with all subjects in the same file.
+  
+  # file_suffix: suffix on file name that indicates data type; e.g., Location
+  # path_root: root folder for the subject folders containing the excel files
+  
+  import_w_subid <- function(xlsxfile){
+    read_excel(xlsxfile) %>% 
+      mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
+  }
+  
+  list.files(file.path(path_root), 
+             recursive = TRUE,
+             pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
+             full.names = TRUE) %>% 
+    as.list() %>% 
+    set_names(str_extract(., "\\d\\d\\d")) %>% 
+    map_df(~import_w_subid(.x) %>% 
+             clean_names() %>% 
+             mutate(across(everything(), as.character)))
+}
 
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {

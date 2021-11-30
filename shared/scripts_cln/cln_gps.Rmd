@@ -18,7 +18,7 @@ knit: (function(input, ...) {
   })
 ---
 
-### Code Update
+### Code Status
 
 Code has had paths and other updates to github and current lab standards.
 
@@ -36,6 +36,7 @@ Inputs:
 Outputs
 
 * gps.csv
+* gps.rds
 
 ### Setup
 
@@ -98,19 +99,18 @@ convert_moves <- function(file_name){
     .$tracks %>% 
     purrr::flatten(.) %>% # as a list of dfs
     enframe(.) %>% # as a nested df
-    unnest(keep_empty = TRUE) %>% # as one tibble
-    rename(long = lon) #renaming for coherence
+    unnest(keep_empty = TRUE)
   
   
   if (
-    any(is.na(d_moves$time) & !(is.na(d_moves$lat) & is.na(d_moves$long)))
+    any(is.na(d_moves$time) & !(is.na(d_moves$lat) & is.na(d_moves$lon)))
   ) stop("Missing value detected for time on non-missing day") 
   
   # drop initial missing obs and impute time for missing obs and 
   # fill in the last second of the next day;  Retain time zone from previous observation
   d_moves <- d_moves %>% 
     fill(time) %>% 
-    mutate(time = if_else(is.na(long), 
+    mutate(time = if_else(is.na(lon), 
                           str_c(lubridate::mdy(name), 
                                 "T23:59:59.000-", 
                                 str_extract(time, "\\d{2}:\\d{2}$")),
@@ -127,7 +127,7 @@ convert_moves <- function(file_name){
       app_source = 'moves',
       count = NA
     ) %>% 
-    select(lat, long, time, accuracy, sgmnt_type, trckpnt_type, 
+    select(lat, lon, time, accuracy, sgmnt_type, trckpnt_type, 
            app_source, data_type, speed_kmh, altitude_meters,
            direction, count)
   
@@ -151,7 +151,7 @@ convert_followmee <- function(file_name){
     arrange(time) %>% 
     mutate(
       lat = latitude,
-      long = longitude,
+      lon = longitude,
       data_type = str_to_lower(type),
       speed_kmh = speed_km_h,
       altitude_meters = altitude_m,
@@ -160,7 +160,7 @@ convert_followmee <- function(file_name){
       sgmnt_type = NA,
       trckpnt_type = NA
     ) %>% 
-    select(lat, long, time, accuracy, sgmnt_type, trckpnt_type, 
+    select(lat, lon, time, accuracy, sgmnt_type, trckpnt_type, 
            app_source, data_type, speed_kmh, altitude_meters,
            direction, count)
   
@@ -220,7 +220,7 @@ make_gps <- function(subid, file_path) {
   if (length(gpx_files) != 0) {
     
     d_moves <- map_df(gpx_files, ~convert_moves(.x)) %>% #import, convert, bind each file
-      filter(!is.na(long), !is.na(lat)) %>% #drop obs without lat and long
+      filter(!is.na(lon), !is.na(lat)) %>% #drop obs without lat and lon
       distinct() #eliminate fully duplicated rows
   }
   
@@ -236,7 +236,7 @@ make_gps <- function(subid, file_path) {
     database <- bind_rows(d_moves, d_follow) %>% 
       arrange(time) %>% 
       select(-count) %>% #this is NA for all
-      filter(!is.na(lat) && !is.na(long)) %>% 
+      filter(!is.na(lat) && !is.na(lon)) %>% 
       mutate(subid = subid_numeric)
     
     return(database)
@@ -274,6 +274,9 @@ Create and save the gps data
 ```{r}
 gps %>% 
   write_csv(file = file.path(path_processed, "gps.csv"))
+
+gps %>% 
+  write_rds(file = file.path(path_processed, "gps.rds"))
 ```
 
 ## EDA
@@ -282,11 +285,6 @@ gps %>%
 
 GPS data
 ```{r}
-gps <- fread(file.path(path_processed, "gps.csv"), #need fread because data is huge, crashes r otherwise
-             stringsAsFactors = TRUE) %>%  
-  mutate(raw_orig_time = as.character(time)) %>% 
-  glimpse()
-
 notes <- read_csv(here("shared/notes/raw_notes.csv")) 
 
 visit_dates <- read_csv(file.path(path_processed, "visit_dates.csv"))
@@ -299,17 +297,17 @@ We have gps-specific notes from staff on `r length(na.omit(notes$notes_gps))` su
 
 ### Checking each data source
 
-#### Lat and long
+#### Lat and Lon
 ```{r}
 gps %>% 
-  filter(is.na(lat) | is.na(long))
+  filter(is.na(lat) | is.na(lon))
 ```
 
-This is not surprising. We filtered on NA lat / long (one of the apps would create a missing point if no signals were detected in a day).
+This is not surprising. We filtered on NA lat / lon (one of the apps would create a missing point if no signals were detected in a day).
 
 ```{r}
 gps %>% 
-  filter(lat <= 1 & long <= 1, lat >= -1 & long >= -1)
+  filter(lat <= 1 & lon <= 1, lat >= -1 & lon >= -1)
 ```
 
 There are no "Null Island" points at 0,0.
