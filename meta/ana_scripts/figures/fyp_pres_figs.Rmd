@@ -181,6 +181,29 @@ sd(dsm5$dsm_total)
 # ggsave(plot = dsm_plot,  "C:/Users/kpaquette2/Desktop/dsm.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
 ```
 
+### Lapse histogram
+```{r fig.height = 3}
+lapses <- vroom::vroom(here(path_meta, "labels_05.csv"), col_types = vroom::cols())
+
+lapse_plot <- lapses %>% 
+  filter(label == "lapse") %>% 
+  count(subid) %>%
+  # add 0 placeholder for remaining 67 subids
+  bind_rows(expand.grid(subid = seq(300, 366), n = 0)) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(bins = 40, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean_lapses), lapses %>% 
+  filter(label == "lapse") %>% 
+  count(subid) %>%
+  # add 0 placeholder for remaining 67 subids
+  bind_rows(expand.grid(subid = seq(300, 366), n = 0)) %>% 
+    summarise(mean_lapses = mean(n)), color = "#227AC4", size = .75) +
+  xlab("number of lapses") 
+
+lapse_plot
+# ggsave(plot = lapse_plot,  "C:/Users/kpaquette2/Desktop/lapse_plot.png", bg = "transparent", width = 8, height = 5, units = "in", device = "png", dpi = 800)
+```
+
 ### Results 
 ```{r}
 # individual results
