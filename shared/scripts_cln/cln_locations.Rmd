@@ -82,7 +82,9 @@ source(here("shared", "fun_risk.R"))  # for merge_excel_files()
 Import
 ```{r}
 locations <- merge_excel_files("Locations", path_raw) %>% 
-  relocate(subid)
+  rename(lon = long) %>% 
+  mutate(context_id = row_number()) %>% 
+  relocate(subid, context_id)
 ```
 
 ### Cleaning
