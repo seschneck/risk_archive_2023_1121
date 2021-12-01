@@ -64,6 +64,7 @@ library(tidyverse)
 library(vroom)
 library(purrr)
 library(furrr)
+library(tictoc)
 ```
 
 
@@ -110,9 +111,11 @@ subids <- gps %>%
 #future_map over subids
 (n_core <- parallel::detectCores(logical = FALSE))
 plan(multisession, workers = n_core)
+
+tic()
 enriched <- subids %>% 
   future_map_dfr(enrich_subid, gps = gps, locs = locs)
-
+toc()
 
 
 # join on context_id
