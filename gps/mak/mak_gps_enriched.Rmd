@@ -104,10 +104,11 @@ enrich_subid <- function(a_subid, gps, locs) {
 #get all subids
 subids <- gps %>% 
   pull(subid) %>% 
-  unique
+  unique() %>% 
+  print()
 
 #future_map over subids
-n_core <- parallel::detectCores(logical = FALSE)
+(n_core <- parallel::detectCores(logical = FALSE))
 plan(multisession, workers = n_core)
 enriched <- subids %>% 
   future_map_dfr(enrich_subid, gps = gps, locs = locs)
