@@ -98,9 +98,10 @@ enrich_subid <- function(a_subid, gps, locs) {
   locs <- locs %>% 
     filter(subid == a_subid)
   
-  gps <- gps %>% 
+  enriched <- gps %>% 
     bind_cols(map2_dfr(gps$lon, gps$lat, find_nearest_context, context = locs)) 
-  return(gps)
+  
+  return(enriched)
 }
 
 #get all subids
