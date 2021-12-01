@@ -82,7 +82,8 @@ gps <-  vroom(here(path_shared, "gps.csv")) %>%
   glimpse()
 
 locs <- vroom(here(path_shared, "locations.csv")) %>% 
-  mutate(subid = as.numeric(subid))
+  mutate(subid = as.numeric(subid)) %>% 
+  select(subid, context_id, lat, lon, type, drank, alcohol, emotion, risk, avoid, vacation, full_address)
 
 ```
 
@@ -116,10 +117,13 @@ tic()
 enriched <- subids %>% 
   future_map_dfr(enrich_subid, gps = gps, locs = locs)
 toc()
-
+hold <- enriched
 
 # join on context_id
-#remove context_lat and lon then join and rearragne columns
+full <- locs %>%
+  select(subid, context_id, type, drank, alcohol, emotion, risk, avoid, vacation, full_address) %>% 
+  right_join(enriched, by = c("subid", "context_id")) %>% 
+  glimpse()
 ```
 
 
