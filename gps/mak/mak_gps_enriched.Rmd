@@ -62,6 +62,8 @@ Packages for script
 # for data wrangling
 library(tidyverse)
 library(vroom)
+library(purrr)
+library(furrr)
 ```
 
 
@@ -73,23 +75,55 @@ source(here("../lab_support/fun_gps.R"))
 
 ### Begin Main Code
 
+Open data files
 ```{r}
 gps <-  vroom(here(path_shared, "gps.csv")) %>% 
   glimpse()
+
 locs <- vroom(here(path_shared, "locations.csv")) %>% 
   mutate(subid = as.numeric(subid))
 
 ```
 
-
+Merge context into gps
 ```{r}
-#g <- filter(gps, subid == 1)
-#l <- filter(locs, subid == 1)
 
-gps %>% 
-  full_join(map2_dfr(gps$lon, gps$lat, ~find_nearest_context(.x, .y, locs))) %>% 
-  glimpse()
+#add context to gps for one subid
+enrich_subid <- function(a_subid, gps, locs) {
+  gps <- gps %>% 
+    filter(subid == a_subid)
+  
+  locs <- locs %>% 
+    filter(subid == a_subid)
+  
+  gps <- gps %>% 
+    bind_cols(map2_dfr(gps$lon, gps$lat, find_nearest_context, context = locs)) 
+  return(gps)
+}
 
-# find_nearest_context(g$lon[[1]], g$lat[[1]], l)
+#get all subids
+subids <- gps %>% 
+  pull(subid) %>% 
+  unique
+
+#future_map over subids
+n_core <- parallel::detectCores(logical = FALSE)
+plan(multisession, workers = n_core)
+enriched <- subids %>% 
+  future_map_dfr(enrich_subid, gps = gps, locs = locs)
+
+
+
+# join on context_id
+#remove context_lat and lon then join and rearragne columns
 ```
+
+
+###  Brief EDA
+
+
+
+### Save enriched GPS
+
+
 
