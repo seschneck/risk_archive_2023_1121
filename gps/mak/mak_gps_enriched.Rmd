@@ -26,12 +26,6 @@ under development
 
 ### Set Up Environment
 
-Constants
-```{r}
-dist_context_min <- 50  # must be within 50 meters to match geolocation to context
-```
-
-
 Absolute paths
 ```{r, absolute paths}
 switch (Sys.info()[['sysname']],
@@ -83,7 +77,8 @@ gps <-  vroom(here(path_shared, "gps.csv")) %>%
 
 locs <- vroom(here(path_shared, "locations.csv")) %>% 
   mutate(subid = as.numeric(subid)) %>% 
-  select(subid, context_id, lat, lon, type, drank, alcohol, emotion, risk, avoid, vacation, full_address)
+  select(subid, context_id, lat, lon, type, drank, alcohol, emotion, risk, avoid, 
+         vacation, full_address)
 
 ```
 
@@ -118,12 +113,10 @@ tic()
 enriched <- subids %>% 
   future_map_dfr(enrich_subid, gps = gps, locs = locs)
 toc()
-hold <- enriched
 
 # join on context_id
-full <- locs %>%
-  select(subid, context_id, type, drank, alcohol, emotion, risk, avoid, vacation, full_address) %>% 
-  right_join(enriched, by = c("subid", "context_id")) %>% 
+full <- enriched %>%
+  left_join(locs, by = c("subid", "context_id")) %>% 
   glimpse()
 ```
 
