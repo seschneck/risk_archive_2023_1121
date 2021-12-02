@@ -25,6 +25,6 @@ subid <- "041"
 read_xlsx(here(path_raw, subid, str_c(subid, "_Locations.xlsx"))) %>% 
   mutate(FullAddress = str_c(.$StreetAddress, .$City, .$State, sep = ", ")) %>% 
   mutate_geocode(FullAddress) %>% 
-  rename(Lat = lat, Lon = lon) %>%  #matching case of original files
+  rename(Lat = lat, Long = lon) %>%  #matching name and case from original files
   relocate(Lon, .after = last_col()) %>% 
   write_xlsx(here(path_raw, subid, str_c(subid, "_Locations.xlsx")))
