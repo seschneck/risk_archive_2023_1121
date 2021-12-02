@@ -145,7 +145,8 @@ locations %>%
   summarize(min(n), max(n))
 
 locations %>% 
-  summarize(across(.fns = ~sum(is.na(.))))
+  summarize(across(.fns = ~sum(is.na(.)))) %>% 
+  glimpse()
 ```
 
 Main context
