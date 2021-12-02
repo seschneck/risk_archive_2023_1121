@@ -21,10 +21,10 @@ source(here("../lab_support", "get_credentials.R"))
 creds <- get_credentials("google_api", here(path_admin, "credentials.csv"))
 register_google(key = creds$key)
 
-subid <- "041"
+subid <- "067"
 read_xlsx(here(path_raw, subid, str_c(subid, "_Locations.xlsx"))) %>% 
   mutate(FullAddress = str_c(.$StreetAddress, .$City, .$State, sep = ", ")) %>% 
   mutate_geocode(FullAddress) %>% 
   rename(Lat = lat, Long = lon) %>%  #matching name and case from original files
-  relocate(Lon, .after = last_col()) %>% 
+  relocate(Long, .after = last_col()) %>% 
   write_xlsx(here(path_raw, subid, str_c(subid, "_Locations.xlsx")))
