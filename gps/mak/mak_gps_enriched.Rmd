@@ -126,9 +126,6 @@ enriched %>%
   glimpse
 
 enriched %>% 
-  tabyl(subid)
-
-enriched %>% 
   pull(subid) %>% 
   unique %>% 
   length
@@ -136,14 +133,45 @@ enriched %>%
 
 ```{r}
 enriched %>% 
-  summarize(across(.fns = ~sum(is.na(.))))
+  tabyl(subid) %>% 
+  arrange(n)
+
+enriched %>% 
+  tabyl(subid) %>%
+  summarize(min(n), max(n))
+
+enriched %>% 
+  tabyl(subid) %>%
+  pull(n) %>% 
+  hist
+
+enriched %>% 
+  tabyl(subid) %>%
+  filter(n < 5000) %>% 
+  pull(n) %>% 
+  hist
 ```
-
-
-### Save enriched GPS
-Saving compressed for use on CHTC for feature engineering
 
 ```{r}
 enriched %>% 
-  vroom_write(here(path_gps, "gps_enriched.csv", delim = ","))
+  summarize(across(.fns = ~sum(is.na(.)))) %>% 
+  glimpse()
+```
+
+```{r}
+enriched %>% tabyl(type)
+enriched %>% tabyl(drank)
+enriched %>% tabyl(alcohol)
+enriched %>% tabyl(emotion)
+enriched %>% tabyl(risk)
+enriched %>% tabyl(avoid)
+enriched %>% tabyl(vacation)
+```
+
+### Save enriched GPS
+Saving xz compressed for use on CHTC for feature engineering
+
+```{r}
+enriched %>% 
+  vroom_write(here(path_gps, "gps_enriched.csv.xz", delim = ","))
 ```
