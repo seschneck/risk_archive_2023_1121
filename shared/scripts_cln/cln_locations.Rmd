@@ -143,6 +143,9 @@ locations %>%
 locations %>% 
   tabyl(subid) %>% 
   summarize(min(n), max(n))
+
+enriched %>% 
+  summarize(across(.fns = ~sum(is.na(.))))
 ```
 
 Main context

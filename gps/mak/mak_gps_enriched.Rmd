@@ -58,7 +58,7 @@ library(tidyverse)
 library(vroom)
 library(purrr)
 library(furrr)
-library(tictoc)
+library(janitor)
 ```
 
 
@@ -85,7 +85,7 @@ locs <- vroom(here(path_shared, "locations.csv")) %>%
 Merge context into gps
 ```{r}
 
-#add context to gps for one subid
+#enrich gps with context for one subid
 enrich_subid <- function(a_subid, gps, locs) {
   gps <- gps %>% 
     filter(subid == a_subid)
@@ -109,23 +109,41 @@ subids <- gps %>%
 (n_core <- parallel::detectCores(logical = FALSE))
 plan(multisession, workers = n_core)
 
-tic()
 enriched <- subids %>% 
-  future_map_dfr(enrich_subid, gps = gps, locs = locs)
-toc()
-
-# join on context_id
-full <- enriched %>%
+  future_map_dfr(enrich_subid, gps = gps, locs = locs) %>% 
   left_join(locs, by = c("subid", "context_id")) %>% 
-  glimpse()
+  select(-lat.y, -lon.y, -accuracy, -speed_kmh, -altitude_meters, -direction,
+         -data_type) %>% 
+  rename(lat = lat.x, lon = lon.x) %>% 
+  relocate(subid)
 ```
 
 
 ###  Brief EDA
 
+```{r}
+enriched %>%  
+  glimpse
+
+enriched %>% 
+  tabyl(subid)
+
+enriched %>% 
+  pull(subid) %>% 
+  unique %>% 
+  length
+```
+
+```{r}
+enriched %>% 
+  summarize(across(.fns = ~sum(is.na(.))))
+```
 
 
 ### Save enriched GPS
+Saving compressed for use on CHTC for feature engineering
 
-
-
+```{r}
+enriched %>% 
+  vroom_write(here(path_gps, "gps_enriched.csv", delim = ","))
+```
