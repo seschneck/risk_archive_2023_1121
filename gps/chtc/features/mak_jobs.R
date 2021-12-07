@@ -8,7 +8,7 @@ require(here)
 
 # Paths and filenames - UPDATE FOR USE WITH NEW STUDY
 name_job <- "features_all"
-path_jobs <- "P:/studydata/risk/chtc/gps/jobs/features/"
+path_jobs <- "P:/studydata/risk/chtc/gps/"
 path_templates <- "gps/chtc/features/templates"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 path_fun <- "shared/fun_risk.R"
@@ -34,11 +34,11 @@ write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
 
 # copy over data files
 file.copy(from = here(path_gps, name_gps),
-          to = here(path_jobs, name_job, "input/data.rds")) 
+          to = here(path_jobs, name_job, "input", "data.csv.xz")) 
 file.copy(from = here(path_gps, name_labels),
-          to = here(path_jobs, name_job, "input/labels.rds")) 
+          to = here(path_jobs, name_job, "input", "labels.rds")) 
 file.copy(from = here(path_gps, name_study_dates),
-          to = here(path_jobs, name_job, "input/study_dates.rds")) 
+          to = here(path_jobs, name_job, "input", "study_dates.csv")) 
 
 # copy over function script
 file.copy(from = path_fun,
