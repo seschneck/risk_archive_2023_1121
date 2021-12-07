@@ -1,4 +1,5 @@
 # setup jobs to make features on chtc 
+# finished but not checked/run, JJC
 
 # load packages
 require(readr)
@@ -13,8 +14,7 @@ path_gps <- "P:/studydata/risk/data_processed/gps"
 path_fun <- "shared/fun_risk.R"
 name_fun <- "fun_risk.R"
 name_labels <- "labels_05.rds"
-name_gps <- "gps_enriched.rds"
-name_location <- "meta_logs.rds"
+name_gps <- "gps_enriched.csv.xz"
 name_study_dates <- "study_dates.csv"
 
 n_jobs <- nrow(read_rds(here(path_gps, name_labels)))
@@ -31,9 +31,6 @@ if (!dir.exists(here(path_jobs, name_job))) {
 
 # save out jobs txt file for queue
 write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
-
-
-#JJC: NEED ENRICHED DATA FILE
 
 # copy over data files
 file.copy(from = here(path_gps, name_gps),
