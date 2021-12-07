@@ -1,13 +1,13 @@
 # Script to engineer features on CHTC
 
 suppressPackageStartupMessages({
-  require(dplyr)
-  require(readr)
-  require(tidyr)
-  require(stringr)
+  # require(dplyr)
+  library(readr)
+  library(tidyr)
+  library(stringr)
   library(lubridate)
   library(tis)
-  
+  library(vroom)
   source("fun_risk.R")
 })
 
@@ -17,21 +17,16 @@ args <- commandArgs(trailingOnly = TRUE)
 label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in integers
 
 # read in data ------------------
-logs_all <- read_rds("data.rds") %>% 
-  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
+data <- vroom("data.csv.xz")%>% 
+  mutate(time = with_tz(time, tz = "America/Chicago"))
 
-labels_05 <- read_rds("labels.rds") %>% 
-  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
+labels <- read_rds("labels.rds") %>% 
+  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago"))
 
-data_start <- read_rds("study_dates.rds") %>% 
-  select(subid, study_start, comm_start, data_start) %>% 
-  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) 
-
-screen_features <- read_rds("static_features.rds")
-
+dates <- vroom("study_dates.csv")
 
 # Slice out label based on label_num ------------------
-label <- slice(labels_05, label_num)
+label <- slice(labels, label_num)
 
 
 
@@ -41,6 +36,9 @@ lead <-  0
 
 
 # make features ------------------
+
+
+
 
 # incoming/outgoing communications 
 # on own 
