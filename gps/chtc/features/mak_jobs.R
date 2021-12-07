@@ -5,6 +5,7 @@
 require(readr)
 library(conflicted)
 require(here)
+library(lubridate)
 
 # Paths and filenames - UPDATE FOR USE WITH NEW STUDY
 name_job <- "features_all"
@@ -32,9 +33,16 @@ if (!dir.exists(here(path_jobs, name_job))) {
 # save out jobs txt file for queue
 write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
 
-# copy over data files
-file.copy(from = here(path_gps, name_gps),
-          to = here(path_jobs, name_job, "input", "data.csv.xz")) 
+# select relevant variables and then copy enriched gps
+vroom(here(path_gps, name_gps)) %>% 
+  select(subid, time, dist_context, type, drank, alcohol, emotion, risk, avoid) %>% 
+  mutate(time = )
+  write_rds(path_jobs, name_job, "input", "data.rds")
+
+# file.copy(from = here(path_gps, name_gps),
+#           to = here(path_jobs, name_job, "input", "data.csv.xz")) 
+
+# copy over other data files verbatium
 file.copy(from = here(path_gps, name_labels),
           to = here(path_jobs, name_job, "input", "labels.rds")) 
 file.copy(from = here(path_gps, name_study_dates),
