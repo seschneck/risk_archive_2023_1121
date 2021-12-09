@@ -617,7 +617,7 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
                                  col_name, data_type_col_name = NA, data_type_values = NA, 
                                  context_col_name = NA, context_values = NA, passive = FALSE) {
   # Sums the value for col_name (i.e., duration) and converts to a rate
-  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
+  # based on the period_duration.  Returns a raw rate and two relative
   # rates (dratecount for diff between rate in period and rate across all data; 
   # pratecount for percent change between rate in period and rate across all data)
   
