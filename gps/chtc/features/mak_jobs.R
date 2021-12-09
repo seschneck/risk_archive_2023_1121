@@ -14,11 +14,11 @@ path_templates <- "gps/chtc/features/templates"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 path_fun <- "shared/fun_risk.R"
 name_fun <- "fun_risk.R"
-name_labels <- "labels_05.rds"
+name_labels <- "labels_05.csv"
 name_gps <- "gps_enriched.csv.xz"
 name_study_dates <- "study_dates.csv"
 
-n_jobs <- nrow(read_rds(here(path_gps, name_labels)))
+n_jobs <- nrow(read_csv(here(path_gps, name_labels)))
 jobs <- seq(1:n_jobs) # this is equivalent to row numbers of labels that will be used 
 
 # create new job directory (if it does not already exist) 
@@ -36,13 +36,12 @@ write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps)) %>% 
   select(subid, time, dist_context, type, drank, alcohol, emotion, risk, avoid) %>% 
-  mutate(time = with_tz(time, tzone = "America/Chicago")) %>% 
   arrange(subid, time) %>% 
-  write_rds(here(path_jobs, name_job, "input", "data.rds"))
+  vroom_write(here(path_jobs, name_job, "input", "data.csv.xz"), delim = ",")
 
 # copy over other data files verbatim
 file.copy(from = here(path_gps, name_labels),
-          to = here(path_jobs, name_job, "input", "labels.rds")) 
+          to = here(path_jobs, name_job, "input", "labels.csv")) 
 file.copy(from = here(path_gps, name_study_dates),
           to = here(path_jobs, name_job, "input", "study_dates.csv")) 
 
