@@ -1,15 +1,15 @@
 # setup jobs to make features on chtc 
-# finished but not checked/run, JJC
 
 # load packages
-require(readr)
+library(tidyverse)
 library(conflicted)
-require(here)
+library(here)
 library(lubridate)
+library(vroom)
 
-# Paths and filenames - UPDATE FOR USE WITH NEW STUDY
+# Paths and filenames
 name_job <- "features_all"
-path_jobs <- "P:/studydata/risk/chtc/gps/"
+path_jobs <- "P:/studydata/risk/chtc/gps"
 path_templates <- "gps/chtc/features/templates"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 path_fun <- "shared/fun_risk.R"
@@ -33,16 +33,14 @@ if (!dir.exists(here(path_jobs, name_job))) {
 # save out jobs txt file for queue
 write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
 
-# select relevant variables and then copy enriched gps
+# select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps)) %>% 
   select(subid, time, dist_context, type, drank, alcohol, emotion, risk, avoid) %>% 
-  mutate(time = )
-  write_rds(path_jobs, name_job, "input", "data.rds")
+  mutate(time = with_tz(time, tzone = "America/Chicago")) %>% 
+  arrange(subid, time) %>% 
+  write_rds(here(path_jobs, name_job, "input", "data.rds"))
 
-# file.copy(from = here(path_gps, name_gps),
-#           to = here(path_jobs, name_job, "input", "data.csv.xz")) 
-
-# copy over other data files verbatium
+# copy over other data files verbatim
 file.copy(from = here(path_gps, name_labels),
           to = here(path_jobs, name_job, "input", "labels.rds")) 
 file.copy(from = here(path_gps, name_study_dates),
@@ -58,5 +56,5 @@ file.copy(from = here(path_templates, "input", c(list.files(here(path_templates,
           recursive = TRUE)
 
 # copy over output template (aggregate rows)
-file.copy(from = here(path_templates, "output", "post_chtc_processing.rmd"),
-          to = here(path_jobs, name_job, "output", "post_chtc_processing.rmd"))
+file.copy(from = here(path_templates, "output", "post_chtc_processing.Rmd"),
+          to = here(path_jobs, name_job, "output", "post_chtc_processing.Rmd"))
