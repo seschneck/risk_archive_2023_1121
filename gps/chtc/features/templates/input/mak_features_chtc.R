@@ -126,7 +126,8 @@ features <- features %>%
 
 
 # Add outcome label and other info to features ------------------
-features <- features %>%
+features %>%
   mutate(label = label$label) %>% 
   mutate(label_num = label_num) %>% 
-  relocate(label_num, subid, dttm_label, label)
+  relocate(label_num, subid, dttm_label, label) %>% 
+  vroom_write(str_c("features_", label_num, ".csv"), delim = ",")
