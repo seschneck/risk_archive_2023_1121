@@ -1,6 +1,7 @@
 require(lubridate)
 require(vroom)
 require(dplyr)
+require(stringr)
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Returns a tibble with study start and end dates as dttms in central time
@@ -73,10 +74,7 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
     filter(subid == the_subid) %>% 
     pull(data_start)
   
-  
-  
   data_start_hours <- as.numeric(difftime(the_dttm_label, data_start, units = "hours"))
-  
   
   period_duration <- if_else(data_start_hours < period_duration, 
                              data_start_hours,
@@ -84,7 +82,6 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
   
   return(period_duration)
 }
-
 
 
 score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durations, 
