@@ -2,6 +2,7 @@ require(lubridate)
 require(vroom)
 require(dplyr)
 require(stringr)
+require(foreach)
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Returns a tibble with study start and end dates as dttms in central time
