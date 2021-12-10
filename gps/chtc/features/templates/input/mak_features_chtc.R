@@ -16,17 +16,17 @@ args <- commandArgs(trailingOnly = TRUE)
 label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in integers
 
 # read in data ------------------
-data <- vroom("data.csv.xz")%>% 
+data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
   mutate(time = with_tz(time, tz = "America/Chicago")) %>% 
   mutate(duration = difftime(lead(time), time, units = "mins"),
          duration = as.numeric(duration)) %>% 
   rename(dttm_obs = time) %>% 
   filter(dist_context <= dist_max)
 
-labels <- vroom("labels.csv") %>% 
+labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
   mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago"))
 
-dates <- vroom("study_dates.csv") %>% 
+dates <- vroom("study_dates.csv", show_col_types = FALSE) %>% 
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 

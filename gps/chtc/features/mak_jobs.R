@@ -13,7 +13,7 @@ path_jobs <- "P:/studydata/risk/chtc/gps"
 path_templates <- "gps/chtc/features/templates"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 path_fun <- "shared/fun_risk.R"
-name_fun <- "fun_risk.R"
+name_fun <- "fun_chtc_features.R"
 name_labels <- "labels_05.csv"
 name_gps <- "gps_enriched.csv.xz"
 name_study_dates <- "study_dates.csv"
@@ -46,7 +46,7 @@ file.copy(from = here(path_gps, name_study_dates),
           to = here(path_jobs, name_job, "input", "study_dates.csv")) 
 
 # copy over function script
-file.copy(from = path_fun,
+file.copy(from = here("shared", name_fun),
           to = here(path_jobs, name_job, "input", name_fun))
 
 # copy over input templates (run script, submit, pre, post files)
@@ -57,3 +57,4 @@ file.copy(from = here(path_templates, "input", c(list.files(here(path_templates,
 # copy over output template (aggregate rows)
 file.copy(from = here(path_templates, "output", "post_chtc_processing.Rmd"),
           to = here(path_jobs, name_job, "output", "post_chtc_processing.Rmd"))
+ 
