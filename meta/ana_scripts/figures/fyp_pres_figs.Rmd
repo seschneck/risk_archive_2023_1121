@@ -47,6 +47,7 @@ library(readxl)
 library(lubridate)
 library(janitor)
 library(ggforce)
+library(papaja)
 
 source(here("meta/fun_meta.R"))
 source(here("../lab_support/chtc/fun_chtc.R"))
@@ -94,14 +95,14 @@ age <- screen %>%
   ggplot(aes(x = dem_1)) +
   geom_histogram(bins = 20, color = "white", fill = "black") +
   theme(axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.line = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_rect(fill = "transparent",colour = NA),
         plot.background = element_rect(fill = "transparent",colour = NA)
-        ) 
+        )
 age
 
 min(screen$dem_1)
@@ -111,7 +112,7 @@ sd(screen$dem_1)
 ```
 
 ```{r}
-# ggsave(plot = age,  "C:/Users/kpaquette2/Desktop/age.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+# ggsave(plot = age,  "C:/Users/kpaquette2/Desktop/age.png", bg = "transparent", width = 3, height = 1.5, units = "in", device = "png", dpi = 500)
 ```
 
 income
@@ -120,14 +121,14 @@ income <- screen %>%
   ggplot(aes(x = dem_7)) +
   geom_histogram(bins = 20, color = "white", fill = "black") +
   theme(axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.line = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_rect(fill = "transparent",colour = NA),
         plot.background = element_rect(fill = "transparent",colour = NA)
-        ) 
+        )
 income
 
 min(screen$dem_7)
@@ -137,7 +138,7 @@ sd(screen$dem_7)
 ```
 
 ```{r}
-# ggsave(plot = income,  "C:/Users/kpaquette2/Desktop/income.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+# ggsave(plot = income,  "C:/Users/kpaquette2/Desktop/income.png", bg = "transparent", width = 3, height = 1.5, units = "in", device = "png", dpi = 500)
 ```
 
 DSM 5
@@ -161,14 +162,14 @@ dsm_plot <- dsm5 %>%
   geom_histogram(bins = 12, color = "white", fill = "black") +
   scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), limits = c(1, 12)) +
   theme(axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        axis.line = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.line.y = element_blank(),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         panel.background = element_rect(fill = "transparent",colour = NA),
         plot.background = element_rect(fill = "transparent",colour = NA)
-        ) 
+        )
 dsm_plot
 
 min(dsm5$dsm_total)
@@ -178,7 +179,7 @@ sd(dsm5$dsm_total)
 ```
 
 ```{r}
-# ggsave(plot = dsm_plot,  "C:/Users/kpaquette2/Desktop/dsm.png", bg = "transparent", width = 4, height = 2, units = "in", device = "png", dpi = 500)
+# ggsave(plot = dsm_plot,  "C:/Users/kpaquette2/Desktop/dsm.png", bg = "transparent", width = 3, height = 1.5, units = "in", device = "png", dpi = 500)
 ```
 
 ### Lapse histogram
@@ -282,14 +283,14 @@ results_best_model %>%
 
 ```{r fig.height = 3}
 best_fits <- results_best_model$bal_accuracy
-null_fits <- vroom::vroom(here(path_models, "null_model_fits.csv"), col_types = vroom::cols())$bal_accuracy
+# null_fits <- vroom::vroom(here(path_models, "null_model_fits.csv"), col_types = vroom::cols())$bal_accuracy
 
-rope_min <- -.01
-rope_max <- .01
-plot_min = -.1
-plot_max = .3 
+rope_min <- .49
+rope_max <- .51
+plot_min = .4
+plot_max = .8
 
-results_ttest <- bayesian_correlated_t_test(best_fits, null_fits,
+results_ttest <- bayesian_correlated_t_test(best_fits,
                            rope_min = rope_min, 
                            rope_max = rope_max, 
                            k = 10, 
@@ -301,7 +302,7 @@ best_null_plot <- ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results
   geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
   scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
   labs(x = "Accuracy Difference (Best - Null Model)",
-       y = "Posterior Probability")
+       y = "Posterior Probability for Balanced Accuracies")
 
 best_null_plot
 
@@ -418,7 +419,7 @@ ap_plot <- ggplot(mapping = aes(x = results_ttest$plot_diffs,
   geom_vline(mapping = aes(xintercept  = rope_max), linetype = "dashed") +
   scale_x_continuous(breaks=seq(plot_min, plot_max, .02)) +
   labs(x = "Accuracy Difference (Active - Passive Model)",
-       y = "Posterior Probability")
+       y = "Posterior Probability for Balanced Accuracies")
 
 ap_plot
 
