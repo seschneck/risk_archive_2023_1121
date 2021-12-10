@@ -5,13 +5,9 @@ dist_max <- 50   # only use context if places are within 50 meters
 
 suppressPackageStartupMessages({
   library(dplyr)
-  # library(readr)
-  library(tidyr)
-  library(stringr)
   library(lubridate)
-  library(tis)
   library(vroom)
-  source("fun_risk.R")
+  source("fun_chtc_features.R")
 })
 
 # get chtc process num ------------------
