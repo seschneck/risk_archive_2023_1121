@@ -1,62 +1,27 @@
 ---
-title: "Post-CHTC Processing"
+title: "Aggregates jobs for features from CHTC"
+author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
     toc_depth: 4
-    code_folding: show
-editor_options: 
-  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/gps", 
+      "/Volumes/private/studydata/risk/knits/gps")
+    )
+  })
 ---
 
-### Setup
+### Code Status
 
-Chunk Defaults
-```{r defaults, include=FALSE}
-knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+In development
 
-options(tibble.width = Inf)
-options(tibble.print_max = Inf)
-```
+### Notes   
 
-
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) 
- conflict_prefer("filter", "dplyr")
- conflict_prefer("select", "dplyr")
- conflict_prefer("spec", "yardstick")
-
-library(here)  
-```
-
-Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
-library(tidyverse)  
-library(janitor) 
-library(lubridate)
-library(ggplot2)
-library(kableExtra)
-
-theme_set(theme_classic()) 
-```
-
-Set additional paths
-```{r}
-path_job <- here("P:/studydata/risk/chtc/meta/jobs/features/features_1.1000")
-path_output <- here(path_job, "output/output")
-path_features <-  here(path_job, "output/features")
-path_error <-  here(path_job, "output/error")
-```
-
-Source function scripts from lab support
-```{r  source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
-```
-
-
-### Notes
 This script aggregates all CHTC features and runs checks for missing jobs.
   
 
@@ -74,23 +39,81 @@ Jobs input file
 
 Output:   
 
-- features_aggregate.csv   
+- features.csv 
+
+
+
+### Set Up Environment
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_jobs <- "P:/studydata/risk/chtc/gps/features_all"
+          path_output <- "P:/studydata/risk/data_processed/gps"},
+
+        # IOS paths
+        Darwin = {path_jobs <- "/Volumes/private/studydata/risk/chtc/gps/features_all"
+        path_output <- "/Volumes/private/studydata/risk/data_processed/gps"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("spec", "yardstick")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+library(tidyverse)  
+library(janitor) 
+library(vroom)
+#library(lubridate)
+#library(ggplot2)
+#library(kableExtra)
+
+#theme_set(theme_classic()) 
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+```
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Begin Main Code
+
 
 ### Unzip and check jobs
 
 unzip chtc folders
 ```{r}
-unzip(zipfile = file.path(path_job, "output/output.zip"), exdir = file.path(path_job, "output"))
-unzip(zipfile = file.path(path_job, "output/features.zip"), exdir = file.path(path_job, "output"))
-unzip(zipfile = file.path(path_job, "output/error.zip"), exdir = file.path(path_job, "output"))
+unzip(zipfile = here(path_jobs, "output", "output.zip"), exdir = here(path_jobs, "output"))
+unzip(zipfile = here(path_jobs, "output","features.zip"), exdir = here(path_jobs, "output"))
+unzip(zipfile = here(path_jobs, "output","error.zip"), exdir = here(path_jobs, "output"))
 ```
 
 Read in jobs
 ```{r}
-jobs <- read_lines(here(path_job, "input/jobs.csv")) %>% 
-    as.numeric() %>%
-    enframe(., value = "label_num", name = NULL) %>% 
-  glimpse()
+jobs <- vroom(here(path_jobs, "input", "jobs.csv"), delim = ",", show_col_types = FALSE, col_names = FALSE) %>% 
+  rename(label_num = X1)
 ```
 
 
@@ -98,7 +121,7 @@ jobs <- read_lines(here(path_job, "input/jobs.csv")) %>%
 check all error files are blank (0 kb)    
 Note: error files also contain warnings
 ```{r}
-err_files <- map_df(list.files(path_error, full.names = TRUE), file.info)
+err_files <- map_df(list.files(here(path_jobs, "output", "error"), full.names = TRUE), file.info)
 tabyl(err_files$size)
 ```
 
@@ -109,6 +132,7 @@ if (nrow(subset(err_files, size > 0)) > 0) {
     filter(size > 0) %>% 
     rownames_to_column("path") %>% 
     pull(path) 
+  
   for (i in err_paths) {
     err_i <- read_file(i) %>% 
       enframe(value = "message", name = NULL) %>% 
@@ -129,7 +153,7 @@ if (nrow(subset(err_files, size > 0)) > 0) {
 
 check all output files are blank (0 kb)
 ```{r}
-out_files <- map_df(list.files(path_output, full.names = TRUE), file.info)
+out_files <- map_df(list.files(here(path_jobs, "output", "output"), full.names = TRUE), file.info)
 tabyl(out_files$size)
 ```
 
@@ -137,23 +161,19 @@ tabyl(out_files$size)
 
 read in all result CSVs
 ```{r}
-feat_files <- list.files(path_features, full.names = TRUE)
-features <- map_dfr(feat_files, ~read_rds(.x)) %>% 
+features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
+  vroom(delim = ",", show_col_types = FALSE) %>% 
   glimpse()
 ```
 
 
+### Check for missing jobs
 check for missing jobs    
 
 `r nrow(features)` rows from `r nrow(jobs)` jobs.      
 
 ```{r}
-missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
-  filter(!label_num %in% features$label_num)
-
-if (nrow(missing_job_nums) > 0) {
-  print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
-  } else print("No missing jobs")
+message("Missing jobs: ", subset(jobs$label_num, !jobs$label_num %in% features$label_num))
 ```
 
 Add in missing jobs    
@@ -178,14 +198,14 @@ Add in missing jobs
 ```
 
 
+# EDA
+
 Check no duplicate labels
 ```{r}
 features %>% 
   count(subid, dttm_label) %>% 
   filter(n > 1)
 ```
-
-### Check for any unexpected values
 
 Missing values    
 All missing values should be proportions   
@@ -201,30 +221,11 @@ features %>%
   glimpse()
 ```
 
-
-proportions should be NA or between 0-1
-```{r}
-features %>% 
-  summarise(across(contains("rpropcount"), list(min = min, max = max), na.rm = TRUE)) %>% 
-  glimpse()
-```
-
-### Print features
-
-```{r}
-# print_kbl(features)
-```
-
-
-
 ### Write out aggregated features
 
 
 ```{r}
-write_csv(features, here(path_job, "output/features_aggregate.csv")) %>% 
-  glimpse()
-
-
-write_rds(features, here(path_job, "output/features_aggregate.rds"))
+features %>% 
+  vroom_write(here(path_output, "features.csv"))
 ```
 
