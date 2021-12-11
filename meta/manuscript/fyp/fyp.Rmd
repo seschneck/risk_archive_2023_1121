@@ -25,7 +25,7 @@ abstract: |
 
   
 keywords          : "personal sensing, digital phenotyping, alcohol use disorder, cellular communication logs, text messages, digital therapeutics, digital health"
-wordcount         : "6432"
+wordcount         : "6542"
 
 bibliography: meta.bib
 csl: journal-of-medical-internet-research.csl
@@ -222,13 +222,13 @@ We collected lapse start and end times from participants with a four-time daily 
 
 Our first study aim was to train and evaluate the best performing machine learning model to predict alcohol lapse onset from contextualized cellular communication data. We built, trained, and evaluated models with several statistical learning algorithms including penalized parametric linear classification algorithms (LASSO, ridge regression, glmnet), non-parametric classification algorithms (k nearest neighbor), and ensemble methods (random forest). Candidate statistical learning algorithms were trained on a subset of the data (i.e., training sets) using combinations of features derived from participants cellular communications and context information.
 
-Balanced accuracy was our performance metric for both model selection and evaluation.  However, during model evaluation we also report other performance metrics (sensitivity, specificity, positive predictive value, negative predictive value) to fully characterize the performance of our best model configuration. We also visually inspected lapse probability predictions by participant to further probe model performance.
+Balanced accuracy (i.e., the average of sensitivity and specificity) was our performance metric for both model selection and evaluation.  However, during model evaluation we also report other performance metrics (sensitivity, specificity, positive predictive value, negative predictive value) to fully characterize the performance of our best model configuration. We also visually inspected lapse probability predictions by participant to further probe model performance.
 
 During model selection, we used grouped 10-fold cross-validation (grouped 10X CV) without repeats (i.e, 1 set of 10 grouped folds). We selected the top performing model configuration (statistical algorithm and combination of features) according to highest balanced accuracy. All cross-validation folds were grouped by participant ID so that a single participant's data were not being used to predict future data on the same participant. In other words, all data from a participant was either included in the training or held-out validation set, but not both.  
 
 We evaluated our top performing model configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10-fold CV). We opted to use resampling for model evaluation instead of an independent held-out test set because, with our limited sample size, averaging balanced accuracy over 100 held-out validation sets gives us a more stable (i.e., low variance) and less biased estimate of model performance than other available options using a single test set. 
 
-Finally, we used a Bayesian correlated t-test [@benavoliTimeChangeTutorial2017] to compare our top model configuration's balanced accuracy across the 100 validation sets to the expected performance of a null model with no predictive signal(i.e., balanced accuracy = .50). In this analysis, we defined a meaningful difference to be more than a difference of 1% in either direction (i.e., Region of Practical Equivalence [ROPE] set to -.01 - .01).
+Finally, we used a Bayesian correlated t-test [@benavoliTimeChangeTutorial2017] to compare our top model configuration's balanced accuracy estimates across the 100 validation sets to a balanced accuracy of .50 (i.e., the expected performance of a null model with no predictive signal). In this analysis, we defined a meaningful difference to be more than a difference of 1% in either direction (i.e., Region of Practical Equivalence [ROPE] set to .49 - .51).
 
 Our study's second aim was to compare the best model configuration using all available features from both passive signals from communications logs and actively measured context (i.e., active) with the best model configuration restricted to only passive signals (i.e., passive). To do this we employed a model comparison approach. Our top passive and active model configurations were selected using grouped 10-fold CV and then evaluated using grouped 10x10-fold CV. We then used a Bayesian correlated t-test to compare balanced accuracy from each of the 100 validation sets of our top active model configuration with our top passive model configuration. We defined a meaningful difference between model configurations to be more than a 1% difference in either direction (i.e., ROPE set to -.01 - .01). Through this relative comparison, we quantified any performance benefit from adding features based on the the active component of context. 
 
@@ -1022,9 +1022,11 @@ Figure 8. Histogram of number of lapses reported by each participant. Fifty-six 
 
 Model configurations differed by statistical algorithm (glmnet, random forest, Knn), feature set (active, passive), feature type (percent, raw, percent and raw), and class resample (up, down, SMOTE). We also tuned each statistical algorithm to select the optimal hyperparameter values. We then selected the best model configuration using a grouped 10-fold cross-validation (grouped 10-fold CV) resampling method. We selected our top candidate configurations on balanced accuracy. Table 4 shows the best performing model configuration (i.e., highest balanced accuracy) for each statistical algorithm (glmnet, random forest, Knn). We selected the statistical algorithm with highest balanced accuracy to be our top performing model configuration. 
 
-Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we re-estimated the performance of this top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 CV). This means we trained our model configuration on 100 different subsets of training data and predicted on the 100 held out validation sets. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. Table 5 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 6 characterizes our best model configuration over several metrics appropriate for classification.   
+Our top performing model configuration was a random forest statistical algorithm using passive features and down-sampling. To reduce the effects of optimization bias on our evaluation of our top model configuration's predictive performance, we re-estimated the performance of this top performing configuration using grouped 10-fold cross validation with 10 repeats (grouped 10x10 CV). This means we trained our model configuration on 100 different subsets of training data and predicted on the 100 held out validation sets. We then averaged across the 100 performance estimates to get a single estimate with low variance. This method gave us a balanced accuracy estimate of .60. 
 
-We performed a model comparison to assess our model configuration's performance compared to a null model configuration (i.e., intercept only) with a balanced accuracy of .50. A Bayesian correlated t-test revealed a posterior probability that the balanced accuracy of our top model configuration was above the Region of Practical Equivalence (ROPE) is .999 (Figure 9). This suggests there is a meaningful difference between our selected model configuration and a null model configuration with no signal. 
+Table 5 shows a confusion matrix where we can see how well the model configuration predicts on new data for negative cases (i.e., no lapse) compared to positive cases (i.e., lapses). Table 6 characterizes our best model configuration over several metrics appropriate for classification. Our best model had a specificity of .73 and a sensitivity of .46. This means out of all the no lapses we are correctly identifying 73% of them and out of all the lapses we are correctly identifying 46% of them.    
+
+Figure 9 shows a distribution of posterior probabilities for the 100 balanced accuracy estimates. We performed a Bayesian correlated t-test to compare these estimated to a balanced accuracy of .50 (i.e., what we would expect from a model with no signal). We defined the Region of Practical Equivalence (ROPE) to be within 1% higher or lower than .50. The ROPE is depicted as the vertical dashed lines. The test showed there is more than a 99% posterior probability that our model is performing better than .51. This suggests there is a meaningful difference between our selected model configuration and a model with no signal. 
 
 In the appendix we show that our best performing model configuration has variation in predictions for each individual participant. Figure A1 contains predictions that are predicted probabilities of a lapse. Each observation was held out 10 times (grouped 10x10 CV) and the figure shows the averaged probability across these 10 predictions. Actual lapses, are depicted in red.    
 
@@ -1072,7 +1074,7 @@ tibble(Prediction = c("no", "yes"),
        yes = c(unlist(tidy(cm)[3, 2]), unlist(tidy(cm)[4, 2]))) %>%
     apa_table(placement = "pt",
               caption = "Confusion Matrix for Best Model Configuration",
-              note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Results based on grouped 10x10-fold cross validation.",
+              note = "The best model configuration was a random forest algorithm using passive features and down-sampling. Results based on grouped 10x10-fold cross validation.",
               col_spanners = list("Truth" = c(2, 3)))
 ```
 
@@ -1094,21 +1096,20 @@ results_best_model %>%
               pivot_longer(everything(), names_to = "metric", values_to = "estimate")) %>%
   apa_table(placement = "pt", digits = 2,
             caption = "Performance Metrics for Best Model Configuration",
-            note = "The best model configuration was a random forest algirthm using passive features and down-sampling. Performance estimated by grouped 10x10-fold cross validation.")
+            note = "The best model configuration was a random forest algorithm using passive features and down-sampling. Performance estimated by grouped 10x10-fold cross validation.")
 ```
 
 
 
 ```{r fig.height = 3}
 best_fits <- results_best_model$bal_accuracy
-null_fits <- vroom(here(path_models, "null_model_fits.csv"), col_types = vroom::cols())$bal_accuracy
 
-rope_min <- -.01
-rope_max <- .01
-plot_min = -.1
-plot_max = .3 
+rope_min <- .49
+rope_max <- .51
+plot_min = .4
+plot_max = .8
 
-results_ttest <- bayesian_correlated_t_test(best_fits, null_fits,
+results_ttest <- bayesian_correlated_t_test(best_fits,
                            rope_min = rope_min, 
                            rope_max = rope_max, 
                            k = 10, 
@@ -1124,7 +1125,7 @@ ggplot(mapping = aes(x = results_ttest$plot_diffs, y = results_ttest$pdf)) +
 ```
 
 
-Figure 9. Model comparison of best model (passive random forest) and null model (intercept only) configurations. 
+Figure 9. Posterior probabilities of balanced accuracy estimates for the best model (passive random forest) compared to a balanced accuracy of .50. 
 
   
 
@@ -1133,7 +1134,7 @@ Figure 9. Model comparison of best model (passive random forest) and null model 
 
 Our best performing active model configuration (i.e., using all the features available) was a glmnet algorithm using up-sampling. We retrained this model configuration on 100 subsets of data and predicted on the held out validation set 100 times (grouped 10x10 CV). This gave us an averaged balanced accuracy of .60. 
 
-Figure 10 shows the balanced accuracy estimates for passive and active model configurations over the 100 held-out validation sets. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that our active model performed meaningfully better (i.e., to the right of the ROPE) than the passive model was .37 (Figure 11).  Thus, there is not strong evidence to support the collection of context to calculate active features at this point.  
+Figure 10 shows the balanced accuracy estimates for passive and active model configurations over the 100 held-out validation sets. A Bayesian correlated t-test revealed there were no differences between the best active and best passive model configuration. The posterior probability that our active model performed meaningfully better (i.e., to the right of the ROPE) than the passive model was .37 (Figure 11). There is a 20% posterior probability that the two models are equivalent and a 43% posterior probability that the passive model is better. Thus, there is not strong evidence to support the collection of context to calculate active features at this point.  
 
 
 ```{r fig.height = 3}

@@ -1,0 +1,111 @@
+---
+title: "Summary of text message data"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/", 
+      "/Volumes/private/studydata/risk/knits")
+    )
+  })
+---
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+path_meta <- "P:/studydata/risk/data_processed/meta"
+path_shared <- "P:/studydata/risk/data_processed/shared"
+```
+
+
+Packages
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+library(here)
+library(vroom)
+
+theme_set(theme_classic()) 
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+```
+
+
+
+### Text Message Data
+
+Read in clean logs
+```{r}
+logs <- vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) 
+```
+
+Filter out voice calls
+```{r}
+logs_sms <- logs %>% 
+  filter(log_type == "sms") %>% 
+  glimpse()
+```
+
+
+### Summary of Data
+
+There are a total of `r nrow(logs_sms)` text messages from `r length(unique(logs_sms$subid))` participants.  
+
+Note: no SMS messages for subid 9 - from notes: "Subject's SMS files are empty because the subject deleted all text messages before their study visit; They also did not text much."
+```{r}
+dates <- vroom(here(path_shared, "visit_dates.csv"), col_types = vroom::cols()) %>% 
+  filter(!is.na(followup_1)) 
+
+dates %>% 
+  filter(!subid %in% logs_sms$subid)
+```
+
+Messages per subid   
+Below is min, max, and mean for the number of messages per person
+```{r}
+logs_sms %>% 
+  count(subid) %>% 
+  summarise(min = min(n),
+            max = max(n),
+            mean = mean(n))
+```
+
+
+Distribution of messages per person
+```{r}
+logs_sms %>% 
+  count(subid) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(bins = 30, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean), logs_sms %>% 
+               count(subid) %>% 
+               summarise(mean = mean(n)), color = "red3")
+```
+
+
+
+
