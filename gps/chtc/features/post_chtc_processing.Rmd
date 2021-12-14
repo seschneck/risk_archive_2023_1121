@@ -76,6 +76,7 @@ Packages for script
 library(tidyverse)  
 library(janitor) 
 library(vroom)
+library(furrr)
 #library(lubridate)
 #library(ggplot2)
 #library(kableExtra)
@@ -161,8 +162,17 @@ tabyl(out_files$size)
 
 read in all result CSVs
 ```{r}
+# features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
+#   vroom(delim = ",", show_col_types = FALSE) %>% 
+#   glimpse()
+
+
+#future_map over subids
+(n_core <- parallel::detectCores(logical = FALSE))
+plan(multisession, workers = n_core)
+
 features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
-  vroom(delim = ",", show_col_types = FALSE) %>% 
+  future_map_dfr(read_csv) %>% 
   glimpse()
 ```
 
