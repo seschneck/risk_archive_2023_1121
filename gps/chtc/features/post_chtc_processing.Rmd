@@ -176,7 +176,7 @@ toc()
 
 tic()
 features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
-  future_map_dfr(~ vroom(.x, delim = ",")) %>% 
+  future_map_dfr(~vroom(.x, delim = ",")) %>% 
   arrange(subid, dttm_label) %>% 
   glimpse()
 toc()
