@@ -37,6 +37,31 @@ divided up in the train/validate resamples
 
 
 
+GPS problems that require removal
+
+* 190 had gps problems through-out study.  Missing GPS on most (85) days.  Drop participant
+* 56 is missing most of their data until the last few days of the study. Drop participant
+* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study. Drop participant
+* 51 tech (samsung) issues with big (month long) gaps in their data.  Drop participant
+* 21 had tech (samsung) issues.  Large gaps.  Drop participant
+* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off).  Drop participant
+* 65 had tech (samsung) issues with many gaps in gps.  Drop participant
+* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. Drop participant
+* 19 had tech issues (samsung) with many gaps in gps.  Drop participant
+
+
+GPS problems that require adjustment
+
+* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
+* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FOllowmee on 7/19 and seemed
+to resolve issue.   Filter data (and lapses before 7/19) 
+* 167 had gps problems in first month.  Resolved at FU1.  Recode study start to 2/6 (data of FU1 when GPS starts working)
+* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were 
+ok (some gaps but not really big ones) trhoug 5/19.   End study on 5/19 
+
+
+
+
 
 ### Set Up Environment
 
@@ -53,12 +78,12 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
           path_gps <- "P:/studydata/risk/data_processed/gps"},
 
         # IOS paths
         Darwin = {
-          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
           path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"}
         )
 ```
@@ -89,10 +114,79 @@ source(here("../lab_support/print_kbl.R"))
 ```
 
 
-### Begin Main Code
+### Study Dates
 
+Open study dates b/c it contains all the subids with context and valid lapses
 ```{r}
 study_dates <- vroom(here(path_gps, "study_dates.csv")) %>% 
+  mutate(study_start = as_date(study_start),
+         study_end = as_date(study_end)) %>% 
+  mutate(study_ndays = as.numeric(difftime(study_end, study_start, units = "days"))) %>% 
   glimpse()
+
+subids_dates <- study_dates %>% 
+  pull(subid) %>% 
+  unique()
+
+study_dates %>% 
+  pull(study_ndays) %>% 
+  hist(main = "Days on Study")
+```
+
+### Locations
+
+Confirm that locations exists and has some places
+```{r}
+locs <- vroom(here(path_shared, "locations.csv")) %>% 
+  glimpse()
+
+locs %>% 
+  tabyl(subid) %>% 
+  arrange(n)
+
+subids_locs <- locs %>% 
+  pull(subid) %>% 
+  unique %>% 
+  as.numeric()
+
+if(any(!(subids_dates %in% subids_locs))) stop("Missing location for some subids")
+```
+
+
+### GPS
+
+```{r}
+gps <- vroom(here(path_gps, "gps_enriched.csv.xz"), show_col_types = FALSE) %>% 
+  mutate(time = with_tz(time, tzone = "America/Chicago")) %>% 
+  mutate(gps_date = as_date(time)) %>%
+  left_join(select(study_dates, subid, study_start, study_end, study_ndays), by = "subid") %>% 
+  filter(gps_date >= study_start,
+         gps_date <= study_end) %>% 
+  glimpse()
+
+gps %>% 
+  tabyl(subid) %>% 
+  arrange(n)
+
+subids_gps <- gps %>% 
+  pull(subid) %>% 
+  unique %>% 
+  as.numeric()
+
+if(any(!(subids_dates %in% subids_gps))) stop("Missing gps for some subids")
+
+# number of days with gps points
+gps %>% 
+  group_by(subid, gps_date) %>% 
+  summarize(n()) %>% 
+  group_by(subid) %>% 
+  summarize(gps_ndays = n()) %>% 
+  left_join(select(study_dates, subid, study_ndays), by = "subid") %>% 
+  mutate(days_diff = gps_ndays - study_ndays) %>% 
+  arrange(days_diff) %>% 
+  print %>% 
+  pull(days_diff) %>% 
+  hist(main = "Days of Missing GPS")
+
 ```
 
