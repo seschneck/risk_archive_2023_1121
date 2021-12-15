@@ -84,6 +84,7 @@ Import
 locations <- merge_excel_files("Locations", path_raw) %>% 
   rename(lon = long) %>% 
   mutate(context_id = row_number()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
   relocate(subid, context_id)
 ```
 
