@@ -37,7 +37,7 @@ divided up in the train/validate resamples
 
 
 
-GPS problems that require removal
+**GPS problems that require removal**
 
 * 190 had gps problems through-out study.  Missing GPS on most (85) days.  Drop participant
 * 56 is missing most of their data until the last few days of the study. Drop participant
@@ -48,19 +48,26 @@ GPS problems that require removal
 * 65 had tech (samsung) issues with many gaps in gps.  Drop participant
 * 117 turned off location services repeatedly b/c of data plan issues. Many gaps. Drop participant
 * 19 had tech issues (samsung) with many gaps in gps.  Drop participant
+* 42 had many big gaps throughout their data.  Drop participant
 
 
-GPS problems that require adjustment
+**GPS problems that require adjustment**
 
 * 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
 * 74 had problems with Moves.  Gaps in data using Moves.  Switched to FOllowmee on 7/19 and seemed
 to resolve issue.   Filter data (and lapses before 7/19) 
 * 167 had gps problems in first month.  Resolved at FU1.  Recode study start to 2/6 (data of FU1 when GPS starts working)
-* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were 
-ok (some gaps but not really big ones) trhoug 5/19.   End study on 5/19 
+* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
+*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
 
+**Data OK despite missing**
 
+* 3 has missing days but these appear to result from not leaving home for long periods do to a fractured leg.  Retain all data
 
+** Not sure**
+
+* 63 has some big gaps but mostly good data.  Also stays home a lot.  If we can
+find a way to handle the gaps, maybe can retain?
 
 
 ### Set Up Environment
@@ -156,7 +163,9 @@ if(any(!(subids_dates %in% subids_locs))) stop("Missing location for some subids
 ### GPS
 
 ```{r}
-gps <- vroom(here(path_gps, "gps_enriched.csv.xz"), show_col_types = FALSE) %>% 
+gps <- vroom(here(path_gps, "gps_enriched.csv.xz"),
+             col_types = "dddTcccddddcccccccc", 
+             show_col_types = FALSE) %>% 
   mutate(time = with_tz(time, tzone = "America/Chicago")) %>% 
   mutate(gps_date = as_date(time)) %>%
   left_join(select(study_dates, subid, study_start, study_end, study_ndays), by = "subid") %>% 
@@ -187,6 +196,5 @@ gps %>%
   print %>% 
   pull(days_diff) %>% 
   hist(main = "Days of Missing GPS")
-
 ```
 
