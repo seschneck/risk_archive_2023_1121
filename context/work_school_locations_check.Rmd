@@ -31,6 +31,7 @@ library(tidyverse)
 library(janitor)
 library(purrr)
 library(kableExtra)
+library(tidylog)
 ```
 
 ### Import file
@@ -51,6 +52,7 @@ gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>%
 
 ```
 
+
 ### Merge
 
 ```{r}
@@ -66,5 +68,11 @@ location_check <- gps %>%
       n_home_zones = n_home_zone, n_work_zones), 
     by = "subid") %>% 
   rename(gps_data = data)
+
+#check the rows only in gps
+
+
+#clean up
+rm(gps)
 
 ```
