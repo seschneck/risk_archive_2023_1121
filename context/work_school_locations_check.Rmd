@@ -46,6 +46,7 @@ location_descriptions <- read_csv("./user_locations_check.csv",
 
 locations <- read_csv("P:/studydata/risk/data_processed/gps/to_share/locations.csv",
                       col_names = TRUE) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
   clean_names("snake") %>% 
   mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
   glimpse()
@@ -59,7 +60,6 @@ gps <- read_csv("P:/studydata/risk/data_processed/gps/to_share/gps.csv") %>%
 ### Merge
 
 ```{r}
-
 location_check <- gps %>% 
   mutate(location_source = "gps_data") %>% 
   select(subid, lat, long, time, location_source) %>% 
@@ -110,27 +110,30 @@ location_check <- location_check %>%
 #### Categorize particpants with unique labeled and observed home and work
 
 ```{r}
-
 location_check <- location_check %>% 
   mutate(action = case_when(n_home_locations == 1 & 
                      n_work_locations == 1 &
                      n_home_zones == 1 &
                      n_work_zones == 1 ~ "use as is",
                      TRUE ~ action))
-
 ```
 
 #### Check participants with multiple home locations
 
 ```{r}
 multiple_homes_ids <- locations %>% 
-  filter(n_home_locations > 1) %>% 
+  filter(type == "HOME") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  filter(n > 1) %>% 
   pull(subid)
 
 #function that takes subid and creates maps around each home
 #this will iterate through multiple_homes_ids list
 
-check_labeled_locations <- function(subject){
+check_labeled_locations <- function(subid){
+  
+subject <- as.numeric(subid) #renaming to prevent issues  
   
 gps <- location_check %>% 
   filter(subid == subject) %>% 
@@ -140,19 +143,26 @@ gps <- location_check %>%
                                      location_source == "gps_data" ~ "observed location"))
 
 homes <- gps %>% 
-  filter(location_source == "labeled_home") %>% 
+  filter(location_source == "home") %>% 
   select(long, lat) 
 
-map2(homes$long, homes$lat, ~ggmap(
-    get_map(
-      c(.x, .y), zoom = 18)) +
-    geom_point(aes(x = long, 
-                   y = lat,
-                   color = location_source),
-               data = gps))
+if (nrow(homes) > 1) {
+  
+  map2(homes$long, homes$lat, 
+       ~ggmap(
+         get_map(
+           c(.x, .y), zoom = 18)) +
+         geom_point(aes(x = long, 
+                        y = lat,
+                        color = location_source),
+                    data = gps)) 
 }
 
-map(multiple_homes_ids[1], ~check_labeled_locations(.x))
+if (nrow(homes) < 2) message("multiple homes not detected")
+
+}
+
+check_labeled_locations("43")
 
 
 ```
