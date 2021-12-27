@@ -42,7 +42,7 @@ location_descriptions <- read_csv("./context/user_locations_check.csv",
   clean_names("snake") %>% 
   glimpse()
 
-locations <- read_csv("./user_locations.csv",
+locations <- read_csv("./context/user_locations.csv",
                       col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
@@ -68,18 +68,21 @@ location_check <- gps %>%
       n_home_zones = n_home_zone, n_work_zones), 
     by = "subid") %>% 
   rename(gps_data = data)
+```
 
+#### Check for issues
 
-#check for rows only in gps
-unique(location_check$subid) %in% unique(gps$subid)
+```{r}
 
-#check for duplicate rows in location_check
-location_check %>% 
-  group_by(subid) %>% 
-  count() %>% 
-  filter(n > 1)
+#check for subids only in location_description
+missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
 
 #clean up
 rm(gps)
 
 ```
+
+There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
+
+TODO: Get more information about where their removal is documented. "studydata/risk/knits/gps/mak_gps_enriched.html" does not note their removal. Do not see another mak_gps html but the gps file was created in the last month. The notes file does not have any entry for 24 or 67. Clearly these people had data at some point, because they have locations.
+
