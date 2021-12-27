@@ -41,110 +41,30 @@ location_descriptions <- read_csv("./context/user_locations_check.csv",
   clean_names("snake") %>% 
   glimpse()
 
+locations <- read_csv("./user_locations.csv",
+                      col_names = TRUE) %>% 
+  clean_names("snake") %>% 
+  glimpse()
+
+gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>% 
+  glimpse()
+
 ```
 
-### Review 
+### Merge
 
 ```{r}
-other_locations %>% 
-  tabyl(proposed_label)
+
+location_check <- gps %>% 
+  select(lat, lon, time, subid) %>% 
+  group_by(subid) %>% 
+  nest() %>% 
+  left_join(
+    select(
+      location_descriptions,
+      subid, type, n_home_locations, n_work_locations, 
+      n_home_zones = n_home_zone, n_work_zones), 
+    by = "subid") %>% 
+  rename(gps_data = data)
+
 ```
-
-### Investigate "work" as that was an option people could have selected....
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "work") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-Hard to argue for recategorizing these... however, there are a lot of 'conferences' 'expo centers' that are probably also work that we don't categorize that way. We could leave the conferences / meetings blank, given that these people didn't select 'work' when given the chance. OR our RAs were not careful...
-
-```{r}
-other_locations %>% 
-  filter(str_detect(description, "conference")) %>% 
-  pull(description) %>% 
-  unique()
-```
-
-### Investigate "school" as that was also an option
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "school") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-Hard to argue with this, too.
-
-
-### Looking at the labels most related to alcohol use
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "public drinking space") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-Minor inferences here around venues that are not specified.
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "liquor store") 
-```
-
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "recovery and health") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-There were a lot of sports-related boundary cases. For example, golfing, hunting, volleyball, walking / walking trail.
-
-### Looking at the bigger categories that might have heterogeneity
-
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "others' home") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-A big issue with these labels is that they could be 'temporary home' or other categories, like errands. This label captures description of the place and not of the person's use of the place.
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "errands") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-Again, this is hard because for some reason, people didn't categorize these things as errands initially. Could be a language issue around what people think "errands" are.
-
-Also, law-related activities are currently here, but may belong in a different category.
-
-```{r}
-other_locations %>% 
-  filter(proposed_label == "community space / recreation") %>% 
-  pull(description) %>% 
-  unique()
-```
-
-Again, some places that could be categorized elsewhere like:
-- walking dog, walking path, walking park
-- swim club
-- overture center (possibly serves alcohol)
-- "prison (boyfriend visit)" could be others' home
-- race (possibly serves alcohol)
-- "golf club -> swim meet" could be errands
-- "client" could be work
-- "college" could be school
-- "study" might be the research study / brogden
-
-
