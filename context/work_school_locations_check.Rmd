@@ -20,7 +20,7 @@ knit: (function(input, ...) {
 
 Purpose: This file reviews each person's GPS data to resolve issues related to multiple work and school locations.
 
-Inputs:  other_labels_MM.DD.YY.csv
+Inputs:  user_locations_check.csv, which is a copy of a sheet in "workbook_sent_from_xinyi.xlsx" with cleaned variable names. Many of the columns we will not use (the binary description and decision columns Xinyi created), but many contain information about activity zones that we do not otherwise have.
 
 
 ### Setup
@@ -36,16 +36,11 @@ library(kableExtra)
 ### Import file
 
 ```{r}
-other_locations <- read_csv("./other_labels_11.12.21.csv",
-                            skip = 1, col_names = TRUE) %>% 
+location_descriptions <- read_csv("./context/user_locations_check.csv",
+                            col_names = TRUE) %>% 
   clean_names("snake") %>% 
-  mutate(final = str_replace(final, "^0$", ""),
-         final = str_replace(final, "public drinking spaces", "public drinking space"),
-         final = as.factor(final)) %>% 
-  select(-proposed_label, -notes_by_hannah) %>% 
-  rename(proposed_label = final) %>% 
-  rowid_to_column() %>% #save rowid in case we need to check in original dataset
   glimpse()
+
 ```
 
 ### Review 
