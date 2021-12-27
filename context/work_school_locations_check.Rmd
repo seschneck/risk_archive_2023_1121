@@ -44,7 +44,7 @@ location_descriptions <- read_csv("./user_locations_check.csv",
   clean_names("snake") %>% 
   glimpse()
 
-locations <- read_csv("./user_locations.csv",
+locations <- read_csv("P:/studydata/risk/data_processed/gps/to_share/locations.csv",
                       col_names = TRUE) %>% 
   clean_names("snake") %>% 
   mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
@@ -107,7 +107,7 @@ location_check <- location_check %>%
 ```
 
 
-#### Particpants with unique labeled and observed home and work
+#### Categorize particpants with unique labeled and observed home and work
 
 ```{r}
 
@@ -120,11 +120,11 @@ location_check <- location_check %>%
 
 ```
 
-#### Participants with multiple home locations
+#### Check participants with multiple home locations
 
 ```{r}
-multiple_homes_ids <- location_check %>% 
-  filter(n_home_zones > 1 | n_home_locations > 1) %>% 
+multiple_homes_ids <- locations %>% 
+  filter(n_home_locations > 1) %>% 
   pull(subid)
 
 #function that takes subid and creates maps around each home
@@ -135,25 +135,24 @@ check_labeled_locations <- function(subject){
 gps <- location_check %>% 
   filter(subid == subject) %>% 
   pull(gps_data) %>% 
-  pluck(1)
+  pluck(1) %>% 
+  mutate(location_source = case_when(location_source == "labeled_home" ~ "home",
+                                     location_source == "gps_data" ~ "observed location"))
 
 homes <- gps %>% 
   filter(location_source == "labeled_home") %>% 
-  select(long, lat)
+  select(long, lat) 
 
-for (i in 1:nrow(homes)) {
-  
-  ggmap(
+map2(homes$long, homes$lat, ~ggmap(
     get_map(
-      c(homes[[i,1]], homes[[i,2]]), zoom = 18)) +
+      c(.x, .y), zoom = 18)) +
     geom_point(aes(x = long, 
                    y = lat,
                    color = location_source),
-               data = gps)
-}
+               data = gps))
 }
 
-check_labeled_locations("43")
+map(multiple_homes_ids[1], ~check_labeled_locations(.x))
 
 
 ```
