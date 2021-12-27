@@ -32,23 +32,26 @@ library(janitor)
 library(purrr)
 library(kableExtra)
 library(tidylog)
+library(ggmap)  
+register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ```
 
 ### Import file
 
 ```{r}
-location_descriptions <- read_csv("./context/user_locations_check.csv",
+location_descriptions <- read_csv("./user_locations_check.csv",
                             col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
 
-locations <- read_csv("./context/user_locations.csv",
+locations <- read_csv("./user_locations.csv",
                       col_names = TRUE) %>% 
   clean_names("snake") %>% 
+  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago"))
   glimpse()
 
-gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>% 
-  glimpse()
+gps <- read_csv("P:/studydata/risk/data_processed/gps/to_share/gps.csv") %>% 
+  glimpse() #using the gps data we shared with xinyi
 
 ```
 
@@ -58,7 +61,13 @@ gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>%
 ```{r}
 
 location_check <- gps %>% 
-  select(lat, lon, time, subid) %>% 
+  mutate(location_source = "gps_data") %>% 
+  select(subid, lat, long, time, location_source) %>% 
+  bind_rows(
+    locations %>% 
+      mutate(location_source = "labeled_home") %>% 
+      filter(type == "HOME") %>% 
+      select(subid, lat, long, time, location_source)) %>% 
   group_by(subid) %>% 
   nest() %>% 
   left_join(
@@ -86,3 +95,65 @@ There are `r length(missing_ids)` subjects that are in location descriptions and
 
 TODO: Get more information about where their removal is documented. "studydata/risk/knits/gps/mak_gps_enriched.html" does not note their removal. Do not see another mak_gps html but the gps file was created in the last month. The notes file does not have any entry for 24 or 67. Clearly these people had data at some point, because they have locations.
 
+### Examine participants
+
+#### Set up variables
+
+```{r}
+location_check <- location_check %>% 
+  mutate(action = case_when(type == 1 ~ "use as is",
+                                type == 2 ~ "use with modification",
+                                type == 0 ~ "remove all data")) 
+```
+
+
+#### Particpants with unique labeled and observed home and work
+
+```{r}
+
+location_check <- location_check %>% 
+  mutate(action = case_when(n_home_locations == 1 & 
+                     n_work_locations == 1 &
+                     n_home_zones == 1 &
+                     n_work_zones == 1 ~ "use as is",
+                     TRUE ~ action))
+
+```
+
+#### Participants with multiple home locations
+
+```{r}
+multiple_homes_ids <- location_check %>% 
+  filter(n_home_zones > 1 | n_home_locations > 1) %>% 
+  pull(subid)
+
+#function that takes subid and creates maps around each home
+#this will iterate through multiple_homes_ids list
+
+check_labeled_locations <- function(subject){
+  
+gps <- location_check %>% 
+  filter(subid == subject) %>% 
+  pull(gps_data) %>% 
+  pluck(1)
+
+homes <- gps %>% 
+  filter(location_source == "labeled_home") %>% 
+  select(long, lat)
+
+for (i in 1:nrow(homes)) {
+  
+  ggmap(
+    get_map(
+      c(homes[[i,1]], homes[[i,2]]), zoom = 18)) +
+    geom_point(aes(x = long, 
+                   y = lat,
+                   color = location_source),
+               data = gps)
+}
+}
+
+check_labeled_locations("43")
+
+
+```
