@@ -69,8 +69,15 @@ location_check <- gps %>%
     by = "subid") %>% 
   rename(gps_data = data)
 
-#check the rows only in gps
 
+#check for rows only in gps
+unique(location_check$subid) %in% unique(gps$subid)
+
+#check for duplicate rows in location_check
+location_check %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  filter(n > 1)
 
 #clean up
 rm(gps)
