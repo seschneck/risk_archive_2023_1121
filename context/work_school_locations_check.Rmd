@@ -47,7 +47,7 @@ location_descriptions <- read_csv("./user_locations_check.csv",
 locations <- read_csv("./user_locations.csv",
                       col_names = TRUE) %>% 
   clean_names("snake") %>% 
-  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago"))
+  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
   glimpse()
 
 gps <- read_csv("P:/studydata/risk/data_processed/gps/to_share/gps.csv") %>% 
