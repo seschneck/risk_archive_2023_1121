@@ -38,28 +38,33 @@ register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 
 ### Import file
 
-```{r}
+```{r import locations check}
 location_descriptions <- read_csv("./user_locations_check.csv",
                             col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
+```
 
+```{r import locations}
 locations <- read_csv("P:/studydata/risk/data_processed/gps/to_share/locations.csv",
                       col_names = TRUE) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   clean_names("snake") %>% 
   mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
   glimpse()
+```
 
-gps <- read_csv("P:/studydata/risk/data_processed/gps/to_share/gps.csv") %>% 
-  glimpse() #using the gps data we shared with xinyi
+```{r import gps}
+gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>% 
+  rename(long = lon) %>% 
+  glimpse()
 
 ```
 
 
 ### Merge
 
-```{r}
+```{r create combined dataset}
 location_check <- gps %>% 
   mutate(location_source = "gps_data") %>% 
   select(subid, lat, long, time, location_source) %>% 
@@ -81,7 +86,7 @@ location_check <- gps %>%
 
 #### Check for issues
 
-```{r}
+```{r check issues}
 
 #check for subids only in location_description
 missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
@@ -131,7 +136,7 @@ multiple_homes_ids <- locations %>%
 #function that takes subid and creates maps around each home
 #this will iterate through multiple_homes_ids list
 
-check_labeled_locations <- function(subid){
+check_labeled_homes <- function(subid){
   
 subject <- as.numeric(subid) #renaming to prevent issues  
   
@@ -146,23 +151,24 @@ homes <- gps %>%
   filter(location_source == "home") %>% 
   select(long, lat) 
 
-if (nrow(homes) > 1) {
-  
-  map2(homes$long, homes$lat, 
-       ~ggmap(
-         get_map(
-           c(.x, .y), zoom = 18)) +
-         geom_point(aes(x = long, 
-                        y = lat,
-                        color = location_source),
-                    data = gps)) 
-}
+plots <- map2(homes$long, homes$lat, 
+     ~ggmap(
+       get_map(
+         c(.x, .y), zoom = 18)) +
+       geom_point(aes(x = long, 
+                      y = lat,
+                      color = location_source),
+                  data = gps) +
+       ggtitle(paste0("subid ", subject, "'s home and surrounding gps observations"))) 
 
-if (nrow(homes) < 2) message("multiple homes not detected")
+return(plots)
 
 }
+```
 
-check_labeled_locations("43")
+```{r map function for all people with multiple homes}
+
+map(multiple_homes_ids, ~check_labeled_homes(.x))
 
 
 ```
