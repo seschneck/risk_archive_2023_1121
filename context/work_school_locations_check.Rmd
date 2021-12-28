@@ -30,19 +30,21 @@ Packages and Source
 library(tidyverse)
 library(janitor)
 library(purrr)
+library(here)
 library(kableExtra)
 library(tidylog)
-library(ggmap)  
+library(ggmap)
 register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ```
 
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./user_locations_check.csv",
+location_descriptions <- read_csv("./context/user_locations_check.csv",
                             col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
+
 ```
 
 ```{r import locations}
@@ -173,7 +175,7 @@ all_maps <- map(multiple_homes_ids, ~check_labeled_homes(.x))
 all_maps
 ```
 
-### closer look for folks who have spent time at both homes
+### Closer look at ppl who have spent time at both homes
 
 ```{r}
 investigate_homes <- function(subid){
@@ -246,6 +248,8 @@ investigate_homes <- function(subid){
   
       if (nrow(homes) == 3) {
     
+        message("three homes detected")
+        
     home3 <- homes %>% 
       select(long, lat) %>% .[3,]
     
@@ -275,7 +279,7 @@ investigate_homes <- function(subid){
     count() %>% 
     filter(near_home1 == "yes" | near_home2 == "yes" | near_home3 == "yes")
     
-    append(results, map3)
+     results <- list(tables, map1, map2, map3)
   
       }
 
@@ -286,9 +290,6 @@ investigate_homes <- function(subid){
 
 
 ```{r homes sub 6}
-
-investigate_homes(6)
-
 #set action  
 location_check$action[location_check$subid == "6"] <- "use with modification"
 
@@ -296,16 +297,13 @@ location_check$action[location_check$subid == "6"] <- "use with modification"
 
 
 ```{r homes sub 27}
-
-investigate_homes(27)
-
 #set action  
 location_check$action[location_check$subid == "27"] <- "use with modification"
 
 ```
 
 ```{r}
-map(c(43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270), ~investigate_homes(.x))
+map(c(6, 27, 43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270), ~investigate_homes(.x))
 ```
 
 
