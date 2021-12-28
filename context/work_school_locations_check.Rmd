@@ -178,22 +178,18 @@ all_maps
 ```{r}
 investigate_homes <- function(subid){
   
-  #need to expand for three homes
-  
   subject <- subid
   
-  home1 <- location_check %>% 
+  homes <-   location_check %>% 
     filter(subid == subject) %>% 
     pull(gps_data) %>% 
     pluck(1) %>% 
-    filter(location_source == "labeled_home") %>% 
+    filter(location_source == "labeled_home")
+  
+  home1 <- homes %>% 
     select(long, lat) %>% .[1,]
   
-  home2 <- location_check %>% 
-    filter(subid == subject) %>% 
-    pull(gps_data) %>% 
-    pluck(1) %>% 
-    filter(location_source == "labeled_home") %>% 
+  home2 <- homes %>% 
     select(long, lat) %>% .[2,]
   
   
@@ -211,7 +207,7 @@ investigate_homes <- function(subid){
                                     lat < home2[[2]]+.001 & 
                                     lat > home2[[2]]-.001 ~ "yes",
                                   TRUE ~ "no")) 
-  
+
   
   map1 <- ggmap(
     get_map(
@@ -234,7 +230,7 @@ investigate_homes <- function(subid){
                data = homes_subid) +
     ggtitle(paste0("subject ", subject, "'s time spent near home 2 over time"))
   
-  
+
   #homes_subid %>% 
   #  filter(near_home1 == "yes" | near_home2 == "yes") %>% 
   #  arrange(time) 
@@ -245,7 +241,45 @@ investigate_homes <- function(subid){
     count() %>% 
     filter(near_home1 == "yes" | near_home2 == "yes")
   
-  return(list(map1, map2, tables))
+  results <- list(tables, map1, map2)
+  
+  
+      if (nrow(homes) == 3) {
+    
+    home3 <- homes %>% 
+      select(long, lat) %>% .[3,]
+    
+    homes_subid <-  homes_subid %>% 
+      mutate(
+        near_home3 = case_when(long > home3[[1]]-.001 & 
+                                 long < home3[[1]]+.001 & 
+                                 lat < home3[[2]]+.001 & 
+                                 lat > home1[[2]]-.001 ~ "yes",
+                               TRUE ~ "no"))
+    
+    map3 <- ggmap(
+    get_map(
+      c(home3[[1]], home3[[2]]), zoom = 18)) +
+    geom_point(aes(x = long, 
+                   y = lat,
+                   shape = location_source,
+                   color = time),
+               data = homes_subid) +
+    ggtitle(paste0("subject ", subject, "'s time spent near home 3 over time"))
+    
+    tables <- homes_subid %>% 
+    mutate(month = lubridate::month(time)) %>% 
+    group_by(month, near_home1, 
+             near_home2,
+             near_home3) %>% 
+    count() %>% 
+    filter(near_home1 == "yes" | near_home2 == "yes" | near_home3 == "yes")
+    
+    append(results, map3)
+  
+      }
+
+  return(results)
   
 }
 ```
@@ -270,9 +304,11 @@ location_check$action[location_check$subid == "27"] <- "use with modification"
 
 ```
 
+```{r}
+map(c(43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270), ~investigate_homes(.x))
+```
 
 
-43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270
 
 
 
