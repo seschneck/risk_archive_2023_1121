@@ -172,3 +172,133 @@ all_maps <- map(multiple_homes_ids, ~check_labeled_homes(.x))
 
 all_maps
 ```
+
+### closer look for folks who have spent time at both homes
+
+```{r}
+investigate_homes <- function(subid){
+  
+  #need to expand for three homes
+  
+  subject <- subid
+  
+  home1 <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    filter(location_source == "labeled_home") %>% 
+    select(long, lat) %>% .[1,]
+  
+  home2 <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    filter(location_source == "labeled_home") %>% 
+    select(long, lat) %>% .[2,]
+  
+  
+  homes_subid <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    mutate(near_home1 = case_when(long > home1[[1]]-.001 & 
+                                    long < home1[[1]]+.001 & 
+                                    lat < home1[[2]]+.001 & 
+                                    lat > home1[[2]]-.001 ~ "yes",
+                                  TRUE ~ "no"),
+           near_home2 = case_when(long > home2[[1]]-.001 & 
+                                    long < home2[[1]]+.001 & 
+                                    lat < home2[[2]]+.001 & 
+                                    lat > home2[[2]]-.001 ~ "yes",
+                                  TRUE ~ "no")) 
+  
+  
+  map1 <- ggmap(
+    get_map(
+      c(home1[[1]], home1[[2]]), zoom = 18)) +
+    geom_point(aes(x = long, 
+                   y = lat,
+                   shape = location_source,
+                   color = time),
+               data = homes_subid) +
+    ggtitle(paste0("subject ", subject, "'s time spent near home 1 over time"))
+  
+  
+  map2 <- ggmap(
+    get_map(
+      c(home2[[1]], home2[[2]]), zoom = 18)) +
+    geom_point(aes(x = long, 
+                   y = lat,
+                   shape = location_source,
+                   color = time),
+               data = homes_subid) +
+    ggtitle(paste0("subject ", subject, "'s time spent near home 2 over time"))
+  
+  
+  #homes_subid %>% 
+  #  filter(near_home1 == "yes" | near_home2 == "yes") %>% 
+  #  arrange(time) 
+  
+  tables <- homes_subid %>% 
+    mutate(month = lubridate::month(time)) %>% 
+    group_by(month, near_home1, near_home2) %>% 
+    count() %>% 
+    filter(near_home1 == "yes" | near_home2 == "yes")
+  
+  return(list(map1, map2, tables))
+  
+}
+```
+
+
+```{r homes sub 6}
+
+investigate_homes(6)
+
+#set action  
+location_check$action[location_check$subid == "6"] <- "use with modification"
+
+```
+
+
+```{r homes sub 27}
+
+investigate_homes(27)
+
+#set action  
+location_check$action[location_check$subid == "27"] <- "use with modification"
+
+```
+
+
+
+43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270
+
+
+
+###### Notes 
+
+1. Subid 3 -- home locations are identical, should be combined
+2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september
+3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis.
+4. Subid 29 -- home locations are identical, should be combined
+5. Subid 30 -- no observations near home location 2 (Main St)
+6. Subid 43 -- has three homes *check*
+7. Subid 65 -- home 1 is a temporary home (pops up on google as a hotel), should be relabeled as such
+8. Subid 77 -- much less time at home 2 *check*
+9. Subid 79 -- address looks a bit off on 79 home 1 -- also looks like a temporary residence, many more observations at home 2 and 3 *check*
+10. Subid 86 -- two homes are very close *check*
+11. Subid 93 -- *check*
+12. Subid 119 -- location 2 looks like a temporary home or vacation *check*
+13. Subid 135 -- looks like a move *check*
+14. Subid 156 -- less time at home 1 *check*
+15. Subid 162 -- less time at home 1 *check*
+16. Subid 172 -- looks like a move *check*
+17. Subid 201 -- very few obs at home 1 *check*
+18. Subid 222 -- looks like a move *check*
+19. Subid 240 -- looks like a move *check*
+20. Subid 259 -- much less time spent at home 1 *check*
+21. Subid 270 -- much less time spent at home 2 *check*, almost no time spent at home 3, should be removed
+
+Additional notes:
+- Apartment addresses are often a little removed from their gps location
