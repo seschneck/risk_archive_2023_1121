@@ -71,8 +71,8 @@ locations_imputed$imputed_long <- locations_imputed$imputed_location$lon
 locations_imputed$imputed_lat <- locations_imputed$imputed_location$lat
 
 locations <- locations_imputed %>% 
-  select(subid, imputed_long, imputed_lat) %>% 
-  left_join(locations, ., by = "subid") %>% 
+  select(subid, imputed_long, imputed_lat, street_address) %>% 
+  left_join(locations, ., by = c("subid", "street_address")) %>% 
   mutate(lat = coalesce(lat, imputed_lat),
          long = coalesce(long, imputed_long)) 
 
@@ -138,8 +138,7 @@ TODO: Get more information about where their removal is documented. "studydata/r
 ```{r}
 
 #starting new action variable from scratch so that we are consistent in our evaluations
-location_check <- location_check %>% 
-  mutate(action = as.factor(NA))
+
 
 #location_check <- location_check %>% 
 #  mutate(action = case_when(type == 1 ~ "use as is",
@@ -155,8 +154,7 @@ location_check <- location_check %>%
   mutate(action = case_when(n_home_locations == 1 & 
                      n_work_locations == 1 &
                      n_home_zones == 1 &
-                     n_work_zones == 1 ~ "use as is",
-                     TRUE ~ action))
+                     n_work_zones == 1 ~ "use as is"))
 ```
 
 #### Check participants with multiple home locations
@@ -211,7 +209,7 @@ all_maps <- map(multiple_homes_ids, ~check_labeled_places(.x, "home"))
 all_maps
 ```
 
-### Closer look at ppl who have spent time at both homes
+##### Closer look at ppl who have spent time at both homes
 
 ```{r}
 investigate_homes <- function(subid){
@@ -479,11 +477,16 @@ investigate_works <- function(subid){
 ```
 
 
-###### Notes 
+```{r}
+map(c(6), ~investigate_works(.x))
+```
 
-1. Subid 3 -- home locations are identical, should be combined
-2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september
-3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis.
+
+### Notes 
+
+1. Subid 3 -- home locations are identical, should be combined. same for work locations 1 and 2.
+2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september. *investigate works -- is one labelled school?*
+3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis. *investigateworks*
 4. Subid 29 -- home locations are identical, should be combined
 5. Subid 30 -- no observations near home location 2 (Main St)
 6. Subid 43 -- has three homes, appears to have moved 3 times. it may make sense to restrict data to the time period when they were living at location 1 or location 3.
@@ -502,7 +505,39 @@ investigate_works <- function(subid){
 19. Subid 240 -- a move, choice will have to be arbitrary if we restrict in time
 20. Subid 259 -- much less time spent at home 1, consider marking as a temporary home 
 21. Subid 270 --  home 2 looks like an error -- not a residence -- consider removing
+22. Subid 1 -- Has multiple work locations, several of which they have not spent much time at. The following should be deleted: 2, 3, 4, 5, 6, 7 
+23. Subid 5 -- Looks like this person has a school location and a work location; should not be disqualifying. 
+24. Subid  7 -- This is difficult because students might be at really different places on campus...This person has multiple work/school points, but they are all on campus.
+25. Subid 9 -- *check if one of these is labeled work and one school*
+26. Subid 10 -- Seems to visit schools as part of work. Delete locations: 2, 3, 4, 5. Keep 6 if we allow for people who attend university to have multiple visits to campus.
+27. Subid 11 -- *check timing* delete work 3, 4, 5, 6?
+28. Subid 15 -- delete location 2
+29. Subid 16 -- delete location 2
+30. Subid 17 -- *check timing* likely need to delete several locations -- it looks like this person does delivery service and/or works at a liquor store? or just labeled a lot as work? plus, all the locations are duplicated.
+31. Subid 18 -- delete location 2
+32. Subid 19 -- delete location 2, 3, 10. And depending on our decision about universities, location 4, 5, 6, 7, 8, 9.
+33. Subid 20 -- 1 and 2 are the same location, 3+ is a little off and needs *check timing* -- may need to delete
+34. Sub 21 looks to be a university janitor or something, should probably delete all their work locations.
+35. Sub 23 location 2 appears to be mislabeled; this person seems to work at multiple branches of the same bank...
+36. Subject 25 -- location 1 they have hardly been to. location 2 and 3 are the same.
+37. Subject 28 -- *investigate works* seems like an unreliable measurement for 28, or they have a very odd job. consider deleting all points.
+38. Subject 40 has many work locations they have not been to
 
 Additional notes:
 - Apartment addresses are often a little removed from their gps location -- it looks like the lat, long were generated from addresses rather than as an average of observed locations
-- is it possible to keep two homes if people moved? if we can have multiple retaurants, etc. why not multiple homes? (see subject 86 as a good example of a case we should keep)
+- Is it possible to keep two homes if people moved? if we can have multiple retaurants, etc. why not multiple homes? (see subject 86 as a good example of a case we should keep)
+- Is it worth reviewing all other locations to make sure that people actually went there? (In this study, some people described places they go before we had any GPS data)
+- It might be worth formalizing exclusion criteria for each labeled place... like people must have visited each place X number of times (defined by an observation within a particular distance) to be included in analyses.
+- Can we keep work and school separate? That will probably help us identify work 
+- Check for duplicate locations in the data. For some reason there may be several duplicates.
+
+General issues:
+- Many people have lots of work places listed
+- Combining work and school creates a lot more duplicate locations
+- People who are affiliated with the university, and have multiple locations marked on campus.
+- Similarly, some work places are large and there are multiple labels for the place. (see subid 37) 
+- People who work at multiple locations of the same business.
+- People who switched work or home during the study. I'm not sure why work and home have to be exclusive, though.
+- People marking work or home locations that they have hardly spent any time at.
+- People who seem to be labeling anything they do while at work as their workplace.
+- 
