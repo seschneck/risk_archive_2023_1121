@@ -5,7 +5,7 @@ date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
     toc: true 
-    toc_depth: 4
+    toc_depth: 6
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
@@ -32,7 +32,7 @@ library(janitor)
 library(purrr)
 library(here)
 library(kableExtra)
-library(tidylog)
+#library(tidylog)
 library(ggmap)
 register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ```
@@ -40,7 +40,7 @@ register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./context/user_locations_check.csv",
+location_descriptions <- read_csv("./user_locations_check.csv",
                             col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
@@ -146,6 +146,19 @@ TODO: Get more information about where their removal is documented. "studydata/r
 #                                type == 0 ~ "remove all data")) 
 ```
 
+### Characterizing the issue
+
+```{r}
+location_check %>% 
+  tabyl(n_home_locations, n_home_zones) %>% 
+  kable(caption = "Table of the number of labeled homes by the number of associated zones") %>% 
+  kable_styling()
+
+location_check %>% 
+  tabyl(n_work_locations, n_work_zones)  %>% 
+  kable(caption = "Table of the number of labeled works by the number of associated zones") %>% 
+  kable_styling()
+```
 
 #### Categorize particpants with unique labeled and observed home and work
 
@@ -160,11 +173,9 @@ location_check <- location_check %>%
 #### Check participants with multiple home locations
 
 ```{r}
-multiple_homes_ids <- locations %>% 
-  filter(type == "home") %>% 
+multiple_homes_ids <- location_check %>% 
+  filter(n_home_zones > 1) %>% 
   group_by(subid) %>% 
-  count() %>% 
-  filter(n > 1) %>% 
   pull(subid)
 
 #function that takes subid and creates maps around each home
@@ -204,9 +215,9 @@ return(plots)
 
 ```{r map function for all people with multiple homes}
 
-all_maps <- map(multiple_homes_ids, ~check_labeled_places(.x, "home"))
+#all_maps <- map(multiple_homes_ids, ~check_labeled_places(.x, "home"))
 
-all_maps
+#all_maps
 ```
 
 ##### Closer look at ppl who have spent time at both homes
@@ -272,10 +283,11 @@ investigate_homes <- function(subid){
   #  arrange(time) 
   
   tables <- homes_subid %>% 
-    mutate(month = lubridate::month(time)) %>% 
-    group_by(month, near_home1, near_home2) %>% 
-    count() %>% 
-    filter(near_home1 == "yes" | near_home2 == "yes")
+    mutate(near = case_when(near_home1 == "yes" ~ "home1",
+                            near_home2 == "yes" ~ "home2")) %>% 
+    group_by(near) %>% 
+    summarize(first = min(time),
+              last = max(time))
   
   results <- list(tables, map1, map2)
   
@@ -306,12 +318,12 @@ investigate_homes <- function(subid){
     ggtitle(paste0("subject ", subject, "'s obs near home 3 over time"))
     
     tables <- homes_subid %>% 
-    mutate(month = lubridate::month(time)) %>% 
-    group_by(month, near_home1, 
-             near_home2,
-             near_home3) %>% 
-    count() %>% 
-    filter(near_home1 == "yes" | near_home2 == "yes" | near_home3 == "yes")
+    mutate(near = case_when(near_home1 == "yes" ~ "home1",
+                            near_home2 == "yes" ~ "home2",
+                            near_home3 == "yes" ~ "home3")) %>% 
+    group_by(near) %>% 
+    summarize(first = min(time),
+              last = max(time))
     
      results <- list(tables, map1, map2, map3)
   
@@ -325,39 +337,30 @@ investigate_homes <- function(subid){
 ```
 
 
-```{r homes sub 6}
-#set action  
-location_check$action[location_check$subid == "6"] <- "use with modification"
-
+```{r, echo = FALSE}
+home_maps <- map(multiple_homes_ids, ~investigate_homes(.x))
 ```
 
-
-```{r homes sub 27}
-#set action  
-location_check$action[location_check$subid == "27"] <- "use with modification"
-
-```
+###### Results
 
 ```{r}
-map(c(6, 27, 43, 77, 79, 86, 93, 119, 135, 156, 162, 172, 201, 222, 240, 259, 270), ~investigate_homes(.x))
+home_maps
 ```
-
 
 #### Check participants with multiple work locations
 
 
-```{r  map function for all people with multiple works}
+```{r  map function for all people with multiple works, echo = FALSE}
 
-multiple_works_ids <- locations %>% 
-  filter(type == "work") %>% 
-  group_by(subid) %>% 
-  count() %>% 
-  filter(n > 1) %>% 
+multiple_works_ids <- location_check %>% 
+  filter(n_work_zones > 1) %>% 
   pull(subid)
 
-all_work_maps <- map(multiple_works_ids, ~check_labeled_places(.x, "work"))
+#all_work_maps <- map(multiple_works_ids, ~check_labeled_places(.x, "work"))
+```
 
-all_work_maps
+```{r}
+#all_work_maps
 ```
 
 ##### Closer look at people with multiple works
@@ -424,10 +427,11 @@ investigate_works <- function(subid){
   #  arrange(time) 
   
   tables <- works_subid %>% 
-    mutate(month = lubridate::month(time)) %>% 
-    group_by(month, near_work1, near_work2) %>% 
-    count() %>% 
-    filter(near_work1 == "yes" | near_work2 == "yes")
+    mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                            near_work2 == "yes" ~ "work2")) %>% 
+    group_by(near) %>% 
+    summarize(first = min(time),
+              last = max(time))
   
   results <- list(tables, map1, map2)
   
@@ -458,12 +462,12 @@ investigate_works <- function(subid){
     ggtitle(paste0("subject ", subject, "'s obs near work 3 over time"))
     
     tables <- works_subid %>% 
-    mutate(month = lubridate::month(time)) %>% 
-    group_by(month, near_work1, 
-             near_work2,
-             near_work3) %>% 
-    count() %>% 
-    filter(near_work1 == "yes" | near_work2 == "yes" | near_work3 == "yes")
+    mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                            near_work2 == "yes" ~ "work2",
+                            near_work3 == "yes" ~ "work3")) %>% 
+    group_by(near) %>% 
+    summarize(first = min(time),
+              last = max(time))
     
      results <- list(tables, map1, map2, map3)
   
@@ -477,8 +481,15 @@ investigate_works <- function(subid){
 ```
 
 
+
+```{r echo = FALSE}
+work_maps <- map(multiple_works_ids, ~investigate_works(.x))
+```
+
+###### Results
+
 ```{r}
-map(c(6), ~investigate_works(.x))
+work_maps
 ```
 
 
@@ -527,7 +538,7 @@ Additional notes:
 - Apartment addresses are often a little removed from their gps location -- it looks like the lat, long were generated from addresses rather than as an average of observed locations
 - Is it possible to keep two homes if people moved? if we can have multiple retaurants, etc. why not multiple homes? (see subject 86 as a good example of a case we should keep)
 - Is it worth reviewing all other locations to make sure that people actually went there? (In this study, some people described places they go before we had any GPS data)
-- It might be worth formalizing exclusion criteria for each labeled place... like people must have visited each place X number of times (defined by an observation within a particular distance) to be included in analyses.
+- It might be worth formalizing exclusion criteria for each labeled place... like people must have visited each place X number of times (defined by an observation within a particular distance) to be included in analyses, and/or observations must span their data collection time.
 - Can we keep work and school separate? That will probably help us identify work 
 - Check for duplicate locations in the data. For some reason there may be several duplicates.
 
@@ -540,4 +551,3 @@ General issues:
 - People who switched work or home during the study. I'm not sure why work and home have to be exclusive, though.
 - People marking work or home locations that they have hardly spent any time at.
 - People who seem to be labeling anything they do while at work as their workplace.
-- 
