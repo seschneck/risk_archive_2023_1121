@@ -22,6 +22,10 @@ Purpose: This file reviews each person's GPS data to resolve issues related to m
 
 Inputs:  user_locations_check.csv, which is a copy of a sheet in "workbook_sent_from_xinyi.xlsx" with cleaned variable names. Many of the columns we will not use (the binary description and decision columns Xinyi created), but many contain information about activity zones that we do not otherwise have.
 
+TODO:
+1. List all unusual cases for Xinyi to check
+2. Generate values of 'type' / action
+3. Manually transfer notes to spreadsheet
 
 ### Setup
 
@@ -98,7 +102,7 @@ location_check <- gps %>%
         type == "school" ~ "labeled_work",
         type == "work" ~ "labeled_work",
         type == "home" ~ "labeled_home",
-        TRUE ~ type)) %>% 
+        TRUE ~ "other")) %>% 
       select(subid, lat, long, time, location_source)) %>%
   group_by(subid) %>% 
   nest() %>% 
