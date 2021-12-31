@@ -83,7 +83,6 @@ rm(locations_imputed)
 gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>% 
   rename(long = lon) %>% 
   glimpse()
-
 ```
 
 
@@ -93,15 +92,13 @@ gps <- read_rds("P:/studydata/risk/data_processed/shared/gps.rds") %>%
 location_check <- gps %>% 
   mutate(location_source = "gps_data") %>% 
   select(subid, lat, long, time, location_source) %>% 
-  bind_rows(
-    locations %>% 
-      mutate(location_source = "labeled_home") %>% 
-      filter(type == "home") %>% 
-      select(subid, lat, long, time, location_source)) %>%
     bind_rows(
     locations %>% 
-      mutate(location_source = "labeled_work") %>% 
-      filter(type == "work" | type == "school") %>% 
+      mutate(location_source = case_when(
+        type == "school" ~ "labeled_work",
+        type == "work" ~ "labeled_work",
+        type == "home" ~ "labeled_home",
+        TRUE ~ type)) %>% 
       select(subid, lat, long, time, location_source)) %>%
   group_by(subid) %>% 
   nest() %>% 
@@ -170,7 +167,7 @@ location_check <- location_check %>%
                      n_work_zones == 1 ~ "use as is"))
 ```
 
-#### Check participants with multiple home locations
+#### Check home locations
 
 ```{r}
 multiple_homes_ids <- location_check %>% 
