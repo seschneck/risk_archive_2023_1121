@@ -228,7 +228,7 @@ investigate_homes <- function(subid){
   
   subject <- subid
   
-  homes <-   location_check %>% 
+  homes <- location_check %>% 
     filter(subid == subject) %>% 
     pull(gps_data) %>% 
     pluck(1) %>% 
@@ -305,7 +305,7 @@ investigate_homes <- function(subid){
         near_home3 = case_when(long > home3[[1]]-.001 & 
                                  long < home3[[1]]+.001 & 
                                  lat < home3[[2]]+.001 & 
-                                 lat > home1[[2]]-.001 ~ "yes",
+                                 lat > home3[[2]]-.001 ~ "yes",
                                TRUE ~ "no"))
     
     map3 <- ggmap(
@@ -330,7 +330,7 @@ investigate_homes <- function(subid){
   
       }
 
-  if (length(homes_subid) > 3) message(paste0("subject", subject, " has more than 3 homes"))
+  if (nrow(homes) > 3) message(paste0("subject", subject, " has more than 3 homes"))
   
   return(results)
   
