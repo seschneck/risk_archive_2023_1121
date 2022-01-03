@@ -943,6 +943,22 @@ log type
 tabyl(logs$log_type)
 ```
 
+Number of logs per participant
+```{r}
+logs %>% 
+  count(subid) %>% 
+  arrange(n)
+```
+
+Logs per participant by log type
+```{r}
+logs %>% 
+  count(subid, log_type) %>% 
+  arrange(subid, n)
+```
+
+
+
 originated
 ```{r}
 tabyl(logs$originated)
