@@ -60,9 +60,9 @@ locations <- read_csv("P:/studydata/risk/data_processed/gps/to_share/locations.c
   mutate(type = tolower(type)) %>% 
   glimpse()
 
-#fixing minor typos in type
-locations$type[locations$type == "coffee shop/café"] <- "coffee shop/cafe"
-locations$type[locations$type == "coffe shop/café"] <- "coffee shop/cafe"
+locations %>% 
+  filter(is.na(long))
+#confirming no missing lat/long
 
 #imputing missing lat/long 
 locations_imputed <- locations %>%
@@ -70,6 +70,8 @@ locations_imputed <- locations %>%
   mutate(address = str_c(street_address, city, state, sep = ", "), 
          imputed_location = geocode(address)) %>% 
            select(-address) 
+
+locations %>% filter(is.na(long))
 
 locations_imputed$imputed_long <- locations_imputed$imputed_location$lon
 locations_imputed$imputed_lat <- locations_imputed$imputed_location$lat
