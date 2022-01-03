@@ -199,9 +199,9 @@ return(plots)
 
 ```{r map function for all people with multiple homes}
 
-#all_maps <- map(multiple_homes_ids, ~check_labeled_places(.x, "home"))
+all_maps <- map(, ~check_labeled_places(.x, "home"))
 
-#all_maps
+all_maps
 ```
 
 ##### Closer look at ppl who have spent time at both homes
@@ -328,6 +328,7 @@ home_maps <- map(multiple_homes_ids, ~investigate_homes(.x))
 ###### Results
 
 ```{r}
+all_maps
 home_maps
 ```
 
@@ -353,11 +354,11 @@ multiple_works_ids <- location_check %>%
   filter(n_work_zones > 1) %>% 
   pull(subid)
 
-#all_work_maps <- map(multiple_works_ids, ~check_labeled_places(.x, "work"))
+all_work_maps <- map(multiple_works_ids, ~check_labeled_places(.x, "work"))
 ```
 
 ```{r}
-#all_work_maps
+all_work_maps
 ```
 
 ##### Closer look at people with multiple works
