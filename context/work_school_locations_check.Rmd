@@ -44,7 +44,7 @@ register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./user_locations_check.csv",
+location_descriptions <- read_csv("./context/user_locations_check.csv",
                             col_names = TRUE) %>% 
   clean_names("snake") %>% 
   glimpse()
@@ -52,37 +52,18 @@ location_descriptions <- read_csv("./user_locations_check.csv",
 ```
 
 ```{r import locations}
-locations <- read_csv("P:/studydata/risk/data_processed/gps/to_share/locations.csv",
+locations <- read_csv("P:/studydata/risk/data_processed/shared/locations.csv",
                       col_names = TRUE) %>% 
   mutate(subid = as.numeric(subid)) %>% 
   clean_names("snake") %>% 
   mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
   mutate(type = tolower(type)) %>% 
+  rename(long = lon) %>% 
   glimpse()
 
-locations %>% 
-  filter(is.na(long))
 #confirming no missing lat/long
-
-#imputing missing lat/long 
-locations_imputed <- locations %>%
-  filter(is.na(lat)) %>% 
-  mutate(address = str_c(street_address, city, state, sep = ", "), 
-         imputed_location = geocode(address)) %>% 
-           select(-address) 
-
-locations %>% filter(is.na(long))
-
-locations_imputed$imputed_long <- locations_imputed$imputed_location$lon
-locations_imputed$imputed_lat <- locations_imputed$imputed_location$lat
-
-locations <- locations_imputed %>% 
-  select(subid, imputed_long, imputed_lat, street_address) %>% 
-  left_join(locations, ., by = c("subid", "street_address")) %>% 
-  mutate(lat = coalesce(lat, imputed_lat),
-         long = coalesce(long, imputed_long)) 
-
-rm(locations_imputed)
+locations %>% 
+  filter(is.na(lat))
 ```
 
 ```{r import gps}
@@ -131,7 +112,7 @@ rm(gps)
 
 There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
 
-TODO: Get more information about where their removal is documented. "studydata/risk/knits/gps/mak_gps_enriched.html" does not note their removal. Do not see another mak_gps html but the gps file was created in the last month. The notes file does not have any entry for 24 or 67. Clearly these people had data at some point, because they have locations.
+According to "raw_notes.csv", these participants never completed through FU1 and are considered discontinued from the study. Their data are not useful to the context project because they will have many unlabeled places.
 
 
 ### Examine participants
@@ -349,6 +330,19 @@ home_maps <- map(multiple_homes_ids, ~investigate_homes(.x))
 ```{r}
 home_maps
 ```
+
+##### Updating action for people with multiple homes
+
+```{r}
+#### First update people with multiple homes
+
+location_check <- location_check %>% 
+  mutate(action = case_when(n_home_locations == 2 & 
+                     n_home_zones == 2 ~ "non-standard selected",
+                     TRUE ~ action))
+```
+
+
 
 #### Check participants with multiple work locations
 
