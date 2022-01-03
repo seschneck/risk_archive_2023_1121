@@ -76,6 +76,7 @@ Packages for script
 library(tidyverse)  
 library(janitor) 
 library(vroom)
+library(furrr)
 #library(lubridate)
 #library(ggplot2)
 #library(kableExtra)
@@ -105,7 +106,7 @@ options(tibble.print_max = Inf)
 
 unzip chtc folders
 ```{r}
-unzip(zipfile = here(path_jobs, "output", "output.zip"), exdir = here(path_jobs, "output"))
+# unzip(zipfile = here(path_jobs, "output", "output.zip"), exdir = here(path_jobs, "output"))
 unzip(zipfile = here(path_jobs, "output","features.zip"), exdir = here(path_jobs, "output"))
 unzip(zipfile = here(path_jobs, "output","error.zip"), exdir = here(path_jobs, "output"))
 ```
@@ -161,9 +162,24 @@ tabyl(out_files$size)
 
 read in all result CSVs
 ```{r}
+ 
+#future_map over subids
+(n_core <- parallel::detectCores(logical = FALSE))
+plan(multisession, workers = n_core)
+
+tic()
 features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
-  vroom(delim = ",", show_col_types = FALSE) %>% 
+  future_map_dfr(read_csv) %>% 
+  arrange(subid, dttm_label) %>% 
   glimpse()
+toc()
+
+tic()
+features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
+  future_map_dfr(~vroom(.x, delim = ",")) %>% 
+  arrange(subid, dttm_label) %>% 
+  glimpse()
+toc()
 ```
 
 
@@ -176,29 +192,14 @@ check for missing jobs
 message("Missing jobs: ", subset(jobs$label_num, !jobs$label_num %in% features$label_num))
 ```
 
-Add in missing jobs    
-*need to rerun locally or on chtc first*
-```{r}
-# if (nrow(missing_job_nums > 0)) {
-#   feat_files_add <- list.files(here(path_job, "output/missing_jobs"), full.names = TRUE)
-#   features_add <- map_dfr(feat_files_add, ~read_rds(.x)) %>% 
-#     glimpse()
-# 
-#   features <- features %>% 
-#     rbind(features_add)
-# 
-#   # recheck for missing jobs
-#   missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
-#     filter(!label_num %in% features$label_num)
-#   
-#   if (nrow(missing_job_nums) > 0) {
-#     print(str_c("missing jobs: ", str_c(as.character(missing_job_nums$label_num), collapse=", ")))
-#     } else print("No missing jobs")
-# }
-```
-
 
 # EDA
+Check correct number of rows
+```{r}
+if (! nrow(jobs) == nrow(features)) error("Number of feature rowsn(", nrow(features), 
+                                          ") does not match number of jobs (", nrow(jobs),
+                                          ")")
+```
 
 Check no duplicate labels
 ```{r}
@@ -210,14 +211,16 @@ features %>%
 Missing values    
 All missing values should be proportions   
 ```{r}
-naniar::miss_var_summary(features) %>% 
-  print(n = 200)
+t <- naniar::miss_var_summary(features) %>% 
+  filter(n_miss > 0) %>% 
+  print(n = Inf)
 ```
 
-Check for NaN
+Check for NaN.  Select only columns with NaN
 ```{r}
 features %>% 
   summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
+  select(where(function(x) x < 0)) %>% 
   glimpse()
 ```
 
