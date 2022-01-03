@@ -1,205 +1,175 @@
 ---
 title: "Clean and process location data from interviews"
-author: "Hannah Moshontz & John Curtin"
-date: '`r format(Sys.time(), "%Y-%m-%d")`'
+author: "John Curtin"
+date: "`r lubridate::today()`"
 output: 
   html_document:
-  toc: true 
-  toc_depth: 4
+    toc: true 
+    toc_depth: 4
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
     rmarkdown::render(
       input,
-      output_dir = "P:/studydata/risk/knits/shared")
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/gps", 
+      "/Volumes/private/studydata/risk/knits/gps")
+    )
   })
 ---
-
 ### Code status
 
-Under construction.
-
-Changes we can consider making:
-1. Update log so that it is more functional (currently, we are basically applying manual changes)
-2. Impute missing lat/long
-3. Incorporate corrections to duplicate places
+No cleaning of addresses at this point b/c we only use the GPS coordinates, not addresses
+for feature engineering at this point
 
 
 ### Notes
 
-Purpose: This file does cleaning and basic processing of interview data.
+This script opens the individual raw excel files for frequent locations in the 
+individual subject folders, merges them, and then does EDA.   Final clean, merged
+file is saved in shared folder
 
-Inputs:  Opens data files in path_raw
+### Set up Environment
 
-* subid_Locations.xlsx
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
 
-Also opens log files in path_log
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
 
-* log_locations.csv
-
-Outputs: 
-
-* locations.csv
-
-### Setup
-
-Functions
-```{r}
-import_w_subid <- function(xlsxfile){
-  read_excel(xlsxfile) %>% 
-    mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
-}
-
-merge_raw_files <- function(file_suffix) {
-  list.files(file.path(path_raw), 
-           recursive = TRUE,
-           pattern = paste0("\\d\\d\\d_", file_suffix, ".xlsx"),
-           full.names = TRUE) %>% 
-  as.list() %>% 
-  set_names(str_extract(., "\\d\\d\\d")) %>% 
-  map_df(~import_w_subid(.x) %>% 
-           clean_names() %>% 
-           mutate(across(everything(), as.character)))
-}
+library(here)  # establish project directory consistently as working directory
 ```
 
-Packages and Source
-```{r, message = FALSE, warning = FALSE}
-library(tidyverse)
-library(lubridate)
+
+Absolute paths
+```{r, paths}
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_lab_support <- "P:/toolboxes/lab_support"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_processed/gps"
+          path_shared <- "/Volumes/private/studydata/data_raw"
+          path_lab_support <- "/Volumes/toolboxes/lab_support"}
+        )
+```
+
+Relative Paths 
+```{r}
+path_log <- "shared/notes"
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+
+# for data wrangling
+library(tidyverse)  # always need this
 library(janitor)
 library(purrr)
-library(here)
 library(readxl)
+library(stringr)
+
+source(here("shared", "fun_local.R"))  # for merge_excel_files()
 ```
 
-Paths 
-```{r}
-path_raw <- "P:/studydata/risk/data_raw" 
-path_log <- here("shared/notes")
-path_processed <- "P:/studydata/risk/data_processed" 
-```
 
 ### Import locations files
-
+Import
 ```{r}
-known_locations <- merge_raw_files("Locations") %>% 
-  glimpse()
+locations <- merge_excel_files("Locations", path_raw) %>% 
+  rename(lon = long) %>% 
+  mutate(context_id = row_number()) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  relocate(subid, context_id)
 ```
 
+### Cleaning
+
+Correct case to lower
+```{r}
+locations <- locations %>% 
+  mutate(type = str_to_lower(type),
+         drank = str_to_lower(drank),
+         alcohol = str_to_lower(alcohol),
+         emotion = str_to_lower(emotion),
+         risk = str_to_lower(risk),
+         avoid = str_to_lower(avoid),
+         vacation = str_to_lower(vacation))
+```
+
+Fix errors and mis-spellings
+
+Will also change 
+
+* coffee shop/cafe to cafe
+* gym/fitness center to fitness
+* aa/recovery meeting to aa
+* health care to healthcare
+* home of family member to family
+* home of friend  to friend
+* liquor store to liquorstore 
+```{r}
+locations <- locations %>% 
+  mutate(type = str_replace(type, "coffee shop/cafe", "cafe"),
+         type = str_replace(type, "coffe shop/café", "cafe"),
+         type = str_replace(type, "coffee shop/café", "cafe"),
+         type = str_replace(type, "gym/fitness center", "fitness"),
+         type = str_replace(type, "aa/recovery meeting", "aa"),
+         type = str_replace(type, "health care", "healthcare"),
+         type = str_replace(type, "home of family member", "family"),
+         type = str_replace(type, "home of friend", "friend"),
+         type = str_replace(type, "liquor store", "liquorstore"))
+```
 
 ### EDA
 
+General
 ```{r}
-known_locations <- known_locations %>%
-  mutate(across(where(is_character), str_to_lower),
-         across(
-           c("type", 
-             "drank",
-             "alcohol",
-             "emotion",
-             "risk",
-             "avoid",
-             "vacation"),
-           as_factor)) %>% 
-  glimpse() 
-```
+locations %>% glimpse
 
-
-Ensuring unique labels for different levels of the type factor
-
-```{r}
-known_locations %>% 
-  tabyl(type)
-```
-
-Reviewing issues with different variable names for six subjects
-```{r}
-known_locations %>% 
-  filter(!is.na(alcohol_here)) %>% 
+locations %>% 
   pull(subid) %>% 
   unique() %>% 
   length()
+
+locations %>% 
+  tabyl(subid) %>% 
+  arrange(n)
+
+locations %>% 
+  tabyl(subid) %>% 
+  summarize(min(n), max(n))
+
+locations %>% 
+  summarize(across(.fns = ~sum(is.na(.)))) %>% 
+  glimpse()
+```
+
+Main context
+```{r}
+locations %>% tabyl(type)
+
+locations %>% 
+  filter(is.na(type)) %>% 
+  print
+
+locations %>% tabyl(drank)
+locations %>% tabyl(alcohol)
+locations %>% tabyl(emotion)
+locations %>% tabyl(risk)
+locations %>% tabyl(avoid)
+locations %>% tabyl(vacation)
 ```
 
 
-### Apply log and other fixes
-
-
-```{r}
-library(tidylog) #will document data wrangling
-```
-
-
-Making variable names uniform
-```{r}
-known_locations <- known_locations %>% 
-  mutate(drank = coalesce(drank, drank_here),
-         alcohol = coalesce(alcohol, alcohol_here),
-         emotion = coalesce(emotion, location_emotion),
-         risk = coalesce(risk, location_risk),
-         avoid = coalesce(avoid, risk_avoid),
-         vacation = coalesce(vacation, vacation_location)) %>% 
-  select(-c(drank_here, alcohol_here, location_emotion, location_risk, risk_avoid, vacation_location))
-```
-
+### Save final locations file
 
 ```{r}
-log_locations <- read_csv(file.path(path_log, "log_locations.csv")) 
-
-#this breaks because one of the log entries corrects accents and there are encoding issues
-#that I cannot resolve in a feasible amount of time
-
-#brute forcing the correct old values
-log_locations$old_value[2] <- "coffe shop/café"
-log_locations$old_value[3] <- "coffee shop/café"
-
-if (nrow(filter(log_locations, log_action != "recode_all")) > 0) {
-  stop("Not all log actions are recode_all; code needs to be rewritten")
-}
-
-for (i in seq_along(log_locations$var_name)) {
-
-  log_var_name <- pluck(log_locations, "var_name", i)
-  log_new_value <- pluck(log_locations, "new_value", i)
-  log_old_value <- pluck(log_locations, "old_value", i)
-  
-  message(paste("changing values of", log_var_name, "from", log_old_value, "to", log_new_value))
-  
-    # pull out row ids that need to be recoded
-  row_ids <- known_locations %>% 
-    rowid_to_column() %>% 
-    filter(get(log_var_name) == log_old_value) %>% 
-    pull(rowid)
-  
-  message(paste("changing", length(row_ids), "rows"))
-  
-  for (i in seq_along(row_ids)) {
-    
-    known_locations[[row_ids[i], log_var_name]] <- as.character(log_new_value)
-  }
-}
-
-```
-
-### Confirm that worked
-
-```{r}
-known_locations %>% 
-  tabyl(type)
-
-known_locations %>% 
-  filter(city == "mexico")
-
-known_locations %>% 
-  filter(alcohol == "n")
-```
-
-
-### Save final shared file
-
-```{r}
- known_locations %>% 
-   select(subid, utc, lat, long, type, drank, alcohol, emotion, risk, avoid, vacation) %>%   
-   write_csv(file.path(path_processed, "locations.csv"))
+locations %>% 
+  write_csv(here(path_shared, "locations.csv"))
 ```
