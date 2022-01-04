@@ -13,7 +13,7 @@ knit: (function(input, ...) {
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/gps", 
-      "/Volumes/private/studydata/risk/knits/gps")
+      "/Volumes/private/studydata/risk/knits/shared")
     )
   })
 ---
@@ -125,6 +125,29 @@ locations <- locations %>%
          type = str_replace(type, "home of friend", "friend"),
          type = str_replace(type, "liquor store", "liquorstore"))
 ```
+
+Additional notes:
+
+There are a few known typos in addresses, with the assumed correct names listed second:
+* "For Collins", "Fort Collins" 
+* "Pinkney Street", "Pinckney Street" 
+* "John Nolan", "John Nolen" 
+* "Bascom Hall", "Bascom Mall" 
+* "Gammen Lane", "Gammon Lane" 
+* "1017 North Port Drive", "1017 Northport Drive" 
+* "1017 Northport Avenue", "1017 Northport Drive"
+
+Some listed places may refer to a single location (e.g., a large workplace campus), and other listed places were not necessarily visited by participants. 
+
+```{r}
+locations %>% 
+  group_by(subid, lat, lon) %>% 
+  count() %>% 
+  filter(n > 1) %>% 
+  kable(caption = "Instances of duplicated locations within participant") %>% 
+  kable_styling()
+```
+
 
 ### EDA
 
