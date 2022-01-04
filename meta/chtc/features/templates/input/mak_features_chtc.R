@@ -1,5 +1,13 @@
 # Script to engineer features on CHTC
 
+### Notes
+# Other possible engineering:   
+# - Write functions to manipulate dates (Rates of communications at certain times, days, and frequency bursts)
+# - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
+# - General descriptives about social network based on all logs in window (is significant other a drinker? Do they have friends in recovery? How many?)    
+
+
+
 suppressPackageStartupMessages({
   require(dplyr)
   require(readr)
@@ -33,12 +41,9 @@ screen_features <- read_rds("static_features.rds")
 # Slice out label based on label_num ------------------
 label <- slice(labels_05, label_num)
 
-
-
 # initialize period durations and lead hours ------------------
 period_durations <- c(6, 12, 24, 48, 72, 168) 
 lead <-  0 
-
 
 # make features ------------------
 

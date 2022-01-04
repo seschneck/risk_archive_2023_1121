@@ -18,6 +18,7 @@ static_features_file_name <- "static_features.rds"
 n_jobs <- nrow(read_rds(file.path(path_data, labels_file_name)))
 jobs <- seq(1:n_jobs) # this is equivalent to row numbers of labels that will be used 
 
+
 # DON'T CHANGE
 # create new job directory (if it does not already exist) 
 if (!dir.exists(file.path(path_jobs, name_job))) {
