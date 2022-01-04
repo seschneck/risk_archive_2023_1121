@@ -126,7 +126,9 @@ locations <- locations %>%
          type = str_replace(type, "liquor store", "liquorstore"))
 ```
 
-Note the following typos in addresses, with the assumed correct names listed second:
+Additional notes:
+
+There are a few known typos in addresses, with the assumed correct names listed second:
 * "For Collins", "Fort Collins" 
 * "Pinkney Street", "Pinckney Street" 
 * "John Nolan", "John Nolen" 
@@ -135,7 +137,17 @@ Note the following typos in addresses, with the assumed correct names listed sec
 * "1017 North Port Drive", "1017 Northport Drive" 
 * "1017 Northport Avenue", "1017 Northport Drive"
 
-Note that some listed places may refer to a single location (e.g., a large workplace campus), and other listed places were not necessarily visited by participants. 
+Some listed places may refer to a single location (e.g., a large workplace campus), and other listed places were not necessarily visited by participants. 
+
+```{r}
+locations %>% 
+  group_by(subid, lat, lon) %>% 
+  count() %>% 
+  filter(n > 1) %>% 
+  kable(caption = "Instances of duplicated locations within participant") %>% 
+  kable_styling()
+```
+
 
 ### EDA
 
