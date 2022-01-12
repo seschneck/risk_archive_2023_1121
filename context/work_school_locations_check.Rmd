@@ -43,8 +43,14 @@ register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 
 ```{r import locations check}
 location_descriptions <- read_csv("./user_locations_check.csv",
-                                  col_names = TRUE) %>% 
+                                  skip = 1, col_names = TRUE) %>% 
   clean_names("snake") %>% 
+  rename(
+    n_home_locations = location_home,
+    n_work_locations = location_work,
+    n_home_zones = activityzone_home,
+    n_work_zones = activityzone_work
+  ) %>% 
   glimpse()
 
 ```
@@ -70,6 +76,7 @@ There are `nrow(locations)` unique labeled locations for `r unique(locations$sub
 ```{r categorize other locations}
 
 other_locations <- vroom("P:/studydata/risk/data_processed/context/other_locations.csv") %>% 
+  #note that lat and long are truncated because these data came from an excel sheet originally
   mutate( #fix inconsistent label name
     final = str_replace_all(final, 
                             "public drinking spaces", "public drinking space")) %>% 
@@ -83,6 +90,10 @@ locations <- locations %>%
   rename(type_original = type) %>% 
   mutate(type = coalesce(type_imputed, type_original), #fill in the new type label
          type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
+
+#saving a copy for Xinyi's reference and transparency
+locations %>% 
+  write_csv("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
 ```
 
 
@@ -92,6 +103,9 @@ After filling in new labels for places that people categorized as "other", based
 other_locations %>% 
   filter(is.na(final)) %>% 
   select(context_id, description) %>% 
+  filter(description != "NA") %>% 
+  group_by(description) %>% 
+  count() %>% arrange(desc(n)) %>% 
   kable(caption = "Places that do not fit our label categories") %>% 
   kable_styling()
 ```
@@ -103,9 +117,6 @@ gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") %>%
   glimpse()
 ```
 
-Notes:
-1. There is something odd going on with the number of digits in latitude and longitude. It might be an Excel issue, although the fact that it is happening with the GPS data suggests that it is not.
-2. There are duplicate locations (i.e., locations with the same subid, lat, and long).
 
 ### Merge
 
@@ -127,7 +138,7 @@ location_check <- gps %>%
     select(
       location_descriptions,
       subid, type, n_home_locations, n_work_locations, 
-      n_home_zones = n_home_zone, n_work_zones), 
+      n_home_zones = n_home_zones, n_work_zones), 
     by = "subid") %>% 
   rename(gps_data = data)
 ```
@@ -151,20 +162,8 @@ According to "raw_notes.csv", these participants never completed through FU1 and
 
 ### Examine participants
 
-#### Set up variables
 
-```{r}
-
-#starting new action variable from scratch so that we are consistent in our evaluations
-
-
-#location_check <- location_check %>% 
-#  mutate(action = case_when(type == 1 ~ "use as is",
-#                                type == 2 ~ "use with modification",
-#                                type == 0 ~ "remove all data")) 
-```
-
-### Characterizing the issue
+#### Characterizing the issue
 
 ```{r}
 location_check %>% 
@@ -178,7 +177,7 @@ location_check %>%
   kable_styling()
 ```
 
-#### Categorize particpants with unique labeled and observed home and work
+##### Categorize particpants with unique labeled and observed home and work
 
 ```{r}
 location_check <- location_check %>% 
@@ -188,7 +187,7 @@ location_check <- location_check %>%
                               n_work_zones == 1 ~ "use as is"))
 ```
 
-#### Check home locations
+##### Check home locations
 
 ```{r}
 multiple_homes_ids <- location_check %>% 
@@ -233,9 +232,9 @@ check_labeled_places <- function(subid, place_type){
 
 ```{r map function for all people with multiple homes}
 
-all_maps <- map(unique(locations$subid), ~check_labeled_places(.x, "home"))
+#all_maps <- map(unique(locations$subid), ~check_labeled_places(.x, "home"))
 
-all_maps
+#all_maps
 ```
 
 ##### Closer look at ppl who have spent time at both homes
@@ -286,7 +285,8 @@ investigate_homes <- function(subid){
       mutate(near = case_when(near_home1 == "yes" ~ "home1")) %>% 
       group_by(near) %>% 
       summarize(first = min(time),
-                last = max(time))
+                last = max(time),
+                count = n())
     
     results <- list(tables, map1)
     
@@ -353,7 +353,8 @@ investigate_homes <- function(subid){
                               near_home2 == "yes" ~ "home2")) %>% 
       group_by(near) %>% 
       summarize(first = min(time),
-                last = max(time))
+                last = max(time),
+                count = n())
     
     results <- list(tables, map1, map2)
     
@@ -430,7 +431,8 @@ investigate_homes <- function(subid){
                               near_home3 == "yes" ~ "home3")) %>% 
       group_by(near) %>% 
       summarize(first = min(time),
-                last = max(time))
+                last = max(time),
+                count = n())
     
     results <- list(tables, map1, map2, map3)
     
@@ -446,8 +448,12 @@ investigate_homes <- function(subid){
 
 
 ```{r, echo = FALSE}
-home_maps <- map(c(6, 27, 32, 34, 39, 41, 93, 162, 264, #these people appear to have multiple homes or possible overlapping work/home zones
-                   multiple_homes_ids), ~investigate_homes(.x))
+#commenting out to visualize all homes for all subjects
+
+#home_maps <- map(c(6, 27, 32, 34, 39, 41, 93, 162, 264, #these people appear to have multiple homes or #possible overlapping work/home zones
+#                   multiple_homes_ids), ~investigate_homes(.x))
+
+home_maps <- map(unique(locations$subid), ~investigate_homes(.x))
 ```
 
 ###### Results
