@@ -40,221 +40,9 @@ library(lubridate)
 register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ```
 
-### Import file
 
-```{r import locations check}
-location_descriptions <- read_csv("./user_locations_check.csv",
-                                  skip = 1, col_names = TRUE) %>% 
-  clean_names("snake") %>% 
-  rename(
-    n_home_locations = location_home,
-    n_work_locations = location_work,
-    n_home_zones = activityzone_home,
-    n_work_zones = activityzone_work
-  ) %>% 
-  glimpse()
-
-```
-
-```{r import locations}
-locations <- vroom("P:/studydata/risk/data_processed/shared/locations.csv",
-                      col_names = TRUE) %>% 
-  mutate(subid = as.numeric(subid)) %>% 
-  clean_names("snake") %>% 
-  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
-  mutate(type = tolower(type)) %>% 
-  rename(long = lon) %>% 
-  glimpse()
-
-#saving a copy for Xinyi's reference and transparency
-locations %>% 
-  write_csv("P:/studydata/risk/data_processed/context/locations.csv")
-```
-
-There are `nrow(locations)` unique labeled locations for `r unique(locations$subid)` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
-
-
-```{r categorize other locations}
-
-other_locations <- vroom("P:/studydata/risk/data_processed/context/other_locations.csv") %>% 
-  #note that lat and long are truncated because these data came from an excel sheet originally
-  mutate( #fix inconsistent label name
-    final = str_replace_all(final, 
-                            "public drinking spaces", "public drinking space")) %>% 
-  glimpse()
-
-#merge, create new type column that combines filled-in other column and original type column
-locations <- locations %>% 
-  left_join(.,
-    select(other_locations, context_id, description, type_imputed = final),
-    by = c("context_id")) %>%
-  rename(type_original = type) %>% 
-  mutate(type = coalesce(type_imputed, type_original), #fill in the new type label
-         type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
-
-#saving a copy for Xinyi's reference and transparency
-locations %>% 
-  write_csv("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
-```
-
-
-After filling in new labels for places that people categorized as "other", based on the given descriptions, some places are now unlabeled. These are places that: 1) we either didn't have information about (e.g., because the participant declined to describe the location or staff did not ask or did not write down the description), or 2) that we had information about but that didn't fit into existing categories.
-
+Functions
 ```{r}
-other_locations %>% 
-  filter(is.na(final)) %>% 
-  select(context_id, description) %>% 
-  filter(description != "NA") %>% 
-  group_by(description) %>% 
-  count() %>% arrange(desc(n)) %>% 
-  kable(caption = "Places that do not fit our label categories") %>% 
-  kable_styling()
-```
-
-
-```{r import gps}
-gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") 
-
-#data to be removed
-gps %>% 
-  filter(subid %in% c("80", "74", "207", "28")) %>% 
-  mutate(status = case_when(subid == "80" & time > as_date("2018-07-31") |
-         subid == "74" & time < as_date("2018-07-19") | 
-         subid == "207" & time > as_date("2019-05-19") | 
-         subid == "28" & time < as_date("2017-12-18") ~ "removed",
-         TRUE ~ "retained")) %>% 
-  group_by(subid, status) %>% 
-  count() %>% 
-  kable(caption = "Amount of removed and retained gps data for subjects 28, 74, 80, 204")
-
-gps <- gps %>% 
-  #removing spotty sections of data 
-  filter(!(subid == "80" & time > as_date("2018-07-31")),
-         !(subid == "74" & time < as_date("2018-07-19")), #note -- the remaining data is extremely sparse
-         !(subid == "207" & time > as_date("2019-05-19")), 
-         !(subid == "28" & time < as_date("2017-12-18"))) %>% 
-  rename(long = lon) 
-
-```
-
-
-Adjusted gps data for the following reasons (copied from mak_gps_enriched.Rmd in gps):
-* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
-* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
-to resolve issue.   Filter data (and lapses before 7/19) 
-* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
-*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
-
-Note 167 had missing data issues, but this was adjusted for the entire gps dataset
-
-
-### Merge
-
-```{r create combined dataset}
-location_check <- gps %>% 
-  mutate(location_source = "gps_data") %>% 
-  select(subid, lat, long, time, location_source) %>% 
-  bind_rows(
-    locations %>% 
-      mutate(location_source = case_when(
-        type == "school" ~ "labeled_work",
-        type == "work" ~ "labeled_work",
-        type == "home" ~ "labeled_home",
-        TRUE ~ "other")) %>% 
-      select(subid, lat, long, time, location_source)) %>%
-  group_by(subid) %>% 
-  nest() %>% 
-  left_join(
-    select(
-      location_descriptions,
-      subid, n_home_locations, n_work_locations, 
-      n_home_zones = n_home_zones, n_work_zones), 
-    by = "subid") %>% 
-  rename(gps_data = data)
-```
-
-#### Check for issues
-
-```{r check issues}
-
-#check for subids only in location_description
-missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
-
-#clean up
-rm(gps)
-
-```
-
-There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
-
-According to "raw_notes.csv", these participants never completed through FU1 and are considered discontinued from the study. Their data are not useful to the context project because they will have many unlabeled places.
-
-
-### Examine participants
-
-
-#### Characterizing the issue
-
-```{r}
-location_check %>% 
-  tabyl(n_home_locations, n_home_zones) %>% 
-  kable(caption = "Table of the number of labeled homes by the number of associated zones") %>% 
-  kable_styling()
-
-location_check %>% 
-  tabyl(n_work_locations, n_work_zones)  %>% 
-  kable(caption = "Table of the number of labeled works by the number of associated zones") %>% 
-  kable_styling()
-```
-
-##### Categorize particpants based on counts and missing data
-
-```{r}
-location_check <- location_check %>% 
-  mutate(action = case_when(n_home_locations == 1 & 
-                              n_work_locations == 1 &
-                              n_home_zones == 1 &
-                              n_work_zones == 1 ~ "use as is",
-                            n_home_locations == 2 &
-                              n_home_zones == 1 ~ "manual check",
-                            n_work_locations == 2 &
-                              n_work_zones == 2 ~ "manual check",
-                            n_home_zones > 1 ~ "manual check",
-                            n_work_zones > 1 ~ "manual check")) %>% 
-  #adding in information about people with lots of missing data
-  
-  mutate(missing_gps_data = case_when(subid %in%
-                                        c(190, 56, 2,
-                                          51, 21, 84, 65, 
-                                          117, 19, 42) ~ "check"),
-         adjusted_gps_data = case_when(subid %in%
-                                       c(80, 74, 
-                                         207, 28) ~ "yes"))
-
-
-```
-
-Dropping participants with missing data for the following reasons (see mak_gps_enriched.Rmd in gps):
-* 190 had gps problems through-out study.  Missing GPS on most (85) days.  
-* 56 is missing most of their data until the last few days of the study. 
-* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
-* 51 tech (samsung) issues with big (month long) gaps in their data.  
-* 21 had tech (samsung) issues.  Large gaps. 
-* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
-* 65 had tech (samsung) issues with many gaps in gps.  
-* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
-* 19 had tech issues (samsung) with many gaps in gps.  
-* 42 had many big gaps throughout their data.  
-
-
-##### Check home locations
-
-```{r}
-multiple_homes_ids <- location_check %>% 
-  filter(n_home_zones > 1) %>% 
-  group_by(subid) %>% 
-  pull(subid)
-
 #function that takes subid and creates maps around each home
 #this will iterate through multiple_homes_ids list
 
@@ -289,15 +77,6 @@ check_labeled_places <- function(subid, place_type){
   
 }
 ```
-
-```{r map function for all people with multiple homes}
-
-#all_maps <- map(unique(locations$subid), ~check_labeled_places(.x, "home"))
-
-#all_maps
-```
-
-##### Closer look at ppl who have spent time at both homes
 
 ```{r}
 investigate_homes <- function(subid){
@@ -503,8 +282,276 @@ investigate_homes <- function(subid){
   return(results)
   
 }
+```
+
+
+### Import file
+
+```{r import locations check}
+location_descriptions <- read_csv("./context/user_locations_check.csv",
+                                  skip = 1, col_names = TRUE) %>% 
+  clean_names("snake") %>% 
+  rename(
+    n_home_locations = location_home,
+    n_work_locations = location_work,
+    n_home_zones = activityzone_home,
+    n_work_zones = activityzone_work
+  ) %>% 
+  glimpse()
 
 ```
+
+```{r import locations}
+locations <- vroom("P:/studydata/risk/data_processed/shared/locations.csv",
+                      col_names = TRUE) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  clean_names("snake") %>% 
+  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
+  mutate(type = tolower(type)) %>% 
+  rename(long = lon) %>% 
+  glimpse()
+
+#saving a copy for Xinyi's reference and transparency
+locations %>% 
+  write_csv("P:/studydata/risk/data_processed/context/locations.csv")
+```
+
+There are `nrow(locations)` unique labeled locations for `r unique(locations$subid)` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
+
+
+```{r categorize other locations}
+
+other_locations <- vroom("P:/studydata/risk/data_processed/context/other_locations.csv") %>% 
+  #note that lat and long are truncated because these data came from an excel sheet originally
+  mutate( #fix inconsistent label name
+    final = str_replace_all(final, 
+                            "public drinking spaces", "public drinking space")) %>% 
+  glimpse()
+
+#merge, create new type column that combines filled-in other column and original type column
+locations <- locations %>% 
+  left_join(.,
+    select(other_locations, context_id, description, type_imputed = final),
+    by = c("context_id")) %>%
+  rename(type_original = type) %>% 
+  mutate(type = coalesce(type_imputed, type_original), #fill in the new type label
+         type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
+
+#saving a copy for Xinyi's reference and transparency
+locations %>% 
+  write_csv("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+```
+
+
+After filling in new labels for places that people categorized as "other", based on the given descriptions, some places are now unlabeled. These are places that: 1) we either didn't have information about (e.g., because the participant declined to describe the location or staff did not ask or did not write down the description), or 2) that we had information about but that didn't fit into existing categories.
+
+```{r}
+other_locations %>% 
+  filter(is.na(final)) %>% 
+  select(context_id, description) %>% 
+  filter(description != "NA") %>% 
+  group_by(description) %>% 
+  count() %>% arrange(desc(n)) %>% 
+  kable(caption = "Places that do not fit our label categories") %>% 
+  kable_styling()
+```
+
+
+```{r import gps}
+gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") 
+
+#data to be removed
+gps %>% 
+  filter(subid %in% c("80", "74", "207", "28")) %>% 
+  mutate(status = case_when(subid == "80" & time > as_date("2018-07-31") |
+         subid == "74" & time < as_date("2018-07-19") | 
+         subid == "207" & time > as_date("2019-05-19") | 
+         subid == "28" & time < as_date("2017-12-18") ~ "removed",
+         TRUE ~ "retained")) %>% 
+  group_by(subid, status) %>% 
+  count() %>% 
+  kable(caption = "Amount of removed and retained gps data for subjects 28, 74, 80, 204")
+
+gps <- gps %>% 
+  #removing spotty sections of data 
+  filter(!(subid == "80" & time > as_date("2018-07-31")),
+         !(subid == "74" & time < as_date("2018-07-19")), #note -- the remaining data is extremely sparse
+         !(subid == "207" & time > as_date("2019-05-19")), 
+         !(subid == "28" & time < as_date("2017-12-18"))) %>% 
+  rename(long = lon) 
+
+```
+
+
+Adjusted gps data for the following reasons (copied from mak_gps_enriched.Rmd in gps):
+* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
+* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
+to resolve issue.   Filter data (and lapses before 7/19) 
+* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
+*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
+
+Note 167 had missing data issues, but this was adjusted for the entire gps dataset
+
+
+### Merge
+
+```{r create combined dataset}
+location_check <- gps %>% 
+  mutate(location_source = "gps_data") %>% 
+  select(subid, lat, long, time, location_source) %>% 
+  bind_rows(
+    locations %>% 
+      mutate(location_source = case_when(
+        type == "school" ~ "labeled_work",
+        type == "work" ~ "labeled_work",
+        type == "home" ~ "labeled_home",
+        TRUE ~ "other")) %>% 
+      select(subid, lat, long, time, location_source)) %>%
+  group_by(subid) %>% 
+  nest() %>% 
+  left_join(
+    select(
+      location_descriptions,
+      subid, n_home_locations, n_work_locations, 
+      n_home_zones = n_home_zones, n_work_zones), 
+    by = "subid") %>% 
+  rename(gps_data = data)
+```
+
+#### Check for issues
+
+```{r check issues}
+
+#check for subids only in location_description
+missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
+
+#clean up
+rm(gps)
+
+```
+
+There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
+
+According to "raw_notes.csv", these participants never completed through FU1 and are considered discontinued from the study. Their data are not useful to the context project because they will have many unlabeled places.
+
+
+### Examine participants
+
+
+#### Characterizing the issue
+
+```{r}
+location_check %>% 
+  tabyl(n_home_locations, n_home_zones) %>% 
+  kable(caption = "Table of the number of labeled homes by the number of associated zones") %>% 
+  kable_styling()
+
+location_check %>% 
+  tabyl(n_work_locations, n_work_zones)  %>% 
+  kable(caption = "Table of the number of labeled works by the number of associated zones") %>% 
+  kable_styling()
+```
+
+##### Categorize particpants based on counts and missing data
+
+```{r}
+location_check <- location_check %>% 
+  mutate(action = case_when(n_home_locations == 1 & 
+                              n_work_locations == 1 &
+                              n_home_zones == 1 &
+                              n_work_zones == 1 ~ "use as is",
+                            n_home_locations == 2 &
+                              n_home_zones == 1 ~ "manual check",
+                            n_work_locations == 2 &
+                              n_work_zones == 2 ~ "manual check",
+                            n_home_zones > 1 ~ "manual check",
+                            n_work_zones > 1 ~ "manual check")) %>% 
+  #adding in information about people with lots of missing data
+  mutate(action = case_when(subid %in%
+                                        c(190, 56, 2,
+                                          51, 21, 84, 65, 
+                                          117, 19, 42) ~ "check missing gps",
+                            TRUE ~ action),
+         action = case_when(subid %in%
+                                       c(80, 74, 
+                                         207, 28) ~ "check adjusted gps",
+                            TRUE ~ action))
+
+
+```
+
+Participants flagged for review of missing data for the following reasons (see mak_gps_enriched.Rmd in gps):
+* 190 had gps problems through-out study.  Missing GPS on most (85) days.  
+* 56 is missing most of their data until the last few days of the study. 
+* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
+* 51 tech (samsung) issues with big (month long) gaps in their data.  
+* 21 had tech (samsung) issues.  Large gaps. 
+* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
+* 65 had tech (samsung) issues with many gaps in gps.  
+* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
+* 19 had tech issues (samsung) with many gaps in gps.  
+* 42 had many big gaps throughout their data.  
+
+
+##### Check people with missing data
+```{r}
+sparse_gps_maps <- location_check %>% 
+  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
+  pull(subid) %>% 
+  map(~check_labeled_places(.x, "home"))
+
+sparse_gps_maps 
+```
+
+
+
+###### Remove data & document
+
+```{r}
+
+#remove
+gps <- gps %>% 
+  filter(!(subid %in% c(2, #very few obs near home (41) and in general (167)
+                        19, # not many obs near home (574, diffuse) and in general (2816)
+                        42, # not many obs near home (367) and in general (1082) 
+                        51, #very few obs near home (132) and in general (397)
+                        56, # few obs near home (47) and in general (1137)
+                        65, #very few obs near home (101, 628) and in general (1255)
+                        74, #very few obs near home (83), and overall (96)
+                        190 #very few obs near home (10) an in general (42)
+                        )))
+
+#Not dropping 21 (1932 obs total), 28 (8616 total), 80 (8398 total), 84 (2215 obs total), 117 (2854 obs total)
+# 207 (2409 obs total)-- data looks like it may work
+
+#document
+location_check %>% 
+  mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 65, 74, 190) ~ "data removed due to sparse gps",
+                            subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check"
+                            TRUE ~ action))
+
+
+```
+
+
+
+##### Check home locations
+
+```{r}
+multiple_homes_ids <- location_check %>% 
+  filter(n_home_zones > 1) %>% 
+  group_by(subid) %>% 
+  pull(subid)
+```
+
+```{r map function for all people with multiple homes}
+
+#all_maps <- map(unique(locations$subid), ~check_labeled_places(.x, "home"))
+
+#all_maps
+```
+
+##### Closer look at ppl who have spent time at both homes
 
 
 ```{r, echo = FALSE}
