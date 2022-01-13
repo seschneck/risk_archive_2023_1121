@@ -113,18 +113,32 @@ other_locations %>%
 
 
 ```{r import gps}
-gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") %>% 
+gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") 
+
+#data to be removed
+gps %>% 
+  filter(subid %in% c("80", "74", "207", "28")) %>% 
+  mutate(status = case_when(subid == "80" & time > as_date("2018-07-31") |
+         subid == "74" & time < as_date("2018-07-19") | 
+         subid == "207" & time > as_date("2019-05-19") | 
+         subid == "28" & time < as_date("2017-12-18") ~ "removed",
+         TRUE ~ "retained")) %>% 
+  group_by(subid, status) %>% 
+  count() %>% 
+  kable(caption = "Amount of removed and retained gps data for subjects 28, 74, 80, 204")
+
+gps <- gps %>% 
   #removing spotty sections of data 
   filter(!(subid == "80" & time > as_date("2018-07-31")),
-         !(subid == "74" & time < as_date("2018-07-19")), #the remaining data is extremely sparse
-         !(subid == "207" & time > as_date("2019-05-19")), #the remaining data is extremely sparse
+         !(subid == "74" & time < as_date("2018-07-19")), #note -- the remaining data is extremely sparse
+         !(subid == "207" & time > as_date("2019-05-19")), 
          !(subid == "28" & time < as_date("2017-12-18"))) %>% 
   rename(long = lon) 
 
 ```
 
 
-Adjusted gps data for the following reasons (see mak_gps_enriched.Rmd in gps):
+Adjusted gps data for the following reasons (copied from mak_gps_enriched.Rmd in gps):
 * 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
 * 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
 to resolve issue.   Filter data (and lapses before 7/19) 
