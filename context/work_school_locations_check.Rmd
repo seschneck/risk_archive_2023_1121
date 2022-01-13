@@ -36,6 +36,7 @@ library(kableExtra)
 library(ggmap)
 library(vroom)
 library(here)
+library(lubridate)
 register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
 ```
 
@@ -113,9 +114,24 @@ other_locations %>%
 
 ```{r import gps}
 gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") %>% 
-  rename(long = lon) %>% 
-  glimpse()
+  #removing spotty sections of data 
+  filter(!(subid == "80" & time > as_date("2018-07-31")),
+         !(subid == "74" & time < as_date("2018-07-19")), #the remaining data is extremely sparse
+         !(subid == "207" & time > as_date("2019-05-19")), #the remaining data is extremely sparse
+         !(subid == "28" & time < as_date("2017-12-18"))) %>% 
+  rename(long = lon) 
+
 ```
+
+
+Adjusted gps data for the following reasons (see mak_gps_enriched.Rmd in gps):
+* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
+* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
+to resolve issue.   Filter data (and lapses before 7/19) 
+* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
+*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
+
+Note 167 had missing data issues, but this was adjusted for the entire gps dataset
 
 
 ### Merge
@@ -137,7 +153,7 @@ location_check <- gps %>%
   left_join(
     select(
       location_descriptions,
-      subid, type, n_home_locations, n_work_locations, 
+      subid, n_home_locations, n_work_locations, 
       n_home_zones = n_home_zones, n_work_zones), 
     by = "subid") %>% 
   rename(gps_data = data)
@@ -177,15 +193,45 @@ location_check %>%
   kable_styling()
 ```
 
-##### Categorize particpants with unique labeled and observed home and work
+##### Categorize particpants based on counts and missing data
 
 ```{r}
 location_check <- location_check %>% 
   mutate(action = case_when(n_home_locations == 1 & 
                               n_work_locations == 1 &
                               n_home_zones == 1 &
-                              n_work_zones == 1 ~ "use as is"))
+                              n_work_zones == 1 ~ "use as is",
+                            n_home_locations == 2 &
+                              n_home_zones == 1 ~ "manual check",
+                            n_work_locations == 2 &
+                              n_work_zones == 2 ~ "manual check",
+                            n_home_zones > 1 ~ "manual check",
+                            n_work_zones > 1 ~ "manual check")) %>% 
+  #adding in information about people with lots of missing data
+  
+  mutate(missing_gps_data = case_when(subid %in%
+                                        c(190, 56, 2,
+                                          51, 21, 84, 65, 
+                                          117, 19, 42) ~ "check"),
+         adjusted_gps_data = case_when(subid %in%
+                                       c(80, 74, 
+                                         207, 28) ~ "yes"))
+
+
 ```
+
+Dropping participants with missing data for the following reasons (see mak_gps_enriched.Rmd in gps):
+* 190 had gps problems through-out study.  Missing GPS on most (85) days.  
+* 56 is missing most of their data until the last few days of the study. 
+* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
+* 51 tech (samsung) issues with big (month long) gaps in their data.  
+* 21 had tech (samsung) issues.  Large gaps. 
+* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
+* 65 had tech (samsung) issues with many gaps in gps.  
+* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
+* 19 had tech issues (samsung) with many gaps in gps.  
+* 42 had many big gaps throughout their data.  
+
 
 ##### Check home locations
 
