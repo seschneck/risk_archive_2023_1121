@@ -288,7 +288,7 @@ investigate_homes <- function(subid){
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./context/user_locations_check.csv",
+location_descriptions <- read_csv("./user_locations_check.csv",
                                   skip = 1, col_names = TRUE) %>% 
   clean_names("snake") %>% 
   rename(
@@ -425,9 +425,6 @@ location_check <- gps %>%
 #check for subids only in location_description
 missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
 
-#clean up
-rm(gps)
-
 ```
 
 There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
@@ -459,7 +456,7 @@ location_check <- location_check %>%
   mutate(action = case_when(n_home_locations == 1 & 
                               n_work_locations == 1 &
                               n_home_zones == 1 &
-                              n_work_zones == 1 ~ "use as is",
+                              n_work_zones == 1 ~ "manual check",
                             n_home_locations == 2 &
                               n_home_zones == 1 ~ "manual check",
                             n_work_locations == 2 &
@@ -524,12 +521,20 @@ gps <- gps %>%
 #Not dropping 21 (1932 obs total), 28 (8616 total), 80 (8398 total), 84 (2215 obs total), 117 (2854 obs total)
 # 207 (2409 obs total)-- data looks like it may work
 
+#save 
+gps %>% 
+  write_csv("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+
+#clean up
+rm(gps)
+
 #document
-location_check %>% 
+location_check <- location_check %>% 
   mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 65, 74, 190) ~ "data removed due to sparse gps",
-                            subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check"
+                            subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check",
                             TRUE ~ action))
 
+tabyl(location_check, action)
 
 ```
 
@@ -537,28 +542,11 @@ location_check %>%
 
 ##### Check home locations
 
-```{r}
-multiple_homes_ids <- location_check %>% 
-  filter(n_home_zones > 1) %>% 
-  group_by(subid) %>% 
-  pull(subid)
-```
-
-```{r map function for all people with multiple homes}
-
-#all_maps <- map(unique(locations$subid), ~check_labeled_places(.x, "home"))
-
-#all_maps
-```
-
-##### Closer look at ppl who have spent time at both homes
-
 
 ```{r, echo = FALSE}
-#commenting out to visualize all homes for all subjects
 
-#home_maps <- map(c(6, 27, 32, 34, 39, 41, 93, 162, 264, #these people appear to have multiple homes or #possible overlapping work/home zones
-#                   multiple_homes_ids), ~investigate_homes(.x))
+check_homes_subids <- location_check %>% 
+  filter(action == "manual check")
 
 home_maps <- map(unique(locations$subid), ~investigate_homes(.x))
 ```
@@ -566,7 +554,6 @@ home_maps <- map(unique(locations$subid), ~investigate_homes(.x))
 ###### Results
 
 ```{r}
-#all_maps
 home_maps
 ```
 
