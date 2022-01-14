@@ -284,6 +284,213 @@ investigate_homes <- function(subid){
 }
 ```
 
+```{r}
+
+investigate_works <- function(subid){
+  
+  subject <- subid
+  
+  works <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    filter(location_source == "labeled_work")
+  
+  
+  if (nrow(works) == 1) {
+    
+    message(paste0("one work detected for subject ", subid))
+    
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    
+    works_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1)
+    
+    
+    
+  }
+  
+  
+  if (nrow(works) == 2) {
+    
+    message(paste0("two works detected for subject ", subid))
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    work2 <- works %>% 
+      select(long, lat) %>% .[2,]
+    
+    
+    works_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_work2 = case_when(long > work2[[1]]-.001 & 
+                                      long < work2[[1]]+.001 & 
+                                      lat < work2[[2]]+.001 & 
+                                      lat > work2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(work2[[1]], work2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 2 over time"))
+    
+    
+    #works_subid %>% 
+    #  filter(near_work1 == "yes" | near_work2 == "yes") %>% 
+    #  arrange(time) 
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                              near_work2 == "yes" ~ "work2")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2)
+    
+  }
+  
+  if (nrow(works) == 3) {
+    
+    message(paste0("three works detected for subject ", subid))
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    work2 <- works %>% 
+      select(long, lat) %>% .[2,]
+    
+    work3 <- works %>% 
+      select(long, lat) %>% .[3,]
+    
+    works_subid <-  location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_work2 = case_when(long > work2[[1]]-.001 & 
+                                      long < work2[[1]]+.001 & 
+                                      lat < work2[[2]]+.001 & 
+                                      lat > work2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"),
+             near_work3 = case_when(long > work3[[1]]-.001 & 
+                                      long < work3[[1]]+.001 & 
+                                      lat < work3[[2]]+.001 & 
+                                      lat > work3[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"))
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(work2[[1]], work2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 2 over time"))
+    
+    map3 <- ggmap(
+      get_map(
+        c(work3[[1]], work3[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 3 over time"))
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                              near_work2 == "yes" ~ "work2",
+                              near_work3 == "yes" ~ "work3")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2, map3)
+    
+  }
+  
+  if (nrow(works) > 3) message(paste0("subject", subject, " has more than 3 works"))
+  
+  return(results)
+  
+}
+```
+
 
 ### Import file
 
@@ -543,7 +750,7 @@ tabyl(location_check, action)
 ##### Check home locations
 
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message = FALSE}
 
 check_homes_subids <- location_check %>% 
   filter(action == "manual check")
@@ -587,122 +794,6 @@ all_work_maps <- map(multiple_works_ids, ~check_labeled_places(.x, "work"))
 ```
 
 ##### Closer look at people with multiple works
-
-
-```{r}
-investigate_works <- function(subid){
-  
-  subject <- subid
-  
-  works <-   location_check %>% 
-    filter(subid == subject) %>% 
-    pull(gps_data) %>% 
-    pluck(1) %>% 
-    filter(location_source == "labeled_work")
-  
-  work1 <- works %>% 
-    select(long, lat) %>% .[1,]
-  
-  work2 <- works %>% 
-    select(long, lat) %>% .[2,]
-  
-  
-  works_subid <- location_check %>% 
-    filter(subid == subject) %>% 
-    pull(gps_data) %>% 
-    pluck(1) %>% 
-    mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
-                                    long < work1[[1]]+.001 & 
-                                    lat < work1[[2]]+.001 & 
-                                    lat > work1[[2]]-.001 ~ "yes",
-                                  TRUE ~ "no"),
-           near_work2 = case_when(long > work2[[1]]-.001 & 
-                                    long < work2[[1]]+.001 & 
-                                    lat < work2[[2]]+.001 & 
-                                    lat > work2[[2]]-.001 ~ "yes",
-                                  TRUE ~ "no")) 
-  
-  
-  map1 <- ggmap(
-    get_map(
-      c(work1[[1]], work1[[2]]), zoom = 18)) +
-    geom_point(aes(x = long, 
-                   y = lat,
-                   shape = location_source,
-                   color = time),
-               data = works_subid) +
-    ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
-  
-  
-  map2 <- ggmap(
-    get_map(
-      c(work2[[1]], work2[[2]]), zoom = 18)) +
-    geom_point(aes(x = long, 
-                   y = lat,
-                   shape = location_source,
-                   color = time),
-               data = works_subid) +
-    ggtitle(paste0("subject ", subject, "'s obs near work 2 over time"))
-  
-  
-  #works_subid %>% 
-  #  filter(near_work1 == "yes" | near_work2 == "yes") %>% 
-  #  arrange(time) 
-  
-  tables <- works_subid %>% 
-    mutate(near = case_when(near_work1 == "yes" ~ "work1",
-                            near_work2 == "yes" ~ "work2")) %>% 
-    group_by(near) %>% 
-    summarize(first = min(time),
-              last = max(time))
-  
-  results <- list(tables, map1, map2)
-  
-  
-  if (nrow(works) == 3) {
-    
-    message("three works detected")
-    
-    work3 <- works %>% 
-      select(long, lat) %>% .[3,]
-    
-    works_subid <-  works_subid %>% 
-      mutate(
-        near_work3 = case_when(long > work3[[1]]-.001 & 
-                                 long < work3[[1]]+.001 & 
-                                 lat < work3[[2]]+.001 & 
-                                 lat > work1[[2]]-.001 ~ "yes",
-                               TRUE ~ "no"))
-    
-    map3 <- ggmap(
-      get_map(
-        c(work3[[1]], work3[[2]]), zoom = 18)) +
-      geom_point(aes(x = long, 
-                     y = lat,
-                     shape = location_source,
-                     color = time),
-                 data = works_subid) +
-      ggtitle(paste0("subject ", subject, "'s obs near work 3 over time"))
-    
-    tables <- works_subid %>% 
-      mutate(near = case_when(near_work1 == "yes" ~ "work1",
-                              near_work2 == "yes" ~ "work2",
-                              near_work3 == "yes" ~ "work3")) %>% 
-      group_by(near) %>% 
-      summarize(first = min(time),
-                last = max(time))
-    
-    results <- list(tables, map1, map2, map3)
-    
-  }
-  
-  if (length(works_subid) > 3) message(paste0("subject", subject, " has more than 3 works"))
-  
-  return(results)
-  
-}
-```
-
 
 
 ```{r echo = FALSE}
