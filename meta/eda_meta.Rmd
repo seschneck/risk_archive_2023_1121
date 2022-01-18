@@ -207,7 +207,7 @@ meta %>%
 Type of calls to self    
 
 - Includes SMS messages     
-- Includes outgoing messages   
+- Includes outgoing messages    
 ```{r}
 meta %>% 
   filter(contact_type == "self") %>% 
@@ -218,6 +218,10 @@ meta %>%
   glimpse()
 
 meta %>% 
+  filter(contact_type == "self" & log_type == "sms") %>% 
+  tabyl(org)
+
+meta %>% 
   filter(contact_type == "self") %>% 
   tabyl(org)
 
@@ -225,6 +229,21 @@ meta %>%
   filter(contact_type == "self" & org == "incoming") %>% 
   glimpse()
 ```
+
+It appears it is possible to text yourself - should have incoming and outgoing text with 
+same time stamp (few seconds off okay)
+```{r}
+meta %>% 
+  filter(contact_type == "self" & log_type == "sms") %>% 
+  select(subid, number_formatted, dttm_obs, org) 
+
+meta %>% 
+  filter(contact_type == "self" & log_type == "sms") %>% 
+  mutate(dttm_round_min = round_date(dttm_obs, unit = "minute")) %>% 
+  count(subid, number_formatted, dttm_round_min) %>% 
+  filter(n != 2)
+```
+
 
 
 ### Date reported contacts
