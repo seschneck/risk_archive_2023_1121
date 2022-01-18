@@ -90,6 +90,10 @@ get_study_hours <- function(subid, study_start, study_end, ema_end, buffer_hours
   return(study_hours)
 }
 
+
+# FIX: add hour parameter to specify lapse window (hour should be 1 or in increments of 24)
+# FIX: pass in buffer_hours parameter to get passed to get_study_hours
+# get_study_hours starts at midnight by default - change buffer_hours parameter to hour interval starts (i.e., 6)
 get_lapse_labels <- function(lapses, dates) {
   
   subids <- unique(dates$subid)
@@ -99,6 +103,10 @@ get_lapse_labels <- function(lapses, dates) {
     pmap_dfr(~get_study_hours(..1, ..2, ..3, ..4)) %>% 
     mutate(lapse = FALSE,
            no_lapse = TRUE)
+  
+  # FIX: if hours is > 1 check if there are any lapses in the specified time period
+  # Set time period to start at what time? 6 am?
+  # How to handle buffer around lapses? Currently as 3 hours for hour level lapses
   
   
   # Step 1: handle valid lapses

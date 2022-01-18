@@ -205,13 +205,13 @@ dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::col
 
 ### Get valid observations of lapse and no_lapse
 
-Get valid lapse and no_lapse observations by hour
+Get valid lapse and no_lapse observations by specified time frame (in hours)
 
-* tibble includes all hours for each subject starting on midnight on day 2 through
+* tibble includes all hour intervals for each subject starting on midnight on day 2 through
 the end of study (or last ema, whichever is earlier)
 * lapse column is true or false.  True for accurate lapse reports
 * no_lapse column is true or NA.  True for accurate no_lapse, NA for excluded periods
-These periods are excluded if there are with +-24 hours of a valid lapse period, or similar
+These periods are excluded if there are within +-24 hours of a valid lapse period, or similar
 periods around invalid lapse reports.  see function for more detail
 
 ```{r}   
