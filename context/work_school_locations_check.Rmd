@@ -1,0 +1,870 @@
+---
+title: "Review and resolution of each participants work/school locations"
+author: "Hannah Moshontz"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 6
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "P:/studydata/risk/knits/context")
+  })
+---
+
+
+### Notes
+
+Purpose: This file reviews each person's GPS data to resolve issues related to multiple work and school locations.
+
+Inputs:  user_locations_check.csv, which is a copy of a sheet in "workbook_sent_from_xinyi.xlsx" with cleaned variable names. Many of the columns we will not use (the binary description and decision columns Xinyi created), but many contain information about activity zones that we do not otherwise have.
+
+
+### Setup
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(purrr)
+library(here)
+library(kableExtra)
+#library(tidylog)
+library(ggmap)
+library(vroom)
+library(here)
+library(lubridate)
+register_google(key = "AIzaSyBBwIG1tC4QZi5QrTnhXXLktIPD8NlVVI0") #API key
+```
+
+
+Functions
+```{r}
+#function that takes subid and creates maps around each home
+#this will iterate through multiple_homes_ids list
+
+check_labeled_places <- function(subid, place_type){
+  
+  message(paste0("processing subject", subid))  
+  
+  subject <- as.numeric(subid) #renaming to prevent issues  
+  
+  gps <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    mutate(location_source = case_when(location_source == paste0("labeled_", place_type) ~ place_type,
+                                       location_source == "gps_data" ~ "observed location"))
+  
+  places <- gps %>% 
+    filter(location_source == place_type) %>% 
+    select(long, lat) 
+  
+  plots <- map2(places$long, places$lat, 
+                ~ggmap(
+                  get_map(
+                    c(.x, .y), zoom = 18)) +
+                  geom_point(aes(x = long, 
+                                 y = lat,
+                                 color = location_source),
+                             data = gps) +
+                  ggtitle(paste0("subid ", subject, "'s ", place_type," and surrounding gps observations"))) 
+  
+  return(plots)
+  
+}
+```
+
+```{r}
+
+investigate_homes <- function(subid){
+  
+  subject <- subid
+  
+  homes <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    filter(location_source == "labeled_home")
+  
+  
+  if (nrow(homes) == 1) {
+    
+    message(paste0("one home detected for subject ", subid))
+    
+    
+    home1 <- homes %>% 
+      select(long, lat) %>% .[1,]
+    
+    
+    homes_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_home1 = case_when(long > home1[[1]]-.001 & 
+                                      long < home1[[1]]+.001 & 
+                                      lat < home1[[2]]+.001 & 
+                                      lat > home1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    map1 <- ggmap(
+      get_map(
+        c(home1[[1]], home1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 1 over time"))
+    
+    
+    tables <- homes_subid %>% 
+      mutate(near = case_when(near_home1 == "yes" ~ "home1")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1)
+    
+    
+    
+  }
+  
+  
+  if (nrow(homes) == 2) {
+    
+    message(paste0("two homes detected for subject ", subid))
+    
+    home1 <- homes %>% 
+      select(long, lat) %>% .[1,]
+    
+    home2 <- homes %>% 
+      select(long, lat) %>% .[2,]
+    
+    
+    homes_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_home1 = case_when(long > home1[[1]]-.001 & 
+                                      long < home1[[1]]+.001 & 
+                                      lat < home1[[2]]+.001 & 
+                                      lat > home1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_home2 = case_when(long > home2[[1]]-.001 & 
+                                      long < home2[[1]]+.001 & 
+                                      lat < home2[[2]]+.001 & 
+                                      lat > home2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(home1[[1]], home1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(home2[[1]], home2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 2 over time"))
+    
+    
+    #homes_subid %>% 
+    #  filter(near_home1 == "yes" | near_home2 == "yes") %>% 
+    #  arrange(time) 
+    
+    tables <- homes_subid %>% 
+      mutate(near = case_when(near_home1 == "yes" ~ "home1",
+                              near_home2 == "yes" ~ "home2")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2)
+    
+  }
+  
+  if (nrow(homes) == 3) {
+    
+    message(paste0("three homes detected for subject ", subid))
+    
+    home1 <- homes %>% 
+      select(long, lat) %>% .[1,]
+    
+    home2 <- homes %>% 
+      select(long, lat) %>% .[2,]
+    
+    home3 <- homes %>% 
+      select(long, lat) %>% .[3,]
+    
+    homes_subid <-  location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_home1 = case_when(long > home1[[1]]-.001 & 
+                                      long < home1[[1]]+.001 & 
+                                      lat < home1[[2]]+.001 & 
+                                      lat > home1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_home2 = case_when(long > home2[[1]]-.001 & 
+                                      long < home2[[1]]+.001 & 
+                                      lat < home2[[2]]+.001 & 
+                                      lat > home2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"),
+             near_home3 = case_when(long > home3[[1]]-.001 & 
+                                      long < home3[[1]]+.001 & 
+                                      lat < home3[[2]]+.001 & 
+                                      lat > home3[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"))
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(home1[[1]], home1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(home2[[1]], home2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 2 over time"))
+    
+    map3 <- ggmap(
+      get_map(
+        c(home3[[1]], home3[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = homes_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near home 3 over time"))
+    
+    tables <- homes_subid %>% 
+      mutate(near = case_when(near_home1 == "yes" ~ "home1",
+                              near_home2 == "yes" ~ "home2",
+                              near_home3 == "yes" ~ "home3")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2, map3)
+    
+  }
+  
+  if (nrow(homes) > 3) message(paste0("subject", subject, " has more than 3 homes"))
+  
+  return(results)
+  
+}
+```
+
+```{r}
+
+investigate_works <- function(subid){
+  
+  subject <- subid
+  
+  works <- location_check %>% 
+    filter(subid == subject) %>% 
+    pull(gps_data) %>% 
+    pluck(1) %>% 
+    filter(location_source == "labeled_work")
+  
+    if (nrow(works) == 1) {
+    
+    message(paste0("one work detected for subject ", subid))
+    
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    
+    works_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1)
+    
+    
+    
+  }
+  
+  
+  if (nrow(works) == 2) {
+    
+    message(paste0("two works detected for subject ", subid))
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    work2 <- works %>% 
+      select(long, lat) %>% .[2,]
+    
+    
+    works_subid <- location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_work2 = case_when(long > work2[[1]]-.001 & 
+                                      long < work2[[1]]+.001 & 
+                                      lat < work2[[2]]+.001 & 
+                                      lat > work2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no")) 
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(work2[[1]], work2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 2 over time"))
+    
+    
+    #works_subid %>% 
+    #  filter(near_work1 == "yes" | near_work2 == "yes") %>% 
+    #  arrange(time) 
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                              near_work2 == "yes" ~ "work2")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2)
+    
+  }
+  
+  if (nrow(works) == 3) {
+    
+    message(paste0("three works detected for subject ", subid))
+    
+    work1 <- works %>% 
+      select(long, lat) %>% .[1,]
+    
+    work2 <- works %>% 
+      select(long, lat) %>% .[2,]
+    
+    work3 <- works %>% 
+      select(long, lat) %>% .[3,]
+    
+    works_subid <-  location_check %>% 
+      filter(subid == subject) %>% 
+      pull(gps_data) %>% 
+      pluck(1) %>% 
+      mutate(near_work1 = case_when(long > work1[[1]]-.001 & 
+                                      long < work1[[1]]+.001 & 
+                                      lat < work1[[2]]+.001 & 
+                                      lat > work1[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"), 
+             near_work2 = case_when(long > work2[[1]]-.001 & 
+                                      long < work2[[1]]+.001 & 
+                                      lat < work2[[2]]+.001 & 
+                                      lat > work2[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"),
+             near_work3 = case_when(long > work3[[1]]-.001 & 
+                                      long < work3[[1]]+.001 & 
+                                      lat < work3[[2]]+.001 & 
+                                      lat > work3[[2]]-.001 ~ "yes",
+                                    TRUE ~ "no"))
+    
+    
+    map1 <- ggmap(
+      get_map(
+        c(work1[[1]], work1[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 1 over time"))
+    
+    
+    map2 <- ggmap(
+      get_map(
+        c(work2[[1]], work2[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 2 over time"))
+    
+    map3 <- ggmap(
+      get_map(
+        c(work3[[1]], work3[[2]]), zoom = 18)) +
+      geom_point(aes(x = long, 
+                     y = lat,
+                     shape = location_source,
+                     color = time),
+                 data = works_subid) +
+      ggtitle(paste0("subject ", subject, "'s obs near work 3 over time"))
+    
+    tables <- works_subid %>% 
+      mutate(near = case_when(near_work1 == "yes" ~ "work1",
+                              near_work2 == "yes" ~ "work2",
+                              near_work3 == "yes" ~ "work3")) %>% 
+      group_by(near) %>% 
+      summarize(first = min(time),
+                last = max(time),
+                count = n())
+    
+    results <- list(tables, map1, map2, map3)
+    
+  }
+  
+  if (nrow(works) > 3) {
+    
+    message(paste0("subject ", subject, " has more than 3 works"))
+    
+    results <- list()
+    
+    
+  } 
+  
+  return(results)
+  
+}
+```
+
+
+### Import file
+
+```{r import locations check}
+location_descriptions <- read_csv("./context/user_locations_check.csv",
+                                  skip = 1, col_names = TRUE) %>% 
+  clean_names("snake") %>% 
+  rename(
+    n_home_locations = location_home,
+    n_work_locations = location_work,
+    n_home_zones = activityzone_home,
+    n_work_zones = activityzone_work
+  ) %>% 
+  glimpse()
+```
+
+```{r import locations}
+locations <- vroom("P:/studydata/risk/data_processed/shared/locations.csv",
+                      col_names = TRUE) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  clean_names("snake") %>% 
+  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
+  mutate(type = tolower(type)) %>% 
+  rename(long = lon) %>% 
+  glimpse()
+
+#saving a copy for Xinyi's reference and transparency
+locations %>% 
+  write_csv("P:/studydata/risk/data_processed/context/locations.csv")
+```
+
+There are `r nrow(locations)` unique labeled locations for `r unique(locations$subid)` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
+
+
+```{r categorize other locations}
+
+other_locations <- vroom("P:/studydata/risk/data_processed/context/other_locations.csv") %>% 
+  #note that lat and long are truncated because these data came from an excel sheet originally
+  mutate( #fix inconsistent label name
+    final = str_replace_all(final, 
+                            "public drinking spaces", "public drinking space")) %>% 
+  glimpse()
+
+#merge, create new type column that combines filled-in other column and original type column
+locations <- locations %>% 
+  left_join(.,
+    select(other_locations, context_id, description, type_imputed = final),
+    by = c("context_id")) %>%
+  rename(type_original = type) %>% 
+  mutate(type = coalesce(type_imputed, type_original), #fill in the new type label
+         type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
+
+#saving a copy for Xinyi's reference and transparency
+locations %>% 
+  write_csv("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+```
+
+
+After filling in new labels for places that people categorized as "other", based on the given descriptions, some places are now unlabeled. These are places that: 1) we either didn't have information about (e.g., because the participant declined to describe the location or staff did not ask or did not write down the description), or 2) that we had information about but that didn't fit into existing categories.
+
+```{r}
+other_locations %>% 
+  filter(is.na(final)) %>% 
+  select(context_id, description) %>% 
+  filter(description != "NA") %>% 
+  group_by(description) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  kable(caption = "Places that do not fit our label categories") %>% 
+  kable_styling()
+```
+
+
+```{r import gps}
+#import gps
+gps <- vroom("P:/studydata/risk/data_processed/shared/gps.csv") 
+
+#summarize data to be removed
+gps %>% 
+  filter(subid %in% c("80", "74", "207", "28")) %>% 
+  mutate(status = case_when(subid == "80" & time > as_date("2018-07-31") |
+         subid == "74" & time < as_date("2018-07-19") | 
+         subid == "207" & time > as_date("2019-05-19") | 
+         subid == "28" & time < as_date("2017-12-18") ~ "removed",
+         TRUE ~ "retained")) %>% 
+  group_by(subid, status) %>% 
+  count() %>% 
+  kable(caption = "Amount of removed and retained gps data for subjects 28, 74, 80, 204")
+
+gps <- gps %>% 
+  #removing spotty sections of data 
+  filter(!(subid == "80" & time > as_date("2018-07-31")),
+         !(subid == "74" & time < as_date("2018-07-19")), #note -- the remaining data is extremely sparse
+         !(subid == "207" & time > as_date("2019-05-19")), 
+         !(subid == "28" & time < as_date("2017-12-18"))) %>% 
+  rename(long = lon) 
+
+```
+
+
+Adjusted gps data for the following reasons (copied from mak_gps_enriched.Rmd in gps):
+* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
+* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
+to resolve issue.   Filter data (and lapses before 7/19) 
+* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
+*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
+
+Note 167 had missing data issues, but this was adjusted for the entire gps dataset
+
+
+### Merge
+
+```{r create combined dataset}
+location_check <- gps %>% 
+  mutate(location_source = "gps_data") %>% 
+  select(subid, lat, long, time, location_source) %>% 
+  bind_rows(
+    locations %>% 
+      mutate(location_source = case_when(
+        type == "school" ~ "labeled_work",
+        type == "work" ~ "labeled_work",
+        type == "home" ~ "labeled_home",
+        TRUE ~ "other")) %>% 
+      select(subid, lat, long, time, location_source)) %>%
+  group_by(subid) %>% 
+  nest() %>% 
+  left_join(
+    select(
+      location_descriptions,
+      subid, n_home_locations, n_work_locations, 
+      n_home_zones = n_home_zones, n_work_zones), 
+    by = "subid") %>% 
+  rename(gps_data = data)
+```
+
+#### Check for issues
+
+```{r check issues}
+
+#check for subids only in location_description
+missing_ids <- unique(location_descriptions$subid)[!unique(location_descriptions$subid) %in% unique(gps$subid)]
+
+```
+
+There are `r length(missing_ids)` subjects that are in location descriptions and have locations, but are not in the processed gps dataset. Their subids are: `r paste(missing_ids)`.
+
+According to "raw_notes.csv", these participants never completed through FU1 and are considered discontinued from the study. Their data are not useful to the context project because they will have many unlabeled places.
+
+
+### Examine participants
+
+
+#### Characterizing the issue
+
+```{r}
+location_check %>% 
+  tabyl(n_home_locations, n_home_zones) %>% 
+  kable(caption = "Table of the number of labeled homes by the number of associated zones") %>% 
+  kable_styling()
+
+location_check %>% 
+  tabyl(n_work_locations, n_work_zones)  %>% 
+  kable(caption = "Table of the number of labeled works by the number of associated zones") %>% 
+  kable_styling()
+```
+
+##### Categorize particpants based on counts and missing data
+
+```{r}
+location_check <- location_check %>% 
+  mutate(action = case_when(n_home_locations == 1 & 
+                              n_work_locations == 1 &
+                              n_home_zones == 1 &
+                              n_work_zones == 1 ~ "manual check",
+                            n_home_locations == 2 &
+                              n_home_zones == 1 ~ "manual check",
+                            n_work_locations == 2 &
+                              n_work_zones == 2 ~ "manual check",
+                            n_home_zones > 1 ~ "manual check",
+                            n_work_zones > 1 ~ "manual check",
+                            n_work_locations > 3 ~ "manual check - more than 3 work locations")) %>% 
+  #adding in information about people with lots of missing data
+  mutate(action = case_when(subid %in%
+                                        c(190, 56, 2,
+                                          51, 21, 84, 65, 
+                                          117, 19, 42) ~ "check missing gps",
+                            TRUE ~ action),
+         action = case_when(subid %in%
+                                       c(80, 74, 
+                                         207, 28) ~ "check adjusted gps",
+                            TRUE ~ action))
+
+
+```
+
+Participants flagged for review of missing data for the following reasons (see mak_gps_enriched.Rmd in gps):
+* 190 had gps problems through-out study.  Missing GPS on most (85) days.  
+* 56 is missing most of their data until the last few days of the study. 
+* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
+* 51 tech (samsung) issues with big (month long) gaps in their data.  
+* 21 had tech (samsung) issues.  Large gaps. 
+* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
+* 65 had tech (samsung) issues with many gaps in gps.  
+* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
+* 19 had tech issues (samsung) with many gaps in gps.  
+* 42 had many big gaps throughout their data.  
+
+
+##### Check people with missing data
+```{r}
+sparse_gps_maps <- location_check %>% 
+  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
+  pull(subid) %>% 
+  map(~check_labeled_places(.x, "home"))
+
+sparse_gps_maps 
+```
+
+###### Remove data & document
+
+```{r}
+
+#remove
+gps <- gps %>% 
+  filter(!(subid %in% c(2, #very few obs near home (41) and in general (167)
+                        19, # not many obs near home (574, diffuse) and in general (2816)
+                        42, # not many obs near home (367) and in general (1082) 
+                        51, #very few obs near home (132) and in general (397)
+                        56, # few obs near home (47) and in general (1137)
+                        65, #very few obs near home (101, 628) and in general (1255)
+                        74, #very few obs near home (83), and overall (96)
+                        190 #very few obs near home (10) an in general (42)
+                        )))
+
+#Not dropping 21 (1932 obs total), 28 (8616 total), 80 (8398 total), 84 (2215 obs total), 117 (2854 obs total)
+# 207 (2409 obs total)-- data looks like it may work
+
+#save 
+gps %>% 
+  write_csv("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+
+#clean up
+rm(gps)
+
+#document
+location_check <- location_check %>% 
+  mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 65, 74, 190) ~ "data removed due to sparse gps",
+                            subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check",
+                            TRUE ~ action))
+
+tabyl(location_check, action)
+
+```
+
+
+
+##### Check home locations
+
+
+```{r, echo = FALSE, message = FALSE}
+
+manual_check_subids <- location_check %>% 
+  filter(action == "manual check") %>% 
+  pull(subid)
+
+home_maps <- map(manual_check_subids, ~investigate_homes(.x))
+```
+
+###### Results
+
+```{r}
+home_maps
+```
+
+##### Updating action for people with multiple homes
+
+```{r}
+
+```
+
+#### Check participants with multiple work locations
+
+First, examine simpler maps for people with more than 3 work locations
+
+```{r}
+work_maps_multiple <- location_check %>% 
+  filter(action == "manual check - more than 3 work locations") %>% 
+  pull(subid) %>% 
+  map(check_labeled_places(., "work"))
+```
+
+
+```{r  map function for all people with multiple works, echo = FALSE}
+
+work_maps <- map(manual_check_subids, ~investigate_works(.x))
+```
+
+
+###### Results
+
+```{r}
+work_maps_multiple
+work_maps
+```
+
+##### Updating action for people with multiple homes
+
+```{r}
+
+```
+
+
+### Notes 
+
+1. Subid 3 -- home locations are identical, should be combined. same for work locations 1 and 2.
+2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september. *investigate works -- is one labelled school?*
+3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis. *investigateworks*
+4. Subid 29 -- home locations are identical, should be combined
+5. Subid 30 -- no observations near home location 2 (Main St)
+6. Subid 43 -- has three homes, appears to have moved 3 times. it may make sense to restrict data to the time period when they were living at location 1 or location 3.
+7. Subid 65 -- home 1 is a temporary home (pops up on google as a hotel), should be relabeled as such
+8. Subid 77 -- much less time at home 2, and during a very narrow time-frame. this home is outside of madison. consider relabeling home 2 as a temporary home or hotel.
+9. Subid 79 -- address looks a bit off on 79 home 1 -- also looks like a temporary residence, as they spent almost no time there. remove home 1. looks like a move between home 2 and 3 occured so we should restrict to times when they lived at one.
+10. Subid 86 -- they moved between two homes that are very close. may make sense to pick house 2 as they seem to have moved early in the study.
+11. Subid 93 -- data is pretty sparse. consider restricting to before August 10th or so, to focus on home 1, and then delete home 2. 
+12. Subid 119 -- location 2 should be marked as a temporary home.
+13. Subid 135 -- apartment address is a little off for 1. this looks like a move.... focus on home 1 or keep both.
+14. Subid 156 -- less time at home 1, and all focused at the begining of the study. consider removing obs before nov 15th or so and removing home 1, or labeling home 1 as a temporary residence. 
+15. Subid 162 -- much less time spent at time 1, which looks like it was a temporary home. 
+16. Subid 172 -- a move. go with home 2 if we have to pick, and restrict to before feb 10th or so
+17. Subid 201 -- almost no obs at home 1; mark as a temporary home or remove
+18. Subid 222 -- a move... not sure what to do as they appear to be about equal.
+19. Subid 240 -- a move, choice will have to be arbitrary if we restrict in time
+20. Subid 259 -- much less time spent at home 1, consider marking as a temporary home 
+21. Subid 270 --  home 2 looks like an error -- not a residence -- consider removing
+22. Subid 1 -- Has multiple work locations, several of which they have not spent much time at. The following should be deleted: 2, 3, 4, 5, 6, 7 
+23. Subid 5 -- Looks like this person has a school location and a work location; should not be disqualifying. 
+24. Subid  7 -- This is difficult because students might be at really different places on campus...This person has multiple work/school points, but they are all on campus.
+25. Subid 9 -- *check if one of these is labeled work and one school*
+26. Subid 10 -- Seems to visit schools as part of work. Delete locations: 2, 3, 4, 5. Keep 6 if we allow for people who attend university to have multiple visits to campus.
+27. Subid 11 -- *check timing* delete work 3, 4, 5, 6?
+28. Subid 15 -- delete location 2
+29. Subid 16 -- delete location 2
+30. Subid 17 -- *check timing* likely need to delete several locations -- it looks like this person does delivery service and/or works at a liquor store? or just labeled a lot as work? plus, all the locations are duplicated.
+31. Subid 18 -- delete location 2
+32. Subid 19 -- delete location 2, 3, 10. And depending on our decision about universities, location 4, 5, 6, 7, 8, 9.
+33. Subid 20 -- 1 and 2 are the same location, 3+ is a little off and needs *check timing* -- may need to delete
+34. Sub 21 looks to be a university janitor or something, should probably delete all their work locations.
+35. Sub 23 location 2 appears to be mislabeled; this person seems to work at multiple branches of the same bank...
+36. Subject 25 -- location 1 they have hardly been to. location 2 and 3 are the same.
+37. Subject 28 -- *investigate works* seems like an unreliable measurement for 28, or they have a very odd job. consider deleting all points.
+38. Subject 40 has many work locations they have not been to
+
+Additional notes:
+- Apartment addresses are often a little removed from their gps location -- it looks like the lat, long were generated from addresses rather than as an average of observed locations
+- Is it possible to keep two homes if people moved? if we can have multiple retaurants, etc. why not multiple homes? (see subject 86 as a good example of a case we should keep)
+- Is it worth reviewing all other locations to make sure that people actually went there? (In this study, some people described places they go before we had any GPS data)
+- It might be worth formalizing exclusion criteria for each labeled place... like people must have visited each place X number of times (defined by an observation within a particular distance) to be included in analyses, and/or observations must span their data collection time.
+- Can we keep work and school separate? That will probably help us identify work 
+- Check for duplicate locations in the data. For some reason there may be several duplicates.
+
+General issues:
+- Many people have lots of work places listed
+- Combining work and school creates a lot more duplicate locations
+- People who are affiliated with the university, and have multiple locations marked on campus.
+- Similarly, some work places are large and there are multiple labels for the place. (see subid 37) 
+- People who work at multiple locations of the same business.
+- People who switched work or home during the study. I'm not sure why work and home have to be exclusive, though.
+- People marking work or home locations that they have hardly spent any time at.
+- People who seem to be labeling anything they do while at work as their workplace.

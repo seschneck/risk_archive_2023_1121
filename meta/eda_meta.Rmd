@@ -1,0 +1,283 @@
+---
+title: "Meta EDA"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+### Code Status
+
+- add apple/android variable
+- check all variables
+- check known contacts with no log matches (were they reported at screen)
+- count how many contacts reported at each visit
+- check to see if calls to self is voicemail check (outgoing? Remove from counts?)
+- see if can extract or determine number for emails and *86
+
+### Notes
+This script performs more EDA on meta dataset (logs and contacts).
+
+- John and Kendra have decided to drop subid 104's data for the following reasons:   
+  - They had lapses every day on study except one day.    
+  - Only had 75 surveys where a lapse was not reported.   
+  - Viewing their lapse times it appears they were drinking constantly (morning and 
+  night).   
+  - They consistently report being uncertain that their goal is to be abstinent 
+  (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
+  at followup 1 and 2.    
+  - They are ultimately discontinued since they were struggling to gain sobriety.   
+  - Unfortunately this drops 109 valid lapses.    
+
+
+- John and Kendra have decided to drop subid 269's data for the following reasons:       
+  - They completed 10-15 surveys on many days on study (avg number of surveys per 
+  day is 6.76).  
+  - Their responses indicate careless responding - they were filling 2-4 surveys out 
+  within an hour of each other and the responses to the questions were completely different.     
+  - They have questionable no lapse labels - they reported no lapses while on study but 
+  according to notes left two messages for study staff where they admitted to drinking 
+  over the weekend.   
+  
+
+- John and Kendra have decided to drop subid 204's data for the following reasons:    
+  - Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. 
+  They only did a total of 5 surveys between followup 2 and 3.    
+  - We don't trust their lapse labels - They report several lapses during their interviews 
+  but times appear questionable (same time every night). They only report 1 lapse with EMA.
+  - From notes - "Participant did not do many surveys during their second month of participation. 
+  At their Follow-up 2 visit they reported several lapses that were not documented in their 
+  EMAs - estimated lapse days/times in subid's raw data log."  
+  - JC note: "There are issues with 204. They are missing lapses reported by interview. But they  
+  also stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to 
+  drop them for lapse analyses for anything after 5/17.  Probably also need to add in their 
+  reported lapses at follow-up 2. OR we drop them at the end of follow-up 1 or wherever their 
+  ema gets sketchy"  
+
+### Set up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, paths}
+path_meta <- "P:/studydata/risk/data_processed/meta"
+path_shared <- "P:/studydata/risk/data_processed/shared"
+```
+
+Relative paths
+```{r}
+path_lab_support <- "../lab_support"
+```
+
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+ conflict_prefer("filter", "dplyr")
+ conflict_prefer("select", "dplyr")
+
+library(here)  
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(ggplot2)
+library(kableExtra)
+
+theme_set(theme_classic()) 
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here(path_lab_support, "print_kbl.R"))
+```
+
+
+
+
+### Read in Data
+
+```{r}
+study_dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>% 
+  select(subid, study_start, comm_start, data_start) %>% 
+  mutate(across(study_start:data_start), with_tz(., tz = "America/Chicago")) %>% 
+  glimpse()
+
+meta <- vroom::vroom(here(path_meta, "meta_logs.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% study_dates$subid) %>% # need to rerun mak_logs to filter out excluded subids
+  mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) %>% 
+  glimpse()
+
+contacts_all <- vroom::vroom(here(path_shared, "contacts.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% study_dates$subid) %>% # remove excluded subids
+  glimpse()
+```
+
+
+### Check self contact type
+
+In logs       
+
+- `r length(unique(meta$subid))` unique subids in meta project
+- 87 subids have a self contact_type in their log communications   
+- 5 subids have more than 1 self type (77, 150, 187, 236, 252) 
+```{r}
+meta %>% 
+  filter(contact_type == "self") %>% 
+  group_by(subid, number_formatted) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  count(subid) 
+
+meta %>% 
+  filter(contact_type == "self") %>% 
+  group_by(subid, number_formatted) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  count(subid) %>% 
+  filter(n > 1)
+```
+
+
+In full contacts file  
+
+- all 151 subids have a self contact_type   
+- 12 list more than 1 number (home and cell, cell and other)
+```{r}
+contacts_all %>% 
+  filter(contact_type == "Self") %>% 
+  group_by(subid, phone_number) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  count(subid) 
+
+(dup_subs <- contacts_all %>% 
+  filter(contact_type == "Self") %>% 
+  group_by(subid, phone_number) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  count(subid) %>% 
+  filter(n > 1))
+
+contacts_all %>% 
+  filter(contact_type == "Self") %>% 
+  filter(subid %in% dup_subs$subid) %>% 
+  select(subid, utc, contact_type, phone_type, phone_number)
+```
+
+Contact info on subids with more than 1 self number in logs
+```{r}
+contacts_all %>% 
+  filter(contact_type == "Self" & subid %in% c(77, 150, 187, 236, 252)) %>% 
+  select(subid, utc, contact_type, phone_type, phone_number)
+```
+
+
+Number of calls to self
+```{r}
+meta %>% 
+  filter(contact_type == "self") %>% 
+  count(subid, number_formatted, phone_type) %>% 
+  arrange(desc(n))
+```
+
+Type of calls to self    
+
+- Includes SMS messages     
+- Includes outgoing messages   
+```{r}
+meta %>% 
+  filter(contact_type == "self") %>% 
+  tabyl(log_type)
+
+meta %>% 
+  filter(contact_type == "self" & log_type == "sms") %>% 
+  glimpse()
+
+meta %>% 
+  filter(contact_type == "self") %>% 
+  tabyl(org)
+
+meta %>% 
+  filter(contact_type == "self" & org == "incoming") %>% 
+  glimpse()
+```
+
+
+### Date reported contacts
+```{r}
+contacts_all %>% 
+  count(subid, utc)
+```
+
+
+### Unmatched contacts
+
+- 310 unmatched contacts (60 unmatched self contacts)   
+- from 94 subids   
+- 8 subids have 10 or more unmatched contacts
+```{r}
+contacts_all %>% 
+  filter(!phone_number %in% meta$number_formatted) %>% 
+  glimpse()
+
+contacts_all %>% 
+  filter(!phone_number %in% meta$number_formatted) %>% 
+  tabyl(contact_type)
+
+contacts_all %>% 
+  filter(!phone_number %in% meta$number_formatted) %>% 
+  # filter out self contact_type
+  filter(contact_type != "Self") %>% 
+  select(subid, contact_type, phone_number)
+
+contacts_all %>% 
+  filter(!phone_number %in% meta$number_formatted & contact_type != "Self") %>% 
+  count(subid) %>% 
+  arrange(desc(n))
+```
+
+Check numbers are valid   
+
+
+Check if unmatched contacts were reported at first visit  
+
+- 117 has a lot of unmatched contacts not reported at first visit
+```{r}
+contacts_all %>% 
+  filter(!phone_number %in% meta$number_formatted & contact_type != "Self") %>% 
+  count(subid, utc) %>% 
+  left_join(contacts_all %>% 
+              count(subid, utc) %>% 
+              arrange(subid, utc) %>% 
+              ungroup() %>% 
+              group_by(subid) %>% 
+              slice(1) %>% 
+              select(c(subid, utc)) %>% 
+              mutate(first_report = "yes"), by = c("subid", "utc"))
+```
+
+
