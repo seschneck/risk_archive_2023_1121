@@ -816,18 +816,29 @@ location_check <- location_check %>%
   mutate(
     check_zones = case_when(
       subid %in% c(6, 9, 16, 27, 29,
-                   44, 52, 64, 80, 82, 90) ~  "check for overlapping activity/home/work zones"),
+                   44, 52, 64, 80, 82, 90, 181, 183, 
+                   203, 207, 240, 248, 255) ~  "check for overlapping activity/home/work zones"),
     action = case_when(
     subid %in% c(3, 5, 9, 
                  15, 16, 
                  20, 21, 23, 28, 
-                 30, 31, 33, 38, 39,
-                 40, 44, 48, 52, 
+                 30, 31, 33, 34, 38, 39,
+                 40, 44, 48, 50,  52, 
                  62, 63, 64, 66,
-                 80, 84, 90) ~ "standard selected",
-    subid %in% c(6, 27, 29, 43, 77, 79) ~ "nonstandard selected",
-    subid %in% c(30, 34, 50, 82) ~ "sparse data, but may be ok",
-    subid %in% c(86) ~ "home or work locations not separated in time",
+                 80, 82, 84, 90, 92,
+                 94, 97, 98, 105,
+                 110, 116, 117,
+                 121, 130, 136, 137,
+                 138, 149, 150, 158, 
+                 161, 163, 167, 169,
+                 171, 173, 178, 179, 181, 185, 187,
+                 188, 189, 191, 192, 197, 203,
+                 204, 205, 207, 208, 211, 214, 218,
+                 224, 230, 236, 241, 242, 245, 248,
+                 252, 255, 263, 267, 269, 270) ~ "standard selected",
+    subid %in% c(6, 27, 29, 43, 77, 79,
+                 93, 119, 135, 156, 162, 172, 201, 222, 240) ~ "nonstandard selected",
+    subid %in% c(86, 259, 270) ~ "home or work locations not separated in time",
     TRUE ~ action))
 ```
 
