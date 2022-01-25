@@ -502,7 +502,7 @@ investigate_works <- function(subid){
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./context/user_locations_check.csv",
+location_descriptions <- read_csv("./user_locations_check.csv",
                                   skip = 1, col_names = TRUE) %>% 
   clean_names("snake") %>% 
   rename(
@@ -727,6 +727,7 @@ gps <- gps %>%
                         42, # not many obs near home (367) and in general (1082) 
                         51, #very few obs near home (132) and in general (397)
                         56, # few obs near home (47) and in general (1137)
+                        61, #few obs near homes (87, 194), and overall (1195)
                         65, #very few obs near home (101, 628) and in general (1255)
                         74, #very few obs near home (83), and overall (96)
                         190 #very few obs near home (10) an in general (42)
@@ -739,19 +740,21 @@ gps <- gps %>%
 gps %>% 
   write_csv("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
 
-#clean up
+gps_counts <- gps %>% 
+  group_by(subid) %>% 
+  count()
+
 rm(gps)
 
 #document
 location_check <- location_check %>% 
-  mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 65, 74, 190) ~ "data removed due to sparse gps",
+  mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 61, 65, 74, 190) ~ "data removed due to sparse gps",
                             subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check",
                             TRUE ~ action))
 
 tabyl(location_check, action)
 
 ```
-
 
 
 ##### Check home locations
@@ -772,11 +775,6 @@ home_maps <- map(manual_check_subids, ~investigate_homes(.x))
 home_maps
 ```
 
-##### Updating action for people with multiple homes
-
-```{r}
-
-```
 
 #### Check participants with multiple work locations
 
@@ -786,11 +784,16 @@ First, examine simpler maps for people with more than 3 work locations
 work_maps_multiple <- location_check %>% 
   filter(action == "manual check - more than 3 work locations") %>% 
   pull(subid) %>% 
-  map(check_labeled_places(., "work"))
+  map(~check_labeled_places(.x, "work"))
 ```
 
 
 ```{r  map function for all people with multiple works, echo = FALSE}
+
+manual_check_subids <- location_check %>% 
+  filter(n_work_locations != 0, #drop people without any work locations
+         action == "manual check") %>% 
+  pull(subid)
 
 work_maps <- map(manual_check_subids, ~investigate_works(.x))
 ```
@@ -803,16 +806,46 @@ work_maps_multiple
 work_maps
 ```
 
-##### Updating action for people with multiple homes
+##### Updating action for people with multiple works and homes
 
 ```{r}
 
+
+#document
+location_check <- location_check %>% 
+  mutate(
+    check_zones = case_when(
+      subid %in% c(6, 9, 16, 27, 29,
+                   44, 52, 64, 80, 82, 90) ~  "check for overlapping activity/home/work zones"),
+    action = case_when(
+    subid %in% c(3, 5, 9, 
+                 15, 16, 
+                 20, 21, 23, 28, 
+                 30, 31, 33, 38, 39,
+                 40, 44, 48, 52, 
+                 62, 63, 64, 66,
+                 80, 84, 90) ~ "standard selected",
+    subid %in% c(6, 27, 29, 43, 77, 79) ~ "nonstandard selected",
+    subid %in% c(30, 34, 50, 82) ~ "sparse data, but may be ok",
+    subid %in% c(86) ~ "home or work locations not separated in time",
+    TRUE ~ action))
+```
+
+#hm stopped at sub 90
+
+#remove people with multiple home or work not separated in time!
+
+##### Checking sparse obs
+
+```{r}
+location_check %>% 
+  glimpse()
 ```
 
 
 ### Notes 
 
-1. Subid 3 -- home locations are identical, should be combined. same for work locations 1 and 2.
+1. Subid 3 -- sparse but should be OK (about over 3000 obs)
 2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september. *investigate works -- is one labelled school?*
 3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis. *investigateworks*
 4. Subid 29 -- home locations are identical, should be combined
