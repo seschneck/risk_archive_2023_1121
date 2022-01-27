@@ -70,33 +70,32 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
                               buffer_start = 0,
                               buffer_end = 0,
                               window_dur = 3600) {
-  # Returns a tibble for one subject with columns for subid (numeric) and 
+  # Purpose: Returns a tibble for one subject with columns for subid (numeric) and 
   #   dttm_label (dttm).  
-
   # Inputs:
-  #   study_start, study_end, ema_end = dttm vars that should be in America/Chicago 
+  #   study_start, study_end, ema_end = dttm vars that should be in America/Chicago
   #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
   #     First hour for lapses is midnight on study day 1 by default (0)
   #   buffer_end = adds buffer time in seconds between end_time and last lapses used
   #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
   #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
   
+  # calculate start_time 
   start_time <- study_start + seconds(buffer_start)
   
-  # calculate end_time in 4 steps
-  #   1. get study end
-  study_end <- study_end + (hours(23))  # 11 pm on study_end date
+  # calculate end_time in 3 steps
+  #   1. get study end (11 pm on study_end date)
+  study_end <- study_end + (hours(23)) 
  
-  #   2. get ema end
+  #   2. get ema end (1 hr prior to date and time of last ema rounded to nearest hour)
+  #   FIX: John do we still want this in hours?
   ema_end <-  floor_date(ema_end, unit = "hours") - hours(1)
   
-  #   3. calculate end time as earliest end time (study end or ema end)
-  end_time <- min(study_end, ema_end)
-  
-  #   4. subtract end_buffer
-  end_time <- end_time - seconds(end_buffer)
+  #   3. calculate end time as earliest end time (study end or ema end) and subtract buffer_end
+  end_time <- min(study_end, ema_end) - seconds(buffer_end)
   
   
+  # create label windows
   label_windows <- tibble(dttm_label = seq(start_time, end_time, by = window_dur), subid) %>% 
     relocate(subid)
   
