@@ -66,46 +66,9 @@ merge_lapses <- function(lapses) {
 }
 
 
-get_label_windows <- function(subid, study_start, study_end, ema_end, 
-                              buffer_start = 0,
-                              buffer_end = 0,
-                              window_dur = 3600) {
-  # Purpose: Returns a tibble for one subject with columns for subid (numeric) and 
-  #   dttm_label (dttm).  
-  # Inputs:
-  #   study_start, study_end, ema_end = dttm vars that should be in America/Chicago
-  #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
-  #     First hour for lapses is midnight on study day 1 by default (0)
-  #   buffer_end = adds buffer time in seconds between end_time and last lapses used
-  #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
-  #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
-  
-  # calculate start_time 
-  start_time <- study_start + seconds(buffer_start)
-  
-  # calculate end_time in 3 steps
-  #   1. get study end (11 pm on study_end date)
-  study_end <- study_end + (hours(23)) 
- 
-  #   2. get ema end (1 hr prior to date and time of last ema rounded to nearest hour)
-  #   FIX: John do we still want this in hours?
-  ema_end <-  floor_date(ema_end, unit = "hours") - hours(1)
-  
-  #   3. calculate end time as earliest end time (study end or ema end) and subtract buffer_end
-  end_time <- min(study_end, ema_end) - seconds(buffer_end)
-  
-  
-  # create label windows
-  label_windows <- tibble(dttm_label = seq(start_time, end_time, by = window_dur), subid) %>% 
-    relocate(subid)
-  
-  return(label_windows)
-}
 
-
-
-# old function before we started using get_label_windows
 get_study_hours <- function(subid, study_start, study_end, ema_end, buffer_hours = 0) {
+  # old function before we started using get_label_windows
   # Returns a tibble for one subject with columns for subid (numeric) and 
   #   dttm_label (dttm).  
   #   buffer_hours adds buffer time between study start and first lapses used 
@@ -130,28 +93,68 @@ get_study_hours <- function(subid, study_start, study_end, ema_end, buffer_hours
   return(study_hours)
 }
 
+get_label_windows <- function(subid, study_start, study_end, ema_end, 
+                              buffer_start = 0,
+                              buffer_end = 0,
+                              window_dur = 3600) {
+  # Purpose: Returns a tibble for one subject with columns for subid (numeric) and 
+  #   dttm_label (dttm).  
+  # Inputs:
+  #   study_start, study_end, ema_end = dttm vars that should be in America/Chicago
+  #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
+  #     First hour for lapses is midnight on study day 1 by default (0)
+  #   buffer_end = adds buffer time in seconds between end_time and last lapses used
+  #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
+  #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
+  
+  # calculate start_time 
+  start_time <- study_start + seconds(buffer_start)
+  
+  # calculate end_time in 3 steps
+  #   1. get study end (11 pm on study_end date)
+  study_end <- study_end + (hours(23)) 
+  
+  #   2. get ema end (1 hr prior to date and time of last ema rounded to nearest hour)
+  #   FIX: John do we still want this in hours?
+  ema_end <-  floor_date(ema_end, unit = "hours") - hours(1)
+  
+  #   3. calculate end time as earliest end time (study end or ema end) and subtract buffer_end
+  end_time <- min(study_end, ema_end) - seconds(buffer_end)
+  
+  
+  # create label windows
+  label_windows <- tibble(dttm_label = seq(start_time, end_time, by = window_dur), subid) %>% 
+    relocate(subid)
+  
+  return(label_windows)
+}
 
-# FIX: add lapse_hour_window parameter to specify lapse window (hour should be 1 
-# or in increments of 24)
-# FIX: add lapse_hour_window_start parameter to specify when lapse window starts
-# get_study_hours starts at midnight by default for day 1 - change buffer_hours parameter to
-# match lapse_hour_window should start (i.e., 6 for 6 am)?
-# hour end in get_study_hours is still going to be at 11 pm or one hour before last ema
-get_lapse_labels <- function(lapses, dates, lapse_hour_window, lapse_hour_window_start = 0) {
+
+
+
+get_lapse_labels <- function(lapses, dates, buffer_start = 0, buffer_end = 0, window_dur = 3600) {
+  # Purpose: Returns a tibble of lapse labels that includes subid, dttm_label, and
+  #   boolean lapse and no_lapse columns. 
+  # Inputs:
+  #   dates = tibble that should contain subid, study_start, study_end, ema_end 
+  #     dttm vars should be in America/Chicago
+  #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
+  #     First hour for lapses is midnight on study day 1 by default (0)
+  #   buffer_end = adds buffer time in seconds between end_time and last lapses used
+  #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
+  #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
   
   subids <- unique(dates$subid)
   
   labels <- dates %>% 
     select(subid, study_start, study_end, ema_end) %>% 
-    # pass start time to get_study_hours?
-    # mutate(buffer_hours = lapse_hour_window_start) %>% 
-    pmap_dfr(~get_study_hours(..1, ..2, ..3, ..4)) %>% # add ..5 if using buffer_hours
+    # pass in other parameters for get_label_windows
+    mutate(buffer_start = buffer_start,
+           buffer_end = buffer_end,
+           window_dur = window_dur) %>% 
+    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4, ..5, ..6, ..7)) %>%
     mutate(lapse = FALSE,
            no_lapse = TRUE)
-  
-  # FIX: if lapse_hour_window is > 1 check if there are any lapses in lapse_hour_window
-  # Set window to start at buffer_hours
-  # FIX: How to handle buffer around lapses? Currently as 3 hours for hour level lapses
   
   
   # Step 1: handle valid lapses
