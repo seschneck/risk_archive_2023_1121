@@ -205,6 +205,24 @@ dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::col
 
 ### Get valid observations of lapse and no_lapse
 
+Demo of new functions
+```{r}
+lapse_subset <- lapses %>% 
+  slice(1:5)
+
+# default parameters
+get_lapse_labels(lapse_subset, dates) %>% 
+  head(30)
+
+# specify duration window to 3 days
+get_lapse_labels(lapse_subset, dates, window_dur = 259200) %>% 
+  head(100)
+```
+
+FIX: still need to update exclusions/checks
+
+
+
 Get valid lapse and no_lapse observations by specified time frame (in hours)
 
 * tibble includes all hour intervals for each subject starting on midnight on day 2 through
