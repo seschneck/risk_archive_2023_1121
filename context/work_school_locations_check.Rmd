@@ -20,8 +20,11 @@ knit: (function(input, ...) {
 
 Purpose: This file reviews each person's GPS data to resolve issues related to multiple work and school locations.
 
-Inputs:  user_locations_check.csv, which is a copy of a sheet in "workbook_sent_from_xinyi.xlsx" with cleaned variable names. Many of the columns we will not use (the binary description and decision columns Xinyi created), but many contain information about activity zones that we do not otherwise have.
+Inputs:  
 
+-  processed_data/context/user_locations_check.csv, which is a copy of a sheet in "workbook_sent_from_xinyi.xlsx" with cleaned variable names
+- raw_data/gps.csv
+- processed_data/context/locations.csv 
 
 ### Setup
 
@@ -47,7 +50,6 @@ Functions
 #this will iterate through multiple_homes_ids list
 
 check_labeled_places <- function(subid, place_type){
-  
   message(paste0("processing subject", subid))  
   
   subject <- as.numeric(subid) #renaming to prevent issues  
@@ -515,21 +517,11 @@ location_descriptions <- read_csv("./context/user_locations_check.csv",
 ```
 
 ```{r import locations}
-locations <- vroom("P:/studydata/risk/data_processed/shared/locations.csv",
-                      col_names = TRUE) %>% 
-  mutate(subid = as.numeric(subid)) %>% 
-  clean_names("snake") %>% 
-  mutate(time = lubridate::as_datetime(utc, tz = "America/Chicago")) %>% 
-  mutate(type = tolower(type)) %>% 
-  rename(long = lon) %>% 
-  glimpse()
-
-#saving a copy for Xinyi's reference and transparency
-locations %>% 
-  write_csv("P:/studydata/risk/data_processed/context/locations.csv")
+locations <- vroom("P:/studydata/risk/data_processed/context/locations.csv",
+                      col_names = TRUE) 
 ```
 
-There are `r nrow(locations)` unique labeled locations for `r unique(locations$subid)` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
+There are `r nrow(locations)` unique labeled locations for `r length(unique(locations$subid))` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
 
 
 ```{r categorize other locations}
@@ -552,7 +544,7 @@ locations <- locations %>%
 
 #saving a copy for Xinyi's reference and transparency
 locations %>% 
-  write_csv("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
 ```
 
 
@@ -599,11 +591,12 @@ gps <- gps %>%
 
 
 Adjusted gps data for the following reasons (copied from mak_gps_enriched.Rmd in gps):
-* 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
-* 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
+
+- 80 has good data for about first month (through 7/31).  No data after that.  Retain lapses through 7/31
+- 74 had problems with Moves.  Gaps in data using Moves.  Switched to FollowMee on 7/19 and seemed
 to resolve issue.   Filter data (and lapses before 7/19) 
-* 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
-*28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
+- 207 had issues with broken phone, missing days, and out of country travel. Despite this, data were ok (some gaps but not really big ones) through 5/19.   End study on 5/19 
+- 28 missing data for most of the first month.   Data are present afterward.  Adjust study start to 12/18
 
 Note 167 had missing data issues, but this was adjusted for the entire gps dataset
 
@@ -694,16 +687,17 @@ location_check <- location_check %>%
 ```
 
 Participants flagged for review of missing data for the following reasons (see mak_gps_enriched.Rmd in gps):
-* 190 had gps problems through-out study.  Missing GPS on most (85) days.  
-* 56 is missing most of their data until the last few days of the study. 
-* 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
-* 51 tech (samsung) issues with big (month long) gaps in their data.  
-* 21 had tech (samsung) issues.  Large gaps. 
-* 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
-* 65 had tech (samsung) issues with many gaps in gps.  
-* 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
-* 19 had tech issues (samsung) with many gaps in gps.  
-* 42 had many big gaps throughout their data.  
+
+- 190 had gps problems through-out study.  Missing GPS on most (85) days.  
+- 56 is missing most of their data until the last few days of the study. 
+- 2 had tech (samsung) issues and is missing most of their data until the last few days of the study.
+- 51 tech (samsung) issues with big (month long) gaps in their data.  
+- 21 had tech (samsung) issues.  Large gaps. 
+- 84 had many phone issues (lost phone, missing data, out of country wiht GPS off). 
+- 65 had tech (samsung) issues with many gaps in gps.  
+- 117 turned off location services repeatedly b/c of data plan issues. Many gaps. 
+- 19 had tech issues (samsung) with many gaps in gps.  
+- 42 had many big gaps throughout their data.  
 
 
 ##### Check people with missing data
@@ -727,6 +721,7 @@ gps <- gps %>%
                         42, # not many obs near home (367) and in general (1082) 
                         51, #very few obs near home (132) and in general (397)
                         56, # few obs near home (47) and in general (1137)
+                        61, #few obs near homes (87, 194), and overall (1195)
                         65, #very few obs near home (101, 628) and in general (1255)
                         74, #very few obs near home (83), and overall (96)
                         190 #very few obs near home (10) an in general (42)
@@ -737,21 +732,23 @@ gps <- gps %>%
 
 #save 
 gps %>% 
-  write_csv("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
 
-#clean up
+gps_counts <- gps %>% 
+  group_by(subid) %>% 
+  count()
+
 rm(gps)
 
 #document
 location_check <- location_check %>% 
-  mutate(action = case_when(subid %in% c(2, 19, 42, 51, 56, 65, 74, 190) ~ "data removed due to sparse gps",
+  mutate(action = case_when(subid %in% c(2, 19, 24, 42, 51, 56, 61, 65, 67, 74, 190) ~ "data removed due to sparse gps",
                             subid %in% c(21, 28, 80, 84, 117, 207) ~ "manual check",
                             TRUE ~ action))
 
 tabyl(location_check, action)
 
 ```
-
 
 
 ##### Check home locations
@@ -772,11 +769,6 @@ home_maps <- map(manual_check_subids, ~investigate_homes(.x))
 home_maps
 ```
 
-##### Updating action for people with multiple homes
-
-```{r}
-
-```
 
 #### Check participants with multiple work locations
 
@@ -786,11 +778,16 @@ First, examine simpler maps for people with more than 3 work locations
 work_maps_multiple <- location_check %>% 
   filter(action == "manual check - more than 3 work locations") %>% 
   pull(subid) %>% 
-  map(check_labeled_places(., "work"))
+  map(~check_labeled_places(.x, "work"))
 ```
 
 
 ```{r  map function for all people with multiple works, echo = FALSE}
+
+manual_check_subids <- location_check %>% 
+  filter(n_work_locations != 0, #drop people without any work locations
+         action == "manual check") %>% 
+  pull(subid)
 
 work_maps <- map(manual_check_subids, ~investigate_works(.x))
 ```
@@ -803,68 +800,90 @@ work_maps_multiple
 work_maps
 ```
 
-##### Updating action for people with multiple homes
+##### Updating action for people with multiple works and homes
+
+```{r}
+
+
+#document
+location_check <- location_check %>% 
+  mutate(
+    check_zones = case_when(
+      subid %in% c(7, 10, 11, 26, 27, 29, 37, 43,
+                   52, 64, 80, 82, 88, 90, 
+                   118, 181, 182, 183, 189, 196, 201, 
+                   203, 207, 211, 213,
+                   224, 240, 243, 248, 262) ~  "check for overlapping activity/home/work zones"),
+    action = case_when(
+    subid %in% c(3, 7, 8,
+                 10, 11, 17, 18,
+                 20, 21, 23, 25, 26, 28, 
+                 31, 34, 38, 39,
+                 40, 41, 47, 48, 
+                 50, 52, 53, 54, 58, 59,  
+                 62, 64, 76,
+                 80, 81, 82, 84, 85, 87, 88,
+                 90, 92, 94, 97, 98, 99,
+                 100, 103, 104, 105, 109,
+                 110, 116, 117, 118, 
+                 128,
+                 130, 131, 134, 136, 137, 138, 139, 
+                 143, 149,
+                 151, 158, 
+                 161, 163, 166, 167, 169,
+                 171, 173, 175, 178, 177, 179, 
+                 180, 181, 182, 183, 185, 187, 188, 189, 
+                 196, 
+                 200, 203, 204, 205, 207, 208, 209,
+                 211, 212, 213, 214, 215, 218,
+                 221, 223, 225,
+                 230, 231, 232, 234, 236, 237, 238, 
+                 241, 242, 243, 245, 248,
+                 262, 265, 268, 269) ~ "standard selected",
+    subid %in% c(15, 27, 29, 30, 37, 43,63, 66, 77, 79,
+                 93, 119, 121, 135, 156, 162, 172, 201, 224, 240, 264) ~ "nonstandard selected",
+    subid %in% c(1, 32, 5, 6, 9, 16, 33, 44, 78,  86,150,  191, 192, 193, 
+                 197,222, 252, 255, 259, 263, 267, 270) ~ "home or work locations not separated in time",
+    TRUE ~ action))
+
+tabyl(location_check, action)
+```
+
+
+##### Documenting sparse obs
+
+
+```{r}
+gps_counts %>% 
+  arrange(n) %>% 
+  filter(n < 3000) %>% 
+  kable(caption = "Subjects with sparse GPS data") %>% 
+  kable_styling()
+```
+
+
+### Saving
+
+```{r}
+#saving a copy of location for Xinyi's reference and transparency
+drop_subids <- location_check %>% 
+  filter(action == "home or work locations not separated in time" |
+           action == "data removed due to sparse gps") %>% 
+  pull(subid)
+
+locations %>% 
+  filter(subid %in% drop_subids) %>% 
+  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+```
 
 ```{r}
 
 ```
 
 
+
 ### Notes 
 
-1. Subid 3 -- home locations are identical, should be combined. same for work locations 1 and 2.
-2. Subid 6 -- although the proportion of time spent at each home changes, they spend time at both houses throughout the study, but throughout they spend more time at home 2 than home 1. either delete home 1 or restrict data to august and september. *investigate works -- is one labelled school?*
-3. Subid 27 -- seems to have moved in december, but doesn't spend much time at home 2 (mostly just stopped spending time at home 1). remove the label for home 2 for analysis. *investigateworks*
-4. Subid 29 -- home locations are identical, should be combined
-5. Subid 30 -- no observations near home location 2 (Main St)
-6. Subid 43 -- has three homes, appears to have moved 3 times. it may make sense to restrict data to the time period when they were living at location 1 or location 3.
-7. Subid 65 -- home 1 is a temporary home (pops up on google as a hotel), should be relabeled as such
-8. Subid 77 -- much less time at home 2, and during a very narrow time-frame. this home is outside of madison. consider relabeling home 2 as a temporary home or hotel.
-9. Subid 79 -- address looks a bit off on 79 home 1 -- also looks like a temporary residence, as they spent almost no time there. remove home 1. looks like a move between home 2 and 3 occured so we should restrict to times when they lived at one.
-10. Subid 86 -- they moved between two homes that are very close. may make sense to pick house 2 as they seem to have moved early in the study.
-11. Subid 93 -- data is pretty sparse. consider restricting to before August 10th or so, to focus on home 1, and then delete home 2. 
-12. Subid 119 -- location 2 should be marked as a temporary home.
-13. Subid 135 -- apartment address is a little off for 1. this looks like a move.... focus on home 1 or keep both.
-14. Subid 156 -- less time at home 1, and all focused at the begining of the study. consider removing obs before nov 15th or so and removing home 1, or labeling home 1 as a temporary residence. 
-15. Subid 162 -- much less time spent at time 1, which looks like it was a temporary home. 
-16. Subid 172 -- a move. go with home 2 if we have to pick, and restrict to before feb 10th or so
-17. Subid 201 -- almost no obs at home 1; mark as a temporary home or remove
-18. Subid 222 -- a move... not sure what to do as they appear to be about equal.
-19. Subid 240 -- a move, choice will have to be arbitrary if we restrict in time
-20. Subid 259 -- much less time spent at home 1, consider marking as a temporary home 
-21. Subid 270 --  home 2 looks like an error -- not a residence -- consider removing
-22. Subid 1 -- Has multiple work locations, several of which they have not spent much time at. The following should be deleted: 2, 3, 4, 5, 6, 7 
-23. Subid 5 -- Looks like this person has a school location and a work location; should not be disqualifying. 
-24. Subid  7 -- This is difficult because students might be at really different places on campus...This person has multiple work/school points, but they are all on campus.
-25. Subid 9 -- *check if one of these is labeled work and one school*
-26. Subid 10 -- Seems to visit schools as part of work. Delete locations: 2, 3, 4, 5. Keep 6 if we allow for people who attend university to have multiple visits to campus.
-27. Subid 11 -- *check timing* delete work 3, 4, 5, 6?
-28. Subid 15 -- delete location 2
-29. Subid 16 -- delete location 2
-30. Subid 17 -- *check timing* likely need to delete several locations -- it looks like this person does delivery service and/or works at a liquor store? or just labeled a lot as work? plus, all the locations are duplicated.
-31. Subid 18 -- delete location 2
-32. Subid 19 -- delete location 2, 3, 10. And depending on our decision about universities, location 4, 5, 6, 7, 8, 9.
-33. Subid 20 -- 1 and 2 are the same location, 3+ is a little off and needs *check timing* -- may need to delete
-34. Sub 21 looks to be a university janitor or something, should probably delete all their work locations.
-35. Sub 23 location 2 appears to be mislabeled; this person seems to work at multiple branches of the same bank...
-36. Subject 25 -- location 1 they have hardly been to. location 2 and 3 are the same.
-37. Subject 28 -- *investigate works* seems like an unreliable measurement for 28, or they have a very odd job. consider deleting all points.
-38. Subject 40 has many work locations they have not been to
+- Apartment addresses are often a little removed from their gps location 
+- People who are affiliated with the university, and have multiple locations marked on campus. These people are currently labeled as needing overlapping zones checked.
 
-Additional notes:
-- Apartment addresses are often a little removed from their gps location -- it looks like the lat, long were generated from addresses rather than as an average of observed locations
-- Is it possible to keep two homes if people moved? if we can have multiple retaurants, etc. why not multiple homes? (see subject 86 as a good example of a case we should keep)
-- Is it worth reviewing all other locations to make sure that people actually went there? (In this study, some people described places they go before we had any GPS data)
-- It might be worth formalizing exclusion criteria for each labeled place... like people must have visited each place X number of times (defined by an observation within a particular distance) to be included in analyses, and/or observations must span their data collection time.
-- Can we keep work and school separate? That will probably help us identify work 
-- Check for duplicate locations in the data. For some reason there may be several duplicates.
-
-General issues:
-- Many people have lots of work places listed
-- Combining work and school creates a lot more duplicate locations
-- People who are affiliated with the university, and have multiple locations marked on campus.
-- Similarly, some work places are large and there are multiple labels for the place. (see subid 37) 
-- People who work at multiple locations of the same business.
-- People who switched work or home during the study. I'm not sure why work and home have to be exclusive, though.
-- People marking work or home locations that they have hardly spent any time at.
-- People who seem to be labeling anything they do while at work as their workplace.
