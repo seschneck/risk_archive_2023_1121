@@ -94,17 +94,13 @@ get_study_hours <- function(subid, study_start, study_end, ema_end, buffer_hours
 }
 
 get_label_windows <- function(subid, study_start, study_end, ema_end, 
-                              buffer_start = 0,
-                              buffer_end = 0,
-                              window_dur = 3600) {
-  # Purpose: Returns a tibble for one subject with columns for subid (numeric) and 
+                              buffer_start = 0, window_dur = 3600) {
+  # Function: Returns a tibble for one subject with columns for subid (numeric) and 
   #   dttm_label (dttm).  
   # Inputs:
   #   study_start, study_end, ema_end = dttm vars that should be in America/Chicago
   #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
   #     First hour for lapses is midnight on study day 1 by default (0)
-  #   buffer_end = adds buffer time in seconds between end_time and last lapses used
-  #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
   #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
   
   # calculate start_time 
@@ -114,23 +110,25 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   #   1. get study end (11 pm on study_end date)
   study_end <- study_end + (hours(23)) 
   
-  #   2. get ema end (1 hr prior to date and time of last ema rounded to nearest hour)
-  # FIX: check in seq
-  ema_end <-  floor_date(ema_end, unit = "hours") # - hours(1) John and Kendra removed bc seems unnecessary
+  #   2. get ema end (rounded down to nearest hour)
+  ema_end <-  floor_date(ema_end, unit = "hours") # - hours(1) # John and Kendra removed bc seems unnecessary 
   
-  #   3. calculate end time as earliest end time (study end or ema end) and subtract buffer_end
-  # remove buffer_end
-  end_time <- min(study_end, ema_end) - seconds(buffer_end)
+  #   3. calculate end time as earliest end time (study end or ema end) 
+  end_time <- min(study_end, ema_end)
   
   
   # create label windows
-  # FIX: check if last time is in sequence and if so delete last obs or sequence
-  # we can never predict the last lapse
+  #   1. create sequence of dttm's
+  dttm_label <- seq(start_time, end_time, by = window_dur)
   
-  # calculate seq outside tibble and remove last label
+  #   2. create tibble for subid
+  label_windows <- tibble(subid, dttm_label)
   
-  label_windows <- tibble(dttm_label = seq(start_time, end_time, by = window_dur), subid) %>% 
-    relocate(subid)
+  #   3. remove last observation in sequence to not include end_time
+  label_windows <- label_windows %>% 
+    group_by(subid) %>% 
+    slice(1:(n() - 1)) %>% 
+    ungroup()
   
   return(label_windows)
 }
@@ -138,7 +136,7 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
 
 
 
-get_lapse_labels <- function(lapses, dates, buffer_start = 0, buffer_end = 0, window_dur = 3600) {
+get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600) {
   # Purpose: Returns a tibble of lapse labels that includes subid, dttm_label, and
   #   boolean lapse and no_lapse columns. 
   # Inputs:
@@ -146,19 +144,17 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, buffer_end = 0, wi
   #     dttm vars should be in America/Chicago
   #   buffer_start = adds buffer time in seconds between start_time and first lapses used 
   #     First hour for lapses is midnight on study day 1 by default (0)
-  #   buffer_end = adds buffer time in seconds between end_time and last lapses used
-  #     Last hour is min of final EMA or 11 pm on the last day of study by default (0)
   #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
   
   subids <- unique(dates$subid)
   
+  # get label windows
   labels <- dates %>% 
     select(subid, study_start, study_end, ema_end) %>% 
     # pass in other parameters for get_label_windows
     mutate(buffer_start = buffer_start,
-           buffer_end = buffer_end,
            window_dur = window_dur) %>% 
-    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4, ..5, ..6, ..7)) %>%
+    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4, ..5, ..6)) %>%
     mutate(lapse = FALSE,
            no_lapse = TRUE)
 

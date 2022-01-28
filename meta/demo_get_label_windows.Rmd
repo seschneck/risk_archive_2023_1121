@@ -1,0 +1,172 @@
+---
+title: "Demo of get_label_windows"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/meta", 
+      "/Volumes/private/studydata/risk/knits/meta")
+    )
+  })
+---
+
+
+### Set Up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_meta <- "P:/studydata/risk/data_processed/meta"},
+
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_meta <- "/Volumes/private/studydata/risk/data_processed/meta"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(vroom)
+library(janitor)
+library(lubridate)
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+source(here("shared/fun_local.R"))
+```
+
+### Read in data
+Lapses
+```{r}
+lapses <- vroom::vroom(here(path_processed, "lapses.csv"), col_types = vroom::cols()) %>% 
+  mutate(across(c(lapse_start, lapse_end, ema_end)), with_tz(., "America/Chicago")) %>% 
+  glimpse()
+```
+
+Read in dates from study level folder
+```{r}
+dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::cols()) %>%
+  mutate(across(study_start:ema_end), with_tz(., tz = "America/Chicago")) %>% 
+  glimpse()
+```
+
+
+
+### get label windows (1 hour)
+
+get label windows (uses default buffer_start and window_dur)
+```{r}
+label_windows <- dates %>% 
+    select(subid, study_start, study_end, ema_end) %>% 
+    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4))
+
+glimpse(label_windows)
+```
+
+recalculate end time
+```{r}
+study_end_times <- dates %>% 
+  rowwise() %>% 
+  mutate(study_end = study_end + (hours(23)),
+         ema_end = floor_date(ema_end, unit = "hours"),
+         end_time = min(study_end, ema_end)) %>% 
+  ungroup() %>% 
+  select(subid, end_time)
+```
+
+Last observation does not include study_end
+```{r}
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1)
+```
+
+
+### get label windows (3 days)
+
+get label windows (specify window_dur)
+```{r}
+label_windows <- dates %>% 
+    select(subid, study_start, study_end, ema_end) %>% 
+    mutate(buffer_start = 0,
+           window_dur = 259200) %>% 
+    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4, ..5, ..6))
+```
+
+Look at one subid's dttm's at a time
+FIX: not sure why off by one hour on some days
+```{r}
+label_windows %>% 
+  filter(subid == 1) 
+```
+
+```{r}
+label_windows %>% 
+  filter(subid == 10) 
+```
+
+```{r}
+label_windows %>% 
+  filter(subid == 18) 
+```
+
+
+### get lapse labels
+subset of lapses
+```{r}
+set.seed(1234)
+
+lapse_subset <- lapses %>% 
+  slice_sample(n = 5)
+```
+
+```{r}
+# default parameters
+get_lapse_labels(lapse_subset, dates) %>% 
+  head(30)
+
+# specify duration window to 3 days
+get_lapse_labels(lapse_subset, dates, window_dur = 259200) %>% 
+  head(100)
+```
+
+FIX: still need to update exclusions/checks
+
+
+
