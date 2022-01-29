@@ -192,7 +192,7 @@ subset of lapses
 set.seed(1234)
 
 lapse_subset <- lapses %>% 
-  slice_sample(n = 5)
+  slice_sample(n = 10)
 ```
 
 ```{r}
@@ -201,7 +201,7 @@ get_lapse_labels(lapse_subset, dates) %>%
   head(30)
 
 # specify duration window to 3 days
-get_lapse_labels(lapse_subset, dates, window_dur = 259200) %>% 
+get_lapse_labels(lapses, dates, window_dur = 259200) %>% 
   head(100)
 ```
 

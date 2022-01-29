@@ -176,7 +176,10 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   for (i in 1:nrow(valid_lapses)) {
     lapse_subid <- valid_lapses$subid[[i]]
     lapse_hour <- valid_lapses$lapse_start[[i]]
-
+    
+    
+    # FIX: day labels don't match to hour of lapse
+    # Look for any lapses within a window?
     row_index <- which(labels$subid == lapse_subid & labels$dttm_label == lapse_hour)
 
     if (length(row_index) == 1) {
@@ -225,72 +228,72 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
     }
   }
 
-  # # Step 3: Handle no_lapse exclusions for excluded periods with date but no times
-  # # Exclude full date +- 24 hours
-  # exclusions <- lapses %>%
-  #   filter(exclude & is.na(lapse_start) & is.na(lapse_end))
-  # 
-  # for (i in 1:nrow(exclusions)) {
-  #   lapse_start <- as_datetime(exclusions$lapse_start_date[[i]],
-  #                              format = "%m-%d-%Y", tz = "America/Chicago")
-  #   lapse_end <- as_datetime(exclusions$lapse_end_date[[i]],
-  #                            format = "%m-%d-%Y", tz = "America/Chicago")
-  # 
-  #   # exclude lapse +- 3 hours on each side
-  #   lapse_hours_exclude <- seq(lapse_start - hours(24),
-  #                              lapse_end + hours(48), # end of day + 24 hours
-  #                              by = "hours")
-  # 
-  #   for (lapse_hour in lapse_hours_exclude) {
-  #     row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
-  # 
-  #     if (length(row_index) == 1) {
-  #       labels$no_lapse[row_index] <- FALSE
-  #     }
-  #   }
-  # }
+  # Step 3: Handle no_lapse exclusions for excluded periods with date but no times
+  # Exclude full date +- 24 hours
+  exclusions <- lapses %>%
+    filter(exclude & is.na(lapse_start) & is.na(lapse_end))
 
-  # # Step 4: Handle no_lapse exclusions for very long duration lapses (> 24 hours)
-  # # Exclude full period +- 24 hours
-  # exclusions <- lapses %>%
-  #   filter(exclude & duration > 24)
-  # 
-  # for (i in 1:nrow(exclusions)) {
-  # 
-  #   # exclude lapse +- 24 hours on each side
-  #   lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(24),
-  #                              exclusions$lapse_end[[i]] + hours(24),
-  #                              by = "hours")
-  # 
-  #   for (lapse_hour in lapse_hours_exclude) {
-  #     row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
-  # 
-  #     if (length(row_index) == 1) {
-  #       labels$no_lapse[row_index] <- FALSE
-  #     }
-  #   }
-  # }
-# 
-#   # Step 5: Handle no_lapse exclusions for negative duration lapses
-#   # Flip start and end time and then exclude full period +- 24 hours
-#   exclusions <- lapses %>%
-#     filter(exclude & duration <= 24)
-# 
-#   for (i in 1:nrow(exclusions)) {
-# 
-#     # exclude lapse +- 3 hours on each side
-#     lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(24),
-#                                exclusions$lapse_start[[i]] + hours(24),
-#                                by = "hours")
-# 
-#     for (lapse_hour in lapse_hours_exclude) {
-#       row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
-# 
-#       if (length(row_index) == 1) {
-#         labels$no_lapse[row_index] <- FALSE
-#       }
-#     }
-#   }
+  for (i in 1:nrow(exclusions)) {
+    lapse_start <- as_datetime(exclusions$lapse_start_date[[i]],
+                               format = "%m-%d-%Y", tz = "America/Chicago")
+    lapse_end <- as_datetime(exclusions$lapse_end_date[[i]],
+                             format = "%m-%d-%Y", tz = "America/Chicago")
+
+    # exclude lapse +- 3 hours on each side
+    lapse_hours_exclude <- seq(lapse_start - hours(24),
+                               lapse_end + hours(48), # end of day + 24 hours
+                               by = "hours")
+
+    for (lapse_hour in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+
+      if (length(row_index) == 1) {
+        labels$no_lapse[row_index] <- FALSE
+      }
+    }
+  }
+
+  # Step 4: Handle no_lapse exclusions for very long duration lapses (> 24 hours)
+  # Exclude full period +- 24 hours
+  exclusions <- lapses %>%
+    filter(exclude & duration > 24)
+
+  for (i in 1:nrow(exclusions)) {
+
+    # exclude lapse +- 24 hours on each side
+    lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(24),
+                               exclusions$lapse_end[[i]] + hours(24),
+                               by = "hours")
+
+    for (lapse_hour in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+
+      if (length(row_index) == 1) {
+        labels$no_lapse[row_index] <- FALSE
+      }
+    }
+  }
+
+  # Step 5: Handle no_lapse exclusions for negative duration lapses
+  # Flip start and end time and then exclude full period +- 24 hours
+  exclusions <- lapses %>%
+    filter(exclude & duration <= 24)
+
+  for (i in 1:nrow(exclusions)) {
+
+    # exclude lapse +- 3 hours on each side
+    lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(24),
+                               exclusions$lapse_start[[i]] + hours(24),
+                               by = "hours")
+
+    for (lapse_hour in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+
+      if (length(row_index) == 1) {
+        labels$no_lapse[row_index] <- FALSE
+      }
+    }
+  }
   
   return(labels)
   
