@@ -119,7 +119,15 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   
   # create label windows
   #   1. create sequence of dttm's
-  dttm_label <- seq(start_time, end_time, by = window_dur)
+  # dttm_label <- seq(from = start_time, to = end_time, by = window_dur)
+  
+  # FIX: account for daylight savings using code below?
+  dttm_label <- 
+    if (window_dur %% 86400 == 0) {
+      seq(from = start_time, to = end_time, by = (str_c(window_dur/86400, " DSTdays")))
+      } else {
+        seq(from = start_time, to = end_time, by = window_dur)
+        }
   
   #   2. create tibble for subid
   label_windows <- tibble(subid, dttm_label)
@@ -129,6 +137,7 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
     group_by(subid) %>% 
     slice(1:(n() - 1)) %>% 
     ungroup()
+  
   
   return(label_windows)
 }
