@@ -119,10 +119,12 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   
   # create label windows
   #   1. create sequence of dttm's
-  # dttm_label <- seq(from = start_time, to = end_time, by = window_dur)
-  
-  # FIX: account for daylight savings using code below?
-  dttm_label <- 
+  #      NOTE: JC and KW decided it would be best to use DSTdays as the unit when 
+  #      working with increments of days - this accounts for daylight savings and 
+  #      keeps all intervals starting at the same time on each day. 
+  #      Limitation is that participants may have one day that is an hour shorter
+  #      or longer.
+  dttm_label <-
     if (window_dur %% 86400 == 0) {
       seq(from = start_time, to = end_time, by = (str_c(window_dur/86400, " DSTdays")))
       } else {
@@ -175,12 +177,9 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   no_match <- 0
   for (i in 1:nrow(valid_lapses)) {
     lapse_subid <- valid_lapses$subid[[i]]
-    lapse_hour <- valid_lapses$lapse_start[[i]]
+    lapse_start <- valid_lapses$lapse_start[[i]]
     
-    
-    # FIX: day labels don't match to hour of lapse
-    # Look for any lapses within a window?
-    row_index <- which(labels$subid == lapse_subid & labels$dttm_label == lapse_hour)
+    row_index <- which(labels$subid == lapse_subid & labels$dttm_label == lapse_start)
 
     if (length(row_index) == 1) {
       labels$lapse[row_index] <- TRUE
@@ -189,7 +188,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
     # some extra checks
     # this should not happen
     if (length(row_index) > 1) {
-      stop("get_lapse_labels() multiple match; SubID: ", lapse_subid, " Lapse hour: ", lapse_hour, " i: ", i)
+      stop("get_lapse_labels() multiple match; SubID: ", lapse_subid, " Lapse hour: ", lapse_start, " i: ", i)
     }
 
     # this can happen if we have a lapse report outside of the study_hours
@@ -219,8 +218,10 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
                                valid_lapses$lapse_end[[i]] + hours(24),
                                by = "hours")
 
-    for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == valid_lapses$subid[[i]] & labels$dttm_label == lapse_hour)
+    for (lapse_hour_exclude in lapse_hours_exclude) {
+      row_index <- which(labels$subid == valid_lapses$subid[[i]] & 
+                         labels$dttm_label <= lapse_hour_exclude &
+                         lapse_hour_exclude < labels$dttm_label + window_dur) 
 
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -244,8 +245,8 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
                                lapse_end + hours(48), # end of day + 24 hours
                                by = "hours")
 
-    for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+    for (lapse_start in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_start)
 
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -265,8 +266,8 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
                                exclusions$lapse_end[[i]] + hours(24),
                                by = "hours")
 
-    for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+    for (lapse_start in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_start)
 
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE
@@ -286,8 +287,8 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
                                exclusions$lapse_start[[i]] + hours(24),
                                by = "hours")
 
-    for (lapse_hour in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_hour)
+    for (lapse_start in lapse_hours_exclude) {
+      row_index <- which(labels$subid == exclusions$subid[[i]] & labels$dttm_label == lapse_start)
 
       if (length(row_index) == 1) {
         labels$no_lapse[row_index] <- FALSE

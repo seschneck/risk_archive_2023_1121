@@ -101,7 +101,8 @@ glimpse(label_windows)
 Check one subid's windows
 ```{r}
 label_windows %>% 
-  filter(subid == 1) 
+  filter(subid == 18) %>% 
+  head(800)
 ```
 
 recalculate study end time
@@ -187,18 +188,24 @@ label_windows %>%
 
 
 ### get lapse labels
-subset of lapses
-```{r}
-set.seed(1234)
 
-lapse_subset <- lapses %>% 
-  slice_sample(n = 10)
+One subid
+```{r}
+lapses <- lapses %>% 
+  filter(subid == 34)
+study_start <- dates %>% filter(subid == 34) %>% pull(study_start)
+study_end <- dates %>% filter(subid == 34) %>% pull(study_end)
+ema_end <- dates %>% filter(subid == 34) %>% pull(ema_end)
+
+labels <- get_label_windows(34, study_start, study_end, ema_end, 
+                              buffer_start = 0, window_dur = 3600)
 ```
 
+
+all subids
 ```{r}
 # default parameters
-get_lapse_labels(lapse_subset, dates) %>% 
-  head(30)
+labels <- get_lapse_labels(lapses, dates)
 
 # specify duration window to 3 days
 get_lapse_labels(lapses, dates, window_dur = 259200) %>% 
