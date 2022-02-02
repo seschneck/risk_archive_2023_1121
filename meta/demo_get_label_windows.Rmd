@@ -116,12 +116,19 @@ study_end_times <- dates %>%
   select(subid, end_time)
 ```
 
-Last observation does not include study_end
+Last observation does not include study_end (1 hour removed)
 ```{r}
 label_windows %>% 
   left_join(study_end_times, by = "subid") %>% 
   group_by(subid) %>% 
-  slice_tail(n = 1)
+  slice_tail(n = 1) 
+
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
 ```
 
 ### get label windows (1 day)
@@ -157,6 +164,13 @@ label_windows %>%
   left_join(study_end_times, by = "subid") %>% 
   group_by(subid) %>% 
   slice_tail(n = 1)
+
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
 ```
 
 
@@ -184,6 +198,45 @@ label_windows %>%
   left_join(study_end_times, by = "subid") %>% 
   group_by(subid) %>% 
   slice_tail(n = 1)
+
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+```
+
+### get label windows (7 days)
+
+get label windows (specify window_dur)
+```{r}
+label_windows <- dates %>% 
+    select(subid, study_start, study_end, ema_end) %>% 
+    mutate(buffer_start = 0,
+           window_dur = 604800) %>% 
+    pmap_dfr(~get_label_windows(..1, ..2, ..3, ..4, ..5, ..6))
+```
+
+Look at one subid's dttm's at a time
+```{r}
+label_windows %>% 
+  filter(subid == 1) 
+```
+
+Last observation does not include study_end
+```{r}
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1)
+
+label_windows %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
 ```
 
 

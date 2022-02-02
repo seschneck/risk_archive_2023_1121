@@ -119,17 +119,9 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   
   # create label windows
   #   1. create sequence of dttm's
-  #      NOTE: JC and KW decided it would be best to use DSTdays as the unit when 
-  #      working with increments of days - this accounts for daylight savings and 
-  #      keeps all intervals starting at the same time on each day. 
-  #      Limitation is that participants may have one day that is an hour shorter
-  #      or longer.
-  dttm_label <-
-    if (window_dur %% 86400 == 0) {
-      seq(from = start_time, to = end_time, by = (str_c(window_dur/86400, " DSTdays")))
-      } else {
-        seq(from = start_time, to = end_time, by = window_dur)
-        }
+  #      3600 represents one hour in seconds - using seconds because more versatile
+  #      in seq.POSIXT
+  dttm_label <- seq(from = start_time, to = end_time, by = 3600)
   
   #   2. create tibble for subid
   label_windows <- tibble(subid, dttm_label)
@@ -137,7 +129,7 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   #   3. remove last observation in sequence to not include end_time
   label_windows <- label_windows %>% 
     group_by(subid) %>% 
-    slice(1:(n() - 1)) %>% 
+    slice(1:(n() - ceiling(window_dur/3600))) %>% # removes last epoch in hours
     ungroup()
   
   
