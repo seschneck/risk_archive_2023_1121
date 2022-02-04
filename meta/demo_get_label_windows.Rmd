@@ -173,6 +173,14 @@ label_windows %>%
   tabyl(end_label_diff)
 ```
 
+Check no duplicate labels from Fall back 
+```{r}
+label_windows %>% 
+  count(subid, dttm_label) %>% 
+  filter(n != 1)
+```
+
+
 
 
 ### get label windows (3 days)
@@ -250,22 +258,25 @@ study_start <- dates %>% filter(subid == 34) %>% pull(study_start)
 study_end <- dates %>% filter(subid == 34) %>% pull(study_end)
 ema_end <- dates %>% filter(subid == 34) %>% pull(ema_end)
 
-labels <- get_label_windows(34, study_start, study_end, ema_end, 
+label_windows <- get_label_windows(34, study_start, study_end, ema_end, 
                               buffer_start = 0, window_dur = 3600)
 ```
 
 
-all subids
+get labels
 ```{r}
-# default parameters
+# default parameters (1 hour window duration)
+dates <- dates %>% filter(subid == 34)
 labels <- get_lapse_labels(lapses, dates)
+labels_final <- sample_labels(labels)
 
 # specify duration window to 3 days
-get_lapse_labels(lapses, dates, window_dur = 259200) %>% 
+labels <- get_lapse_labels(lapses, dates, buffer = 0, window_dur = 259200) 
+
+labels %>% 
   head(100)
 ```
 
-FIX: still need to update exclusions/checks
 
 
 

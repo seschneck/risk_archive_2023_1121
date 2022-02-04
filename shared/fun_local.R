@@ -166,7 +166,8 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   valid_lapses <- lapses %>%
     filter(!exclude)
 
-  no_match <- 0
+  # no_match <- 0 # no longer able to use counter for checks since we have different window durations 
+  
   for (i in 1:nrow(valid_lapses)) {
     lapse_subid <- valid_lapses$subid[[i]]
     lapse_start <- valid_lapses$lapse_start[[i]]
@@ -220,7 +221,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
 
       # Not valid check for day level - think about built in check
       # if (length(row_index) == 1) {
-      #   labels$no_lapse[row_index] <- FALSE
+        labels$no_lapse[row_index] <- FALSE
       # }
     }
   }
@@ -229,26 +230,28 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   exclusions <- lapses %>%
     filter(exclude & is.na(lapse_start) & is.na(lapse_end))
 
-  for (i in 1:nrow(exclusions)) {
-    lapse_start <- as_datetime(exclusions$lapse_start_date[[i]],
+  if(nrow(exclusions) != 0) {
+      for (i in 1:nrow(exclusions)) {
+      lapse_start <- as_datetime(exclusions$lapse_start_date[[i]],
+                                 format = "%m-%d-%Y", tz = "America/Chicago")
+      lapse_end <- as_datetime(exclusions$lapse_end_date[[i]],
                                format = "%m-%d-%Y", tz = "America/Chicago")
-    lapse_end <- as_datetime(exclusions$lapse_end_date[[i]],
-                             format = "%m-%d-%Y", tz = "America/Chicago")
 
-    # Exclude full date +- 24 hours
-    lapse_hours_exclude <- seq(lapse_start - hours(24),
-                               lapse_end + hours(48), # end of day + 24 hours
-                               by = "hours")
+      # Exclude full date +- 24 hours
+      lapse_hours_exclude <- seq(lapse_start - hours(24),
+                                 lapse_end + hours(48), # end of day + 24 hours
+                                 by = "hours")
 
-    for (lapse_hour_exclude in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & 
-                         labels$dttm_label <= lapse_hour_exclude &
-                         lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
+        for (lapse_hour_exclude in lapse_hours_exclude) {
+          row_index <- which(labels$subid == exclusions$subid[[i]] & 
+                             labels$dttm_label <= lapse_hour_exclude &
+                             lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
       
-      # if (length(row_index) == 1) {
-      #   labels$no_lapse[row_index] <- FALSE
-      # }
-    }
+          # if (length(row_index) == 1) {
+            labels$no_lapse[row_index] <- FALSE
+          # }
+        }
+      }
   }
 
   # Step 4: Handle no_lapse exclusions for very long duration lapses (> 24 hours)
@@ -256,21 +259,23 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   exclusions <- lapses %>%
     filter(exclude & duration > 24)
 
-  for (i in 1:nrow(exclusions)) {
+  if(nrow(exclusions) != 0) {
+    for (i in 1:nrow(exclusions)) {
 
-    # exclude lapse +- 24 hours on each side
-    lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(24),
-                               exclusions$lapse_end[[i]] + hours(24),
-                               by = "hours")
-
-    for (lapse_hour_exclude in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & 
+      # exclude lapse +- 24 hours on each side
+      lapse_hours_exclude <- seq(exclusions$lapse_start[[i]] - hours(24),
+                                 exclusions$lapse_end[[i]] + hours(24),
+                                 by = "hours")
+ 
+      for (lapse_hour_exclude in lapse_hours_exclude) {
+        row_index <- which(labels$subid == exclusions$subid[[i]] & 
                            labels$dttm_label <= lapse_hour_exclude &
                            lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
       
-      # if (length(row_index) == 1) {
-      #   labels$no_lapse[row_index] <- FALSE
-      # }
+        # if (length(row_index) == 1) {
+          labels$no_lapse[row_index] <- FALSE
+        # }
+      }
     }
   }
 
@@ -279,21 +284,23 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   exclusions <- lapses %>%
     filter(exclude & duration <= 24)
 
-  for (i in 1:nrow(exclusions)) {
+  if(nrow(exclusions) != 0) {
+    for (i in 1:nrow(exclusions)) {
 
-    # exclude lapse +- 24 hours on each side
-    lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(24),
-                               exclusions$lapse_start[[i]] + hours(24),
-                               by = "hours")
-
-    for (lapse_hour_exclude in lapse_hours_exclude) {
-      row_index <- which(labels$subid == exclusions$subid[[i]] & 
+      # exclude lapse +- 24 hours on each side
+      lapse_hours_exclude <- seq(exclusions$lapse_end[[i]] - hours(24),
+                                 exclusions$lapse_start[[i]] + hours(24),
+                                 by = "hours")
+  
+      for (lapse_hour_exclude in lapse_hours_exclude) {
+        row_index <- which(labels$subid == exclusions$subid[[i]] & 
                            labels$dttm_label <= lapse_hour_exclude &
                            lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
       
-      # if (length(row_index) == 1) {
-      #   labels$no_lapse[row_index] <- FALSE
-      # }
+        # if (length(row_index) == 1) {
+          labels$no_lapse[row_index] <- FALSE
+        # }
+      }
     }
   }
   
@@ -302,24 +309,41 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
 } 
 
 
-sample_labels <- function(valid_labels, p_lapse, seed) {
-  
-  set.seed(seed)
-  
+sample_labels <- function(valid_labels, p_lapse = NULL, seed = NULL) {
+  # This function filters out no_lapses that are unreliable or we have otherwise
+  # chosen not to sample from.
+  # Function can also be used to down sample no_lapses further by specifying a lapse:no_lapse
+  # proportion. Default is to not down sample.
+  # If down sampling seed should be specified for reproducibility
+
   lapses <- valid_labels %>% 
     filter(lapse) %>% 
     mutate(label = "lapse") %>% 
     select(subid, dttm_label, label)
   
-  n_no_lapse <- nrow(lapses) * ((1 / p_lapse) - 1)
-  
-  no_lapses <- valid_labels %>% 
-    filter(no_lapse) %>% 
-    mutate(label = "no_lapse") %>% 
-    select(subid, dttm_label, label) %>% 
-    sample_n(n_no_lapse)
+  if (is.null(p_lapse)) {
+    # no down sampling
+    no_lapses <- valid_labels %>% 
+      filter(no_lapse) %>% 
+      mutate(label = "no_lapse") %>% 
+      select(subid, dttm_label, label)
+    
+  } else {
+    # sets proportion of lapses:no_lapses for random downsampling
+    set.seed(seed)
+    n_no_lapse <- nrow(lapses) * ((1 / p_lapse) - 1)
+    
+    no_lapses <- valid_labels %>% 
+      filter(no_lapse) %>% 
+      mutate(label = "no_lapse") %>% 
+      select(subid, dttm_label, label) %>% 
+      sample_n(n_no_lapse)
+  }
+
   
   labels <- lapses %>% 
     bind_rows(no_lapses)
+  
+  return(labels)
   
 }

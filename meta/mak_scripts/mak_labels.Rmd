@@ -1,5 +1,5 @@
 ---
-title: "Create lapse labels"
+title: "Create meta lapse labels"
 author: "John Curtin and Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -18,7 +18,7 @@ knit: (function(input, ...) {
 
 ### Code Status
 
-These labels are now complete to be used for the meta project. This script makes labels based on the cleaned lapses. See conclusions for important decisions and notes related to the pre-processing of these labels done in mak_lapses.   
+These labels are now complete to be used for the meta project. This script makes labels based on the cleaned lapses. See conclusions for important decisions and notes related to the pre-processing of lapses done in shared/scripts_mak/mak_lapses.   
 
 
 
@@ -29,8 +29,11 @@ These labels are now complete to be used for the meta project. This script makes
 
 - We decided to retain lapses with no end time if their onset was valid. We will use a
 24 hour rule when sampling non-lapses. That is we will not sample non-lapses in the 
-24 hours following the onset of the lapse + 3 hours as with all lapses.    
+24 hours following the onset of the lapse.  
 
+- with all lapses we will not sample no_lapses +- 24 hours from lapse   
+
+- invalid lapses were also not sampled from for no_lapses within 24 hours of lapse  
 
 - Our exclusion criteria can be summarized as:
 
@@ -39,6 +42,7 @@ These labels are now complete to be used for the meta project. This script makes
   - lapses that have a negative duration   
   - lapses that have a duration longer than 24 hours     
   - future lapses (lapse start > ema end time)   
+
 
 - John and Kendra decided to change Subid 74's start date to 2018-07-06 - the day after 
 their first cellular communication (2018-07-05).    
@@ -167,6 +171,7 @@ library(tidyverse)
 library(vroom)
 library(janitor)
 library(lubridate)
+library(tictoc)
 ```
 
 
@@ -202,87 +207,239 @@ dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::col
 ```
 
 
+`r length(unique(subset(lapses, !exclude)$subid))` out of `r length(unique(dates$subid))` subids have lapses. 
+```{r}
+lapses %>%
+  filter(!exclude) %>%
+  tabyl(subid)
+```
+
+
 
 ### Get valid observations of lapse and no_lapse
 
-Demo of new functions
-```{r}
-lapse_subset <- lapses %>% 
-  slice(1:5)
+Get valid lapse and no_lapse observations by specified window duration (in seconds)   
 
-# default parameters
-get_lapse_labels(lapse_subset, dates) %>% 
-  head(30)
-
-# specify duration window to 3 days
-get_lapse_labels(lapse_subset, dates, window_dur = 259200) %>% 
-  head(100)
+Make labels with 1 hour window duration
+```{r cache = TRUE}  
+tic()
+labels_1_hour <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 3600) %>% 
+  glimpse()
+toc()
 ```
 
-FIX: still need to update exclusions/checks
+Make labels with 1 day window duration
+```{r cache = TRUE}   
+tic()
+labels_1_day <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 86400) %>% 
+  glimpse()
+toc()
+```
+
+Make labels with 1 week window duration
+```{r cache = TRUE}
+tic()
+labels_1_week <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 604800) %>% 
+  glimpse()
+toc()
+```
 
 
 
-Get valid lapse and no_lapse observations by specified time frame (in hours)
 
-* tibble includes all hour intervals for each subject starting on midnight on day 2 through
-the end of study (or last ema, whichever is earlier)
-* lapse column is true or false.  True for accurate lapse reports
-* no_lapse column is true or NA.  True for accurate no_lapse, NA for excluded periods
-These periods are excluded if there are within +-24 hours of a valid lapse period, or similar
-periods around invalid lapse reports.  see function for more detail
+### Check counts of lapse and no lapse labels
 
-```{r}   
-labels_all <- get_lapse_labels(lapses, dates) %>% 
+1 hour labels should match original labels created (labels_all.csv)
+
+```{r}
+labels_all <- vroom::vroom(here(path_meta, "labels_all.csv"), col_types = vroom::cols()) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) %>% 
   glimpse()
 ```
 
-
-
-#### EDA
-
-Check `labels_all`       
-
-* A total of `r nrow(labels_all)` labels made.    
-* `r nrow(subset(labels_all, lapse))` labels are lapses.   
-* `r nrow(subset(labels_all, no_lapse))` labels are labeled as no lapse.    
-* `r sum(labels_all$lapse & labels_all$no_lapse)` are labeled lapse and no lapse (should be zero).   
-* `r sum(!labels_all$lapse & !labels_all$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
-* `r nrow(subset(labels_all, lapse))` + `r nrow(subset(labels_all, no_lapse))` + `r sum(!labels_all$lapse & !labels_all$no_lapse)` = `r nrow(subset(labels_all, lapse)) + nrow(subset(labels_all, no_lapse)) +  sum(!labels_all$lapse & !labels_all$no_lapse)` 
-
-Proportion of lapses (at the level of the hour)
+Check new labels dataframe is same as labels_all    
 ```{r}
-labels_all %>% 
+labels_1_hour %>% 
+  glimpse()
+```
+
+Same number of rows
+```{r}
+nrow(labels_1_hour) == nrow(labels_all)
+```
+
+No rows without a match
+```{r}
+anti_join(labels_1_hour, labels_all)
+```
+
+Check counts in `labels_1_hour`       
+
+* A total of `r nrow(labels_1_hour)` labels made.    
+* `r nrow(subset(labels_1_hour, lapse))` labels are lapses.   
+* `r nrow(subset(labels_1_hour, no_lapse))` labels are labeled as no lapse.    
+* `r sum(labels_1_hour$lapse & labels_1_hour$no_lapse)` are labeled lapse and no lapse (should be zero).   
+* `r sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
+* `r nrow(subset(labels_1_hour, lapse))` + `r nrow(subset(labels_1_hour, no_lapse))` + `r sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` = `r nrow(subset(labels_1_hour, lapse)) + nrow(subset(labels_1_hour, no_lapse)) +  sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` 
+
+<!-- Check counts in `labels_all`        -->
+
+<!-- * A total of `r nrow(labels_all)` labels made.     -->
+<!-- * `r nrow(subset(labels_all, lapse))` labels are lapses.    -->
+<!-- * `r nrow(subset(labels_all, no_lapse))` labels are labeled as no lapse.     -->
+<!-- * `r sum(labels_all$lapse & labels_all$no_lapse)` are labeled lapse and no lapse (should be zero).    -->
+<!-- * `r sum(!labels_all$lapse & !labels_all$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).   -->
+<!-- * `r nrow(subset(labels_all, lapse))` + `r nrow(subset(labels_all, no_lapse))` + `r sum(!labels_all$lapse & !labels_all$no_lapse)` = `r nrow(subset(labels_all, lapse)) + nrow(subset(labels_all, no_lapse)) +  sum(!labels_all$lapse & !labels_all$no_lapse)`  -->
+
+Check counts in `labels_1_day`       
+
+* A total of `r nrow(labels_1_day)` labels made.    
+* `r nrow(subset(labels_1_day, lapse))` labels are lapses.   
+* `r nrow(subset(labels_1_day, no_lapse))` labels are labeled as no lapse.    
+* `r sum(labels_1_day$lapse & labels_1_day$no_lapse)` are labeled lapse and no lapse (should be zero).   
+* `r sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
+* `r nrow(subset(labels_1_day, lapse))` + `r nrow(subset(labels_1_day, no_lapse))` + `r sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` = `r nrow(subset(labels_1_day, lapse)) + nrow(subset(labels_1_day, no_lapse)) +  sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` 
+
+Check counts in `labels_1_week`       
+
+* A total of `r nrow(labels_1_week)` labels made.    
+* `r nrow(subset(labels_1_week, lapse))` labels are lapses.   
+* `r nrow(subset(labels_1_week, no_lapse))` labels are labeled as no lapse.    
+* `r sum(labels_1_week$lapse & labels_1_week$no_lapse)` are labeled lapse and no lapse (should be zero).   
+* `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
+* `r nrow(subset(labels_1_week, lapse))` + `r nrow(subset(labels_1_week, no_lapse))` + `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` = `r nrow(subset(labels_1_week, lapse)) + nrow(subset(labels_1_week, no_lapse)) +  sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` 
+
+
+### Get Final Labels 
+
+1 hour labels
+```{r}
+labels_1_hour <- labels_1_hour %>% 
   mutate(label = case_when(lapse ~ "lapse",
                            no_lapse ~ "no_lapse",
                            TRUE ~ NA_character_)) %>% 
-  tabyl(label)
+  select(-c(lapse, no_lapse))
 ```
 
-
-#### Get Final Labels 
-
-Will use all lapses and a proportion of no_lapses    
-
-Sample no lapses so that lapses make up 5% of all labels
+1 day labels
 ```{r}
-labels_05 <- sample_labels(labels_all, .05, 19690127) %>% 
-  glimpse()
+labels_1_day <- labels_1_day %>% 
+  mutate(label = case_when(lapse ~ "lapse",
+                           no_lapse ~ "no_lapse",
+                           TRUE ~ NA_character_)) %>% 
+  select(-c(lapse, no_lapse))
 ```
+
+
+1 week labels
+```{r}
+labels_1_week <- labels_1_week %>% 
+  mutate(label = case_when(lapse ~ "lapse",
+                           no_lapse ~ "no_lapse",
+                           TRUE ~ NA_character_)) %>% 
+  select(-c(lapse, no_lapse))
+```
+
 
 
 ### EDA on Final Labels 
 
-`r length(unique(labels_05$subid))` of `r length(unique(labels_all$subid))` subids have labels.  
+#### Proportion of lapses    
 
-Check lapses make up 5% of retained labels   
+at the level of the hour
 ```{r}
-labels_05 %>% 
+labels_1_hour %>% 
   tabyl(label)
 ```
 
-`r nrow(subset(labels_05, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in labels.  
+at the level of the day
+```{r}
+labels_1_day %>% 
+  tabyl(label)
+```
+
+at the level of the week
+```{r}
+labels_1_week %>% 
+  tabyl(label)
+```
+
+
+#### Labels per subid
+
+`r length(unique(labels_1_hour$subid))` of `r length(unique(dates$subid))` subids have 1 hour labels.  
+
+```{r}
+labels_1_hour %>% 
+  tabyl(subid, label) %>% 
+  adorn_totals("col")
+```
+
+
+`r length(unique(labels_1_day$subid))` of `r length(unique(dates$subid))` subids have 1 day labels.  
+
+```{r}
+labels_1_day %>% 
+  tabyl(subid, label) %>% 
+  adorn_totals("col")
+```
+
+`r length(unique(labels_1_week$subid))` of `r length(unique(dates$subid))` subids have 1 week labels.  
+
+```{r}
+labels_1_week %>% 
+  tabyl(subid, label) %>% 
+  adorn_totals("col")
+```
+
+
+#### Check labels end one epoch before study_end date
+
+recalculate study end time
+```{r}
+study_end_times <- dates %>% 
+  rowwise() %>% 
+  mutate(study_end = study_end + (hours(23)),
+         ema_end = floor_date(ema_end, unit = "hours"),
+         end_time = min(study_end, ema_end)) %>% 
+  ungroup() %>% 
+  select(subid, end_time)
+```
+
+calculate difference between study end date and last label dttm
+```{r}
+labels_1_hour %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+
+labels_1_day %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+
+labels_1_week %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+```
+
+
+#### Check all valid lapses retained
+
+`r nrow(subset(labels_1_hour, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 hour labels.  
+
+`r nrow(subset(labels_1_day, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 day labels.  
+
+`r nrow(subset(labels_1_week, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 week labels.  
   
+ 
 `r nrow(subset(left_join(lapses, dates, by = "subid"), !exclude & date(study_start) == date(lapse_start)))` valid lapses occurred on a participants' first day on study (i.e., day after intake).     
 ```{r}
 lapses %>% 
@@ -291,43 +448,29 @@ lapses %>%
   print_kbl()
 ```
 
-  
-`r length(unique(subset(labels_05, label == "no_lapse")$subid))` subids have no_lapses present in final labels.
-```{r}
-labels_05 %>% 
-  filter(label == "no_lapse") %>% 
-  tabyl(subid)
-```
 
-`lapses` and `no_lapses` are negatively correlated
-```{r}
-labels_05 %>% 
-  count(subid, label) %>% 
-  pivot_wider(names_from = label, values_from = n) %>% 
-  select(-subid) %>% 
-  cor(use = "pairwise.complete.obs") %>% 
-  round(2)
-```
 
-Check no excluded lapses were sampled
+#### Check no excluded lapses were retained
+
+1 hour window
 ```{r}
-labels_05 %>% 
+labels_1_hour %>% 
   filter(label == "lapse") %>% 
   left_join(lapses %>% select(subid, lapse_start, exclude), 
             by = c("subid", "dttm_label" = "lapse_start")) %>% 
   tabyl(exclude)
 ```
 
-`r nrow(subset(left_join(labels_05, lapses, by = c("subid", "dttm_label" = "lapse_start")), exclude & label == "lapse"))` excluded lapse is showing as included
+`r nrow(subset(left_join(labels_1_hour, lapses, by = c("subid", "dttm_label" = "lapse_start")), exclude & label == "lapse"))` excluded lapse is showing as included
 ```{r}
-labels_05 %>% 
+labels_1_hour %>% 
   left_join(lapses, by = c("subid", "dttm_label" = "lapse_start")) %>% 
   filter(exclude & label == "lapse") %>% 
   glimpse()
 ```
 
 
-Excluded lapse included in labels was excluded for being a future lapse
+Excluded lapse included in labels was excluded for being a future lapse (times removed during pre-processing)
 ```{r}
 ema <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%>% 
   rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
@@ -361,13 +504,49 @@ ema %>%
   glimpse()
 ```
 
-
-
-Final labels per subid
+1 day window
 ```{r}
-labels_05 %>% 
-  tabyl(subid, label) %>% 
-  adorn_totals("col")
+labels_1_day %>% 
+  filter(label == "lapse") %>% 
+  left_join(lapses %>% select(subid, lapse_start, exclude), 
+            by = c("subid", "dttm_label" = "lapse_start")) %>% 
+  tabyl(exclude)
+```
+
+1 week window
+```{r}
+labels_1_week %>% 
+  filter(label == "lapse") %>% 
+  left_join(lapses %>% select(subid, lapse_start, exclude), 
+            by = c("subid", "dttm_label" = "lapse_start")) %>% 
+  tabyl(exclude)
+```
+
+
+#### Relationship between lapses and no lapses
+
+`lapses` and `no_lapses` are negatively correlated
+```{r}
+labels_1_hour %>% 
+  count(subid, label) %>% 
+  pivot_wider(names_from = label, values_from = n) %>% 
+  select(-subid) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  round(2)
+
+labels_1_day %>% 
+  count(subid, label) %>% 
+  pivot_wider(names_from = label, values_from = n) %>% 
+  select(-subid) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  round(2)
+
+labels_1_week %>% 
+  count(subid, label) %>% 
+  pivot_wider(names_from = label, values_from = n) %>% 
+  select(-subid) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
+  round(2)
 ```
 
 
@@ -376,17 +555,28 @@ labels_05 %>%
 
 save valid_observations and labels
 ```{r}
-labels_05 %>% 
-  write_csv(here(path_meta, "labels_05.csv"))
+labels_1_hour %>% 
+  write_csv(here(path_meta, "labels_1_hour.csv"))
 
-labels_all %>% 
-  write_csv(here(path_meta, "labels_all.csv"))
+labels_1_day %>% 
+  write_csv(here(path_meta, "labels_1_day.csv"))
+
+labels_1_week %>% 
+  write_csv(here(path_meta, "labels_1_week.csv"))
 ```
 
-Save RDS
+
+save as compressed rds files for CHTC
 ```{r}
-labels_05 %>% 
-  write_rds(here(path_meta, "labels_05.rds"))
+labels_1_hour %>% 
+  write_rds(here(path_meta, "labels_1_hour.rds"), compress = "xz")
+
+labels_1_day %>% 
+  write_rds(here(path_meta, "labels_1_day.rds"), compress = "xz")
+
+labels_1_week %>% 
+  write_rds(here(path_meta, "labels_1_week.rds"), compress = "xz")
 ```
+
 
 
