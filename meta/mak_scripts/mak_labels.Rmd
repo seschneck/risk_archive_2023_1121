@@ -207,11 +207,12 @@ dates <- vroom::vroom(here(path_meta, "study_dates.csv"), col_types = vroom::col
 ```
 
 
-`r length(unique(subset(lapses, !exclude)$subid))` out of `r length(unique(dates$subid))` subids have lapses. 
+`r length(unique(subset(lapses, !exclude)$subid))` out of `r length(unique(dates$subid))` subids (`r round(length(unique(subset(lapses, !exclude)$subid))/length(unique(dates$subid)), 2)`) have lapses. 
 ```{r}
 lapses %>%
   filter(!exclude) %>%
-  tabyl(subid)
+  tabyl(subid) %>% 
+  arrange(desc(n))
 ```
 
 
@@ -280,16 +281,8 @@ Check counts in `labels_1_hour`
 * `r nrow(subset(labels_1_hour, no_lapse))` labels are labeled as no lapse.    
 * `r sum(labels_1_hour$lapse & labels_1_hour$no_lapse)` are labeled lapse and no lapse (should be zero).   
 * `r sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
-* `r nrow(subset(labels_1_hour, lapse))` + `r nrow(subset(labels_1_hour, no_lapse))` + `r sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` = `r nrow(subset(labels_1_hour, lapse)) + nrow(subset(labels_1_hour, no_lapse)) +  sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` 
+* `r nrow(subset(labels_1_hour, lapse))` + `r nrow(subset(labels_1_hour, no_lapse))` + `r sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)` = `r nrow(subset(labels_1_hour, lapse)) + nrow(subset(labels_1_hour, no_lapse)) +  sum(!labels_1_hour$lapse & !labels_1_hour$no_lapse)`    
 
-<!-- Check counts in `labels_all`        -->
-
-<!-- * A total of `r nrow(labels_all)` labels made.     -->
-<!-- * `r nrow(subset(labels_all, lapse))` labels are lapses.    -->
-<!-- * `r nrow(subset(labels_all, no_lapse))` labels are labeled as no lapse.     -->
-<!-- * `r sum(labels_all$lapse & labels_all$no_lapse)` are labeled lapse and no lapse (should be zero).    -->
-<!-- * `r sum(!labels_all$lapse & !labels_all$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).   -->
-<!-- * `r nrow(subset(labels_all, lapse))` + `r nrow(subset(labels_all, no_lapse))` + `r sum(!labels_all$lapse & !labels_all$no_lapse)` = `r nrow(subset(labels_all, lapse)) + nrow(subset(labels_all, no_lapse)) +  sum(!labels_all$lapse & !labels_all$no_lapse)`  -->
 
 Check counts in `labels_1_day`       
 
@@ -298,7 +291,8 @@ Check counts in `labels_1_day`
 * `r nrow(subset(labels_1_day, no_lapse))` labels are labeled as no lapse.    
 * `r sum(labels_1_day$lapse & labels_1_day$no_lapse)` are labeled lapse and no lapse (should be zero).   
 * `r sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
-* `r nrow(subset(labels_1_day, lapse))` + `r nrow(subset(labels_1_day, no_lapse))` + `r sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` = `r nrow(subset(labels_1_day, lapse)) + nrow(subset(labels_1_day, no_lapse)) +  sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` 
+* `r nrow(subset(labels_1_day, lapse))` + `r nrow(subset(labels_1_day, no_lapse))` + `r sum(!labels_1_day$lapse & !labels_1_day$no_lapse)` = `r nrow(subset(labels_1_day, lapse)) + nrow(subset(labels_1_day, no_lapse)) +  sum(!labels_1_day$lapse & !labels_1_day$no_lapse)`     
+
 
 Check counts in `labels_1_week`       
 
@@ -307,37 +301,18 @@ Check counts in `labels_1_week`
 * `r nrow(subset(labels_1_week, no_lapse))` labels are labeled as no lapse.    
 * `r sum(labels_1_week$lapse & labels_1_week$no_lapse)` are labeled lapse and no lapse (should be zero).   
 * `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` are not labeled lapse or no lapse (should be non-zero. Hard to know correct value).  
-* `r nrow(subset(labels_1_week, lapse))` + `r nrow(subset(labels_1_week, no_lapse))` + `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` = `r nrow(subset(labels_1_week, lapse)) + nrow(subset(labels_1_week, no_lapse)) +  sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` 
+* `r nrow(subset(labels_1_week, lapse))` + `r nrow(subset(labels_1_week, no_lapse))` + `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` = `r nrow(subset(labels_1_week, lapse)) + nrow(subset(labels_1_week, no_lapse)) +  sum(!labels_1_week$lapse & !labels_1_week$no_lapse)`     
 
 
 ### Get Final Labels 
 
-1 hour labels
+Removes no_lapse labels that we do not want to use (e.g., they are 24 hours before or after a lapse)
 ```{r}
-labels_1_hour <- labels_1_hour %>% 
-  mutate(label = case_when(lapse ~ "lapse",
-                           no_lapse ~ "no_lapse",
-                           TRUE ~ NA_character_)) %>% 
-  select(-c(lapse, no_lapse))
-```
+labels_1_hour <- sample_labels(labels_1_hour)
 
-1 day labels
-```{r}
-labels_1_day <- labels_1_day %>% 
-  mutate(label = case_when(lapse ~ "lapse",
-                           no_lapse ~ "no_lapse",
-                           TRUE ~ NA_character_)) %>% 
-  select(-c(lapse, no_lapse))
-```
+labels_1_day <- sample_labels(labels_1_day)
 
-
-1 week labels
-```{r}
-labels_1_week <- labels_1_week %>% 
-  mutate(label = case_when(lapse ~ "lapse",
-                           no_lapse ~ "no_lapse",
-                           TRUE ~ NA_character_)) %>% 
-  select(-c(lapse, no_lapse))
+labels_1_week <- sample_labels(labels_1_week)
 ```
 
 

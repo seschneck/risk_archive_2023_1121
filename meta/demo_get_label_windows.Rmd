@@ -270,11 +270,9 @@ dates <- dates %>% filter(subid == 34)
 labels <- get_lapse_labels(lapses, dates)
 labels_final <- sample_labels(labels)
 
-# specify duration window to 3 days
-labels <- get_lapse_labels(lapses, dates, buffer = 0, window_dur = 259200) 
-
-labels %>% 
-  head(100)
+# specify duration window to 7 days
+labels <- get_lapse_labels(lapses, dates, buffer = 0, window_dur = 604800) 
+labels_final <- sample_labels(labels)
 ```
 
 
