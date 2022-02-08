@@ -27,7 +27,7 @@ label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in 
 logs_all <- read_rds("data.rds") %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
 
-labels <- read_rds("labels.s") %>% 
+labels <- read_rds("labels.rds") %>% 
   mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
 
 data_start <- read_rds("study_dates.rds") %>% 
