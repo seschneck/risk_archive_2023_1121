@@ -233,7 +233,7 @@ subids <- unique(dates$subid)
 
 
 Make labels with 1 hour window duration
-```{r cache = TRUE}  
+```{r}  
 tic()
 labels_1_hour <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
@@ -244,7 +244,7 @@ toc()
 ```
 
 Make labels with 1 day window duration
-```{r cache = TRUE}   
+```{r}   
 tic()
 labels_1_day <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
@@ -255,7 +255,7 @@ toc()
 ```
 
 Make labels with 1 week window duration
-```{r cache = TRUE}
+```{r}
 tic()
 labels_1_week <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
@@ -506,6 +506,8 @@ labels_1_week %>%
 
 `r nrow(subset(labels_1_hour, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 hour labels.  
 
+
+These counts are off because they are not at the hour level:   
 `r nrow(subset(labels_1_day, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 day labels.  
 
 `r nrow(subset(labels_1_week, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 week labels.  
