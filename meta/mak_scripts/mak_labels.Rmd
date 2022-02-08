@@ -172,6 +172,7 @@ library(vroom)
 library(janitor)
 library(lubridate)
 library(tictoc)
+library(furrr)
 ```
 
 
@@ -223,8 +224,16 @@ Get valid lapse and no_lapse observations by specified window duration (in secon
 
 Make labels with 1 hour window duration
 ```{r cache = TRUE}  
+# use furrr to future map over subids (the_subid) when making labels
+n_cores <- parallel::detectCores(logical = FALSE)
+plan(multisession, workers = n_cores)
+
+subids <- unique(dates$subid)
+
 tic()
-labels_1_hour <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 3600) %>% 
+labels_1_hour <- subids %>% 
+  future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
+                                    buffer_start = 0, window_dur = 3600)) %>% 
   glimpse()
 toc()
 ```
@@ -246,7 +255,30 @@ toc()
 ```
 
 
+Return to sequential processing
+```{r}
+plan(sequential)
+```
 
+### Time zone documentation    
+
+Hour windows will correctly change from CST to CDT during daylight savings.   
+This means:   
+- 1 hour will be skipped during the Spring transition   
+- 1 hour will be duplicated during the Fall transition   
+
+Example: No labels on 2017-03-12 at 2:00 AM (where CST ends and CDT began in 2017)
+```{r}
+labels_1_hour %>% 
+  pull(dttm_label)
+```
+
+Example: Duplicate entries on 2019-11-03 at 1:00 AM (1 in CST and 1 in CDT - daylight savings ended in 2019)
+```{r}
+labels_1_hour %>% 
+  tail(n = 1000) %>% 
+  pull(dttm_label) 
+```
 
 ### Check counts of lapse and no lapse labels
 
@@ -283,74 +315,6 @@ Check if any rows in `labels_1_hour` without a match in `labels_all`
 
 print(str_c(nrow(missing_rows), " missing matches in labels_all"))
 ```
-
-Discrepancies in no_lapse label    
-All fall on daylight savings for 2018 (March 11) 
-```{r}
-missing_rows %>% 
-  left_join(labels_all, by = c("subid", "dttm_label")) %>% 
-  rename(lapse_1_hour = lapse.x,
-         no_lapse_1_hour = no_lapse.x,
-         lapse_all = lapse.y,
-         no_lapse_all = no_lapse.y)
-
-missing_rows$dttm_label
-```
-
-No lapse should be FALSE on 2018-03-11 01:00:00   
-```{r}
-labels_1_hour %>% 
-  filter(subid == 39) %>% 
-  head(n = 550)
-```
-
-Found reason for discrepancy - need to use duration() instead of seconds() in get_lapse_labels   
-This has been corrected in the function - changing to FALSE until labels are rerun
-```{r}
-for (i in 1:nrow(missing_rows)) {
-    mr_subid <- missing_rows$subid[[i]]
-    mr_dttm_label <- missing_rows$dttm_label[[i]]
-    
-    row_index <- which(labels_1_hour$subid == mr_subid & 
-                       labels_1_hour$dttm_label == mr_dttm_label)
-
-    if (length(row_index) == 1) {
-      labels_1_hour$no_lapse[row_index] <- FALSE
-    }
-}
-
-# check all rows match now
-anti_join(labels_1_hour, labels_all, by = c("subid", "dttm_label", "lapse", "no_lapse"))
-```
-
-
-
-# Time zone documentation
-
-No labels on 2017-03-12 at 2:00 AM (where CST ends and CDT began in 2017)
-```{r}
-labels_1_hour %>% 
-  pull(dttm_label)
-```
-
-Duplicate entries on 2019-11-03 at 1:00 AM (1 in CST and 1 in CDT - daylight savings ended in 2019)
-```{r}
-labels_1_hour %>% 
-  tail(n = 1000) %>% 
-  pull(dttm_label) 
-```
-  
-This is an issue in labels_all too
-```{r}
-labels_all %>% 
-  pull(dttm_label)
-
-labels_all %>% 
-  tail(n = 1000) %>% 
-  pull(dttm_label) 
-```
-
-
 
 Check if any rows in `labels_all` without a match in `labels_1_hour`
 ```{r}
@@ -423,6 +387,45 @@ Check counts in `labels_1_week`
 * `r nrow(subset(labels_1_week, lapse))` + `r nrow(subset(labels_1_week, no_lapse))` + `r sum(!labels_1_week$lapse & !labels_1_week$no_lapse)` = `r nrow(subset(labels_1_week, lapse)) + nrow(subset(labels_1_week, no_lapse)) +  sum(!labels_1_week$lapse & !labels_1_week$no_lapse)`     
 
 
+### Check labels end one epoch before study_end date
+
+recalculate study end time
+```{r}
+study_end_times <- dates %>% 
+  rowwise() %>% 
+  mutate(study_end = study_end + (hours(23)),
+         ema_end = floor_date(ema_end, unit = "hours"),
+         end_time = min(study_end, ema_end)) %>% 
+  ungroup() %>% 
+  select(subid, end_time)
+```
+
+calculate difference between study end date and last label dttm
+```{r}
+labels_1_hour %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+
+labels_1_day %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+
+labels_1_week %>% 
+  left_join(study_end_times, by = "subid") %>% 
+  group_by(subid) %>% 
+  slice_tail(n = 1) %>% 
+  mutate(end_label_diff = end_time - dttm_label) %>% 
+  tabyl(end_label_diff)
+```
+
+
+
 ### Get Final Labels 
 
 Removes no_lapse labels that we do not want to use (e.g., they are 24 hours before or after a lapse)
@@ -486,43 +489,6 @@ labels_1_week %>%
   adorn_totals("col")
 ```
 
-
-#### Check labels end one epoch before study_end date
-
-recalculate study end time
-```{r}
-study_end_times <- dates %>% 
-  rowwise() %>% 
-  mutate(study_end = study_end + (hours(23)),
-         ema_end = floor_date(ema_end, unit = "hours"),
-         end_time = min(study_end, ema_end)) %>% 
-  ungroup() %>% 
-  select(subid, end_time)
-```
-
-calculate difference between study end date and last label dttm
-```{r}
-labels_1_hour %>% 
-  left_join(study_end_times, by = "subid") %>% 
-  group_by(subid) %>% 
-  slice_tail(n = 1) %>% 
-  mutate(end_label_diff = end_time - dttm_label) %>% 
-  tabyl(end_label_diff)
-
-labels_1_day %>% 
-  left_join(study_end_times, by = "subid") %>% 
-  group_by(subid) %>% 
-  slice_tail(n = 1) %>% 
-  mutate(end_label_diff = end_time - dttm_label) %>% 
-  tabyl(end_label_diff)
-
-labels_1_week %>% 
-  left_join(study_end_times, by = "subid") %>% 
-  group_by(subid) %>% 
-  slice_tail(n = 1) %>% 
-  mutate(end_label_diff = end_time - dttm_label) %>% 
-  tabyl(end_label_diff)
-```
 
 
 #### Check all valid lapses retained

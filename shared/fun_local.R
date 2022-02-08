@@ -139,7 +139,7 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
 
 
 
-get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600) {
+get_lapse_labels <- function(the_subid, lapses, dates, buffer_start = 0, window_dur = 3600) {
   # Purpose: Returns a tibble of lapse labels that includes subid, dttm_label, and
   #   boolean lapse and no_lapse columns. 
   # Inputs:
@@ -149,10 +149,11 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   #     First hour for lapses is midnight on study day 1 by default (0)
   #   window_dur = duration of lapse window in seconds. Defaults to 1 hour
   
-  subids <- unique(dates$subid)
+  # subids <- unique(dates$subid)
   
   # get label windows
   labels <- dates %>% 
+    filter(subid == the_subid) %>% 
     select(subid, study_start, study_end, ema_end) %>% 
     # pass in other parameters for get_label_windows
     mutate(buffer_start = buffer_start,
@@ -164,6 +165,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
 
   # Step 1: handle valid lapses
   valid_lapses <- lapses %>%
+    filter(subid == the_subid) %>% 
     filter(!exclude)
 
   # no_match <- 0 # no longer able to use counter for checks since we have different window durations 
@@ -228,6 +230,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
 
   # Step 3: Handle no_lapse exclusions for excluded periods with date but no times
   exclusions <- lapses %>%
+    filter(subid == the_subid) %>% 
     filter(exclude & is.na(lapse_start) & is.na(lapse_end))
 
   if(nrow(exclusions) != 0) {
@@ -257,6 +260,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   # Step 4: Handle no_lapse exclusions for very long duration lapses (> 24 hours)
   # Exclude full period +- 24 hours
   exclusions <- lapses %>%
+    filter(subid == the_subid) %>% 
     filter(exclude & duration > 24)
 
   if(nrow(exclusions) != 0) {
@@ -282,6 +286,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
   # Step 5: Handle no_lapse exclusions for negative duration lapses
   # Flip start and end time and then exclude full period +- 24 hours
   exclusions <- lapses %>%
+    filter(subid == the_subid) %>% 
     filter(exclude & duration <= 24)
 
   if(nrow(exclusions) != 0) {
@@ -309,7 +314,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
 } 
 
 
-sample_labels <- function(valid_labels, p_lapse = NULL, seed = NULL) {
+bind_labels <- function(valid_labels, p_lapse = NULL, seed = NULL) {
   # This function filters out no_lapses that are unreliable or we have otherwise
   # chosen not to sample from.
   # Function can also be used to down sample no_lapses further by specifying a lapse:no_lapse
