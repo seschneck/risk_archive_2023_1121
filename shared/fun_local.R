@@ -169,30 +169,31 @@ get_lapse_labels <- function(the_subid, lapses, dates, buffer_start = 0, window_
     filter(!exclude)
 
   # no_match <- 0 # no longer able to use counter for checks since we have different window durations 
-  
-  for (i in 1:nrow(valid_lapses)) {
-    lapse_subid <- valid_lapses$subid[[i]]
-    lapse_start <- valid_lapses$lapse_start[[i]]
+  if(nrow(valid_lapses) != 0) {
+    for (i in 1:nrow(valid_lapses)) {
+      lapse_subid <- valid_lapses$subid[[i]]
+      lapse_start <- valid_lapses$lapse_start[[i]]
     
-    row_index <- which(labels$subid == lapse_subid & 
-                       labels$dttm_label <= lapse_start &
-                       lapse_start < labels$dttm_label + duration(window_dur, units = "seconds"))
+      row_index <- which(labels$subid == lapse_subid & 
+                         labels$dttm_label <= lapse_start &
+                         lapse_start < labels$dttm_label + duration(window_dur, units = "seconds"))
 
-    # row index will contain more than one for days
-    # if (length(row_index) == 1) {
-      labels$lapse[row_index] <- TRUE
-    # }
+      # row index will contain more than one for days
+      # if (length(row_index) == 1) {
+        labels$lapse[row_index] <- TRUE
+      # }
 
-    # some extra checks
-    # this should not happen
-    # if (length(row_index) > 1) {
-    #   stop("get_lapse_labels() multiple match; SubID: ", lapse_subid, " Lapse hour: ", lapse_start, " i: ", i)
-    # }
+      # some extra checks
+      # this should not happen
+      # if (length(row_index) > 1) {
+      #   stop("get_lapse_labels() multiple match; SubID: ", lapse_subid, " Lapse hour: ", lapse_start, " i: ", i)
+      # }
 
-    # this can happen if we have a lapse report outside of the study_hours
-    # if (length(row_index) == 0) {
-    #   no_match <- no_match + 1
-    # }
+      # this can happen if we have a lapse report outside of the study_hours
+      # if (length(row_index) == 0) {
+      #   no_match <- no_match + 1
+      # }
+    }
   }
 
   # final check for lapses
@@ -209,22 +210,24 @@ get_lapse_labels <- function(the_subid, lapses, dates, buffer_start = 0, window_
                                lapse_start + hours(24),
                                lapse_end))
 
-  for (i in 1:nrow(valid_lapses)) {
+  if(nrow(valid_lapses) != 0) {
+    for (i in 1:nrow(valid_lapses)) {
 
-    # exclude lapse +- 24 hours on each side
-    lapse_hours_exclude <- seq(valid_lapses$lapse_start[[i]] - hours(24),
-                               valid_lapses$lapse_end[[i]] + hours(24),
-                               by = "hours")
-
-    for (lapse_hour_exclude in lapse_hours_exclude) {
-      row_index <- which(labels$subid == valid_lapses$subid[[i]] & 
-                         labels$dttm_label <= lapse_hour_exclude &
-                         lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
-
-      # Not valid check for day level - think about built in check
-      # if (length(row_index) == 1) {
-        labels$no_lapse[row_index] <- FALSE
-      # }
+      # exclude lapse +- 24 hours on each side
+      lapse_hours_exclude <- seq(valid_lapses$lapse_start[[i]] - hours(24),
+                                 valid_lapses$lapse_end[[i]] + hours(24),
+                                 by = "hours")
+  
+      for (lapse_hour_exclude in lapse_hours_exclude) {
+        row_index <- which(labels$subid == valid_lapses$subid[[i]] & 
+                           labels$dttm_label <= lapse_hour_exclude &
+                           lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
+  
+        # Not valid check for day level - think about built in check
+        # if (length(row_index) == 1) {
+          labels$no_lapse[row_index] <- FALSE
+        # }
+      }
     }
   }
 
@@ -318,7 +321,7 @@ bind_labels <- function(valid_labels, p_lapse = NULL, seed = NULL) {
   # This function filters out no_lapses that are unreliable or we have otherwise
   # chosen not to sample from.
   # Function can also be used to down sample no_lapses further by specifying a lapse:no_lapse
-  # proportion. Default is to not down sample.
+  # proportion. Default is to not down sample since this will often be done in feature engineering.
   # If down sampling seed should be specified for reproducibility
 
   lapses <- valid_labels %>% 

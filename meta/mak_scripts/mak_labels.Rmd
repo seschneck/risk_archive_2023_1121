@@ -222,18 +222,23 @@ lapses %>%
 
 Get valid lapse and no_lapse observations by specified window duration (in seconds)   
 
-Make labels with 1 hour window duration
-```{r cache = TRUE}  
+Set up parallel processing
+```{r}
 # use furrr to future map over subids (the_subid) when making labels
 n_cores <- parallel::detectCores(logical = FALSE)
 plan(multisession, workers = n_cores)
 
 subids <- unique(dates$subid)
+```
 
+
+Make labels with 1 hour window duration
+```{r cache = TRUE}  
 tic()
 labels_1_hour <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 3600)) %>% 
+                                    buffer_start = 0, window_dur = 3600),
+                 .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
 ```
@@ -241,7 +246,10 @@ toc()
 Make labels with 1 day window duration
 ```{r cache = TRUE}   
 tic()
-labels_1_day <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 86400) %>% 
+labels_1_day <- subids %>% 
+  future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
+                                    buffer_start = 0, window_dur = 86400),
+                 .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
 ```
@@ -249,7 +257,10 @@ toc()
 Make labels with 1 week window duration
 ```{r cache = TRUE}
 tic()
-labels_1_week <- get_lapse_labels(lapses, dates, buffer_start = 0, window_dur = 604800) %>% 
+labels_1_week <- subids %>% 
+  future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
+                                    buffer_start = 0, window_dur = 604800),
+                 .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
 ```
@@ -430,11 +441,11 @@ labels_1_week %>%
 
 Removes no_lapse labels that we do not want to use (e.g., they are 24 hours before or after a lapse)
 ```{r}
-labels_1_hour <- sample_labels(labels_1_hour)
+labels_1_hour <- bind_labels(labels_1_hour)
 
-labels_1_day <- sample_labels(labels_1_day)
+labels_1_day <- bind_labels(labels_1_day)
 
-labels_1_week <- sample_labels(labels_1_week)
+labels_1_week <- bind_labels(labels_1_week)
 ```
 
 
