@@ -253,14 +253,20 @@ label_windows %>%
 One subid
 ```{r}
 lapses <- lapses %>% 
-  filter(subid == 34)
-study_start <- dates %>% filter(subid == 34) %>% pull(study_start)
-study_end <- dates %>% filter(subid == 34) %>% pull(study_end)
-ema_end <- dates %>% filter(subid == 34) %>% pull(ema_end)
-
-label_windows <- get_label_windows(34, study_start, study_end, ema_end, 
-                              buffer_start = 0, window_dur = 3600)
+  filter(subid == 39)
+study_start <- dates %>% filter(subid == 39) %>% pull(study_start)
+study_end <- dates %>% filter(subid == 39) %>% pull(study_end)
+ema_end <- dates %>% filter(subid == 39) %>% pull(ema_end)
 ```
+
+Missing dttm_label window for 2018-03-11 2:00 AM
+```{r}
+labels <- get_label_windows(39, study_start, study_end, ema_end, 
+                              buffer_start = 0, window_dur = 3600)
+labels %>% 
+  head(600)
+```
+
 
 
 get labels

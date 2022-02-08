@@ -122,7 +122,7 @@ get_label_windows <- function(subid, study_start, study_end, ema_end,
   #      3600 represents one hour in seconds - using seconds because more versatile
   #      in seq.POSIXT
   dttm_label <- seq(from = start_time, to = end_time, by = 3600)
-  
+
   #   2. create tibble for subid
   label_windows <- tibble(subid, dttm_label)
   
@@ -174,7 +174,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
     
     row_index <- which(labels$subid == lapse_subid & 
                        labels$dttm_label <= lapse_start &
-                       lapse_start < labels$dttm_label + seconds(window_dur))
+                       lapse_start < labels$dttm_label + duration(window_dur, units = "seconds"))
 
     # row index will contain more than one for days
     # if (length(row_index) == 1) {
@@ -217,7 +217,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
     for (lapse_hour_exclude in lapse_hours_exclude) {
       row_index <- which(labels$subid == valid_lapses$subid[[i]] & 
                          labels$dttm_label <= lapse_hour_exclude &
-                         lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
+                         lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
 
       # Not valid check for day level - think about built in check
       # if (length(row_index) == 1) {
@@ -245,7 +245,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
         for (lapse_hour_exclude in lapse_hours_exclude) {
           row_index <- which(labels$subid == exclusions$subid[[i]] & 
                              labels$dttm_label <= lapse_hour_exclude &
-                             lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
+                             lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
       
           # if (length(row_index) == 1) {
             labels$no_lapse[row_index] <- FALSE
@@ -270,7 +270,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
       for (lapse_hour_exclude in lapse_hours_exclude) {
         row_index <- which(labels$subid == exclusions$subid[[i]] & 
                            labels$dttm_label <= lapse_hour_exclude &
-                           lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
+                           lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
       
         # if (length(row_index) == 1) {
           labels$no_lapse[row_index] <- FALSE
@@ -295,7 +295,7 @@ get_lapse_labels <- function(lapses, dates, buffer_start = 0, window_dur = 3600)
       for (lapse_hour_exclude in lapse_hours_exclude) {
         row_index <- which(labels$subid == exclusions$subid[[i]] & 
                            labels$dttm_label <= lapse_hour_exclude &
-                           lapse_hour_exclude < labels$dttm_label + seconds(window_dur)) 
+                           lapse_hour_exclude < labels$dttm_label + duration(window_dur, units = "seconds")) 
       
         # if (length(row_index) == 1) {
           labels$no_lapse[row_index] <- FALSE
