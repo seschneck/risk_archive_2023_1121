@@ -5,13 +5,13 @@ suppressPackageStartupMessages({
 })
 
 # CHANGE ME
-name_job <- "features_all"
+name_job <- "features_1_hour"
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/features/"
 path_templates <- "./meta/chtc/features/templates"
 path_data <- "P:/studydata/risk/data_processed/meta" 
-path_fun <- "./shared/fun_risk.R"
-fun_name <- "fun_risk.R"
-labels_file_name <- "labels_05.rds"
+path_fun <- "./shared/fun_chtc_features.R"
+fun_name <- "fun_chtc_features.R" # this will be name that function appears as on CHTC
+labels_file_name <- "labels_1_hour.rds"
 raw_data_file_name <- "meta_logs.rds"
 start_dates_file_name <- "study_dates.rds"
 static_features_file_name <- "static_features.rds"

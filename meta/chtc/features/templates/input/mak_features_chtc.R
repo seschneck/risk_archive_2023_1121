@@ -6,8 +6,7 @@
 # - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
 # - General descriptives about social network based on all logs in window (is significant other a drinker? Do they have friends in recovery? How many?)    
 
-
-
+# load packages and functions ------------------
 suppressPackageStartupMessages({
   require(dplyr)
   require(readr)
@@ -16,7 +15,7 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(tis)
   
-  source("fun_risk.R")
+  source("fun_chtc_features.R")
 })
 
 # get chtc process num ------------------
@@ -28,7 +27,7 @@ label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in 
 logs_all <- read_rds("data.rds") %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tzone = "America/Chicago")) 
 
-labels_05 <- read_rds("labels.rds") %>% 
+labels <- read_rds("labels.s") %>% 
   mutate(dttm_label = with_tz(dttm_label, tzone = "America/Chicago")) 
 
 data_start <- read_rds("study_dates.rds") %>% 
@@ -39,7 +38,7 @@ screen_features <- read_rds("static_features.rds")
 
 
 # Slice out label based on label_num ------------------
-label <- slice(labels_05, label_num)
+label <- slice(labels, label_num)
 
 # initialize period durations and lead hours ------------------
 period_durations <- c(6, 12, 24, 48, 72, 168) 
@@ -1285,7 +1284,7 @@ meta_features <- meta_features %>%
 
 # Add outcome label (lapse/no lapse) back in ------------------
 meta_features <- meta_features %>%
-  left_join(labels_05 %>%
+  left_join(labels %>%
               mutate(label = dplyr::recode(label, "lapse" = "yes", "no_lapse" = "no")),
             by = c("subid", "dttm_label"))
 
