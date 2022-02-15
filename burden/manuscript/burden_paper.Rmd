@@ -60,6 +60,7 @@ header-includes:
   - \raggedbottom
   - \usepackage{booktabs}
   - \definecolor{lightred}{rgb}{1.0, 0.6, 0.6}
+  - \usepackage[justification=raggedright]{caption}
 
 
 
@@ -160,7 +161,11 @@ notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), co
 <!-- John, I cannot seem to improve tables any further - still need to control width, change spacing (maybe single?) to fit on a single page, and get line returns in footnote to work. I have latex line breaks and it looks like it is trying to add a new line based on weird spacing in knit file but I think it might be interfering with papaja template. Additionally, I cannot seem to color the tables as I did in word. -->  
 
 <!-- My figures are also at a standstill - outstanding issues include placement (I can not seem to alter the float parameter to get the figures to stay in the correct manuscript place) and fig.caption parsing error where figure# appears after Figure X.-->  
+<!-- @Kendra re: fig placement: use fig.pos and also out.extra="" in chunk options.-->
+<!-- @Kendra re: fig.caption: figure names cannot have spaces or underscores, I replaced them with hyphens.-->
 
+
+<!-- @Kendra re: line breaks in figure captions: use \\linebreak and see the added usepackage{caption} where it specifies allowing ragged right margin-->
 
 ## Outline
 
@@ -216,7 +221,8 @@ Findings have been inconsistent regarding the relative impact of assessment burd
 
 Existing research also raises some concern about relative perceptions and compliance  with EMA protocols in clinical vs. healthy samples.  For example, patients with current affective disorders reported decreased perceptions of acceptability relative to patients in remission and healthy controls [@vangenugtenExperiencedBurdenAdherence2020].  However, no differences in compliance were observed across the three groups.  In contrast, a recent meta-analysis confirmed decreased compliance with EMA protocols in patients with substance use disorder diagnoses vs. recreational substance users [@jonesComplianceEcologicalMomentary2019]<!-- Kendra can you confirm the analyses of study duration in this meta analysis.   I'd like to cite the other study you mention below about drop off but not if this meta analysis looks at longer studies and finds nothing.-->
 
-``` Additionally, persons with substance use disorders may find highly active personal sensing signals, like EMA, less acceptable over longer periods. 
+``` 
+Additionally, persons with substance use disorders may find highly active personal sensing signals, like EMA, less acceptable over longer periods. 
 In a four-week study where participants completed four daily EMAs to document alcohol use, researchers reported a steep drop in compliance in week four despite consistently low assessment burden [@yangFeasibilityAcceptabilitySmartphoneBased2015]. These findings highlight the potential challenges of implementing personal sensing protocols in substance use populations and the need to examine personal sensing acceptability over longer durations of time.
 ```
 
@@ -265,7 +271,7 @@ We assessed eligibility and exclusion criteria using a brief phone screen follow
 fig_caption_1 <- "Flowchart of participant retention over the course of the three-month study. This figure displays retention and attrition of all eligible participants at various stages from consent though study completion.  It also display the reasons for attrition categorized as due to acceptability, other reasons, or unknown.  We present additional detail on reasons for attrition in Table 3."
 ```
 
-```{r fig.cap = fig_caption_1}
+```{r figure-1, fig.cap = fig_caption_1, out.extra = "", fig.pos="h"}
 include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), dpi = 150)
 ```
 
@@ -345,7 +351,9 @@ Finally, we conducted two analyses to examine the consistency of perceptions acr
 
 One hundred and fifty-four participants completed at least one monthly follow-up visit and provided self-report acceptability ratings for interference, dislike, and willingness to use for one year. These participants serve as our primary sample for our analyses. Table 1 presents demographic information these participants. Table 2 characterizes alcohol use and AUD-relevant information for these participants. We compared demographics and AUD information for participants who were included in the analyses vs. eligible participants who did not provide study measures (i.e., did not enroll or discontinued prior to the first month follow-up; N = 36 ) and found no significant differences (see Multimedia Appendix 2 for more detail on these analyses).
 
-```{r table 1}
+\newpage
+
+```{r table-1-code}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
             SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
@@ -415,7 +423,7 @@ dem <- screen %>%
 ```
 
 
-```{r}
+```{r table-1}
 dem %>% 
   kbl(booktabs = TRUE,
       caption = "Demographics",
@@ -423,7 +431,7 @@ dem %>%
       align = c("l", "c", "c", "c", "c"),
       digits = 1,
       longtable = TRUE) %>% 
-  kable_styling() %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
   pack_rows("Race", 4, 8, bold = FALSE) %>%
@@ -434,9 +442,9 @@ dem %>%
   footnote("N = 154")
 ```
 
- 
+\newpage
 
-```{r table 2}
+```{r table-2-code}
 auh <- screen %>%
   summarise(mean = mean(auh_1, na.rm = TRUE),
             SD = sd(auh_1, na.rm = TRUE)) %>%
@@ -617,7 +625,7 @@ auh <- screen %>%
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc"))
 ```
 
-```{r}
+```{r table-2}
 auh %>% 
   kbl(booktabs = TRUE,
       caption = "Alcohol Related Characteristics for the Sample",
@@ -625,7 +633,7 @@ auh %>%
       align = c("l", "c", "c", "c", "c"),
       digits = 1,
       longtable = TRUE) %>% 
-  kable_styling() %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>%
   pack_rows("Types of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>%
@@ -634,6 +642,7 @@ auh %>%
   footnote("N = 154")
 ```
 
+\newpage
 
 ## Behavioral Measures of Acceptability
 
@@ -647,8 +656,9 @@ Study phases where we lost eligible participants are highlighted in red in Figur
 
 All participants (100%) opted-in to provide data for all personal sensing methods. Daily compliance rates were relatively high for EMAs such that 94% of participants completed at least one of the four EMAs every day. On average, participants completed 3.1 EMAs every day. The overall compliance rate for all requested EMAs was 77%. Participants' completion rate for the daily audio check-in was 53%. That is, of their total days on study, participants completed an audio check-in on approximately half of them.
 
+\newpage
 
-```{r table 3}
+```{r table-3-code}
 notes_incomplete <- notes_incomplete %>%
   filter(screen != "no consent") %>%
   mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
@@ -672,7 +682,7 @@ notes_incomplete <- notes_incomplete %>%
 
 
 
-```{r}
+```{r table-3-code-2}
 a <- notes_incomplete %>% 
   filter(screen != "ineligible") %>% 
   filter(intake != "complete" | is.na(intake)) %>% 
@@ -699,10 +709,13 @@ c <- notes_incomplete %>%
   mutate(percent = n/sum(n)) %>% 
   adorn_totals("row") 
 
-footnote_table_3 <- "Bolded rows depict acceptability-related discontinuation. \\\\ $^a$These participants are labeled as 'Not Enrolled' in Figure 1. \\\\ $^b$These participants are labeled as 'Discontinued' in Figure 1. \\\\ $^c$These participants are labeled as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1."
+footnote_table_3 <- "Bolded rows depict acceptability-related discontinuation." 
+footnote_table_3a <- "These participants are labeled as 'Not Enrolled' in Figure 1." 
+footnote_table_3b <- "These participants are labeled as 'Discontinued' in Figure 1." 
+footnote_table_3c <- "These participants are labeled as 'Participated through 1st month follow-up' or 'Participated through 2nd month follow-up' in Figure 1."
 ```
 
-```{r}
+```{r table-3}
 a %>% 
   bind_rows(b, c) %>% 
   kbl(booktabs = TRUE,
@@ -711,7 +724,7 @@ a %>%
       align = c("l", "c", "c"),
       digits = 2,
       longtable = TRUE) %>% 
-  kable_styling() %>%
+  kable_styling(latex_options = c("HOLD_position")) %>%
   row_spec(row = 0, align = "c", italic = TRUE) %>%
   row_spec(row = 3, bold = TRUE) %>% 
   row_spec(row = 8, bold = TRUE) %>% 
@@ -722,10 +735,10 @@ a %>%
   pack_rows("Eligible and consented participants discontinued prior to completing enrollment$^a$", 1, 6, bold = FALSE, escape = FALSE) %>% 
   pack_rows("Enrolled participants discontinued prior to first month follow-up$^b$", 7, 13, bold = FALSE, escape = FALSE) %>% 
   pack_rows("Enrolled participants discontinued after the first month follow-up$^c$", 14, 22, bold = FALSE, escape = FALSE) %>% 
-  footnote(footnote_table_3, threeparttable = TRUE, escape = FALSE)
+  footnote(general=footnote_table_3, alphabet = c(footnote_table_3a,footnote_table_3b,footnote_table_3c), threeparttable = TRUE, escape = FALSE)
 ```
 
-
+\newpage
 
 ## Self-reported Acceptability
 
@@ -826,12 +839,13 @@ We also assessed the effect of active effort on willingness ratings (Figure 6). 
 <!-- Does \n work in figure caption?  Work on this caption a bit more-->
 
 ```{r}
-fig_2_caption <- "Interference Ratings by Personal Sensing Data Stream.\n Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
+fig_2_caption <- "Interference Ratings by Personal Sensing Data Stream.\\linebreak Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
+
 ```
 
 <!-- Caption figure # is not parsing right -->
 
-```{r figure 2, fig.height = 3.5, fig.cap = fig_2_caption}
+```{r figure-2, fig.height = 3.5, fig.cap = fig_2_caption, out.extra = "", fig.pos="h"}
 interference_plot_data <- data_last %>% 
   select(contains("interfere")) %>%   
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -868,10 +882,10 @@ interference_plot_data %>%
 <!-- Does \n work in figure caption?  Work on this caption a bit more-->
 
 ```{r}
-fig_3_caption <- "Dislike Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_3_caption <- "Dislike Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure 3, fig.height = 6, fig.cap = fig_3_caption}
+```{r figure-3, fig.height = 6, fig.cap = fig_3_caption, out.extra = "", fig.pos="h"}
 dislike_plot_data <- data_last %>% 
   select(contains("dislike")) %>%  
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -938,10 +952,10 @@ dislike_plot  %>%
 <!-- Does \n work in figure caption?  Work on this caption a bit more-->
 
 ```{r}
-fig_4_caption <- "Average Dislike by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_4_caption <- "Average Dislike by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure 4, fig.width = 5, fig.cap = fig_4_caption}
+```{r figure-4, fig.width = 5, fig.cap = fig_4_caption, out.extra = "", fig.pos="h"}
 # transform dataframe of active/passive means to long
 data_dislike_long <- data_dislike %>% 
   pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "dislike") %>% 
@@ -975,10 +989,10 @@ data_dislike_long %>%
 <!-- Does \n work in figure caption.  Work on this caption a bit more-->
 
 ```{r}
-fig_5_caption <- "Willingness to Use for One Year Ratings by Personal Sensing Data Stream.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_5_caption <- "Willingness to Use for One Year Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure 5, fig.height = 6, fig.cap = fig_5_caption}
+```{r figure-5, fig.height = 6, fig.cap = fig_5_caption, out.extra = "", fig.pos="h"}
 willingness_plot_data <- data_last %>% 
   select(contains("1year")) %>%  
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -1047,10 +1061,10 @@ willingness_final_plot  %>%
 <!-- Does \n work in figure caption.  Work on this caption a bit more-->
 
 ```{r}
-fig_6_caption <- "Average Willingness to Continue for One Year by Active vs. Passive Methods.\n  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for one year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_6_caption <- "Average Willingness to Continue for One Year by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for one year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure 6, fig.width = 5, fig.cap = fig_6_caption}
+```{r figure-6, fig.width = 5, fig.cap = fig_6_caption, out.extra = "", fig.pos="h"}
 # transform dataframe of active/passive means to long
 data_willingness_long <- data_willingness %>% 
   pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "willingness") %>% 
@@ -1085,7 +1099,7 @@ data_willingness_long %>%
 footnote_table_4 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants (N), mean and standard deviation (M, SD), t-statistic (t) and Cohen’s d Effect size (d) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability.  Active methods are displayed in red and passive methods are displayed in blue. \\\\ * p < .05"
 ```
 
-```{r table 4}
+```{r table-4}
 corrplot_int <- data_last %>% 
   select(`Audio Check-in` = audio_checkin_interfere,
          `EMA` = daily_survey_interfere,
@@ -1108,9 +1122,10 @@ corrplot_int <- corrplot_int %>%
 
 corrplot_int %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "KENDRA ADD CAPTION otherwise will not appear as table",
       booktabs = TRUE,
       escape = FALSE) %>% 
-  kable_styling() %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
   pack_rows("Active", 1, 3) %>% 
   footnote(footnote_table_4, threeparttable = TRUE, escape = FALSE)
 ```
@@ -1121,7 +1136,7 @@ corrplot_int %>%
 footnote_table_5 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants (N), mean and standard deviation (M, SD), t-statistic (t) and Cohen’s d Effect size (d) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue. \\\\ * p < .05"
 ```
 
-```{r table 5}
+```{r table-5}
 corrplot_dis <- data_last %>% 
   select(`Audio Check-in` = audio_checkin_dislike,
          `EMA` = daily_survey_dislike,
@@ -1151,9 +1166,10 @@ corrplot_dis <- corrplot_dis %>%
 
 corrplot_dis %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "KENDRA ADD CAPTION otherwise will not appear as table",
       booktabs = TRUE,
       escape = FALSE) %>% 
-  kable_styling() %>% 
+  kable_styling(latex_options = c("HOLD_position", "scale_down")) %>% 
   pack_rows("Active", 1, 3) %>%
   pack_rows("Passive", 4, 6) %>% 
   footnote(footnote_table_5, threeparttable = TRUE, escape = FALSE)
@@ -1163,7 +1179,7 @@ corrplot_dis %>%
 footnote_table_6 <- "Initial columns represent bivariate correlations among signals. Final columns represent the number of participants (N), mean acceptability score (M), standard deviation (SD), and t statistic (t) and Cohen’s d Effect size (d) for a one sample t-test centered around a neutral/ambivalent score of 0 on a 5-point bipolar scale. Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue. \\\\ * p < .05"
 ```  
 
-```{r table 6}
+```{r table-6}
 corrplot_will <- data_last %>% 
   select(`Audio Check-in` = audio_checkin_1year,
          `EMA` = daily_survey_4_1year,
@@ -1193,9 +1209,10 @@ corrplot_will <- corrplot_will %>%
 
 corrplot_will %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
+      caption = "KENDRA ADD CAPTION otherwise will not appear as table",
       booktabs = TRUE,
       escape = FALSE) %>% 
-  kable_styling() %>% 
+  kable_styling(latex_options = c("HOLD_position", "scale_down")) %>% 
   pack_rows("Active", 1, 3) %>% 
   pack_rows("Passive", 4, 6) %>% 
   footnote(footnote_table_6, threeparttable = TRUE, escape = FALSE)
