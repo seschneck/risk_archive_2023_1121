@@ -54,3 +54,4 @@ file.copy(from = file.path(path_templates, "input", c(list.files(file.path(path_
 # copy over output template (aggregate rows)
 file.copy(from = file.path(path_templates, "output", "post_chtc_processing.rmd"),
           to = file.path(path_jobs, name_job, "output", "post_chtc_processing.rmd")) 
+
