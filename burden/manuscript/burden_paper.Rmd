@@ -154,11 +154,11 @@ notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), co
   filter(screen != "cancelled" & screen != "no show")
 ```
 
+<!-- Need to decide on terminology RE mental health, mental illness, psychatric disorders.   Currently we use mental health in the context of health generally and then psychiatric disoders.   Lets make sure we use these two terms consistently-->
 
-## Text snips and notes
-<!-- John the warning message is a conflict issue with Windows 10 and latex regarding file encodings. I tried multiple ways to eliminate this message but I'd just accept it as the output is correct. -->
+<!--Density, depth, and duration.  REport for EMA in method--->
 
-<!-- Need to decide on terminology RE mental health, mental illness, psychatric disorders-->
+<!--Should we talk always about acceptability as the top level construct.  Do we describe how it can be measured by self report or behavior and affected by a variety of factors like burden or sensitivity-->
 
 <!-- John, I cannot seem to improve tables any further - still need to control width, change spacing (maybe single?) to fit on a single page, and get line returns in footnote to work. I have latex line breaks and it looks like it is trying to add a new line based on weird spacing in knit file but I think it might be interfering with papaja template. Additionally, I cannot seem to color the tables as I did in word. -->  
 
@@ -168,23 +168,24 @@ notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), co
 
 <!-- My figures are also at a standstill - outstanding issues include placement (I can not seem to alter the float parameter to get the figures to stay in the correct manuscript place) and fig.caption parsing error where figure# appears after Figure X.-->  
 
-<!-- @Kendra re: fig placement: Although they're now moved to end, if wanted in text, use fig.pos and (out.extra="" or out.width="x%") in chunk options. It won't respect fig.pos setting unless a) at least one of those other two is specified and b) there is enough room where you want it, so you canalways start with out.width="50%" just to force them where you wanted them. -->
+<!-- @Kendra re: fig placement: Although they're now moved to end, if wanted in text, use fig.pos and (out.extra="" or out.width="x%") in chunk options. It won't respect fig.pos setting unless a) at least one of those other two is specified and b) there is enough room where you want it, so you can always start with out.width="50%" just to force them where you wanted them. -->
+
 <!-- @Kendra re: fig.caption parsing error: 2 issues here. 1) figure names cannot have spaces or underscores, I replaced them with hyphens; 2) fig.cap must be specified for it to be inserted into latex's figure workspace.-->
 
 <!-- @Kendra re: line breaks in figure captions: use \\linebreak and the added usepackage{caption} where it specifies allowing ragged right margin. https://mirror.math.princeton.edu/pub/CTAN/macros/latex/contrib/caption/caption-eng.pdf for further documentation -->
 
 ## Personal Sensing
 
-The World Health Organization's Global Observatory for eHealth has concluded that "the use of mobile and wireless technologies to support the achievement of health objectives has the potential to transform the face of health service delivery across the globe." [@whoglobalobservatoryforehealthMHealthNewHorizons2011]. This conclusion applies to research and care for mental health as well as other traditional health services. These opportunities are now possible in part because of rapid advances in smartphone and related mobile technologies [@majumderSmartphoneSensorsHealth2019] and high levels of smartphone access across race, socioeconomic status, geographic region, and other demographic characteristics [@pewresearchcenterMobileFactSheet2021].
+The World Health Organization's Global Observatory for eHealth has concluded that "the use of mobile and wireless technologies to support the achievement of health objectives has the potential to transform the face of health service delivery across the  globe." [@whoglobalobservatoryforehealthMHealthNewHorizons2011]. This conclusion applies to research and care for mental health as well as other traditional health services. These opportunities are now possible in part because of rapid advances in smartphone and related mobile technologies [@majumderSmartphoneSensorsHealth2019] and high levels of smartphone access across race, socioeconomic status, geographic region, and other demographic characteristics [@pewresearchcenterMobileFactSheet2021].
 
-Personal sensing may become an important component of these digital health advances [@healthWhatDigitalHealth2020]. Personal sensing is a method for longitudinal measurement in situ; i.e., real-world measurement that is embedded in individuals' day to day lives [@mohrPersonalSensingUnderstanding2017; @klasnjaExploringPrivacyConcerns2009; @huckvaleClinicalDigitalPhenotyping2019]. Raw data streams are collected by smartphones, wearable sensors, or other smart devices. These raw data streams can consist of self-reports or more novel data streams such as geolocations, cellular communications, social media activity, or physiology. Subsequent processing can extract psychiatric or health relevant measures of thoughts, feelings, behavior, and even interpersonal interactions.
+Personal sensing may become an important component of these digital health advances [@healthWhatDigitalHealth2020]. Personal sensing is a method for longitudinal measurement in situ; i.e., real-world measurement that is embedded in individuals' day to day lives [@mohrPersonalSensingUnderstanding2017;  @klasnjaExploringPrivacyConcerns2009;   @huckvaleClinicalDigitalPhenotyping2019]. Raw data streams are collected by smartphones, wearable sensors, or other smart devices. These raw data streams can consist of self-reports or more novel data streams such as geolocations, cellular communications, social media activity, or physiology. Subsequent processing can extract psychiatric or health relevant measures of thoughts, feelings, behavior, and even interpersonal interactions.
 
 Personal sensing is a powerful tool for mental health research. By definition, these data are inherently longitudinal, which allows for confirmation of the temporal ordering for putative etiologic mechanisms and their effects. Longitudinal measurement is also critical for many mental health constructs that display meaningful, and often frequent, temporal variation within person (e.g., psychiatric symptoms). Measures based on personal sensing data generally have high ecological validity and low retrospective bias given that these data are collected in situ and often in real-time. Furthermore, personal sensing can derive measures from raw data streams (e.g., in situ behavior, physiology, interpersonal interactions) that are difficult or even impossible to obtain through other traditional research measurement methods.
 
-Personal sensing may have even higher value in the future for clinical applications that target patient mental health care [@huckvaleClinicalDigitalPhenotyping2019; @onnelaHarnessingSmartphoneBasedDigital2016; @torousRealizingPotentialMobile2015]. Personal sensing can collect data that may be used for preliminary screening for psychiatric disorders [@eichstaedtFacebookLanguagePredicts2018]. These methods can also be used to monitor psychiatric symptoms or even predict future risk for symptom reoccurrence, relapse, or other harmful behaviors (e.g., suicide attempts)[@barnettRelapsePredictionSchizophrenia2018; @moshontzProspectivePredictionLapses2021]. Personal sensing measures or risk indicators may be shared with health care providers to allow for cost effective, targeted allocation of limited mental health resources to patients with greatest or most urgent need [@quanbeckIntegratingAddictionTreatment2014]. Personal sensing has the potential to support precision mental health care by adapting and timing interventions based on characteristics of the patient and the moment in time [@nahum-shaniJustinTimeAdaptiveInterventions2018; @aggarwalAdvancingArtificialIntelligence2020; @kaiserObamaGivesEast2015]. To be clear, these applications of personal sensing are currently aspirational rather than available for clinical implementation today. However, clinical research is advancing us rapidly toward these goals [REFS<!--KENDRA, consider these refs from an earlier draft.  Which are more closely aligned with the topic sentence of this paragraph, which focuses on teh development of clinical applications rather than simply research into mechanism or course of illness.  Pick a few of the best done or in promienent outlets  "Within mental health, interventions and monitoring systems for depression, anxiety, substance abuse, eating disorder, schizophrenia and bipolar disorder have been developed and used (Riper et al. 2011; Beintner et al. 2012; Richards and Richardson 2012; Donker et al. 2013; Mayo-Wilson et al. 2013; Faurholt-Jepsen et al. 2015a; Berrouiguet et al. 2016; Berry et al. 2016; Depp et al. 2015; Hubley et al. 2016)".-->].
+Personal sensing may have even higher value in the future for clinical applications that target patient mental health care [@huckvaleClinicalDigitalPhenotyping2019; @onnelaHarnessingSmartphoneBasedDigital2016; @torousRealizingPotentialMobile2015]. Personal sensing can collect data that may be used for preliminary screening for psychiatric disorders [@eichstaedtFacebookLanguagePredicts2018]. These methods can also be used to monitor psychiatric symptoms or even predict future risk for symptom reoccurrence, relapse, or other harmful behaviors (e.g., suicide attempts)[@barnettRelapsePredictionSchizophrenia2018; chihPredictiveModelingAddiction2014]. Personal sensing measures or risk indicators may be shared with health care providers to allow for cost effective, targeted allocation of limited mental health resources to patients with greatest or most urgent need [@quanbeckIntegratingAddictionTreatment2014]. Personal sensing has the potential to support precision mental health care by adapting and timing interventions based on characteristics of the patient and the moment in time [@nahum-shaniJustinTimeAdaptiveInterventions2018; @aggarwalAdvancingArtificialIntelligence2020; @kaiserObamaGivesEast2015]. To be clear, these applications of personal sensing are currently aspirational rather than available for clinical implementation today. However, clinical research is advancing us rapidly toward these goals [moshontzProspectivePredictionLapses2021; chihPredictiveModelingAddiction2014<!--KENDRA, add one more non SUD cite of use of personal sensing in a DTx-->]
 
 
-
+```
 <!-- Kendra's notes: -->
 
 <!-- The above sentence and cites are from Faurholt-Jepsen, 2018 not us (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6161968/). 
@@ -223,87 +224,29 @@ Personal sensing may have even higher value in the future for clinical applicati
       - Provides evidence supporting telepsychiatry to be implementable and cost effective. 
       - Cons: Not about intervention or monitoring, Not about personal sensing
       - Published in World Journal of Psychiatry -->
-      
+ ```     
       
       
 Ecological momentary assessment (EMA), a personal sensing method that collects brief self-reports about momentary states multiple times per day, has been used for many years in short-term longitudinal studies of psychiatric disorders. For example, EMA research on substance use disorders has identified proximal causes and risk factors for drug craving and relapse [@morgensternEcologicalMomentaryAssessment2014; @fronkStressAllostasisSubstance2020; @schultzStressorelicitedSmokingCravingInpress]. It has also characterized the time course and nature of drug withdrawal [@piaseckiSmokingWithdrawalDynamics2003a; @mccarthyLifeQuittingSmoking2006]. EMA research on major depressive and bipolar disorders has identified predictors of daily mood fluctuations, documented treatment efficacy, and been paired with other human neuroscience methods to explore biological mechanisms [@aanhetrotMoodDisordersEveryday2012]. Much of this research could not have been accomplished with other measurement methods.
 
-More recently, mental health relevant research using personal sensing of raw data streams other than self report is emerging. This includes methods to sense geolocation [@epsteinPredictionStressDrug2020; @palmiusDetectingBipolarDepression2016; @moshontzProspectivePredictionLapses2021], cellular communications [@jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021; @razaviDepressionScreeningUsing2020; @baiTrackingMonitoringMood2021; @moshontzProspectivePredictionLapses2021], sleep [@baiTrackingMonitoringMood2021], and physiology [@kleimanUsingWearablePhysiological2019b; @kleimanCanPassiveMeasurement2021] as examples. These alternative personal sensing methods provide benefits and opportunities not possible with EMA. For example, many of these data streams can be sensed passively such that they have very low assessment burden. This may allow their use for long-term longitudinal monitoring of patients that would not be feasible with EMA, which requires more active effort for data collection. These data streams can support measures that are not possible by self report
-
-
-<!-- Kendra's notes:
-    - Palmius et al., 2016 - GPS sensing, N = 36
-          - patients with bipolar disorder and healthy controls
-          - A lot of issues with GPS tracking technology were reported (inaccurate locations, large chunks of missing data)
-          - 3 months? 
-          
-    - Epstein et al., 2020 - GPS sensing, N = 189
-          - outpatients being treated for opioid use disorder
-          - 16 weeks
-          
-    - Jacobson et al., 2020 - accelerometer and cellular communications, N = 59
-          - 2 weeks
-          - undergraduate students
-    
-    - Wang et al., 2021 - cellular communications (no content), app activity log, N =120
-          - community sample
-    
-    - Razavi et al., 2020 - cellular communications (no content), N = 412
-          - MTurk participants uploaded logs
-    
-    - Bai et al., 2021 - N = 334, best model used call logs, sleep data, step count and heart rate data
-          - clinical - patients with MDD
-          - 12 weeks
-          - May be good for discussion - The app only ran on Android and "owing to certain restrictions on the android system it was difficult to keep our app running in the background 24x7 collecting data" 
-    
-    - Kleiman et al., 2019 - wristband, n = 50
-          - adolescent inpatients, many participants participated for less than 1 or 2 weeks
-          
-    - Kleiman et al., 2021 - wristband, n = 25
-          - adult inpatients
-          - inpatient stay + 28 days
-    
-    -->
+More recently, mental health relevant research using personal sensing of raw data streams other than self report is emerging. This includes methods to sense geolocation [@epsteinPredictionStressDrug2020; @palmiusDetectingBipolarDepression2016; @moshontzProspectivePredictionLapses2021], cellular communications [@jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021; @razaviDepressionScreeningUsing2020; @baiTrackingMonitoringMood2021; @moshontzProspectivePredictionLapses2021], sleep [@baiTrackingMonitoringMood2021], and physiology [@kleimanUsingWearablePhysiological2019b; @kleimanCanPassiveMeasurement2021] as examples. These alternative personal sensing methods provide benefits and opportunities not possible with EMA. For example, many of these data streams can be sensed passively such that they have very low assessment burden. This may allow their use for long-term longitudinal monitoring of patients that would not be feasible with EMA, which requires more active effort for data collection. These data streams can also support measures that are not possible by self report
 
 Clinical research with these alternative, often more passively sensed, data streams is still nascent.  This research has predominately involved "proof-of-concept" studies that typically include only healthy controls or other convenience samples rather than patients with psychiatric disorders [@razaviDepressionScreeningUsing2020; @jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021].  It has also often used very small sample sizes and/or short monitoring periods [@palmiusDetectingBipolarDepression2016; @jacobsonDigitalBiomarkersSocial2020; @kleimanUsingWearablePhysiological2019b; @kleimanCanPassiveMeasurement2021].  Recent reviews of this emerging literature have highlighted gaps in reporting on participant exclusions, attrition, and compliance that are necessary to assess selection biases and feasibility of these more novel personal sensing methods [@ortizAppsGapsBipolar2021; @faurholt-jepsenSmartphonebasedObjectiveMonitoring2018]. A better understanding of the overall and relative acceptability of various personal sensing methods is needed to determine the feasibility of these methods and to anticipate potential issues for recruitment, consent, compliance, and attrition when they are used for either research or clinical applications.
 
 
-<!-- Review added:
-
-Oritz et al., 2021 Apps and gaps in bipolar disorder: A systematic review on electronic monitoring for episode prediction (https://www.sciencedirect.com/science/article/pii/S0165032721009459)
-    - When reported, there was a high proportion of missing data: 2/15 studies reported the percentage of days on which smartphone data were missing (average of 51.4%, range = 21.8 – 88.6). Both studies reported the type of missing data, with a range from 0.3% data missing for mood scores to 43.9% for sleep data. 2/15 studies reported smartphone self-assessment adherence rates of 55.7% and 82.8% respectively. 1/15 studies reported the percentage of missing data for outcome assessments.
-
--->
-
-
 ## Acceptability of Personal Sensing
 
-Not surprisingly, much of what is known about the acceptability of personal sensing is limited to EMA.  Studies that have accessed participants' perceptions of EMA methods have generally concluded that it is acceptable to participants from both non-clinical and clinical samples [@stoneIntensiveMomentaryReporting2003; @kirkExposureAssessmentCurrent2013; @ramseyFeasibilityAcceptabilitySmartphone2016; @yangFeasibilityAcceptabilitySmartphoneBased2015; @moitraFeasibilityAcceptabilityPosthospitalization2017<!--KENDRA, you said "assessing user experience and associated burden" in your original text.  Does this wording focusing on perceptions of acceptability seem a fair interpretation of these studies conclusions
+Not surprisingly, much of what is known about the acceptability of personal sensing is limited to EMA.  Studies that have accessed participants' perceptions of EMA methods have generally concluded that it is acceptable to participants from both non-clinical and clinical samples[@stoneIntensiveMomentaryReporting2003; @kirkExposureAssessmentCurrent2013; @ramseyFeasibilityAcceptabilitySmartphone2016; @yangFeasibilityAcceptabilitySmartphoneBased2015; @moitraFeasibilityAcceptabilityPosthospitalization2017]. Similarly, participants display moderate or better compliance with respect to response rates even with relatively high sampling density (e.g., 6-9 daily assessments)[@eiseleEffectsSamplingFrequency2020; @stoneIntensiveMomentaryReporting2003; @wenComplianceMobileEcological2017]. However, these studies generally assessed participants' perceptions and compliance over short monitoring periods (i.e., 2-6 weeks).  Less is known about the use of EMA over longer duration monitoring periods (e.g., months) as would be necessary for clinical applications.  <!--KENDRA, do you know of any studies?-->
 
+Findings have been inconsistent regarding the relative impact of assessment burden on acceptability as EMA protocols require more active effort from participants due to increases in density (frequency of surveys) or depth (number of items/length of surveys)[REF<!--cite king preprint ; https://psyarxiv.com/chszq/-->.  Increased density does not appear to robustly impact perceptions or compliance [@eiseleEffectsSamplingFrequency2020; @stoneIntensiveMomentaryReporting2003; @jonesComplianceEcologicalMomentary2019; but see @wenComplianceMobileEcological2017].  However, greater survey depth may decrease both perceptions of acceptability and compliance  [@eiseleEffectsSamplingFrequency2020].  Notably, these studies were again generally limited to shorter duration monitoring periods (i.e, <= 6 weeks)
+
+```
 Kendra's notes:
-    Yes this is an accurate description. I summarized all acceptability measures by study in a csv file (burden_citations.csv). I will discuss with you at our meeting. 
-
--->]. Similarly, participants display moderate or better compliance with respect to response rates even with relatively high frequency sampling (e.g., 6-9 daily assessments)[@eiseleEffectsSamplingFrequency2020; @stoneIntensiveMomentaryReporting2003; @wenComplianceMobileEcological2017]. However, these studies generally assessed participants' perceptions and compliance over short monitoring periods (i.e., 2-6 weeks).  Less is known about the use of EMA over longer duration monitoring periods (e.g., months) as would be necessary for clinical applications.  <!--KENDRA, do you know of any studies?
-
-
-Kendra's notes:
-    Do you mean EMA studies that are over 6 weeks but don't ask about acceptability? 
-
-    Consider Wen et al., 2017 discrepancy - Clinical studies had higher compliance with more prompts and nonclinical studies had higher compliance with fewer prompts.
-    
-    Other cites reviewed below next paragraph
-
-    Are the topic sentences of above and below paragraph saying the same thing? One paragraph restricted to compliance and one inclusive of perception and compliance. 
--->
-
-Findings have been inconsistent regarding the relative impact of assessment burden (e.g., more items or more frequent assessments) as EMA protocols require more active effort from participants.  Increased assessment frequency does not appear to robustly impact perceptions or compliance [@eiseleEffectsSamplingFrequency2020; @stoneIntensiveMomentaryReporting2003; @jonesComplianceEcologicalMomentary2019; but see @wenComplianceMobileEcological2017].  However, longer assessments (i.e., more items) may decrease both perceptions of acceptability and compliance  [@eiseleEffectsSamplingFrequency2020].  Notably, these studies were again limited to shorter duration monitoring periods (i.e, <- 6 weeks <!--Kendra, can you confirm this 6 week max
-
-Kendra's notes:
-    We should consider using the terms that came out in this new preprint from Kevin King and Aiden Wright in an effort to encourage consistency in reporting EMA studies (https://psyarxiv.com/chszq/)
-    - three D’s: density (frequency of surveys), depth (length of surveys), and duration (number of days in a protocol)
-    - We could also use these terms in our methods
     - Of 66 identified unique EMA protocols on personality, studies scheduled ~6.5 assessments per day with an average of ~21 items, lasted for ~13 days, and obtained a compliance of ~75%.
 
+Ecological Momentary Assessment: A Meta-Analysis on Designs, Samples, and Compliance Across Research Fields
+Cornelia Wrzus, Andreas B. NeubauerFirst Published January 11, 
+Ecological Momentary Assessments (i.e., EMA, repeated assessments in daily life) are widespread in many fields of psychology and related disciplines. Yet, little knowledge exists on how differences in study designs and samples predict study compliance and dropout—two central parameters of data quality in (micro-)longitudinal research. The current meta-analysis included k = 477 articles (496 samples, total N = 677,536). For each article, we coded the design, sample characteristics, compliance, and dropout rate. The results showed that on average EMA studies scheduled six assessments per day, lasted for 7 days, and obtained a compliance of 79%. Studies with more assessments per day scheduled fewer assessment days, yet, the number of assessments did not predict compliance or dropout rates. Compliance was significantly higher in studies providing financial incentives. Otherwise, design or sample characteristics had little effects. We discuss the implications of the findings for planning, reporting, and reviewing EMA studies.
 
     - Jones is meta-analysis of 126 studies - 12 have duration longer than 6 weeks - see notes after next paragraph for more details
             - found no sig differences in compliance as a result of prompt frequency
@@ -315,12 +258,13 @@ Kendra's notes:
     - Stone et al., 2003 = clinical sample (chronic pain patients); 2 weeks duration; found compliance was not related to sampling density (number of prompts). 
     - Stone et al., 2002 = 
     - Eisele et al., 2020 = 2 weeks; findings offer support for increased burden (momentary and retrospective) and compromised data quantity (i.e., compliance) and quality with longer questionnaires, but not with increased sampling frequency
-    
--->)
+ ```
 
-Existing research also raises some concern about relative perceptions and compliance with EMA protocols in clinical vs. healthy samples.  For example, patients with current affective disorders reported decreased perceptions of acceptability <!-- with momentary burden but not overall burden - study notes below --> relative to patients in remission and healthy controls [@vangenugtenExperiencedBurdenAdherence2020].  However, no differences in compliance <!-- or overall burden reported retrospectively --> were observed across the three groups.  In contrast, a recent meta-analysis confirmed decreased compliance with EMA protocols in patients with substance use disorder diagnoses vs. recreational substance users [@jonesComplianceEcologicalMomentary2019]<!-- Kendra can you confirm the analyses of study duration in this meta analysis.   I'd like to cite the other study you mention below about drop off but not if this meta analysis looks at longer studies and finds nothing.-->
+<!-- INSERT PARAGRAPH ABOUT DURATION.   Can highight again that not many long duration studies.   Also, longer studies dont often look at compliance or perceptions by time.   And then note that there are a couple/few examples of compliance or drop out over time.  This assumes that there is not a clear conclusion about duration from meta analyses. If there is, lets report that instead.-->
 
+Existing research also raises some concern about relative perceptions and compliance with EMA protocols in clinical vs. healthy samples.  For example, patients with current affective disorders reported increased momentary perceptions of burden while completing EMA surveys relative to patients in remission and healthy controls [@vangenugtenExperiencedBurdenAdherence2020].  However, no differences in compliance or retrospective perceptions of burden were observed across the three groups.  In contrast, a recent meta-analysis confirmed decreased compliance with EMA protocols in patients with substance use disorder diagnoses vs. recreational substance users [@jonesComplianceEcologicalMomentary2019]<!-- Kendra can you confirm the analyses of study duration in this meta analysis.   I'd like to cite the other study you mention below about drop off but not if this meta analysis looks at longer studies and finds nothing.-->
 
+```
 <!-- Kendra notes: 
 Van Genugten et al., 2020
     - Measured momentary burden - “How disturbing is filling out a questionnaire right now?”
@@ -355,21 +299,11 @@ Yang study above:
 I also realized as I was re-reading these papers that there is also a drop in compliance at the 4th week mark in a sample of patients with psychotic-specturm disorders (Moitra et al., 2017).
     - "A significant main effect for time was found representing a decreasing rate of responses over the 4 weeks, F(3, 108) =3.16, p=.028, partial eta squared=.081. Follow-up post-hoc comparisons (all ps<.05) revealed that survey completion rates at week 4 (M=6.4; SD=7.2) were significantly lower than weeks 1(M=9.6; SD=8.5), 2 (M=9.2; SD=9.4), and 3 (M=8.3; SD=9.0)." 
     -->
-    
+```    
 
 Far less is known about participants' perceptions and compliance with more passive personal sensing methods. Some research has presented hypothetical scenarios to participants to assess their perceptions about personal sensing methods [@duncanAcceptabilitySmartphoneApplications2019; @riegerPsychiatryOutpatientsWillingness2019; @bessenyeiComfortabilityPassiveCollection2021].  Participants' willingness to share sensed data appears to vary by the data type (e.g., sleep, geolocation, social media activity).  However, it is difficult to determine how well participants' perceptions in these hypothetical scenarios would generalize to real world collection of these data. And, of course, it is impossible to measure attrition and compliance outside of explicit implementation of these sensing methods. 
 
-<!-- New article added:
-
-    - Bessenyei et al., 2021 (https://www.sciencedirect.com/science/article/pii/S2451958821000828)
-          - single survey study of comfortability sharing personal sensing data, N = 491
-          - Overall, participants indicated that they were comfortable with data being collected via mobile sensing app. 
-          - participants were the least comfortable with sharing SMS data and most comfortable with sharing physical activity data (such as walking or running).
-          - Put note about this in discussion - "Those who received mental health treatment liked the health and the communication features more than those who didn't. They were also more willing to share their data with their doctor than those who didn't receive treatment. Finally, they indicated higher intentions to accept app permissions and to use mobile apps for health, perceived more benefit and control and had more privacy related experience than the non-treated group."
-          
-    -->
-
-Preliminary research has begun to examine perceptions and compliance during real world use of passive personal sensing methods. However, this research has generally been limited by small sample sizes [@lindEffortlessAssessmentRisk2018; @ben-zeevMobileBehavioralSensing2016], use of convenience samples (e.g., students) [@lindEffortlessAssessmentRisk2018], short monitoring durations [@lindEffortlessAssessmentRisk2018; @kleimanUsingWearablePhysiological2019; @ben-zeevMobileBehavioralSensing2016], and coarse, incomplete or aggregate reporting of perceptions, compliance and related participant behaviors[@lindEffortlessAssessmentRisk2018; @ben-zeevMobileBehavioralSensing2016]. These are important first efforts but more research into the feasibility of personal sensing methods is clearly warranted.
+Preliminary research has begun to examine perceptions and compliance during real world use of passive personal sensing methods. However, this research has generally been limited by small sample sizes [@lindEffortlessAssessmentRisk2018; @ben-zeevMobileBehavioralSensing2016], use of convenience samples (e.g., students) [@lindEffortlessAssessmentRisk2018<!--ADD MORE?-->], short monitoring durations [@lindEffortlessAssessmentRisk2018; @kleimanUsingWearablePhysiological2019; @ben-zeevMobileBehavioralSensing2016], and coarse, incomplete or aggregate reporting of perceptions, compliance and related participant behaviors[@lindEffortlessAssessmentRisk2018; @ben-zeevMobileBehavioralSensing2016]. These are important first efforts but more research into the feasibility of personal sensing methods is clearly warranted.
 <!--Kendra, depending on what you find here, you might break out references and link to the specific listed limitation, or just flesh out the reference list at the end of the sentence to be a little more comprehensive (e.g., 5-6 refs)-->
 
 
