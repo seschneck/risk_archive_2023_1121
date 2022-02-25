@@ -34,30 +34,24 @@ readr::write_lines(jobs, file.path(path_jobs, name_job, "input/jobs.csv"))
 
 # copy over data files
 file.copy(from = file.path(path_data, raw_data_file_name),
-          to = file.path(path_jobs, name_job, "input/data.rds")) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "input/data.rds")) 
 file.copy(from = file.path(path_data, labels_file_name),
-          to = file.path(path_jobs, name_job, "input/labels.rds")) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "input/labels.rds"))
 file.copy(from = file.path(path_data, start_dates_file_name),
-          to = file.path(path_jobs, name_job, "input/study_dates.rds")) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "input/study_dates.rds"))
 file.copy(from = file.path(path_data, static_features_file_name),
-          to = file.path(path_jobs, name_job, "input/static_features.rds")) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "input/static_features.rds")) 
 
 # copy over function script
 file.copy(from = path_fun,
-          to = file.path(path_jobs, name_job, "input", fun_name)) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "input", fun_name))
 
 # copy over input templates (run script, submit, pre, post files)
 file.copy(from = file.path(path_templates, "input", c(list.files(file.path(path_templates, "input")))),
           to = file.path(path_jobs, name_job, "input"),
-          recursive = TRUE) %>% 
-  invisible()
+          recursive = TRUE) 
 
 # copy over output template (aggregate rows)
 file.copy(from = file.path(path_templates, "output", "post_chtc_processing.rmd"),
-          to = file.path(path_jobs, name_job, "output", "post_chtc_processing.rmd")) %>% 
-  invisible()
+          to = file.path(path_jobs, name_job, "output", "post_chtc_processing.rmd")) 
+

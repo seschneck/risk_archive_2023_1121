@@ -138,9 +138,53 @@ tabyl(out_files$size)
 read in all result CSVs
 ```{r}
 feat_files <- list.files(path_features, full.names = TRUE)
-features <- map_dfr(feat_files, ~read_rds(.x)) %>% 
-  glimpse()
+# use code block below instead if single map_dfr statement if you have over 100000 jobs
+# features <- map_dfr(feat_files, ~read_rds(.x)) %>% 
+#   glimpse()
 ```
+
+```{r}
+features <- map_dfr(feat_files[1:1000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_2000 <- map_dfr(feat_files[1001:2000], ~read_rds(.x)) %>%
+  glimpse()
+
+
+features_10000 <- map_dfr(feat_files[2001:10000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_40000 <- map_dfr(feat_files[10001:40000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_80000 <- map_dfr(feat_files[40001:80000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_100000 <- map_dfr(feat_files[80001:100000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_150000 <- map_dfr(feat_files[100001:150000], ~read_rds(.x)) %>%
+  glimpse()
+
+
+features_200000 <- map_dfr(feat_files[150001:200000], ~read_rds(.x)) %>%
+  glimpse()
+
+features_250000 <- map_dfr(feat_files[200001:250000], ~read_rds(.x)) %>%
+  glimpse()
+
+
+features_end <- map_dfr(feat_files[250001:length(feat_files)], ~read_rds(.x)) %>%
+  glimpse()
+
+features_all <- features %>% 
+  bind_rows(features_2000)
+  bind_rows(features_10000, features_40000, features_80000, features_100000,
+             features_150000,  features_250000, features_200000, features_end)
+
+write_rds(features_all, here(path_job, "output/features_aggregate_2.rds"), "xz")
+```
+
 
 
 check for missing jobs    
