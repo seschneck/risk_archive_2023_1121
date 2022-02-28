@@ -4,6 +4,7 @@
 
 ## Population studied
 
+
 * Moderate to severe AUD
 * Unstable (drop-out/attrition expected)
 * AUD is highly stigmatized
@@ -83,8 +84,6 @@
 
 ## Next steps?
 
-
-
 # Feedback from meeting
 
 hannah comments on strength of language
@@ -98,5 +97,3 @@ Questions about what it means to be acceptable.
 breach in discussion
 
 three months vs. forever
-
-
