@@ -9,10 +9,10 @@ output:
 editor_options: 
   chunk_output_type: console
 knit: (function(input, ...) {
+  })
     rmarkdown::render(
       input,
       output_dir = "P:/studydata/risk/knits/context")
-  })
 ---
 
 
@@ -533,6 +533,9 @@ other_locations <- vroom("P:/studydata/risk/data_processed/context/other_locatio
                             "public drinking spaces", "public drinking space")) %>% 
   glimpse()
 
+#checking dropped subjects
+locations %>% group_by(subid) %>% count() %>% nrow()
+
 #merge, create new type column that combines filled-in other column and original type column
 locations <- locations %>% 
   left_join(.,
@@ -541,6 +544,9 @@ locations <- locations %>%
   rename(type_original = type) %>% 
   mutate(type = coalesce(type_imputed, type_original), #fill in the new type label
          type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
+
+
+locations %>% group_by(subid) %>% count() %>% nrow()
 
 #saving a copy for Xinyi's reference and transparency
 locations %>% 
