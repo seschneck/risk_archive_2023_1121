@@ -256,6 +256,136 @@ audio_days %>%
 
 <br>
 
+**Compliance over time**
+
+Get all study days for each subid
+```{r}
+# function to map over
+get_study_days <- function(the_subid, dates) {
+  start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
+  end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
+  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study, by = "day")) 
+  return(study_days)
+}
+
+subids <- fu_1$subid
+dates <- fu_1 %>% 
+  select(subid, start_study, end_study)
+
+study_dates <- subids %>% 
+  map_dfr(~get_study_days(.x, dates))
+```
+
+Count EMAs per study day
+```{r}
+# count audio surveys per day
+audio_count <- audio %>%  
+  count(subid, date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
+
+# left join with study dates
+audio_study_dates <- study_dates %>% 
+  left_join(audio_count, by = c("subid", "study_day" = "date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1)
+```
+
+
+Slice into 7 day bins 
+```{r}
+audio_study_weeks <- audio_study_dates %>% 
+  group_by(subid) %>% 
+  slice(1:7) %>% 
+  mutate(week = 1) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(8:14) %>% 
+    mutate(week = 2)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(15:21) %>% 
+    mutate(week = 3)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(22:28) %>% 
+    mutate(week = 4)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(29:35) %>% 
+    mutate(week = 5)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(36:42) %>% 
+    mutate(week = 6)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(43:49) %>% 
+    mutate(week = 7)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(50:56) %>% 
+    mutate(week = 8)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(57:63) %>% 
+    mutate(week = 9)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(64:70) %>% 
+    mutate(week = 10)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(71:77) %>% 
+    mutate(week = 11)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(78:84) %>% 
+    mutate(week = 12)) %>% 
+  ungroup()
+```
+
+
+Get individual compliance scores 
+```{r}
+audio_week_compliance <- audio_study_weeks %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup()
+```
+
+Summarize total compliance
+```{r}
+audio_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance)) 
+```
+
+Plot compliance by week
+```{r}
+audio_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance)) %>% 
+  ggplot(aes(x = week, y = mean_compliance)) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  scale_x_continuous(name = "Week", 
+                     breaks = seq(1, 12, 1)) +
+  scale_y_continuous(name = "Compliance", 
+                     breaks = seq(0, 1, .1), 
+                     limits = c(0, 1)) +
+  labs(title = "Audio compliance over time",
+       caption = "<i>Note:</i>  Average participant compliance (N = 154) for audio surveys each week <br>on study. Dashed line represents overall mean compliance.") +
+  theme(legend.title = element_blank(),
+        legend.text = element_markdown(),
+        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
+        text = element_text(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
+  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
+```
+
 #### EMA
 
 Join morning and evening EMA datasets
@@ -402,26 +532,6 @@ ema_total %>%
 
 **Compliance over time**
 
-Get all study days for each subid
-```{r}
-# function to map over
-get_study_days <- function(the_subid, dates) {
-  start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
-  end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
-  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study, by = "day")) 
-  return(study_days)
-}
-
-subids <- fu_1$subid
-dates <- fu_1 %>% 
-  select(subid, start_study, end_study)
-
-study_dates <- subids %>% 
-  map_dfr(~get_study_days(.x, dates))
-```
-
-
-
 Count EMAs per study day
 ```{r}
 # count EMAs per day
@@ -536,17 +646,27 @@ ema_week_compliance %>%
 
 **Compliance - at least 1 EMA per day**
 
+Get individual compliance scores 
 ```{r}
-ema_study_weeks %>% 
-  rowwise() %>% 
-  mutate(compliance = if_else(n >= 1, 1, 0)) %>% 
+ema_1_week_compliance <- ema_study_weeks %>%
+  mutate(n = if_else(n > 1, 1, n),
+         n_prompts = 1) %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup()
+```
+
+Summarize total compliance
+```{r}
+ema_1_week_compliance %>% 
   group_by(week) %>% 
   summarize(mean_compliance = mean(compliance)) 
+```
 
 
-ema_study_weeks %>% 
-  rowwise() %>% 
-  mutate(compliance = if_else(n >= 1, 1, 0)) %>% 
+```{r}
+ema_1_week_compliance %>% 
   group_by(week) %>% 
   summarize(mean_compliance = mean(compliance)) %>% 
   ggplot(aes(x = week, y = mean_compliance)) +
@@ -568,4 +688,3 @@ ema_study_weeks %>%
         plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
   geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
 ```
-
