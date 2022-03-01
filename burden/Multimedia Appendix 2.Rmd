@@ -591,7 +591,8 @@ time_plot <- acceptability_time %>%
   select(time,
          contains("interfere"),
          contains("dislike"),
-         contains("1year")) %>% 
+         contains("1year"),
+         -daily_survey_1_1year) %>% 
   pivot_longer(sleep_interfere:all_logs_1year, "measure") %>% 
   mutate(acceptability = case_when(measure %in% dislike$measure ~ "Dislike",
                              measure %in% interfere$measure ~ "Interference",
