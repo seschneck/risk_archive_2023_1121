@@ -84,16 +84,13 @@
 
 ## Next steps?
 
-# Feedback from meeting
+## Other issues to work in above from our discussion
 
-hannah comments on strength of language
+* breach in discussion
 
-Gaylen's comments  on intro order
+* three months vs. forever
 
-Duration repetitiveness
 
-Questions about what it means to be acceptable.
 
-breach in discussion
 
-three months vs. forever
+
