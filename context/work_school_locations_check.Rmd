@@ -518,7 +518,9 @@ location_descriptions <- read_csv("./context/user_locations_check.csv",
 
 ```{r import locations}
 locations <- vroom("P:/studydata/risk/data_processed/context/locations.csv",
-                      col_names = TRUE) 
+                      col_names = TRUE) %>% 
+  rename(long = lon) %>% 
+  mutate(time = as_datetime(utc))
 ```
 
 There are `r nrow(locations)` unique labeled locations for `r length(unique(locations$subid))` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
@@ -546,11 +548,11 @@ locations <- locations %>%
          type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
 
 
-locations %>% group_by(subid) %>% count() %>% nrow()
-
-#saving a copy for Xinyi's reference and transparency
 locations %>% 
-  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()
+
 ```
 
 
@@ -708,12 +710,12 @@ Participants flagged for review of missing data for the following reasons (see m
 
 ##### Check people with missing data
 ```{r}
-sparse_gps_maps <- location_check %>% 
-  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
-  pull(subid) %>% 
-  map(~check_labeled_places(.x, "home"))
+#sparse_gps_maps <- location_check %>% 
+#  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
+#  pull(subid) %>% 
+#  map(~check_labeled_places(.x, "home"))
 
-sparse_gps_maps 
+#sparse_gps_maps 
 ```
 
 ###### Remove data & document
@@ -762,13 +764,13 @@ manual_check_subids <- location_check %>%
   filter(action == "manual check") %>% 
   pull(subid)
 
-home_maps <- map(manual_check_subids, ~investigate_homes(.x))
+#home_maps <- map(manual_check_subids, ~investigate_homes(.x))
 ```
 
 ###### Results
 
 ```{r}
-home_maps
+#home_maps
 ```
 
 
@@ -791,15 +793,15 @@ manual_check_subids <- location_check %>%
          action == "manual check") %>% 
   pull(subid)
 
-work_maps <- map(manual_check_subids, ~investigate_works(.x))
+#work_maps <- map(manual_check_subids, ~investigate_works(.x))
 ```
 
 
 ###### Results
 
 ```{r}
-work_maps_multiple
-work_maps
+#work_maps_multiple
+#work_maps
 ```
 
 ##### Updating action for people with multiple works and homes
@@ -879,11 +881,13 @@ location_check %>%
 
 locations %>% 
   filter(!subid %in% drop_subids) %>% 
-  write_delim("P:/studydata/risk/data_processed/context/locations.csv")
+  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
 
 #save 
-gps %>%
-  filter(!subid %in% drop_subids) %>% 
+gps <- gps %>%
+  filter(!subid %in% drop_subids) 
+
+gps %>% 
   write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
 
 ```
@@ -901,7 +905,7 @@ vroom("P:/studydata/risk/data_processed/context/location_check.csv") %>%
   count() %>% 
   nrow()  
 
-vroom("P:/studydata/risk/data_processed/context/locations.csv") %>% 
+vroom("P:/studydata/risk/data_processed/context/locations_other_imputed.csv") %>% 
   group_by(subid) %>% 
   count() %>% 
   nrow()  
