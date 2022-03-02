@@ -504,8 +504,9 @@ investigate_works <- function(subid){
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./context/user_locations_check.csv",
-                                  skip = 1, col_names = TRUE) %>% 
+location_descriptions <- read_csv(
+  "./context/user_locations_check.csv",
+  skip = 1, col_names = TRUE) %>% 
   clean_names("snake") %>% 
   rename(
     n_home_locations = location_home,
@@ -518,7 +519,9 @@ location_descriptions <- read_csv("./context/user_locations_check.csv",
 
 ```{r import locations}
 locations <- vroom("P:/studydata/risk/data_processed/context/locations.csv",
-                      col_names = TRUE) 
+                      col_names = TRUE) %>% 
+  rename(long = lon) %>% 
+  mutate(time = as_datetime(utc))
 ```
 
 There are `r nrow(locations)` unique labeled locations for `r length(unique(locations$subid))` subjects. `r nrow(filter(locations, is.na(lat)))` observations are missing latitude and longitude.
@@ -546,11 +549,11 @@ locations <- locations %>%
          type = str_replace(type, "^other$", NA_character_)) #replace 'other' with NA
 
 
-locations %>% group_by(subid) %>% count() %>% nrow()
-
-#saving a copy for Xinyi's reference and transparency
 locations %>% 
-  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()
+
 ```
 
 
@@ -708,12 +711,12 @@ Participants flagged for review of missing data for the following reasons (see m
 
 ##### Check people with missing data
 ```{r}
-sparse_gps_maps <- location_check %>% 
-  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
-  pull(subid) %>% 
-  map(~check_labeled_places(.x, "home"))
+#sparse_gps_maps <- location_check %>% 
+#  filter(action == "check missing gps" | action == "check adjusted gps") %>% 
+#  pull(subid) %>% 
+#  map(~check_labeled_places(.x, "home"))
 
-sparse_gps_maps 
+#sparse_gps_maps 
 ```
 
 ###### Remove data & document
@@ -736,15 +739,11 @@ gps <- gps %>%
 #Not dropping 21 (1932 obs total), 28 (8616 total), 80 (8398 total), 84 (2215 obs total), 117 (2854 obs total)
 # 207 (2409 obs total)-- data looks like it may work
 
-#save 
-gps %>% 
-  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
 
 gps_counts <- gps %>% 
   group_by(subid) %>% 
   count()
 
-rm(gps)
 
 #document
 location_check <- location_check %>% 
@@ -766,13 +765,13 @@ manual_check_subids <- location_check %>%
   filter(action == "manual check") %>% 
   pull(subid)
 
-home_maps <- map(manual_check_subids, ~investigate_homes(.x))
+#home_maps <- map(manual_check_subids, ~investigate_homes(.x))
 ```
 
 ###### Results
 
 ```{r}
-home_maps
+#home_maps
 ```
 
 
@@ -781,10 +780,10 @@ home_maps
 First, examine simpler maps for people with more than 3 work locations
 
 ```{r}
-work_maps_multiple <- location_check %>% 
-  filter(action == "manual check - more than 3 work locations") %>% 
-  pull(subid) %>% 
-  map(~check_labeled_places(.x, "work"))
+#work_maps_multiple <- location_check %>% 
+#  filter(action == "manual check - more than 3 work locations") %>% 
+#  pull(subid) %>% 
+#  map(~check_labeled_places(.x, "work"))
 ```
 
 
@@ -795,15 +794,15 @@ manual_check_subids <- location_check %>%
          action == "manual check") %>% 
   pull(subid)
 
-work_maps <- map(manual_check_subids, ~investigate_works(.x))
+#work_maps <- map(manual_check_subids, ~investigate_works(.x))
 ```
 
 
 ###### Results
 
 ```{r}
-work_maps_multiple
-work_maps
+#work_maps_multiple
+#work_maps
 ```
 
 ##### Updating action for people with multiple works and homes
@@ -877,19 +876,42 @@ drop_subids <- location_check %>%
            action == "data removed due to sparse gps") %>% 
   pull(subid)
 
+location_check %>% 
+  select(-gps_data) %>% 
+  write_delim("P:/studydata/risk/data_processed/context/location_check.csv")
+
 locations %>% 
-  filter(subid %in% drop_subids) %>% 
+  filter(!subid %in% drop_subids) %>% 
   write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+
+#save 
+gps <- gps %>%
+  filter(!subid %in% drop_subids) 
+
+gps %>% 
+  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+
 ```
 
 ```{r}
+#check saved files
 
+vroom("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()
+
+vroom("P:/studydata/risk/data_processed/context/location_check.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()  
+
+vroom("P:/studydata/risk/data_processed/context/locations_other_imputed.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()  
 ```
 
 
 
-### Notes 
-
-- Apartment addresses are often a little removed from their gps location 
-- People who are affiliated with the university, and have multiple locations marked on campus. These people are currently labeled as needing overlapping zones checked.
 
