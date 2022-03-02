@@ -736,15 +736,11 @@ gps <- gps %>%
 #Not dropping 21 (1932 obs total), 28 (8616 total), 80 (8398 total), 84 (2215 obs total), 117 (2854 obs total)
 # 207 (2409 obs total)-- data looks like it may work
 
-#save 
-gps %>% 
-  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
 
 gps_counts <- gps %>% 
   group_by(subid) %>% 
   count()
 
-rm(gps)
 
 #document
 location_check <- location_check %>% 
@@ -877,19 +873,40 @@ drop_subids <- location_check %>%
            action == "data removed due to sparse gps") %>% 
   pull(subid)
 
+location_check %>% 
+  select(-gps_data) %>% 
+  write_delim("P:/studydata/risk/data_processed/context/location_check.csv")
+
 locations %>% 
-  filter(subid %in% drop_subids) %>% 
-  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+  filter(!subid %in% drop_subids) %>% 
+  write_delim("P:/studydata/risk/data_processed/context/locations.csv")
+
+#save 
+gps %>%
+  filter(!subid %in% drop_subids) %>% 
+  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+
 ```
 
 ```{r}
+#check saved files
 
+vroom("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()
+
+vroom("P:/studydata/risk/data_processed/context/location_check.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()  
+
+vroom("P:/studydata/risk/data_processed/context/locations.csv") %>% 
+  group_by(subid) %>% 
+  count() %>% 
+  nrow()  
 ```
 
 
 
-### Notes 
-
-- Apartment addresses are often a little removed from their gps location 
-- People who are affiliated with the university, and have multiple locations marked on campus. These people are currently labeled as needing overlapping zones checked.
 
