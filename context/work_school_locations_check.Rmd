@@ -504,8 +504,9 @@ investigate_works <- function(subid){
 ### Import file
 
 ```{r import locations check}
-location_descriptions <- read_csv("./user_locations_check.csv",
-                                  skip = 1, col_names = TRUE) %>% 
+location_descriptions <- read_csv(
+  "./context/user_locations_check.csv",
+  skip = 1, col_names = TRUE) %>% 
   clean_names("snake") %>% 
   rename(
     n_home_locations = location_home,
@@ -779,10 +780,10 @@ manual_check_subids <- location_check %>%
 First, examine simpler maps for people with more than 3 work locations
 
 ```{r}
-work_maps_multiple <- location_check %>% 
-  filter(action == "manual check - more than 3 work locations") %>% 
-  pull(subid) %>% 
-  map(~check_labeled_places(.x, "work"))
+#work_maps_multiple <- location_check %>% 
+#  filter(action == "manual check - more than 3 work locations") %>% 
+#  pull(subid) %>% 
+#  map(~check_labeled_places(.x, "work"))
 ```
 
 
