@@ -60,6 +60,7 @@ library(lubridate)
 library(cowplot)
 library(data.table)
 library(patchwork)
+library(vroom)
 ```
 
 
@@ -67,46 +68,51 @@ library(patchwork)
 
 ```{r}
 visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols())
-ema_m <- read_csv(file.path(path_shared, "ema_morning.csv"), col_types = cols())
-ema_l <- read_csv(file.path(path_shared, "ema_later.csv"), col_types = cols())
-audio <- read_csv(file.path(path_shared, "audio.csv"), col_types = cols())
-gps <- read_rds(file.path(path_shared, "gps.rds"))
+ema_m <- vroom(file.path(path_shared, "ema_morning.csv"), col_types = vroom::cols()) %>% 
+  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
+         subid = as.numeric(subid))
+ema_l <- vroom(file.path(path_shared, "ema_later.csv"), col_types = vroom::cols()) %>% 
+  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
+         subid = as.numeric(subid))
+audio <- vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
+  mutate(subid = as.numeric(subid))
 
-# using vroom for large csv files
-sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols()) 
-sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols())  
+
+
+# passive - update dates if daily compliance calculated
+gps <- read_rds(file.path(path_shared, "gps.rds"))
+sms_android <- vroom::vroom(file.path(path_shared, "sms_android.csv"), col_types = cols())
+sms_ios <- vroom::vroom(file.path(path_shared, "sms_ios.csv"), col_types = cols())
 voice_android <- vroom::vroom(file.path(path_shared, "voice_android.csv"), col_types = cols())
 voice_ios <- vroom::vroom(file.path(path_shared, "voice_ios.csv"), col_types = cols())
 ```
 
-Filter visit dates down to enrolled participants (N = 169). Study start and end dates will be used to filter data streams down to when participants were officially on study for compliance proportions.
-```{r}
-visit_dates <- visit_dates %>% 
-  filter(!is.na(start_study)) %>% 
-  # filter out subid who started and ended study on same day - not considered enrolled
-  filter(subid != 235) 
-```
-
-<br>
-
 
 ### Compliance for Passive Data Streams 
 
-Check if data exists for every passive data stream for all participants. This will be used to 
-judge whether participants opted-in to passive data streams at least at some point during the study.    
+Check if data exists for every passive data stream for all participants.  
 
+
+Use enrolled participants (N = 169) since they opt in at time of enrollment:   
+Filter visit dates down to enrolled participants
+```{r}
+visit_dates <- visit_dates %>%
+  filter(!is.na(start_study)) %>%
+  # filter out subid who started and ended study on same day - not considered enrolled
+  filter(subid != 235)
+```
 
 #### GPS
 
 `r nrow(gps %>% count(subid))` (`r round(nrow(gps %>% count(subid))/nrow(visit_dates)*100, 2)`%) of the enrolled subids (N = 169) have gps data   
-
-Enrolled subids with no gps data
+ 
+Enrolled subids with no gps data     
+No notes as to why
 ```{r}
 visit_dates %>% 
   filter(!subid %in% gps$subid) 
 ```
 
-<br>
 
 
 #### Cellular communication logs 
@@ -121,7 +127,6 @@ fu_1 <- visit_dates %>%
   filter(!is.na(followup_1))
 ```
 
-<br>
 
 
 **Voice Logs**
@@ -137,15 +142,12 @@ voice <- voice_android %>%
 `r nrow(voice %>% count(subid))` subids have voice call data.    
 
 * We have voice logs for 1 subid who never completed their follow-up 1 visit      
-According to notes: Subid 237 arrived to Follow-up 1 but asked to be discontinued before data was collected. They needed to leave shortly after their visit time started so unreported contacts locations and ID Battery were NOT collected. Call and SMS logs were collected at FU1 but numbers were not gone over with participant.
-
-<br>
-
-`r nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have voice log data.
+According to notes: Subid 237 arrived to Follow-up 1 but asked to be discontinued before data was collected. They needed to leave shortly after their visit time started so unreported contacts locations and ID Battery were NOT collected. Call and SMS logs were collected at FU1 but numbers were not gone over with participant.    
 
 
 
-<br>
+`r nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(voice, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have voice log data.     
+
 
 **SMS Logs**
  
@@ -158,105 +160,42 @@ sms <- sms_android %>%
 ```
 
 
-`r nrow(sms %>% count(subid))` subids have sms data.   
+`r nrow(sms %>% count(subid))` subids have sms data.    
 
-* We have SMS logs for subid 237 but they never completed their follow-up 1 visit.
+* We have SMS logs for subid 237 but they never completed their follow-up 1 visit.    
 
-<br>
 
-`r nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have SMS data.
+`r nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))` (`r round(nrow(subset(sms, subid %in% fu_1$subid) %>% count(subid))/(nrow(fu_1 %>% count(subid)))*100, 2)`%) of the subids who completed follow-up 1 (N = 154) have SMS data.     
 
-<br>
 
-Missing SMS logs for 1 subid    
-According to Notes: Subject's SMS files are empty because the subject deleted all text messages before their study visit; They also did not text much.  
+
+Missing SMS logs for 1 subid         
+According to Notes: Subject's SMS files are empty because the subject deleted all text messages before their study visit; They also did not text much.      
 ```{r}
 fu_1 %>% 
   filter(!subid %in% sms$subid)
 ```
 
 
-
-<br>
-
 ### Compliance for Active Data Streams
 
-Enrolled subids (N = 169) serves as the denominator for all compliance measures unless otherwise noted.
+Analysis sample (N = 154) serves as the denominator for all compliance measures below unless otherwise noted.   
 
 #### Audio  
 
-`r nrow(audio %>% count(subid))` (`r round(nrow(audio %>% count(subid))/nrow(visit_dates)*100, 2)`%) subids have audio data   
+```{r}
+audio <- audio %>% 
+  filter(subid %in% fu_1$subid)
+```
+
+`r nrow(audio %>% count(subid))` (`r round(nrow(audio %>% count(subid))/nrow(fu_1)*100, 2)`%) subids have audio data   
 
 Enrolled subids with no audio data
 ```{r}
-visit_dates %>% 
+fu_1 %>% 
   filter(!subid %in% as.numeric(audio$subid)) 
 ```
 
-
-Remove duplicate audio check ins on same day and filter by start end date
-```{r}
-audio <- audio %>% 
-  group_by(subid, date) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
-  mutate(subid = as.numeric(subid)) %>% 
-  select(subid, date)
-
-audio <- audio %>% 
-  full_join(visit_dates, by = "subid") %>% 
-  # truncate by start and end date
-  filter(date >= start_study & date < end_study)
-```
-
-calculate proportion days with audio
-```{r}
-# days with audio
-audio_days <- audio %>% 
-  group_by(subid) %>% 
-  summarise(days_audio = n()) %>% 
-  ungroup()
-
-# days on study
-audio_days <- visit_dates %>% 
-  mutate(days_study = as.numeric(end_study - start_study)) %>% 
-  full_join(audio_days, by = "subid") %>% 
-  mutate(days_audio = case_when(is.na(days_audio) ~ 0,
-                                TRUE ~ as.numeric(days_audio)),
-         days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator
-                                TRUE ~ days_study))
-```
-
-Calculate mean compliance
-```{r}
-mean_audio <- audio_days %>% 
-  summarise(proportion_days = days_audio/days_study) %>% 
-  summarise(mean = mean(proportion_days, na.rm = TRUE))
-```
-
-<br>
-
-On average participants (N = 169) completed `r round(mean_audio$mean, 2)` audio checkins each day they were on study. That is their overall compliance for a once daily audio check-in was `r round(mean_audio$mean, 2)*100`%.
-
-<br>
-
-Histogram
-```{r}
-audio_days %>% 
-  summarise(proportion_days = days_audio/days_study) %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0)) +
-  labs(y = "Frequency", x = "Proportion of study days with an audio check-in",
-       subtitle = "Audio Check-in") +
-  geom_vline(aes(xintercept = mean_audio$mean), size = .4) +
-  theme_classic() +
-  theme(text = element_text()) 
-```
-
-<br>
-
-**Compliance over time**
 
 Get all study days for each subid
 ```{r}
@@ -264,7 +203,7 @@ Get all study days for each subid
 get_study_days <- function(the_subid, dates) {
   start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
   end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
-  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study, by = "day")) 
+  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study - days(1), by = "day")) 
   return(study_days)
 }
 
@@ -290,6 +229,19 @@ audio_study_dates <- study_dates %>%
   mutate(n_prompts = 1)
 ```
 
+calculate mean compliance
+```{r}
+mean_audio <- audio_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+```
+
+
+
+On average participants (N = 154) completed `r round(mean_audio$mean, 2)` audio checkins each day they were on study. That is their overall compliance for a once daily audio check-in was `r round(mean_audio$mean, 2)*100`%.    
+
+
+**Compliance over time**
 
 Slice into 7 day bins 
 ```{r}
@@ -395,142 +347,43 @@ ema <- ema_m %>%
   full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
   mutate(start_date = date(start_date),
          subid = as.numeric(subid)) %>% 
-  # Subid 55 re-enrolled as subid 61. These observations should not be considered. 
-  filter(subid != 55)
+  filter(subid %in% fu_1$subid)
 ```
 
-`r nrow(ema %>% count(subid))` (`r round(nrow(ema %>% count(subid))/nrow(visit_dates)*100, 2)`%) subids have ema data   
+`r nrow(ema %>% count(subid))` (`r round(nrow(ema %>% count(subid))/nrow(fu_1)*100, 2)`%) subids have ema data   
 
-<br>
+
 
 **Days with at least 1 EMA**
-```{r message = FALSE}
-ema_one_daily <- ema %>% 
-  group_by(subid, start_date) %>% 
-  slice(1)  %>% 
-  full_join(visit_dates, by = "subid") %>% 
-  # truncate by start and end date
-  filter(start_date >= start_study & start_date < end_study)
-```
 
-calculate proportion days with 1 ema
+Count EMAs per study day
 ```{r}
-# days with 1 ema
-ema_days <- ema_one_daily %>% 
-  group_by(subid) %>% 
-  summarise(days_ema = n()) %>% 
-  ungroup()
+# count EMAs per day
+ema_1_count <- ema %>%  
+  count(subid, start_date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
 
-# days on study
-ema_days <- visit_dates %>% 
-  mutate(days_study = as.numeric(end_study - start_study)) %>% 
-  full_join(ema_days, by = "subid") %>% 
-  mutate(days_ema = case_when(is.na(days_ema) ~ 0,
-                                TRUE ~ as.numeric(days_ema)),
-         days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator (1 subid)
-                                TRUE ~ days_study))
+# left join with study dates
+ema_1_study_dates <- study_dates %>% 
+  left_join(ema_1_count, by = c("subid", "study_day" = "start_date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1)
 ```
 
-Calculate Mean Proportion
+
+calculate mean compliance
 ```{r}
-mean_ema_days <- ema_days %>% 
-  summarise(proportion_days = days_ema/days_study) %>% 
-  summarise(mean = mean(proportion_days, na.rm = TRUE))
+mean_ema_1 <- ema_1_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
 ```
 
-<br>
-
-On average participants (N = 169) complied with at least one daily EMA on `r round(mean_ema_days$mean, 2)*100`% of study days.
-
-<br>
-
-Histogram
-```{r warning = FALSE}
-ema_days %>% 
-  summarise(proportion_days = days_ema/days_study) %>% 
-  ggplot(aes(x = proportion_days)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
-  labs(y = "Frequency", x = "Proportion of study days with at least one EMA completed",
-       subtitle = "1 Time Daily EMA Compliance") +
-  geom_vline(aes(xintercept = mean_ema_days$mean), size = .4) +
-  theme_classic()
-```
+mean compliance for one daily survey is `r mean_ema_1$mean`
 
 
-<br>
+
 
 **Overall proportion of EMAs completed while on study**
-
-```{r message = FALSE}
-ema_total <- ema_m %>% 
-  select(subid, start_date) %>% 
-  full_join(ema_l %>% select(subid, start_date)) %>% 
-  mutate(start_date = date(start_date),
-         subid = as.numeric(subid)) %>% 
-  full_join(visit_dates, by = "subid") %>% 
-  # truncate by start and end date
-  filter(start_date >= start_study & start_date < end_study)
-```
-
-calculate proportion of total emas completed
-```{r}
-# total emas
-ema_total <- ema_total %>% 
-  group_by(subid, start_date) %>% 
-  summarise(num_emas = n(), .groups = "drop") %>% 
-  ungroup() %>% 
-  mutate(num_emas = case_when(num_emas > 4 ~ 4,
-                              TRUE ~ as.numeric(num_emas))) %>% 
-  group_by(subid) %>% 
-  summarise(total_ema = sum(num_emas))
-
-# days on study
-ema_total <- visit_dates %>% 
-  mutate(days_study = as.numeric(end_study - start_study)) %>% 
-  full_join(ema_total, by = "subid") %>% 
-  mutate(total_ema = case_when(is.na(total_ema) ~ 0,
-                                TRUE ~ as.numeric(total_ema)),
-         days_study = case_when(days_study == 0 ~ as.numeric(NA), # to prevent errors from dividing by 0 denominator (1 subid)
-                                TRUE ~ days_study))
-```
-
-Calculate average overall compliance
-```{r}
-mean_ema <- ema_total %>% 
-  summarise(proportion_ema = total_ema/days_study) %>% 
-  summarise(mean = mean(proportion_ema, na.rm = TRUE))
-
-mean_ema_total <- ema_total %>% 
-  summarise(proportion_ema = total_ema/(days_study * 4)) %>% 
-  summarise(mean = mean(proportion_ema, na.rm = TRUE))
-```
-
-<br>
-
-Participants on average completed `r round(mean_ema, 2)` EMAs per day with an overall compliance of `r round(mean_ema_total, 2)*100`%.  
-
-<br>
-
-
-Histogram of proportion of total EMAs completed
-```{r warning = FALSE}
-ema_total %>% 
-  summarise(proportion_ema = total_ema/(days_study * 4)) %>% 
-  ggplot(aes(x = proportion_ema)) +
-  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .05) +
-  scale_x_continuous(breaks = c(0.0, 0.25, 0.50, 0.75, 1.0), limits = c(0, 1.05)) +
-  labs(y = "Frequency", x = "Proportion of total EMA's completed while on study (max = 4 x's per day)",
-       subtitle = "Total EMA Compliance") +
-  geom_vline(aes(xintercept = mean_ema_total$mean), size = .4) +
-  theme_classic()
-```
-
-
-<br>
-
-
-**Compliance over time**
 
 Count EMAs per study day
 ```{r}
@@ -546,6 +399,20 @@ ema_study_dates <- study_dates %>%
   mutate(n_prompts = 4)
 ```
 
+calculate mean compliance
+```{r}
+mean_ema_4 <- ema_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+```
+
+compliance = `r mean_ema_4$mean`   
+
+avg emas = `r mean(ema_study_dates$n)`
+
+
+
+**Compliance over time**
 
 Slice into 7 day bins 
 ```{r}
