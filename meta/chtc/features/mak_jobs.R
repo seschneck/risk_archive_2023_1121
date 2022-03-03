@@ -5,7 +5,7 @@ suppressPackageStartupMessages({
 })
 
 # CHANGE ME
-name_job <- "features_1_hour"
+name_job <- "features_test"
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/features/"
 path_templates <- "./meta/chtc/features/templates"
 path_data <- "P:/studydata/risk/data_processed/meta" 
@@ -16,7 +16,10 @@ raw_data_file_name <- "meta_logs.rds"
 start_dates_file_name <- "study_dates.rds"
 static_features_file_name <- "static_features.rds"
 n_jobs <- nrow(read_rds(file.path(path_data, labels_file_name)))
-jobs <- seq(1:n_jobs) # this is equivalent to row numbers of labels that will be used 
+# create start and end job number for slicing labels
+labels_per_job <- 100
+job_start <- seq(1, n_jobs, by = labels_per_job) 
+job_stop <- c(seq(job_start[2]-1, n_jobs, by = labels_per_job), n_jobs)
 
 
 # DON'T CHANGE
@@ -30,7 +33,8 @@ if (!dir.exists(file.path(path_jobs, name_job))) {
 }
 
 # save out jobs txt file for queue
-readr::write_lines(jobs, file.path(path_jobs, name_job, "input/jobs.csv"))
+jobs <- tibble(job_start, job_stop)
+readr::write_csv(jobs, file.path(path_jobs, name_job, "input/jobs.csv"), col_names = FALSE)
 
 # copy over data files
 file.copy(from = file.path(path_data, raw_data_file_name),
