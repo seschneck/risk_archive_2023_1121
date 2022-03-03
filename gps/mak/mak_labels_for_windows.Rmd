@@ -220,7 +220,7 @@ Make labels with 1 hour window duration
 tic()
 labels_1_hour <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 3600),
+                                    buffer_start = 0, window_dur = 60 * 60),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
@@ -231,7 +231,7 @@ Make labels with 1 day window duration
 tic()
 labels_1_day <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 86400),
+                                    buffer_start = 0, window_dur = 24 * 60 * 60),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
@@ -242,7 +242,7 @@ Make labels with 1 week window duration
 tic()
 labels_1_week <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 604800),
+                                    buffer_start = 0, window_dur = 7 * 24 * 60 * 60),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 toc()
@@ -502,13 +502,13 @@ labels_1_week %>%
 save as compressed rds files for CHTC
 ```{r}
 labels_1_hour %>% 
-  write_rds(here(path_meta, "labels_1_hour.rds"), compress = "xz")
+  write_rds(here(path_gps, "labels_1_hour.rds"), compress = "xz")
 
 labels_1_day %>% 
-  write_rds(here(path_meta, "labels_1_day.rds"), compress = "xz")
+  write_rds(here(path_gps, "labels_1_day.rds"), compress = "xz")
 
 labels_1_week %>% 
-  write_rds(here(path_meta, "labels_1_week.rds"), compress = "xz")
+  write_rds(here(path_gps, "labels_1_week.rds"), compress = "xz")
 ```
 
 
