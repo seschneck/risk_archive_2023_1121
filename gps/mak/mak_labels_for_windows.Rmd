@@ -363,152 +363,45 @@ labels_1_week %>%
 
 #### Labels per subid
 
-`r length(unique(labels_1_hour$subid))` of `r length(unique(dates$subid))` subids have 1 hour labels.  
-
 ```{r}
 labels_1_hour %>% 
   tabyl(subid, label) %>% 
+  arrange(lapse) %>% 
   adorn_totals("col")
 ```
 
-
-`r length(unique(labels_1_day$subid))` of `r length(unique(dates$subid))` subids have 1 day labels.  
 
 ```{r}
 labels_1_day %>% 
   tabyl(subid, label) %>% 
+  arrange(lapse) %>% 
   adorn_totals("col")
 ```
-
-`r length(unique(labels_1_week$subid))` of `r length(unique(dates$subid))` subids have 1 week labels.  
 
 ```{r}
 labels_1_week %>% 
   tabyl(subid, label) %>% 
+  arrange(lapse) %>% 
   adorn_totals("col")
 ```
 
-
-
-#### Check all valid lapses retained
-
-`r nrow(subset(labels_1_hour, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 hour labels.  
-
-
-These counts are off because they are not at the hour level:   
-`r nrow(subset(labels_1_day, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 day labels.  
-
-`r nrow(subset(labels_1_week, label == "lapse"))` of `r nrow(subset(lapses, exclude == FALSE))` valid lapses retained in 1 week labels.  
-  
- 
-`r nrow(subset(left_join(lapses, dates, by = "subid"), !exclude & date(study_start) == date(lapse_start)))` valid lapses occurred on a participants' first day on study (i.e., day after intake).     
-```{r}
-lapses %>% 
-  left_join(dates, by = "subid") %>% 
-  filter(!exclude & date(study_start) == date(lapse_start)) %>% 
-  print_kbl()
-```
-
-
-
-#### Check no excluded lapses were retained
-
-1 hour window
-```{r}
-labels_1_hour %>% 
-  filter(label == "lapse") %>% 
-  left_join(lapses %>% select(subid, lapse_start, exclude), 
-            by = c("subid", "dttm_label" = "lapse_start")) %>% 
-  tabyl(exclude)
-```
-
-`r nrow(subset(left_join(labels_1_hour, lapses, by = c("subid", "dttm_label" = "lapse_start")), exclude & label == "lapse"))` excluded lapse is showing as included
-```{r}
-labels_1_hour %>% 
-  left_join(lapses, by = c("subid", "dttm_label" = "lapse_start")) %>% 
-  filter(exclude & label == "lapse") %>% 
-  glimpse()
-```
-
-
-Excluded lapse included in labels was excluded for being a future lapse (times removed during pre-processing)
-```{r}
-ema <- vroom(here(path_processed, "ema_later.csv"), col_types = vroom::cols())%>% 
-  rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
-  mutate(start_date = with_tz(start_date, "America/Chicago"),
-         end_date = with_tz(end_date, "America/Chicago")) %>% 
-  select(subid, response_id, start_date, end_date, ema_1_1:ema_1_4)
-
-ema %>% 
-  filter(response_id == "R_eWLl6bIFFddp6cV") %>%
-  left_join(lapses %>% select(response_id, lapse_start, exclude, lapse_cnt), 
-            by = "response_id") %>% 
-  mutate(diff = difftime(end_date, lapse_start, units = "hours")) %>% 
-  glimpse()
-```
-
-The same lapse is later reported and included (no longer a future lapse) - 2 different response_ids    
-Since this is a valid lapse it is okay that it is retained in our final labels
-```{r}
-lapses %>% 
-  filter(lapse_start == subset(left_join(ema, lapses, by = "response_id"), 
-                               response_id == "R_eWLl6bIFFddp6cV")$lapse_start)
-```
-
-EMA for valid lapse
-```{r}
-ema %>% 
-  filter(response_id == "R_UGFcl9goLnpGrwl") %>% 
-  left_join(lapses %>% select(response_id, lapse_start, exclude, lapse_cnt), 
-            by = "response_id") %>% 
-   mutate(diff = difftime(end_date, lapse_start, units = "hours")) %>% 
-  glimpse()
-```
-
-1 day window
-```{r}
-labels_1_day %>% 
-  filter(label == "lapse") %>% 
-  left_join(lapses %>% select(subid, lapse_start, exclude), 
-            by = c("subid", "dttm_label" = "lapse_start")) %>% 
-  tabyl(exclude)
-```
-
-1 week window
-```{r}
-labels_1_week %>% 
-  filter(label == "lapse") %>% 
-  left_join(lapses %>% select(subid, lapse_start, exclude), 
-            by = c("subid", "dttm_label" = "lapse_start")) %>% 
-  tabyl(exclude)
-```
 
 
 ### Save
 
-save valid_observations and labels
+save valid_observations and labels, raw and compressed csv
 ```{r}
 labels_1_hour %>% 
-  write_csv(here(path_gps, "labels_1_hour.csv"))
+  write_csv(here(path_gps, "labels_1_hour.csv")) %>% 
+  write_csv(here(path_gps, "labels_1_hour.csv.xz"))
 
 labels_1_day %>% 
-  write_csv(here(path_gps, "labels_1_day.csv"))
+  write_csv(here(path_gps, "labels_1_day.csv")) %>% 
+  write_csv(here(path_gps, "labels_1_day.csv.xz"))
 
 labels_1_week %>% 
-  write_csv(here(path_gps, "labels_1_week.csv"))
-```
-
-
-save as compressed rds files for CHTC
-```{r}
-labels_1_hour %>% 
-  write_rds(here(path_gps, "labels_1_hour.rds"), compress = "xz")
-
-labels_1_day %>% 
-  write_rds(here(path_gps, "labels_1_day.rds"), compress = "xz")
-
-labels_1_week %>% 
-  write_rds(here(path_gps, "labels_1_week.rds"), compress = "xz")
+  write_csv(here(path_gps, "labels_1_week.csv")) %>% 
+  write_csv(here(path_gps, "labels_1_week.csv.xz"))
 ```
 
 
