@@ -1306,7 +1306,7 @@ features <- features %>%
 
 # save features as rds ------------------
 features %>% 
-  write_rds(., str_c("features/features_", job_start, "_", job_stop, ".rds"))
+  write_rds(., str_c("features_", job_start, "_", job_stop, ".rds"))
 
 
 
