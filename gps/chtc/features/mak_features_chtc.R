@@ -2,6 +2,7 @@
 
 # Constants
 dist_max <- 50   # only use context if places are within 50 meters
+window <- "24hours"  #window for calculating labels
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -13,7 +14,8 @@ suppressPackageStartupMessages({
 # get chtc process num ------------------
 # label_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
-label_num <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in integers
+job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in row numbers
+job_stop <- as.numeric(args[2])
 
 # read in data ------------------
 data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
@@ -31,8 +33,10 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
 # Slice out label based on label_num ------------------
-label <- slice(labels, label_num)
-
+# label <- slice(labels, label_num)
+labels <- slice(labels, job_start:job_stop) %>% 
+  # add label num
+  mutate(label_num = seq(job_start, job_stop, by = 1))
 
 # initialize period durations and lead hours ------------------
 period_durations <- c(6, 12, 24, 48, 72, 168) 
@@ -40,85 +44,90 @@ lead <-  0
 
 
 # make features ------------------
-
-# type
-features <- score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration", 
-                          context_col_name = "type",
-                          context_values = c("aa", "bar", "cafe", "church", "family",
-                                             "fitness", "healthcare", "home",
-                                             "liquorstore", "park", "restaurant",
-                                             "school", "volunteer", "work"))
+features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% {
   
-# drank
-features <- features %>% 
-   full_join(score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration",
-                          context_col_name = "drank",
-                          context_values = c("yes", "no")), 
-             by = c("subid", "dttm_label"))
-
-# alcohol
-features <- features %>% 
-  full_join(score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration",
-                          context_col_name = "alcohol",
-                          context_values = c("yes", "no")), 
-            by = c("subid", "dttm_label"))
-
-# emotion
-features <- features %>% 
-  full_join(score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration",
-                          context_col_name = "emotion",
-                          context_values = c("pleasant", "unpleasant", "mixed", "neutral")), 
-            by = c("subid", "dttm_label"))
-
-# risk
-features <- features %>% 
-  full_join(score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration",
-                          context_col_name = "risk",
-                          context_values = c("high", "medium", "low", "no")), 
-            by = c("subid", "dttm_label"))
-
-# avoid
-features <- features %>% 
-  full_join(score_ratesum(label$subid, 
-                          label$dttm_label,
-                          x_all  = data,
-                          period_durations = period_durations,
-                          lead = lead, 
-                          data_start = dates, 
-                          col_name = "duration",
-                          context_col_name = "avoid",
-                          context_values = c("yes", "no")), 
-            by = c("subid", "dttm_label"))
+  subid <- slice(labels, the_label_num)$subid 
+  dttm_label <-  slice(labels, the_label_num)$dttm_label
+  
+  # type
+  feature_row <- score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration", 
+                            context_col_name = "type",
+                            context_values = c("aa", "bar", "cafe", "church", "family",
+                                               "fitness", "healthcare", "home",
+                                               "liquorstore", "park", "restaurant",
+                                               "school", "volunteer", "work"))
+    
+  # drank
+  feature_row <- feature_row %>% 
+     full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration",
+                            context_col_name = "drank",
+                            context_values = c("yes", "no")), 
+               by = c("subid", "dttm_label"))
+  
+  # alcohol
+  feature_row <- feature_row %>% 
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration",
+                            context_col_name = "alcohol",
+                            context_values = c("yes", "no")), 
+              by = c("subid", "dttm_label"))
+  
+  # emotion
+  feature_row <- feature_row %>% 
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration",
+                            context_col_name = "emotion",
+                            context_values = c("pleasant", "unpleasant", "mixed", "neutral")), 
+              by = c("subid", "dttm_label"))
+  
+  # risk
+  feature_row <- feature_row %>% 
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration",
+                            context_col_name = "risk",
+                            context_values = c("high", "medium", "low", "no")), 
+              by = c("subid", "dttm_label"))
+  
+  # avoid
+  feature_row <- feature_row %>% 
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
+                            period_durations = period_durations,
+                            lead = lead, 
+                            data_start = dates, 
+                            col_name = "duration",
+                            context_col_name = "avoid",
+                            context_values = c("yes", "no")), 
+              by = c("subid", "dttm_label"))
+}
 
 
 # Add outcome label and other info to features ------------------
@@ -126,4 +135,4 @@ features %>%
   mutate(label = label$label) %>% 
   mutate(label_num = label_num) %>% 
   relocate(label_num, subid, dttm_label, label) %>% 
-  vroom_write(str_c("features_", label_num, ".csv"), delim = ",")
+  vroom_write(str_c("features_", window, "_", job_start, "_", job_stop, ".csv"), delim = ",")

@@ -1,4 +1,4 @@
-# setup jobs to make features on chtc 
+# setup jobs to make GPS features on chtc 
 
 # load packages
 library(tidyverse)
@@ -12,7 +12,7 @@ name_job <- "features_all"
 path_jobs <- "P:/studydata/risk/chtc/gps"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 name_gps <- "gps_enriched.csv.xz"
-name_labels <- "labels_05.csv"
+name_labels <- "labels_1day.csv"
 name_study_dates <- "study_dates.csv"
 name_fun <- "fun_chtc_features.R"
 name_script <- "mak_features_chtc.R"
@@ -26,10 +26,13 @@ if (!dir.exists(here(path_jobs, name_job))) {
   stop("Job folder already exists. No new folders created.")
 }
 
-# save out jobs txt file for queue
+# save out jobs csv file for queue
 n_jobs <- nrow(vroom(here(path_gps, name_labels)))
-jobs <- seq(1:n_jobs) # this is equivalent to row numbers of labels that will be used 
-write_lines(jobs, here(path_jobs, name_job, "input/jobs.csv"))
+labels_per_job <- 100
+job_start <- seq(1, n_jobs, by = labels_per_job) 
+job_stop <- c(seq(job_start[2] - 1, n_jobs, by = labels_per_job), n_jobs)
+tibble(job_start, job_stop) %>% 
+  vroom_write(here(path_jobs, name_job, "input/jobs.csv"), col_names = FALSE, append = FALSE)
 
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps), show_col_types = FALSE) %>% 
