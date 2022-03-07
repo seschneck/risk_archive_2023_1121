@@ -8,7 +8,7 @@ library(lubridate)
 library(vroom)
 
 # Paths and filenames
-name_job <- "features_all"
+name_job <- "features_1day"
 path_jobs <- "P:/studydata/risk/chtc/gps"
 path_gps <- "P:/studydata/risk/data_processed/gps" 
 name_gps <- "gps_enriched.csv.xz"
@@ -32,7 +32,7 @@ labels_per_job <- 100
 job_start <- seq(1, n_jobs, by = labels_per_job) 
 job_stop <- c(seq(job_start[2] - 1, n_jobs, by = labels_per_job), n_jobs)
 tibble(job_start, job_stop) %>% 
-  vroom_write(here(path_jobs, name_job, "input/jobs.csv"), col_names = FALSE, append = FALSE)
+  vroom_write(here(path_jobs, name_job, "input", "jobs.csv"), col_names = FALSE, append = FALSE)
 
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps), show_col_types = FALSE) %>% 
