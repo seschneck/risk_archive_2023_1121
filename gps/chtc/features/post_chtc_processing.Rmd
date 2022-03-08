@@ -50,11 +50,11 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_jobs <- "P:/studydata/risk/chtc/gps/features_all"
+          path_jobs <- "P:/studydata/risk/chtc/gps/features_1day"
           path_output <- "P:/studydata/risk/data_processed/gps"},
 
         # IOS paths
-        Darwin = {path_jobs <- "/Volumes/private/studydata/risk/chtc/gps/features_all"
+        Darwin = {path_jobs <- "/Volumes/private/studydata/risk/chtc/gps/features_1day"
         path_output <- "/Volumes/private/studydata/risk/data_processed/gps"}
         )
 ```
@@ -77,6 +77,7 @@ library(tidyverse)
 library(janitor) 
 library(vroom)
 library(furrr)
+library(tictoc)
 #library(lubridate)
 #library(ggplot2)
 #library(kableExtra)
@@ -87,7 +88,7 @@ library(furrr)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
+# source(here("../lab_support/print_kbl.R"))
 ```
 
 Chunk Defaults
@@ -102,19 +103,15 @@ options(tibble.print_max = Inf)
 ### Begin Main Code
 
 
-### Unzip and check jobs
-
-unzip chtc folders
-```{r}
-# unzip(zipfile = here(path_jobs, "output", "output.zip"), exdir = here(path_jobs, "output"))
-unzip(zipfile = here(path_jobs, "output","features.zip"), exdir = here(path_jobs, "output"))
-unzip(zipfile = here(path_jobs, "output","error.zip"), exdir = here(path_jobs, "output"))
-```
+### Check jobs
 
 Read in jobs
 ```{r}
-jobs <- vroom(here(path_jobs, "input", "jobs.csv"), delim = ",", show_col_types = FALSE, col_names = FALSE) %>% 
-  rename(label_num = X1)
+jobs <- vroom(here(path_jobs, "input", "jobs.csv"), 
+              delim = "\t", 
+              show_col_types = FALSE, 
+              col_names = FALSE) %>% 
+  rename(job_start = X1, job_end = X2)
 ```
 
 
@@ -122,45 +119,49 @@ jobs <- vroom(here(path_jobs, "input", "jobs.csv"), delim = ",", show_col_types 
 check all error files are blank (0 kb)    
 Note: error files also contain warnings
 ```{r}
-err_files <- map_df(list.files(here(path_jobs, "output", "error"), full.names = TRUE), file.info)
+err_files <- map_df(list.files(here(path_jobs, "output", "error"), 
+                               full.names = TRUE), 
+                    file.info)
 tabyl(err_files$size)
 ```
 
 Pull error messages and jobs if error files are not all blank
 ```{r}
-if (nrow(subset(err_files, size > 0)) > 0) {
-  err_paths <- err_files %>% 
-    filter(size > 0) %>% 
-    rownames_to_column("path") %>% 
-    pull(path) 
-  
-  for (i in err_paths) {
-    err_i <- read_file(i) %>% 
-      enframe(value = "message", name = NULL) %>% 
-      mutate(label_num = as.numeric(str_remove(str_split(str_split(i, "/")[[1]][11], "_")[[1]][2], ".err")),
-             message = str_remove_all(message, "\\n")) %>% 
-      relocate(label_num)
-    errs <- if (i == err_paths[1]) {
-      err_i
-    } else rbind(errs, err_i)
-  }
-  
-  
-  # print error messages
-  print_kbl(errs, align = "l")
-} else print("no errors or warnings")
+# if (nrow(subset(err_files, size > 0)) > 0) {
+#   err_paths <- err_files %>% 
+#     filter(size > 0) %>% 
+#     rownames_to_column("path") %>% 
+#     pull(path) 
+#   
+#   for (i in err_paths) {
+#     err_i <- read_file(i) %>% 
+#       enframe(value = "message", name = NULL) %>% 
+#       mutate(label_num = as.numeric(str_remove(str_split(str_split(i, "/")[[1]][11], "_")[[1]][2], ".err")),
+#              message = str_remove_all(message, "\\n")) %>% 
+#       relocate(label_num)
+#     errs <- if (i == err_paths[1]) {
+#       err_i
+#     } else rbind(errs, err_i)
+#   }
+#   
+#   
+#   # print error messages
+#   print_kbl(errs, align = "l")
+# } else print("no errors or warnings")
 ```
 
 
 check all output files are blank (0 kb)
 ```{r}
-out_files <- map_df(list.files(here(path_jobs, "output", "output"), full.names = TRUE), file.info)
+out_files <- map_df(list.files(here(path_jobs, "output", "out"), 
+                               full.names = TRUE), 
+                    file.info)
 tabyl(out_files$size)
 ```
 
 ### Aggregate all result CSVs
 
-read in all result CSVs
+read in all feature CSVs
 ```{r}
  
 #future_map over subids
@@ -173,32 +174,23 @@ features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE)
   arrange(subid, dttm_label) %>% 
   glimpse()
 toc()
-
-tic()
-features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
-  future_map_dfr(~vroom(.x, delim = ",")) %>% 
-  arrange(subid, dttm_label) %>% 
-  glimpse()
-toc()
 ```
 
 
 ### Check for missing jobs
 check for missing jobs    
 
-`r nrow(features)` rows from `r nrow(jobs)` jobs.      
-
 ```{r}
-message("Missing jobs: ", subset(jobs$label_num, !jobs$label_num %in% features$label_num))
+#message("Missing jobs: ", subset(jobs$label_num, !jobs$label_num %in% features$label_num))
 ```
 
 
 # EDA
 Check correct number of rows
 ```{r}
-if (! nrow(jobs) == nrow(features)) error("Number of feature rowsn(", nrow(features), 
-                                          ") does not match number of jobs (", nrow(jobs),
-                                          ")")
+# if (! nrow(jobs) == nrow(features)) stop("Number of feature rowsn(", nrow(features), 
+#                                           ") does not match number of jobs (", nrow(jobs),
+#                                           ")")
 ```
 
 Check no duplicate labels
