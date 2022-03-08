@@ -22,6 +22,10 @@ if (!dir.exists(here(path_jobs, name_job))) {
   dir.create(here(path_jobs, name_job))
   dir.create(here(path_jobs, name_job, "input"))
   dir.create(here(path_jobs, name_job, "output"))
+  dir.create(here(path_jobs, name_job, "output", "features"))
+  dir.create(here(path_jobs, name_job, "output", "error"))
+  dir.create(here(path_jobs, name_job, "output", "out"))
+  
 } else {
   stop("Job folder already exists. No new folders created.")
 }

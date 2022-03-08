@@ -2,18 +2,21 @@
 
 # Constants
 dist_max <- 50   # only use context if places are within 50 meters
-window <- "24hours"  #window for calculating labels
+window <- "1day"  #window for calculating labels
 
 suppressPackageStartupMessages({
   library(dplyr)
   library(lubridate)
   library(vroom)
+  library(foreach)
   source("fun_chtc_features.R")
 })
 
 # get chtc process num ------------------
 # label_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
+#job_start <- 101
+#job_stop <- 200
 job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in row numbers
 job_stop <- as.numeric(args[2])
 
@@ -33,9 +36,7 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
 # Slice out label based on label_num ------------------
-# label <- slice(labels, label_num)
 labels <- slice(labels, job_start:job_stop) %>% 
-  # add label num
   mutate(label_num = seq(job_start, job_stop, by = 1))
 
 # initialize period durations and lead hours ------------------
@@ -44,28 +45,32 @@ lead <-  0
 
 
 # make features ------------------
-features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% {
+features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
-  subid <- slice(labels, the_label_num)$subid 
-  dttm_label <-  slice(labels, the_label_num)$dttm_label
+  
+  # for (the_label_num in job_start:job_stop) {
+  label <-  slice(labels, i_label)
+  subid <- label$subid 
+  dttm_label <-  label$dttm_label
+  the_label_num <- label$label_num
   
   # type
   feature_row <- score_ratesum(subid, 
-                            dttm_label,
-                            x_all  = data,
-                            period_durations = period_durations,
-                            lead = lead, 
-                            data_start = dates, 
-                            col_name = "duration", 
-                            context_col_name = "type",
-                            context_values = c("aa", "bar", "cafe", "church", "family",
-                                               "fitness", "healthcare", "home",
-                                               "liquorstore", "park", "restaurant",
-                                               "school", "volunteer", "work"))
-    
+                               dttm_label,
+                               x_all  = data,
+                               period_durations = period_durations,
+                               lead = lead, 
+                               data_start = dates, 
+                               col_name = "duration", 
+                               context_col_name = "type",
+                               context_values = c("aa", "bar", "cafe", "church", "family",
+                                                  "fitness", "healthcare", "home",
+                                                  "liquorstore", "park", "restaurant",
+                                                  "school", "volunteer", "work"))
+  
   # drank
   feature_row <- feature_row %>% 
-     full_join(score_ratesum(subid, 
+    full_join(score_ratesum(subid, 
                             dttm_label,
                             x_all  = data,
                             period_durations = period_durations,
@@ -74,7 +79,7 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             col_name = "duration",
                             context_col_name = "drank",
                             context_values = c("yes", "no")), 
-               by = c("subid", "dttm_label"))
+              by = c("subid", "dttm_label"))
   
   # alcohol
   feature_row <- feature_row %>% 
@@ -127,12 +132,15 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_col_name = "avoid",
                             context_values = c("yes", "no")), 
               by = c("subid", "dttm_label"))
+  
+  feature_row <- feature_row %>% 
+    mutate(label_num = the_label_num)
+  
+  feature_row
 }
-
 
 # Add outcome label and other info to features ------------------
 features %>%
-  mutate(label = label$label) %>% 
-  mutate(label_num = label_num) %>% 
+  mutate(label = labels$label) %>% 
   relocate(label_num, subid, dttm_label, label) %>% 
   vroom_write(str_c("features_", window, "_", job_start, "_", job_stop, ".csv"), delim = ",")
