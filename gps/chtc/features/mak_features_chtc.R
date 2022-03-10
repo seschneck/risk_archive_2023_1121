@@ -23,10 +23,9 @@ job_stop <- as.numeric(args[2])
 # read in data ------------------
 data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
   mutate(time = with_tz(time, tz = "America/Chicago")) %>% 
-  mutate(duration = difftime(lead(time), time, units = "mins"),
-         duration = as.numeric(duration)) %>% 
-  rename(dttm_obs = time) %>% 
-  filter(dist_context <= dist_max)
+  filter(dist_context <= dist_max) # currently only care about observations with context
+                                   # this may change when need to figure out total duration
+                                   # of observations in window in future
 
 labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
   mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago"))
@@ -43,10 +42,8 @@ labels <- slice(labels, job_start:job_stop) %>%
 period_durations <- c(6, 12, 24, 48, 72, 168) 
 lead <-  0 
 
-
 # make features ------------------
 features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
-  
   
   # for (the_label_num in job_start:job_stop) {
   label <-  slice(labels, i_label)
