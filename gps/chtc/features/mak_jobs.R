@@ -40,7 +40,7 @@ tibble(job_start, job_stop) %>%
 
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps), show_col_types = FALSE) %>% 
-  select(subid, time, dist_context, type, drank, alcohol, emotion, risk, avoid) %>% 
+  select(subid, time, duration, dist_context, type, drank, alcohol, emotion, risk, avoid) %>% 
   arrange(subid, time) %>% 
   vroom_write(here(path_jobs, name_job, "input", "data.csv.xz"), delim = ",")
 
