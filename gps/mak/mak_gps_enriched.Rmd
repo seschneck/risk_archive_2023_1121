@@ -193,6 +193,14 @@ if(any(!(subids_dates %in% subids_locs))) stop("Missing location for some subids
 gps <-  vroom(here(path_shared, "gps.csv"), col_types = "ddTdccccdddd",
               show_col_types = FALSE) %>% 
   filter(subid %in% subids_dates) %>%   # limit to sample in study_dates
+  mutate(time = with_tz(time, tz = "America/Chicago")) %>% 
+  group_by(subid) %>% 
+  mutate(dist = distGeo(as.matrix(tibble(lon, lat))),
+         duration = difftime(lead(time), time, units = "mins"),
+         duration = as.numeric(duration),
+         duration = if_else(duration > 5 & dist > 500, NA_real_, duration)) %>% # set suspect gaps to NA if high duration AND moved
+  ungroup %>% 
+  rename(dttm_obs = time) %>% 
   glimpse()
 
 #get all subids
