@@ -299,7 +299,7 @@ enriched %>% tabyl(vacation)
 
 ```{r}
 enriched <- enriched %>% 
-  mutate(time = with_tz(time, tzone = "America/Chicago")) %>% 
+  mutate(time = with_tz(time, tzone = "America/Chicago")) %>% # done here again to be safe before convert to date
   mutate(gps_date = as_date(time)) %>%
   left_join(select(study_dates, subid, study_start, study_end, study_ndays), by = "subid") %>% 
   filter(gps_date >= study_start,
