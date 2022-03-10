@@ -20,11 +20,9 @@ knit: (function(input, ...) {
 
 In development
 
-NEED TO UPDATE TO be flexible on feature job name.  Currently hard coded to 1day
-
 ### Notes   
 
-This script aggregates all CHTC features and runs checks for missing jobs.
+This script aggregates all CHTC features and checks for missing jobs and other EDA.
   
 
 Inputs:  
@@ -41,53 +39,56 @@ Jobs input file
 
 Output:   
 
-* features.csv 
+* features_WINDOW.csv 
 
+### Set up Label Window
+
+EDIT THIS
+```{r}
+window <- "1day"
+```
 
 
 ### Set Up Environment
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("cols", "readr")
+
+library(here)
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(vroom)
+library(furrr)
+library(stringr)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+```
 
 Absolute paths
 ```{r, absolute paths}
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_jobs <- "P:/studydata/risk/chtc/gps/features_1day"
+          path_jobs <- str_c("P:/studydata/risk/chtc/gps/features_", window)
           path_output <- "P:/studydata/risk/data_processed/gps"},
 
         # IOS paths
-        Darwin = {path_jobs <- "/Volumes/private/studydata/risk/chtc/gps/features_1day"
+        Darwin = {path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/gps/features_", window)
         path_output <- "/Volumes/private/studydata/risk/data_processed/gps"}
         )
 ```
 
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) # detect and warn about function conflicts
-conflict_prefer("filter", "dplyr")
-conflict_prefer("select", "dplyr")
-conflict_prefer("cols", "readr")
-
-# conflict_prefer("spec", "yardstick")
-
-library(here)  # establish project directory consistently as working directory
-```
-
-
-Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
-
-library(tidyverse)  
-library(janitor) 
-library(vroom)
-library(furrr)
-```
-
-
-Source for script
-```{r, source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
-```
 
 Chunk Defaults
 ```{r defaults, include=FALSE}
@@ -228,9 +229,10 @@ features %>%
 ### Write feature file
 
 ```{r}
+message(str_c("features_", window, ".csv"))
+message(str_c("features_", window, ".csv.xz"))
 features %>% 
-  vroom_write(here(path_output, "features.csv")) %>% 
-  vroom_write(here(path_output, "features.csv.xz")) %>% 
-  saveRDS(here(path_output, "features.rds"))
+  vroom_write(here(path_output, str_c("features_", window, ".csv"))) %>% 
+  vroom_write(here(path_output, str_c("features_", window, ".csv.xz")))
 ```
 
