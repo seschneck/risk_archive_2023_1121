@@ -23,6 +23,7 @@ job_stop <- as.numeric(args[2])
 # read in data ------------------
 data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
   mutate(time = with_tz(time, tz = "America/Chicago")) %>% 
+  rename(dttm_obs = time) %>% 
   filter(dist_context <= dist_max) # currently only care about observations with context
                                    # this may change when need to figure out total duration
                                    # of observations in window in future

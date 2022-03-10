@@ -200,7 +200,6 @@ gps <-  vroom(here(path_shared, "gps.csv"), col_types = "ddTdccccdddd",
          duration = as.numeric(duration),
          duration = if_else(duration > 5 & dist > 500, NA_real_, duration)) %>% # set suspect gaps to NA if high duration AND moved
   ungroup %>% 
-  rename(dttm_obs = time) %>% 
   glimpse()
 
 #get all subids
