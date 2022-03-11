@@ -6,17 +6,12 @@ data_trn <- "features_1day.csv.xz"
 feature_set <- c("all") 
 algorithm <- c("glmnet", "knn", "random_forest") 
 resample <- c("none", "up_1", "down_1", "smote_1") 
-# all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
-# format for kfold should be kfold_n_repeats_x_n_folds (e.g., kfold_1_x_10, group_kfold_10_x_10)
-# determine where to pass in global cv_type parameter
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate features before removing nzv
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
-# Can remove or comment out hyperparameter variables if not using the algorithm 
-# if using the algorithm, you must provide the associated hyperparameters
 hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture)
 hp2_glmnet_min <- -8 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
@@ -30,7 +25,6 @@ hp3_rf <- 1000 # trees (10 x's number of predictors)   UPDATE after CBIT
 name_job <- "train_1day" # the name of the job to set folder names
 path_jobs <- "P:/studydata/risk/chtc/gps" # location of where you want your jobs to be setup
 path_data <- "P:/studydata/risk/data_processed/gps" # location of data set
-# path_project <- "./meta/ana_scripts"
 
 # CHANGE CHTC SPECIFIC CONTROLS
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
