@@ -36,7 +36,8 @@ labels_per_job <- 200
 job_start <- seq(1, n_jobs, by = labels_per_job) 
 job_stop <- c(seq(job_start[2] - 1, n_jobs, by = labels_per_job), n_jobs)
 tibble(job_start, job_stop) %>% 
-  vroom_write(here(path_jobs, name_job, "input", "jobs.csv"), col_names = FALSE, append = FALSE)
+  vroom_write(here(path_jobs, name_job, "input", "jobs.csv"), delim = ",", 
+              col_names = FALSE, append = FALSE)
 
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_gps, name_gps), show_col_types = FALSE) %>% 
