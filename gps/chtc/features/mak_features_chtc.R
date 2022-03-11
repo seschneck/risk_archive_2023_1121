@@ -139,6 +139,6 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
 
 # Add outcome label and other info to features ------------------
 features %>%
-  mutate(label = labels$label) %>% 
-  relocate(label_num, subid, dttm_label, label) %>% 
+  mutate(lapse = labels$lapse) %>% 
+  relocate(label_num, subid, dttm_label, lapse) %>% 
   vroom_write(str_c("features_", window, "_", job_start, "_", job_stop, ".csv"), delim = ",")
