@@ -69,7 +69,7 @@ build_recipe <- function(d, job) {
   rec <- recipe(y ~ ., data = d) %>%
     update_role(subid, dttm_label, new_role = "id variable") %>%
     step_rm(label_num) %>% 
-    step_string2factor(y, levels = c("no_lapse", "lapse")) %>% 
+    step_string2factor(y, levels = c("no", "yes")) %>% 
     # reference group will be first level in factor - specify levels to choose reference group
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>% 
