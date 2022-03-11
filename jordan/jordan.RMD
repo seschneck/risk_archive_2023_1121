@@ -1,0 +1,275 @@
+---
+title: "jordan_risk1"
+author: "JE"
+date: "3/11/2022"
+output: html_document
+---
+
+## Analysis plan
+IV: WHO-ASSIST
+DV: Change in Depression/anxiety/stress scale (DASS) scores across visits
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(janitor)
+library(conflicted)
+conflict_prefer("filter", "dplyr")
+conflict_prefer("flatten", "jsonlite")
+library(here)
+library(kableExtra)
+library(tictoc)
+library(foreach)
+library(ggplot2)
+
+path_data_clean <- "P:/studydata/risk/data_processed/shared"
+path_burden <- "P:/studydata/risk/data_processed/burden"
+
+```
+
+## Open relevant dataframes and select sample
+
+
+```{r data}
+
+final_sample <- read_csv(here(path_burden, "disposition.csv")) %>%
+  filter(last_visit == "followup_2" | last_visit == "followup_3")
+
+screen <- read_csv(here(path_data_clean, "screen.csv")) %>%
+  filter(subid %in% final_sample$subid)
+intake <- read_csv(here(path_data_clean, "intake.csv")) %>%
+  filter(subid %in% final_sample$subid)
+fu1 <- read_csv(here(path_data_clean, "followup_12.csv")) %>%
+  group_by(subid) %>%
+  arrange(start_date) %>%
+  slice(1) %>%
+  ungroup() %>%
+  filter(subid %in% final_sample$subid)
+fu2 <- read_csv(here(path_data_clean, "followup_12.csv")) %>%
+  group_by(subid) %>%
+  arrange(desc(start_date)) %>%
+  slice(1) %>%
+  ungroup() %>%
+  filter(subid %in% final_sample$subid)
+
+
+
+
+
+```
+
+## IV scores
+
+```{r iv}
+
+
+
+assist_1 <- screen %>%
+  select(subid, starts_with("assist_")) %>%
+  mutate(across(starts_with("assist_1"), ~ case_when(. == "No" ~ 0 ,       
+                                                . == "Yes" ~ 1))) %>%
+  mutate(across(assist_2_1:assist_7_8, ~ case_when(. == "Never" ~ 0 ,       
+                                                . == "Once or Twice " ~ 2,
+                                                . == "Monthly" ~ 3,
+                                                . == "Weekly" ~ 4,
+                                                . == "ADaily or Almost Daily " ~ 6))) %>%
+  mutate(across(starts_with("assist_8"), ~ case_when(. == "No, never" ~ 0 ,       
+                                                . == "Yes, but not in the past 3 months" ~ 1 ,
+                                                . == "Yes, in the past 3 months" ~ 2))) %>%
+  rename(assist_UseEver_Tobacco = assist_1_1,
+          assist_UseEver_Cannabis = assist_1_2,
+          assist_UseEver_Cocaine = assist_1_3,
+          assist_UseEver_Stimulant = assist_1_4,
+          assist_UseEver_Inhalant = assist_1_5,
+          assist_UseEver_Sedative = assist_1_6,
+          assist_UseEver_Hallucinogen = assist_1_7,
+          assist_UseEver_Opioid = assist_1_8,
+          assist_UseFreq_Tobacco = assist_2_1,
+          assist_UseFreq_Cannabis = assist_2_2,
+          assist_UseFreq_Cocaine = assist_2_3,
+          assist_UseFreq_Stimulant = assist_2_4,
+          assist_UseFreq_Inhalant = assist_2_5,
+          assist_UseFreq_Sedative = assist_2_6,
+          assist_UseFreq_Hallucinogen = assist_2_7,
+          assist_UseFreq_Opioid = assist_2_8,
+          assist_UrgeFreq_Tobacco = assist_3_1,
+          assist_UrgeFreq_Cannabis = assist_3_2,
+          assist_UrgeFreq_Cocaine = assist_3_3,
+          assist_UrgeFreq_Stimulant = assist_3_4,
+          assist_UrgeFreq_Inhalant = assist_3_5,
+          assist_UrgeFreq_Sedative = assist_3_6,
+          assist_UrgeFreq_Hallucinogen = assist_3_7,
+          assist_UrgeFreq_Opioid = assist_3_8,
+          assist_ProbsFreq_Tobacco = assist_4_1,
+          assist_ProbsFreq_Cannabis = assist_4_2,
+          assist_ProbsFreq_Cocaine = assist_4_3,
+          assist_ProbsFreq_Stimulant = assist_4_4,
+          assist_ProbsFreq_Inhalant = assist_4_5,
+          assist_ProbsFreq_Sedative = assist_4_6,
+          assist_ProbsFreq_Hallucinogen = assist_4_7,
+          assist_ProbsFreq_Opioid = assist_4_8,
+          assist_FailedFreq_Tobacco = assist_5_1,
+          assist_FailedFreq_Cannabis = assist_5_2,
+          assist_FailedFreq_Cocaine = assist_5_3,
+          assist_FailedFreq_Stimulant = assist_5_4,
+          assist_FailedFreq_Inhalant = assist_5_5,
+          assist_FailedFreq_Sedative = assist_5_6,
+          assist_FailedFreq_Hallucinogen = assist_5_7,
+          assist_FailedFreq_Opioid = assist_5_8,
+          assist_ConcernFreq_Tobacco = assist_6_1,
+          assist_ConcernFreq_Cannabis = assist_6_2,
+          assist_ConcernFreq_Cocaine = assist_6_3,
+          assist_ConcernFreq_Stimulant = assist_6_4,
+          assist_ConcernFreq_Inhalant = assist_6_5,
+          assist_ConcernFreq_Sedative = assist_6_6,
+          assist_ConcernFreq_Hallucinogen = assist_6_7,
+          assist_ConcernFreq_Opioid = assist_6_8,
+          assist_QuitFreq_Tobacco = assist_7_1,
+          assist_QuitFreq_Cannabis = assist_7_2,
+          assist_QuitFreq_Cocaine = assist_7_3,
+          assist_QuitFreq_Stimulant = assist_7_4,
+          assist_QuitFreq_Inhalant = assist_7_5,
+          assist_QuitFreq_Sedative = assist_7_6,
+          assist_QuitFreq_Hallucinogen = assist_7_7,
+          assist_QuitFreq_Opioid = assist_7_8,
+          assist_Ever_Injection = assist_8) %>%
+  clean_names("snake")
+  
+
+
+
+#these only ask q 2 & 3, not sure you want to keep?
+assist_2 <- fu1 %>%
+  select(subid, starts_with("assist_"))
+
+assist_3 <- fu2 %>%
+  select(subid, starts_with("assist_"))
+
+
+# SCORING CODE
+# 
+# #No scoring of the WHO-ASSIST needed for research purposes. For clinical scoring see manual on server:
+# #P:\ID\WHO-ASSIST\assist_v3_english.pdf
+# 
+# #World Health Organization - Alcohol, Smoking and Substance Involvement Screening Test v3.0 (WHO-ASSIST)
+# dID = varRename(dID, c('assist_1_1','assist_1_2','assist_1_3','assist_1_4','assist_1_5','assist_1_6','assist_1_7','assist_1_8',
+#                        'assist_2_1','assist_2_2','assist_2_3','assist_2_4','assist_2_5','assist_2_6','assist_2_7','assist_2_8',
+#                        'assist_3_1','assist_3_2','assist_3_3','assist_3_4','assist_3_5','assist_3_6','assist_3_7','assist_3_8',
+#                        'assist_4_1','assist_4_2','assist_4_3','assist_4_4','assist_4_5','assist_4_6','assist_4_7','assist_4_8',
+#                        'assist_5_1','assist_5_2','assist_5_3','assist_5_4','assist_5_5','assist_5_6','assist_5_7','assist_5_8',
+#                        'assist_6_1','assist_6_2','assist_6_3','assist_6_4','assist_6_5','assist_6_6','assist_6_7','assist_6_8',
+#                        'assist_7_1','assist_7_2','assist_7_3','assist_7_4','assist_7_5','assist_7_6','assist_7_7','assist_7_8',
+#                        'assist_8'),
+#                 c('assist_UseEver_Tobacco','assist_UseEver_Cannabis','assist_UseEver_Cocaine','assist_UseEver_Stimulant','assist_UseEver_Inhalant','assist_UseEver_Sedative','assist_UseEver_Hallucinogen','assist_UseEver_Opioid',
+#                   'assist_UseFreq_Tobacco','assist_UseFreq_Cannabis','assist_UseFreq_Cocaine','assist_UseFreq_Stimulant','assist_UseFreq_Inhalant','assist_UseFreq_Sedative','assist_UseFreq_Hallucinogen','assist_UseFreq_Opioid',
+#                   'assist_UrgeFreq_Tobacco','assist_UrgeFreq_Cannabis','assist_UrgeFreq_Cocaine','assist_UrgeFreq_Stimulant','assist_UrgeFreq_Inhalant','assist_UrgeFreq_Sedative','assist_UrgeFreq_Hallucinogen','assist_UrgeFreq_Opioid',
+#                   'assist_ProbsFreq_Tobacco','assist_ProbsFreq_Cannabis','assist_ProbsFreq_Cocaine','assist_ProbsFreq_Stimulant','assist_ProbsFreq_Inhalant','assist_ProbsFreq_Sedative','assist_ProbsFreq_Hallucinogen','assist_ProbsFreq_Opioid',
+#                   'assist_FailedFreq_Tobacco','assist_FailedFreq_Cannabis','assist_FailedFreq_Cocaine','assist_FailedFreq_Stimulant','assist_FailedFreq_Inhalant','assist_FailedFreq_Sedative','assist_FailedFreq_Hallucinogen','assist_FailedFreq_Opioid',
+#                   'assist_ConcernFreq_Tobacco','assist_ConcernFreq_Cannabis','assist_ConcernFreq_Cocaine','assist_ConcernFreq_Stimulant','assist_ConcernFreq_Inhalant','assist_ConcernFreq_Sedative','assist_ConcernFreq_Hallucinogen','assist_ConcernFreq_Opioid',
+#                   'assist_QuitFreq_Tobacco','assist_QuitFreq_Cannabis','assist_QuitFreq_Cocaine','assist_QuitFreq_Stimulant','assist_QuitFreq_Inhalant','assist_QuitFreq_Sedative','assist_QuitFreq_Hallucinogen','assist_QuitFreq_Opioid',
+#                   'assist_Ever_Injection'))
+
+
+
+
+```
+
+## DV scores
+
+```{r dv}
+
+dass_1 <- intake %>%
+  select(subid, starts_with("dass")) %>% 
+  mutate(across(starts_with("dass"), ~ case_when(. == "Never" ~ 0 ,       
+                                                . == "Sometimes" ~ 1,
+                                                . == "Often" ~ 2,
+                                                . == "Almost Always" ~ 3))) %>%
+  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+
+dass_2 <- fu1 %>%
+  select(subid, starts_with("dass")) %>% 
+  mutate(across(starts_with("dass"), ~ case_when(. == "Never" ~ 0 ,       
+                                                . == "Sometimes" ~ 1,
+                                                . == "Often" ~ 2,
+                                                . == "Almost Always" ~ 3))) %>%
+  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+dass_3 <- fu2 %>%
+  select(subid, starts_with("dass")) %>% 
+  mutate(across(starts_with("dass"), ~ case_when(. == "Never" ~ 0 ,       
+                                                . == "Sometimes" ~ 1,
+                                                . == "Often" ~ 2,
+                                                . == "Almost Always" ~ 3))) %>%
+  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+
+
+
+# 
+# SCORING code
+# #Depression Anxiety Stress Scale( DASS-21)
+# #Lovibond, S.H. & Lovibond, P.F. (1995). Manual for the Depression Anxiety Stress Scales. (2nd. Ed.) Sydney: Psychology Foundation.
+# #This Questionnaire is a short version (21 item) of a 42-item self report instrument designed to measure three related negative emotional states: depression, anxiety and tension/stress.
+# #Multiply by 2 to scale to 42 item normed version.
+# #Raw data items coded 1-4 but rescored to normed 0-3 range
+# #Last checked by JJC on 2017-05-22
+# # Added dS and dI to match new scoring conventions- Megan F 2018_March
+# 
+# dS$DASS21_ANX = (varScore(dI, Forward= c('DASS21_2', 'DASS21_4', 'DASS21_7', 'DASS21_9', 'DASS21_15', 'DASS21_19', 'DASS21_20'), Range = c(1,4) ) - 7) * 2
+# dS$DASS21_DEP = (varScore(dI, Forward= c('DASS21_3', 'DASS21_5', 'DASS21_10', 'DASS21_13', 'DASS21_16', 'DASS21_17', 'DASS21_21'), Range = c(1,4) ) - 7) * 2
+# dS$DASS21_STR = (varScore(dI, Forward= c('DASS21_1', 'DASS21_6', 'DASS21_8', 'DASS21_11', 'DASS21_12', 'DASS21_14', 'DASS21_18'), Range = c(1,4) ) - 7) *2
+# dS$DASS21_TOT = (varScore(dI, Forward= paste0('DASS21_', 1:21), Range = c(1,4) ) - 21) * 2
+
+
+
+```
+
+Combine datafames
+```{r}
+
+combine <- left_join(assist_1 %>% select(subid, starts_with("assist_use_ever")), dass_1 %>% select(subid, dass_anx1 = dass_anx, dass_dep1 = dass_dep, dass_str1 = dass_str)) %>%
+  left_join(., dass_2 %>% select(subid, dass_anx2 = dass_anx, dass_dep2 = dass_dep, dass_str2 = dass_str)) %>% 
+  left_join(., dass_3  %>% select(subid, dass_anx3 = dass_anx, dass_dep3 = dass_dep, dass_str3 = dass_str)) %>%
+  mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid)
+
+
+combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
+#84/140 need to add Risk2 
+
+```
+
+
+```{r}
+
+plot(x = combine$assist_use_ever_hallucinogen, y =  combine$dass_dep3 - combine$dass_dep1)
+abline(lm((combine$dass_dep3 - combine$dass_dep1) ~ combine$assist_use_ever_hallucinogen), col="red")
+
+plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_anx3 -combine$dass_anx1)
+abline(lm((combine$dass_anx3 -combine$dass_anx1) ~ combine$assist_use_ever_hallucinogen), col="red")
+
+plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_str3 - combine$dass_str1)
+abline(lm((combine$dass_str3 - combine$dass_str1) ~ combine$assist_use_ever_hallucinogen), col="red")
+
+
+
+```
+
+```{r}
+
+hal <-  filter(combine, assist_use_ever_hallucinogen == 1)
+
+plot(x = hal$dass_dep3, y = hal$dass_dep1)
+abline(lm(hal$dass_dep3 ~ hal$dass_dep1), col="red")
+
+
+
+
+```
+
