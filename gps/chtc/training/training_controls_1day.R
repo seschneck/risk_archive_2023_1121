@@ -7,7 +7,7 @@ feature_set <- c("all")
 algorithm <- c("glmnet", "knn", "random_forest") 
 resample <- c("none", "up_1", "down_1", "smote_1") 
 # all resamples should be in form resample type underscore under_ratio (e.g., 3 = 25% minority cases)
-y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
+y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 # format for kfold should be kfold_n_repeats_x_n_folds (e.g., kfold_1_x_10, group_kfold_10_x_10)
 # determine where to pass in global cv_type parameter
