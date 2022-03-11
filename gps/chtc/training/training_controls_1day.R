@@ -3,7 +3,7 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_1day.csv.xz" 
-feature_set <- c("all") 
+feature_set <- c("all", "rratesum", "pratesum") 
 algorithm <- c("glmnet", "knn", "random_forest") 
 resample <- c("none", "up_1", "down_1", "smote_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -71,12 +71,17 @@ build_recipe <- function(d, job) {
     step_impute_mode(all_nominal(),  -y) 
   
   # If statements for filtering features based on feature set
-  # Currently only have one feature set called "all"
-  if (feature_set == "all") {
-    rec <- rec   #place holder for feature sets
-  } else if (feature_set == "other") {
-    rec <- rec 
+  # no removals if feature_set == "all"
+  if (feature_set == "rratesum") {
+    rec <- rec   %>% 
+      step_rm(contains("pratesum"))
   }
+  if (feature_set == "pratesum") {
+    rec <- rec   %>% 
+      step_rm(contains("rratesum"))
+  }
+    
+
   
   # resampling options for unbalanced outcome variable
   if (resample == "down") {
