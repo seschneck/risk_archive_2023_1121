@@ -237,30 +237,48 @@ Review rratesum
 
 * min
 ```{r}
-features %>% 
+mins <- features %>% 
   summarise(across(contains("rratesum"), list(min = ~ min(.x, na.rm = TRUE)))) %>% 
   glimpse()
 ```
 
 * max
 ```{r}
-features %>% 
+maxes <- features %>% 
   summarise(across(contains("rratesum"), list(max = ~ max(.x, na.rm = TRUE)))) %>% 
   glimpse()
 ```
 
 * mean
 ```{r}
-features %>% 
+means <- features %>% 
   summarise(across(contains("rratesum"), list(mean = ~ mean(.x, na.rm = TRUE)))) %>% 
   glimpse()
 ```
 
 * sd
 ```{r}
-features %>% 
+sds <- features %>% 
   summarise(across(contains("rratesum"), list(sd = ~ sd(.x, na.rm = TRUE)))) %>% 
   glimpse()
+```
+
+```{r}
+# features %>% 
+#   summarise(across(contains("rratesum"), list(min = ~ min(.x, na.rm = TRUE),
+#                                               max = ~ max(.x, na.rm = TRUE),
+#                                               mean = ~ mean(.x, na.rm = TRUE),
+#                                               sd = ~ sd(.x, na.rm = TRUE)))) %>% 
+#   print_kbl()
+```
+
+```{r}
+# desc <- tibble(feature = names(min), # could use any of the tibbles
+#                min = mins[1,],
+#                max = maxes[1,],
+#                mean = means[1,],
+#                sd = sds[1,]) %>% 
+#   print_kbl
 ```
 
 
