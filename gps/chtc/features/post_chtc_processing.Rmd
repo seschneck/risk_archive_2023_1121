@@ -113,12 +113,12 @@ jobs <- vroom(here(path_jobs, "input", "jobs.csv"),
 
 Get counts of jobs and labels
 ```{r}
-n_jobs <- nrow(jobs)
+(n_jobs <- nrow(jobs))
 
-n_labels <- jobs %>% 
+(n_labels <- jobs %>% 
   mutate(n_bundle = job_end - job_start + 1) %>% 
   summarise(n_labels = sum(n_bundle)) %>% 
-  pull(n_labels)
+  pull(n_labels))
 ```
 
 Read error, out, and feature files
@@ -126,34 +126,36 @@ Read error, out, and feature files
 err_files <- map_df(list.files(here(path_jobs, "output", "error"), 
                                full.names = TRUE), 
                     file.info)
-
+n_err_files <- nrow(err_files)
 # out_files <- map_df(list.files(here(path_jobs, "output", "out"), 
 #                                full.names = TRUE), 
 #                     file.info)
+# n_out_files <- nrow(out_files)
 
 feature_files <- map_df(list.files(here(path_jobs, "output", "features"), 
                                full.names = TRUE), 
                     file.info)
+n_feature_files <- nrow(feature_files)
 ```
 
 Check counts of error, out, and features
 ```{r}
-if (!(n_jobs == nrow(err_files))) {
-  stop(n_jobs, " jobs != ", nrow(err_files), " error files!") 
+if (!(n_jobs == n_err_files)) {
+  stop(n_jobs, " jobs != ", n_err_files, " error files!") 
 } else {
-  message(nrow(err_files), " error files detected.  Correct!")
+  message(n_err_files, " error files detected.  Correct!")
 }
 
-# if (!(n_jobs == nrow(out_files))) {
-#   stop(n_jobs, " jobs != ", nrow(out_files), " out files!")
+# if (!(n_jobs == n_out_files)) {
+#   stop(n_jobs, " jobs != ", n_out_files, " out files!")
 # } else {
-#   message(nrow(out_files), " out files detected.  Correct!")
+#   message(n_out_files, " out files detected.  Correct!")
 # }
 
-if (!(n_jobs == nrow(feature_files))) {
-  stop(n_jobs, " jobs != ", nrow(feature_files), " feature files!")
+if (!(n_jobs == n_feature_files)) {
+  stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
 } else {
-  message(nrow(feature_files), " feature files detected.  Correct!")
+  message(n_feature_files, " feature files detected.  Correct!")
 }
 ```
 
@@ -191,6 +193,7 @@ features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE)
 
 ### Brief EDA on Features
 
+#### Basic Checks
 Check for correct number of features (matches number of labels)  
 
 ```{r}
@@ -209,7 +212,8 @@ features %>%
   filter(n > 1)
 ```
 
-Missing values    
+#### Missing Values
+
 All missing values should be proportions   
 ```{r}
 t <- naniar::miss_var_summary(features) %>% 
@@ -225,10 +229,69 @@ features %>%
   glimpse() 
 ```
 
-Review mins and maxs
+#### Descriptives
+
+FIX: THESE COULD BE COMBINED INTO TABLES
+
+Review rratesum
+
+* min
 ```{r}
 features %>% 
-  summarise(across(everything(), list(min = ~ min(.x, na.rm = TRUE), max = ~ max(.x, na.rm = TRUE))))
+  summarise(across(contains("rratesum"), list(min = ~ min(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* max
+```{r}
+features %>% 
+  summarise(across(contains("rratesum"), list(max = ~ max(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* mean
+```{r}
+features %>% 
+  summarise(across(contains("rratesum"), list(mean = ~ mean(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* sd
+```{r}
+features %>% 
+  summarise(across(contains("rratesum"), list(sd = ~ sd(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+
+Review pratesum
+
+* min
+```{r}
+features %>% 
+  summarise(across(contains("pratesum"), list(min = ~ min(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* max
+```{r}
+features %>% 
+  summarise(across(contains("pratesum"), list(max = ~ max(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* mean
+```{r}
+features %>% 
+  summarise(across(contains("pratesum"), list(mean = ~ mean(.x, na.rm = TRUE)))) %>% 
+  glimpse()
+```
+
+* sd
+```{r}
+features %>% 
+  summarise(across(contains("pratesum"), list(sd = ~ sd(.x, na.rm = TRUE)))) %>% 
+  glimpse()
 ```
 
 ### Write feature file
