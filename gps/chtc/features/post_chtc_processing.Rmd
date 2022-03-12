@@ -127,9 +127,9 @@ err_files <- map_df(list.files(here(path_jobs, "output", "error"),
                                full.names = TRUE), 
                     file.info)
 
-out_files <- map_df(list.files(here(path_jobs, "output", "out"), 
-                               full.names = TRUE), 
-                    file.info)
+# out_files <- map_df(list.files(here(path_jobs, "output", "out"), 
+#                                full.names = TRUE), 
+#                     file.info)
 
 feature_files <- map_df(list.files(here(path_jobs, "output", "features"), 
                                full.names = TRUE), 
@@ -144,11 +144,11 @@ if (!(n_jobs == nrow(err_files))) {
   message(nrow(err_files), " error files detected.  Correct!")
 }
 
-if (!(n_jobs == nrow(out_files))) {
-  stop(n_jobs, " jobs != ", nrow(out_files), " out files!")
-} else {
-  message(nrow(out_files), " out files detected.  Correct!")
-}
+# if (!(n_jobs == nrow(out_files))) {
+#   stop(n_jobs, " jobs != ", nrow(out_files), " out files!")
+# } else {
+#   message(nrow(out_files), " out files detected.  Correct!")
+# }
 
 if (!(n_jobs == nrow(feature_files))) {
   stop(n_jobs, " jobs != ", nrow(feature_files), " feature files!")
@@ -167,10 +167,10 @@ err_files %>%
 
 Display path/filename of non-zero out files
 ```{r}
-out_files %>%
-    filter(size > 0) %>%
-    rownames_to_column("path") %>%
-    pull(path)
+# out_files %>%
+#     filter(size > 0) %>%
+#     rownames_to_column("path") %>%
+#     pull(path)
 ```
 
 
@@ -202,7 +202,6 @@ if (nrow(features) == n_labels) {
 }
 ```
 
-
 Check for duplicate labels
 ```{r}
 features %>% 
@@ -224,6 +223,12 @@ features %>%
   summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
   select(where(function(x) x < 0)) %>% 
   glimpse() 
+```
+
+Review mins and maxs
+```{r}
+features %>% 
+  summarise(across(everything(), list(min = ~ min(.x, na.rm = TRUE), max = ~ max(.x, na.rm = TRUE))))
 ```
 
 ### Write feature file
