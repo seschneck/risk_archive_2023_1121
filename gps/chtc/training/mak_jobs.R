@@ -6,7 +6,6 @@ library(tidyverse)
 library(here)
 
 # CHANGE ME  -------------------- 
-# Set path for training_controls.R
 # location of study specific training_controls.R (can use relative path if in repo) 
 path_training_controls <- here("gps/chtc/training/training_controls_1day.R") 
 
