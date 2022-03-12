@@ -30,7 +30,7 @@ path_data <- "P:/studydata/risk/data_processed/gps" # location of data set
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "8000MB"
+request_memory <- "12000MB"
 request_disk <- "1000000KB" # this is pretty large - necessary for gps?
 flock <- FALSE
 glide <- FALSE
