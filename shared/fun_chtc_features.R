@@ -44,6 +44,7 @@ get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
 }
 
 
+
 get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration) {
   
   # This function filters data rows based on a lapse label (subid and hour) passed in
@@ -52,18 +53,20 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
   # Pass in data tibble that will be filtered on by labels (MUST INCLUDE dttm_obs VARIABLE)
   # Set lead_hours parameter to number of hours out from lapse you wish to predict 
   # Set period duration hours to set the duration over which you wish to use data from  
+  # set period_duration to Inf if you want all the way back to the first observation
   
   x_all %>% 
     filter(subid == the_subid) %>% 
     
-    # filter on period duration hours
-    mutate(period_start_dttm = the_dttm_label - duration(period_duration, "hours")) %>% 
-    filter(dttm_obs >= period_start_dttm) %>% 
-    
-    # filter on lead hours
-    mutate(diff_hours = as.numeric(difftime(the_dttm_label, dttm_obs, units = "hours"))) %>%  
-    filter(diff_hours >= lead) %>% 
-    select(-c(period_start_dttm, diff_hours))
+    # filter on period_duration hours and lead hours
+    # if period_duration == Inf, set period_start_dttm to date long ago! (kludge)
+    mutate(period_start_dttm = if_else(is.infinite(period_duration),
+                                       the_dttm_label - duration(24*365*5, "hours"), # 5 years before label
+                                       the_dttm_label - duration(period_duration + lead, "hours")), # lead + duration before label
+           period_end_dttm = the_dttm_label - duration(lead, "hours")) %>% # lead before label
+    filter(dttm_obs >= period_start_dttm,
+           dttm_obs <= period_end_dttm) %>% 
+    select(-c(period_start_dttm, period_end_dttm))
 }
 
 
@@ -442,11 +445,11 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
 score_mean <- function(the_subid, the_dttm_label, x_all, 
                        period_durations, lead, data_start, 
                        col_name, data_type_col_name = NA, data_type_values = NA, 
-                       context_col_name = NA, context_values = NA, passive = FALSE) {
-  # Sums the value for col_name (i.e., duration) and converts to a rate
-  # based on the period_duration.  Returns a raw rate (ratecount) and two relative
-  # rates (dratecount for diff between rate in period and rate across all data; 
-  # pratecount for percent change between rate in period and rate across all data)
+                       context_col_name = NA, context_values = NA) {
+  # UPDATE THIS PART OF COMMENT
+  # Gets value for col_name and returns a raw mean, a mean change, and a proportion change in mean from baseline
+  # i.e., (raw mean - baseline mean) / baseline mean
+  # proportion score set to NA if baseline == 0
   
   # the_subid: single integer subid
   # the_dttm_label: single dttm for label onset
@@ -455,68 +458,58 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
   # lead: the lead time for prediction in hours (a single integer)
   # data_start: a df with data_start = min(study_start, comm_start) for all subids
   # col_name: column name for raw data for feature as string - should be continuous var
-  # data_type_col_name: name of column name to filter on for data log type values (used in meta study)
+  # data_type_col_name: name of column name to filter on for data log type values
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
-  # context_col_name: col_name of context feature
-  # context_values: a vector of 1+ context values to filter on
-  # passive: is a variable to distinguish variables that use no context and to append passive
-  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
+  # context_col_name: col_name of context feature. Set to NA if no context filter
+  # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
   
   
   # nested foreach - period_duration within data_type_value within context_value
-  
+
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
-    
+
     # Filter data if context_value provided
     if (!is.na(context_value)) {
       x_c <- x_all %>%
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
     
-    periodmean <- function (.x) {
-      the_mean <- if (length(.x) > 0) { 
+    period_mean <- function (.x) {
+      the_mean <- if (length(.x) > 0 && !all(is.na(.x))) { 
         mean(.x, na.rm = TRUE)
-      } else 0
+      } else NA
       
       return(the_mean)
     }
-    
-    base_duration <- correct_period_duration(the_subid, the_dttm_label, 
-                                             data_start, Inf)  # use Inf to ignore period_duration
-    
-    
+
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
       
+      # get baseline mean using all data before label dttm
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x, lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := periodmean(.data[[col_name]])) %>% 
+        pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
         x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
         
-        true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
-                                                        data_start, period_duration)
-        
-        baseline <- x %>% 
-          filter(subid == the_subid) %>% 
-          summarise("base" := periodmean(.data[[col_name]])) %>% 
-          pull(base)
-        
-        raw_mean <- x_period %>%
+        raw_mean <- x %>%
+          get_x_period(the_subid, the_dttm_label, x, lead, period_duration) %>% 
           summarise("raw" := periodmean(.data[[col_name]])) %>%
           pull(raw)
         
-        passive_label <- if_else(passive, "passive", "NA")
-        
-        rates <- 
-          tibble(
-            "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_mean,
-            "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(baseline == 0, 0, (raw_mean - baseline) / baseline)) %>% 
-          rename_with(~str_remove_all(.x, ".NA")) %>% 
-          rename_with(~str_remove(.x, "^NA."))
+        tibble(
+          "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw_mean,
+          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw_mean - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := 
+            if_else(baseline == 0, NA, (raw_mean - baseline) / baseline)) %>% 
+        rename_with(~str_remove_all(.x, ".NA")) %>% 
+        rename_with(~str_remove(.x, "^NA."))
       }
     }
   }
