@@ -1,6 +1,6 @@
 ---
 title: "Clean the raw qualtrics EMA surveys"
-author: "Sarah Sant'Ana and Kendra Wyant"
+author: "Sarah Sant'Ana, Kendra Wyant &  John Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
@@ -126,27 +126,22 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_raw <- "P:/studydata/risk/data_raw/qualtrics"
-          path_shared <- "P:/studydata/risk/data_processed/shared"
-          path_lab_support <- "P:/toolboxes/lab_support"},
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
 
         # IOS paths
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw/qualtrics"
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_lab_support <- "/Volumes/private/toolboxes/lab_support"}
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
         )
 ```
 
-Relative paths
-```{r}
-path_log <- "shared/notes"
-```
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
 library(conflicted) # detect and warn about function conflicts
- conflict_prefer("filter", "dplyr")
- conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("cols", "vroom")
 
 library(here)  # establish project directory consistently as working directory
 ```
@@ -157,6 +152,7 @@ Packages for script
 library(tidyverse)  # always need this
 library(janitor) # cleaning and EDA
 library(lubridate)
+library(vroom)
 
 # for plots and tables
 library(ggplot2)
@@ -164,18 +160,26 @@ theme_set(theme_bw()) # or theme_set(theme_classic())
 library(kableExtra)
 ```
 
+Relative paths
+```{r}
+path_log <- "shared/notes"
+```
+
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here(path_lab_support, "clean_qualtrics_by_log.R"))
-source(here(path_lab_support, "print_kbl.R"))
+source(here("../lab_support/clean_qualtrics_by_log.R"))
+source(here("../lab_support/print_kbl.R"))
+
+# source(here("../lab_support/chtc/static_files/input/fun_chtc.R"))
 ```
+
 
 
 ### Read in raw data 
 
 Rename subid and response_id to tidy case because these variables are used by name in clean_qualtrics_by_log()
 ```{r}
-ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom::cols()) %>% 
+ema_morning <- vroom(here(path_raw, 'ema_morning.csv'), col_types = cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
   # put start and end date in central time
@@ -183,7 +187,7 @@ ema_morning <- vroom::vroom(here(path_raw, 'ema_morning.csv'), col_types = vroom
          EndDate = with_tz(EndDate, tzone = "America/Chicago")) %>% 
   glimpse()
 
-ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::cols()) %>% 
+ema_later <- vroom(here(path_raw, 'ema_later.csv'), col_types = cols()) %>% 
   rename(subid = SubID) %>% 
   rename(response_id = ResponseID) %>% 
   # put start and end date in central time
@@ -194,16 +198,16 @@ ema_later <- vroom::vroom(here(path_raw, 'ema_later.csv'), col_types = vroom::co
 
 Read in raw notes for supporting info
 ```{r}
-notes <- vroom::vroom(here(path_log, "raw_notes.csv"), col_types = vroom::cols())
+notes <- vroom(here(path_log, "raw_notes.csv"), col_types = cols())
 ```
 
 ### Read in Logs
 
 ```{r}
-log_morning <- vroom::vroom(here(path_log, "log_ema_morning.csv"), col_types = vroom::cols()) %>% 
+log_morning <- vroom(here(path_log, "log_ema_morning.csv"), col_types = cols()) %>% 
   glimpse()
 
-log_later <- vroom::vroom(here(path_log, "log_ema_later.csv"), col_types = vroom::cols()) %>% 
+log_later <- vroom(here(path_log, "log_ema_later.csv"), col_types = cols()) %>% 
   glimpse()
 ```
 
@@ -427,7 +431,10 @@ log_tz_morning <- log_morning %>%
 ema_morning <- ema_morning %>% 
   left_join(log_tz_morning, by = "response_id") %>% 
   mutate(emam_1_6 = if_else(emam_1 == "Yes" & is.na(emam_1_6), "America/Chicago", emam_1_6)) %>% 
-  relocate(emam_1_6, .after = emam_1_5)
+  relocate(emam_1_6, .after = emam_1_5) %>% 
+  rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
+  mutate(ema_type = "morning") %>% 
+  glimpse()
 ```
 
 later
@@ -439,7 +446,10 @@ log_tz_later <- log_later %>%
 ema_later <- ema_later %>% 
   left_join(log_tz_later, by = "response_id") %>% 
   mutate(emal_1_6 = if_else(emal_1 == "Yes" & is.na(emal_1_6), "America/Chicago", emal_1_6)) %>% 
-  relocate(emal_1_6, .after = emal_1_5)
+  relocate(emal_1_6, .after = emal_1_5) %>% 
+  rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
+  mutate(ema_type = "later") %>% 
+  glimpse()
 ```
 
 
@@ -449,9 +459,6 @@ ema_later <- ema_later %>%
 Combine EMA files for EDA
 ```{r}
 ema_all <- ema_morning %>% 
-  rename_with(~ str_replace(.x, "emam_", "ema_")) %>% 
-  # add temp variable to trace which ema file an entry came from for EDA
-  mutate(ema_type = "morning") %>% 
   bind_rows(ema_later %>% 
               rename_with(~ str_replace(.x, "emal_", "ema_")) %>% 
               mutate(ema_type = "later")) %>% 
@@ -1783,8 +1790,27 @@ ema_all %>%
 
 ```{r}
 ema_morning %>%
-  write_csv(file.path(path_shared, "ema_morning.csv"))
+  select(-ip_address, -location_latitude, -location_longitude) %>% 
+  rename (ema_2 = ema_2_1,
+          ema_3 = ema_3_1,
+          ema_4 = ema_4_1,
+          ema_5 = ema_5_1,
+          ema_6 = ema_6_1,
+          ema_7 = ema_7_1,
+          ema_8 = ema_8_1,
+          ema_9 = ema_9_1,
+          ema_10 = ema_10_1) %>% 
+  vroom_write(here(path_shared, "ema_morning.csv"), delim = ",") %>% 
+  glimpse()
 
 ema_later %>%
-  write_csv(file.path(path_shared, "ema_later.csv"))
+  select(-ip_address, -location_latitude, -location_longitude) %>% 
+  rename (ema_2 = ema_2_1,
+          ema_3 = ema_3_1,
+          ema_4 = ema_4_1,
+          ema_5 = ema_5_1,
+          ema_6 = ema_6_1,
+          ema_7 = ema_7_1) %>% 
+  vroom_write(here(path_shared, "ema_later.csv"), delim = ",") %>% 
+  glimpse()
 ```
