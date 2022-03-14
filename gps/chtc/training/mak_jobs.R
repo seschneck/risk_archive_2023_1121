@@ -7,14 +7,14 @@ library(here)
 
 # CHANGE ME  -------------------- 
 # location of study specific training_controls.R (can use relative path if in repo) 
-path_training_controls <- here("gps/chtc/training/training_controls_1day.R") 
+path_training_controls <- here("gps/chtc/training/training_controls_1day_rf.R") 
 
 
 # DON'T CHANGE -------------------- 
 
 source("../lab_support/chtc/static_files/input/fun_chtc.R", echo = FALSE)
 
-make_jobs(path_training_controls)
+make_jobs(path_training_controls, overwrite_jobs = FALSE)
 
 
 # NOTE: Currently glmnet does not have separate folds/splits - training function takes in whole splits
