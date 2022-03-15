@@ -41,7 +41,7 @@ tibble(job_start, job_stop) %>%
 
 # select and format relevant variables and then copy enriched gps
 vroom(here(path_ema, name_ema), show_col_types = FALSE) %>% 
-  select(-ema_type) %>% 
+  select(-ema_type, -ema_1_1, -ema_1_2, -ema_1_3, -ema_1_4, -ema_1_5, -ema_1_6) %>% 
   arrange(subid, dttm_obs) %>% 
   vroom_write(here(path_jobs, name_job, "input", "data.csv"), delim = ",")
 
