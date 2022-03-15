@@ -61,7 +61,7 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
     # filter on period_duration hours and lead hours
     # if period_duration == Inf, set period_start_dttm to date long ago! (kludge)
     mutate(period_start_dttm = if_else(is.infinite(period_duration),
-                                       the_dttm_label - duration(24*365*5, "hours"), # 5 years before label
+                                       the_dttm_label - duration(24 * 365 * 5, "hours"), # 5 years before label
                                        the_dttm_label - duration(period_duration + lead, "hours")), # lead + duration before label
            period_end_dttm = the_dttm_label - duration(lead, "hours")) %>% # lead before label
     filter(dttm_obs >= period_start_dttm,
@@ -446,7 +446,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
                        period_durations, lead, data_start, 
                        col_name, data_type_col_name = NA, data_type_values = NA, 
                        context_col_name = NA, context_values = NA) {
-  # UPDATE THIS PART OF COMMENT
+  
   # Gets value for col_name and returns a raw mean, a mean change, and a proportion change in mean from baseline
   # i.e., (raw mean - baseline mean) / baseline mean
   # proportion score set to NA if baseline == 0
@@ -474,40 +474,48 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
     
+    # period_mean <- function (.x) {
+    #   the_mean <- if (length(.x) > 0 && !all(is.na(.x))) { 
+    #     mean(.x, na.rm = TRUE)
+    #   } else NA
+    #   
+    #   return(the_mean)
+    # }
+
     period_mean <- function (.x) {
-      the_mean <- if (length(.x) > 0 && !all(is.na(.x))) { 
-        mean(.x, na.rm = TRUE)
-      } else NA
+      if (length(.x) > 0) { 
+        if (!all(is.na(.x))) {
+          the_mean <- mean(.x, na.rm = TRUE)
+        } else the_mean <- NA
+      } else the_mean <- NA
       
       return(the_mean)
     }
-
+    
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
-      
+
       # get baseline mean using all data before label dttm
       baseline <- x %>% 
-        get_x_period(the_subid, the_dttm_label, x, lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-        summarise("base" := periodmean(.data[[col_name]])) %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := period_mean(.data[[col_name]])) %>% 
         pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
-        
         raw_mean <- x %>%
-          get_x_period(the_subid, the_dttm_label, x, lead, period_duration) %>% 
-          summarise("raw" := periodmean(.data[[col_name]])) %>%
+          get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
+          summarise("raw" := period_mean(.data[[col_name]])) %>%
           pull(raw)
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw_mean,
           "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw_mean - baseline,
           "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := 
-            if_else(baseline == 0, NA, (raw_mean - baseline) / baseline)) %>% 
+            if_else(baseline == 0, NA_real_, (raw_mean - baseline) / baseline)) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
       }
