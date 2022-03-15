@@ -60,6 +60,7 @@ library(tidyverse)
 library(lubridate)
 library(vroom)
 library(furrr)
+library(tictoc)
 
 source(here("shared", "fun_features.R"))
 ```
@@ -101,7 +102,6 @@ ema_long <- ema %>%
   pivot_longer(
     cols = starts_with("ema_"),
     names_to = "ema_num",
-    #names_prefix = "ema_",
     values_to = "response"
   ) %>% 
   glimpse
@@ -112,39 +112,60 @@ ema_long <- ema %>%
 
 ```{r}
 
-get_features <- function(i_label, labels, ema_long, dates, period_durations, 
+get_features_subid <- function(the_subid, labels, ema_long, dates, period_durations, 
                          lead, col_name, data_type_col_name, data_type_values) {
   
-  label <-  slice(labels, i_label)
-  subid <- label$subid 
-  dttm_label <-  label$dttm_label
+  labels <- labels %>% filter(subid == the_subid)
   
-  # mean
-  feature_row <- score_mean(the_subid = subid, 
-                            the_dttm_label = dttm_label,
-                            x_all  = ema_long,
-                            period_durations = period_durations,
-                            lead = lead, 
-                            data_start = dates, 
-                            col_name = "response", 
-                            data_type_col_name = "ema_num", 
-                            data_type_values = c("ema_2", "ema_3"))
-
-  # max
-  # feature_row <- feature_row %>% 
-  #   full_join(score_ratesum(subid, 
-  #                           dttm_label,
-  #                           x_all  = data,
-  #                           period_durations = period_durations,
-  #                           lead = lead, 
-  #                           data_start = dates, 
-  #                           col_name = "duration",
-  #                           context_col_name = "drank",
-  #                           context_values = c("yes", "no")), 
-  #             by = c("subid", "dttm_label"))
+  features <- foreach(i_label = 1:nrow(labels), .combine="rbind") %do% {
+  
+    label <-  slice(labels, i_label)
+    subid <- label$subid 
+    dttm_label <-  label$dttm_label
+    
+    # median
+    feature_row <- score_median(the_subid = subid, 
+                              the_dttm_label = dttm_label,
+                              x_all  = ema_long,
+                              period_durations = period_durations,
+                              lead = lead, 
+                              data_start = dates, 
+                              col_name = "response", 
+                              data_type_col_name = "ema_num", 
+                              data_type_values = str_c("ema_", 1:10))
+  
+    # max
+    feature_row <- feature_row %>% 
+      full_join(score_max(the_subid = subid, 
+                              the_dttm_label = dttm_label,
+                              x_all  = ema_long,
+                              period_durations = period_durations,
+                              lead = lead, 
+                              data_start = dates, 
+                              col_name = "response", 
+                              data_type_col_name = "ema_num", 
+                              data_type_values = str_c("ema_", 1:10)), 
+                 by = c("subid", "dttm_label"))
+    
+    # min
+    feature_row <- feature_row %>% 
+      full_join(score_min(the_subid = subid, 
+                              the_dttm_label = dttm_label,
+                              x_all  = ema_long,
+                              period_durations = period_durations,
+                              lead = lead, 
+                              data_start = dates, 
+                              col_name = "response", 
+                              data_type_col_name = "ema_num", 
+                              data_type_values = str_c("ema_", 1:10)), 
+                 by = c("subid", "dttm_label"))
+    
+    feature_row
+  }
 }
 ```
 
+### Get features
 Set up parallel backend
 ```{r}
 # use furrr to future map over subids (the_subid) when making labels
@@ -155,8 +176,9 @@ plan(multisession, workers = n_cores)
 
 ```{r}
 tic()
-features2 <- 1:500 %>% 
-  future_map_dfr(~get_features(.x, labels, ema_long, dates, period_durations, lead, 
+subids <- unique(labels$subid)
+features <- subids %>% 
+  future_map_dfr(~get_features_subid(.x, labels, ema_long, dates, period_durations, lead, 
                         col_name = "response", 
                         data_type_col_name = "ema_num", 
                         data_type_values = str_c("ema_", 1:10)))
@@ -164,10 +186,12 @@ toc()
 plan(sequential)
 ```
 
-
+### Finish up
 ```{r}
+features <- features %>% 
   mutate(lapse = labels$lapse) %>% 
   relocate(subid, dttm_label, lapse) %>% 
-  vroom_write(str_c("features_", window, ".csv"), delim = ",") %>% 
+  vroom_write(path_ema, str_c("features_", window, ".csv"), delim = ",") %>% 
+  vroom_write(path_ema, str_c("features_", window, ".csv.xz"), delim = ",") %>% 
   glimpse()
 ```
