@@ -8,11 +8,11 @@ output:
     toc_depth: 6
 editor_options: 
   chunk_output_type: console
-knit: (function(input, ...) {
-  })
-    rmarkdown::render(
-      input,
-      output_dir = "P:/studydata/risk/knits/context")
+#knit: (function(input, ...) {
+#  })
+#    rmarkdown::render(
+#      input,
+#      output_dir = #"P:/studydata/risk/knits/context")
 ---
 
 
@@ -878,18 +878,22 @@ drop_subids <- location_check %>%
 
 location_check %>% 
   select(-gps_data) %>% 
-  write_delim("P:/studydata/risk/data_processed/context/location_check.csv")
+  write_delim("P:/studydata/risk/data_processed/context/location_check.csv", delim = ",")
 
 locations %>% 
   #filter(!subid %in% drop_subids) %>% 
+<<<<<<< Updated upstream
   write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv")
+=======
+  write_delim("P:/studydata/risk/data_processed/context/locations_other_imputed.csv", delim = ",")
+>>>>>>> Stashed changes
 
 #save 
 gps <- gps %>%
   filter(!subid %in% drop_subids) 
 
 gps %>% 
-  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv")
+  write_delim("P:/studydata/risk/data_processed/context/gps_with_exclusions.csv", delim = ",")
 
 ```
 

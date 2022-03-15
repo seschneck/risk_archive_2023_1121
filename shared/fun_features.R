@@ -112,6 +112,17 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
   # passive: is a variable to distinguish variables that use no context and to append passive
   # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
+
+  
+  # define ratecount function
+  ratecount <- function (.x, value, duration) {
+    the_count <- if (length(.x) > 0) {
+      sum(.x == value, na.rm = TRUE)
+    } else 0
+    
+    return(the_count / duration)
+  }
+
   # nested foreach - col_value within period_duration within data_type_value within context_value
   
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -122,16 +133,6 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all # renaming to avoid rewriting over x_all for next loop
     
-    ratecount <- function (.x, value, duration) {
-      the_count <- if (length(.x) > 0) {
-        sum(.x == value, na.rm = TRUE)
-      } else 0
-      
-      return(the_count / duration)
-    }
-    
-    base_duration <- correct_period_duration(the_subid, the_dttm_label, 
-                                             data_start, Inf)  # use Inf to ignore period_duration
     
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
@@ -139,21 +140,27 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c # renaming to avoid rewriting over x_c for next loop
       
+
+      
+      
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
-        
-        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
         
         true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
                                                         data_start, period_duration)
         
+        base_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                                 data_start, Inf)  # use Inf to ignore period_duration
+        
         foreach(col_value = col_values, .combine = "cbind") %do% { 
-          
+
+          # baseline moved to here for this scoring function to limit to col_value   CHECK WITH KENDRA
           baseline <- x %>%
-            filter(subid == the_subid) %>%
+            get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
             summarise("base" := ratecount(.data[[col_name]], col_value, base_duration)) %>%
             pull(base)
           
-          raw_count <- x_period %>%
+          raw <- x %>%
+            get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
             summarise("raw" := ratecount(.data[[col_name]], col_value, true_period_duration)) %>%
             pull(raw)
           
@@ -161,9 +168,10 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw_count,
+              "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
               "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(baseline == 0, NA_real_, (raw_count - baseline) / baseline)) %>% 
+                if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
           
@@ -205,6 +213,14 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
   # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
+  # define propcount function
+  propcount <- function (.x, value, n_rows) {
+    if (length(.x) > 0) {
+      the_count <- sum(.x == value, na.rm = TRUE)
+      return(the_count / n_rows)
+    } else return(NA_real_) # NA because if they have no rows we cannot deduce a proportion - different than 0
+  }
+  
   
   # nested foreach - col_value within period_duration within data_type_value within context_value
   
@@ -217,14 +233,6 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
     } else x_c <- x_all # rename to avoid rewriting over x_all for next loop
     
     
-    propcount <- function (.x, value, n_rows) {
-      if (length(.x) > 0) {
-        the_count <- sum(.x == value, na.rm = TRUE)
-        return(the_count / n_rows)
-      } else return(NA_real_) # NA because if they have no rows we cannot deduce a proportion - different than 0
-    }
-    
-    
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
@@ -233,24 +241,27 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
-        
         foreach(col_value = col_values, .combine = "cbind") %do% { 
-          
-          baseline <- x %>% 
-            summarise("base" := propcount(.data[[col_name]], col_value, nrow(x))) %>% 
+
+          # baseline moved to here for this scoring function to limit to col_value   CHECK WITH KENDRA
+          baseline <- x %>%
+            get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+            summarise("base" := propcount(.data[[col_name]], col_value, nrow(.))) %>%   # CHECK . with KENDRA
             pull(base)
-          raw_count <- x_period %>%
-            summarise("raw" := propcount(.data[[col_name]], col_value, nrow(x_period))) %>%
+          
+          raw <- x %>%
+            get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
+            summarise("raw" := propcount(.data[[col_name]], col_value, nrow(.))) %>% # CHECK . with KENDRA
             pull(raw)
           
           passive_label <- if_else(passive, "passive", "NA")
           
           rates <- 
             tibble(
-              "{data_type_value}.p{period_duration}.l{lead}.rpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw_count,
+              "{data_type_value}.p{period_duration}.l{lead}.rpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
+              "{data_type_value}.p{period_duration}.l{lead}.dpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
               "{data_type_value}.p{period_duration}.l{lead}.ppropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(is.na(baseline) | baseline == 0, NA_real_, (raw_count - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+                if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
@@ -291,6 +302,16 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
   # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
+  # define propdatetime function
+  propdatetime <- function (.x, dttm_col_name, dttm_window, n_rows) {
+    if (nrow(.x) > 0) {
+      the_count <- .x %>% 
+        filter(!!dttm_window) %>% 
+        nrow()
+      return(the_count / n_rows)
+    } else return(NA_real_) # NA because if they have no rows we cannot deduce a proportion - different than 0
+  }
+  
   
   # nested foreach - period_duration within data_type_value within context_value
   
@@ -302,41 +323,34 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all # rename to avoid rewriting over x_all for next loop
     
-    
-    propdatetime <- function (.x, dttm_col_name, dttm_window, n_rows) {
-      if (nrow(.x) > 0) {
-        the_count <- .x %>% 
-          filter(!!dttm_window) %>% 
-          nrow()
-        return(the_count / n_rows)
-      } else return(NA_real_) # NA because if they have no rows we cannot deduce a proportion - different than 0
-    }
-    
-    
+
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c # rename to avoid rewriting over x for next loop
       
+      # baseline is constant across period durations so get outside of lower loop
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   ## CHECK THIS WITH KENDRA;  . was x
+        pull(base)
+      
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
-        
-        baseline <- x %>% 
-          summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(x))) %>% 
-          pull(base)
-        raw_count <- x_period %>%
-          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(x_period))) %>%
+        raw <- x %>%
+          get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
+          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   # CHECK . with KENDRA
           pull(raw)
         
         passive_label <- if_else(passive, "passive", "NA")
         
         rates <- 
           tibble(
-            "{data_type_value}.p{period_duration}.l{lead}.rpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw_count,
+            "{data_type_value}.p{period_duration}.l{lead}.rpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw,
+            "{data_type_value}.p{period_duration}.l{lead}.dpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
             "{data_type_value}.p{period_duration}.l{lead}.ppropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(is.na(baseline) | baseline == 0, NA_real_, (raw_count - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+              if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -375,6 +389,15 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
   # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
+  # define ratesum function
+  ratesum <- function (.x, duration) {
+    the_sum <- if (length(.x) > 0) {
+      sum(.x, na.rm = TRUE)
+    } else 0
+    
+    return(the_sum / duration)
+  }
+  
   # nested foreach - period_duration within data_type_value within context_value
   
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -386,37 +409,30 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
     } else x_c <- x_all
     
     
-    ratesum <- function (.x, duration) {
-      the_sum <- if (length(.x) > 0) {
-        sum(.x, na.rm = TRUE)
-      } else 0
-      
-      return(the_sum / duration)
-    }
-    
-    base_duration <- correct_period_duration(the_subid, the_dttm_label, 
-                                             data_start, Inf)  # use Inf to ignore period_duration
-    
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
+    
+      # baseline is constant across period durations so get outside of lower loop
+      # some periods are full duration b.c they are at the beginning of data collection
+      base_duration <- correct_period_duration(the_subid, the_dttm_label, 
+                                               data_start, Inf)  # use Inf to ignore period_duration
       
+      baseline <- x %>%
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := ratesum(.data[[col_name]], base_duration)) %>%
+        pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
-        
-        x_period <- get_x_period(the_subid, the_dttm_label, x, lead, period_duration)
-        
+      
+        # some periods are full duration b.c they are at the beginning of data collection
         true_period_duration <- correct_period_duration(the_subid, the_dttm_label, 
                                                         data_start, period_duration)
         
-        baseline <- x %>%
-          filter(subid == the_subid) %>%
-          summarise("base" := ratesum(.data[[col_name]], base_duration)) %>%
-          pull(base)
-        
-        raw_sum <- x_period %>%
+        raw <- x %>%
+          get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
           summarise("raw" := ratesum(.data[[col_name]], true_period_duration)) %>%
           pull(raw)
         
@@ -424,9 +440,10 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
         
         rates <- 
           tibble(
-            "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_sum,
+            "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
+            "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
             "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(baseline == 0, 0, (raw_sum - baseline) / baseline))  %>% 
+              if_else(baseline == 0, 0, (raw - baseline) / baseline))  %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -463,7 +480,16 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
   
-  
+  # define period_mean function
+  period_mean <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_mean <- mean(.x, na.rm = TRUE)
+      } else the_mean <- NA
+    } else the_mean <- NA
+    
+    return(the_mean)
+  }
   # nested foreach - period_duration within data_type_value within context_value
 
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -474,15 +500,6 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
 
-    period_mean <- function (.x) {
-      if (length(.x) > 0) { 
-        if (!all(is.na(.x))) {
-          the_mean <- mean(.x, na.rm = TRUE)
-        } else the_mean <- NA
-      } else the_mean <- NA
-      
-      return(the_mean)
-    }
     
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
@@ -498,16 +515,16 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        raw_mean <- x %>%
+        raw <- x %>%
           get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
           summarise("raw" := period_mean(.data[[col_name]])) %>%
           pull(raw)
         
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw_mean,
-          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw_mean - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
           "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := 
-            if_else(baseline == 0, NA_real_, (raw_mean - baseline) / baseline)) %>% 
+            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
       }
@@ -543,6 +560,16 @@ score_median <- function(the_subid, the_dttm_label, x_all,
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
   
+  # define period_median function
+  period_median <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_median <- median(.x, na.rm = TRUE)
+      } else the_median <- NA
+    } else the_median <- NA
+    
+    return(the_median)
+  }
   
   # nested foreach - period_duration within data_type_value within context_value
   
@@ -554,16 +581,7 @@ score_median <- function(the_subid, the_dttm_label, x_all,
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
     
-    period_median <- function (.x) {
-      if (length(.x) > 0) { 
-        if (!all(is.na(.x))) {
-          the_median <- median(.x, na.rm = TRUE)
-        } else the_median <- NA
-      } else the_median <- NA
-      
-      return(the_median)
-    }
-    
+
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
       if (!is.na(data_type_value)) {
@@ -578,16 +596,16 @@ score_median <- function(the_subid, the_dttm_label, x_all,
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        raw_median <- x %>%
+        raw <- x %>%
           get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
           summarise("raw" := period_median(.data[[col_name]])) %>%
           pull(raw)
         
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}" := raw_median,
-          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}" := raw_median - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
           "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}" := 
-            if_else(baseline == 0, NA_real_, (raw_median - baseline) / baseline)) %>% 
+            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -624,6 +642,16 @@ score_max <- function(the_subid, the_dttm_label, x_all,
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
   
+  # define max function
+  period_max <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_max <- max(.x, na.rm = TRUE)
+      } else the_max <- NA
+    } else the_max <- NA
+    
+    return(the_max)
+  }
   
   # nested foreach - period_duration within data_type_value within context_value
   
@@ -634,16 +662,7 @@ score_max <- function(the_subid, the_dttm_label, x_all,
       x_c <- x_all %>%
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
-    
-    period_max <- function (.x) {
-      if (length(.x) > 0) { 
-        if (!all(is.na(.x))) {
-          the_max <- max(.x, na.rm = TRUE)
-        } else the_max <- NA
-      } else the_max <- NA
-      
-      return(the_max)
-    }
+  
     
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
@@ -705,6 +724,17 @@ score_min <- function(the_subid, the_dttm_label, x_all,
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
   
   
+  # define min function
+  period_min <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_min <- min(.x, na.rm = TRUE)
+      } else the_min <- NA
+    } else the_min <- NA
+    
+    return(the_min)
+  }
+  
   # nested foreach - period_duration within data_type_value within context_value
   
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -714,16 +744,6 @@ score_min <- function(the_subid, the_dttm_label, x_all,
       x_c <- x_all %>%
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
-    
-    period_min <- function (.x) {
-      if (length(.x) > 0) { 
-        if (!all(is.na(.x))) {
-          the_min <- min(.x, na.rm = TRUE)
-        } else the_min <- NA
-      } else the_min <- NA
-      
-      return(the_min)
-    }
     
     foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
       
@@ -739,16 +759,16 @@ score_min <- function(the_subid, the_dttm_label, x_all,
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
-        raw_min <- x %>%
+        raw <- x %>%
           get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
           summarise("raw" := period_min(.data[[col_name]])) %>%
           pull(raw)
         
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}" := raw_min,
-          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}" := raw_min - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
           "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}" := 
-            if_else(baseline == 0, NA_real_, (raw_min - baseline) / baseline)) %>% 
+            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }

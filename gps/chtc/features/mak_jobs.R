@@ -14,7 +14,7 @@ path_gps <- "P:/studydata/risk/data_processed/gps"
 name_gps <- "gps_enriched.csv.xz"
 name_labels <- "labels_1day.csv"
 name_study_dates <- "study_dates.csv"
-name_fun <- "fun_chtc_features.R"
+name_fun <- "fun_features.R"
 name_script <- "mak_features_chtc.R"
 
 # create new job directory (if it does not already exist) 
