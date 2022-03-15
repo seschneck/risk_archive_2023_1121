@@ -9,45 +9,45 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(vroom)
   library(foreach)
-  source("fun_chtc_features.R")
+  source("fun_features.R")
 })
 
-# get chtc process num ------------------
-# label_num <- 1
+# get chtc process num
 args <- commandArgs(trailingOnly = TRUE) 
-#job_start <- 101
-#job_stop <- 200
+#job_start <- 2001
+#job_stop <- 2002
 job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in row numbers
 job_stop <- as.numeric(args[2])
 
-# read in data ------------------
+# read in data
 data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
-  mutate(time = with_tz(time, tz = "America/Chicago")) %>% 
+  mutate(time = with_tz(time, tz = "America/Chicago"),
+         duration = duration / 60) %>% #convert minutes to hours because period duration units are hours
   rename(dttm_obs = time) %>% 
   filter(dist_context <= dist_max) # currently only care about observations with context
                                    # this may change when need to figure out total duration
                                    # of observations in window in future
 
 labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
-  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago"))
+  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
+  slice(job_start:job_stop) %>% 
+  mutate(label_num = seq(job_start, job_stop, by = 1))
 
 dates <- vroom("study_dates.csv", show_col_types = FALSE) %>% 
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
-# Slice out label based on label_num ------------------
-labels <- slice(labels, job_start:job_stop) %>% 
-  mutate(label_num = seq(job_start, job_stop, by = 1))
 
 # initialize period durations and lead hours ------------------
 period_durations <- c(6, 12, 24, 48, 72, 168) 
 lead <-  0 
 
 # make features ------------------
+# i_label <- 1   # for testing
 features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   # for (the_label_num in job_start:job_stop) {
-  label <-  slice(labels, i_label)
+  label <- labels %>% slice(i_label)
   subid <- label$subid 
   dttm_label <-  label$dttm_label
   the_label_num <- label$label_num
