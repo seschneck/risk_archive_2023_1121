@@ -16,7 +16,7 @@ suppressPackageStartupMessages({
   library(tis)
   library(foreach)
   
-  source("fun_chtc_features.R")
+  source("fun_features.R")
 })
 
 # get chtc process num ------------------

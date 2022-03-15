@@ -462,7 +462,7 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
 score_mean <- function(the_subid, the_dttm_label, x_all, 
                        period_durations, lead, data_start, 
                        col_name, data_type_col_name = NA, data_type_values = NA, 
-                       context_col_name = NA, context_values = NA) {
+                       context_col_name = NA, context_values = NA, passive = FALSE) {
   
   # Gets value for col_name and returns a raw mean, a mean change, and a proportion change in mean from baseline
   # i.e., (raw mean - baseline mean) / baseline mean
@@ -479,6 +479,8 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   # define period_mean function
   period_mean <- function (.x) {
@@ -520,10 +522,12 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
           summarise("raw" := period_mean(.data[[col_name]])) %>%
           pull(raw)
         
+        passive_label <- if_else(passive, "passive", "NA")
+        
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}" := 
+          "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
             if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
@@ -542,7 +546,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
 score_median <- function(the_subid, the_dttm_label, x_all, 
                        period_durations, lead, data_start, 
                        col_name, data_type_col_name = NA, data_type_values = NA, 
-                       context_col_name = NA, context_values = NA) {
+                       context_col_name = NA, context_values = NA, passive = FALSE) {
   
   # Gets value for col_name and returns a raw median, a median change, and a proportion change in median from baseline
   # i.e., (raw mean - baseline mean) / baseline mean
@@ -559,6 +563,8 @@ score_median <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   # define period_median function
   period_median <- function (.x) {
@@ -601,10 +607,12 @@ score_median <- function(the_subid, the_dttm_label, x_all,
           summarise("raw" := period_median(.data[[col_name]])) %>%
           pull(raw)
         
+        passive_label <- if_else(passive, "passive", "NA")
+        
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}" := 
+          "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
             if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
@@ -624,7 +632,7 @@ score_median <- function(the_subid, the_dttm_label, x_all,
 score_max <- function(the_subid, the_dttm_label, x_all, 
                          period_durations, lead, data_start, 
                          col_name, data_type_col_name = NA, data_type_values = NA, 
-                         context_col_name = NA, context_values = NA) {
+                         context_col_name = NA, context_values = NA, passive = FALSE) {
   
   # Gets value for col_name and returns a raw max, a max change, and a proportion change in max from baseline
   # i.e., (raw mean - baseline mean) / baseline mean
@@ -641,6 +649,8 @@ score_max <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   # define max function
   period_max <- function (.x) {
@@ -683,10 +693,12 @@ score_max <- function(the_subid, the_dttm_label, x_all,
           summarise("raw" := period_max(.data[[col_name]])) %>%
           pull(raw)
         
+        passive_label <- if_else(passive, "passive", "NA")
+        
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmax_{col_name}.{context_col_name}.{context_value}" := raw_max,
-          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}" := raw_max - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmax_{col_name}.{context_col_name}.{context_value}" := 
+          "{data_type_value}.p{period_duration}.l{lead}.rmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max,
+          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
             if_else(baseline == 0, NA_real_, (raw_max - baseline) / baseline)) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
@@ -705,7 +717,7 @@ score_max <- function(the_subid, the_dttm_label, x_all,
 score_min <- function(the_subid, the_dttm_label, x_all, 
                       period_durations, lead, data_start, 
                       col_name, data_type_col_name = NA, data_type_values = NA, 
-                      context_col_name = NA, context_values = NA) {
+                      context_col_name = NA, context_values = NA, passive = FALSE) {
   
   # Gets value for col_name and returns a raw min, a min change, and a proportion change in min from baseline
   # i.e., (raw mean - baseline mean) / baseline mean
@@ -722,6 +734,8 @@ score_min <- function(the_subid, the_dttm_label, x_all,
   # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
   # context_col_name: col_name of context feature. Set to NA if no context filter
   # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
   
   
   # define min function
@@ -764,10 +778,12 @@ score_min <- function(the_subid, the_dttm_label, x_all,
           summarise("raw" := period_min(.data[[col_name]])) %>%
           pull(raw)
         
+        passive_label <- if_else(passive, "passive", "NA")
+        
         tibble(
-          "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}" := 
+          "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
+          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
             if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
