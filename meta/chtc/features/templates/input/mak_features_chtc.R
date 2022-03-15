@@ -16,7 +16,7 @@ suppressPackageStartupMessages({
   library(tis)
   library(foreach)
   
-  source("fun_chtc_features.R")
+  source("fun_features.R")
 })
 
 # get chtc process num ------------------
@@ -54,8 +54,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
 
   # incoming/outgoing communications 
   # on own 
-  meta_features <- score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                         slice(labels, the_label_num)$dttm_label,
+  meta_features <- score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                         subset(labels, label_num == the_label_num)$dttm_label,
                                          x_all  = logs_all,
                                          period_durations = period_durations,
                                          lead = lead, 
@@ -67,8 +67,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                          passive = TRUE)
 
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -80,8 +80,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # with context
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -95,8 +95,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -108,8 +108,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -123,8 +123,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -136,8 +136,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("always_almost_always", "occasionally", "never_almost_never")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -151,8 +151,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -164,8 +164,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -179,8 +179,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -193,8 +193,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -208,8 +208,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -221,8 +221,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -236,8 +236,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -251,8 +251,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # context alone 
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -264,8 +264,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -275,8 +275,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -288,8 +288,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -299,8 +299,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -312,8 +312,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -323,8 +323,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -336,8 +336,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -347,8 +347,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     data_type_values = c("sms", "voi")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -360,8 +360,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -372,8 +372,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -385,8 +385,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -398,8 +398,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   # call duration
   # on own
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -410,8 +410,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             passive = TRUE), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -422,8 +422,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                          passive = TRUE), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -436,8 +436,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # by incoming/outgoing
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -450,8 +450,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             passive = TRUE), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -465,8 +465,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -481,8 +481,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # with context
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -494,8 +494,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -508,8 +508,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -523,8 +523,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -536,8 +536,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -550,8 +550,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -565,8 +565,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -578,8 +578,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -592,8 +592,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -607,8 +607,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -620,8 +620,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -634,8 +634,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -648,8 +648,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -662,8 +662,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -676,8 +676,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -690,8 +690,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("supportive", "unsupportive", "mixed")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratesum(slice(labels, the_label_num)$subid, 
-                            slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
+                            subset(labels, label_num == the_label_num)$dttm_label,
                             x_all  = logs_all,
                             period_durations = period_durations,
                             lead = lead, 
@@ -703,8 +703,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                             context_values = c("pleasant", "unpleasant", "mixed", "neutral")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_mean(slice(labels, the_label_num)$subid, 
-                         slice(labels, the_label_num)$dttm_label,
+    full_join(score_mean(subset(labels, label_num == the_label_num)$subid, 
+                         subset(labels, label_num == the_label_num)$dttm_label,
                          x_all  = logs_all,
                          period_durations = period_durations,
                          lead = lead, 
@@ -717,8 +717,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -747,8 +747,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   # cont type 
   # own own
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -760,8 +760,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -774,8 +774,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   # with context
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -788,8 +788,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -801,8 +801,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -816,8 +816,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -829,8 +829,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -843,8 +843,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -856,8 +856,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -870,8 +870,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -883,8 +883,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("yes", "no")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -898,8 +898,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -913,8 +913,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -928,8 +928,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -943,8 +943,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # other combinations
   meta_features <- meta_features %>% 
-    full_join(score_ratecount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_ratecount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -957,8 +957,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                     context_values = c("pleasant", "unpleasant", "neutral", "mixed")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propcount_value(slice(labels, the_label_num)$subid, 
-                                    slice(labels, the_label_num)$dttm_label,
+    full_join(score_propcount_value(subset(labels, label_num == the_label_num)$subid, 
+                                    subset(labels, label_num == the_label_num)$dttm_label,
                                     x_all  = logs_all,
                                     period_durations = period_durations,
                                     lead = lead, 
@@ -983,8 +983,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # proportion weekend communications - use at least one week for period duration
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -996,8 +996,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # w/context
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1010,8 +1010,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1024,8 +1024,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1038,8 +1038,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("no", "yes")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1052,8 +1052,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("no", "yes")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1066,8 +1066,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("supportive", "unsupportive", "mixed", "neutral")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1081,8 +1081,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # incoming vs outgoing
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 168],
                                  lead = lead, 
@@ -1098,8 +1098,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # proportion of evening calls - use at least 24 hours for period duration
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1112,8 +1112,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   # w/context
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1126,8 +1126,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("yes", "no")), by = c("subid", "dttm_label")) 
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1140,8 +1140,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("always_almost_always", "never_almost_never", "occasionally")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1154,8 +1154,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("no", "yes")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1168,8 +1168,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("no", "yes")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1182,8 +1182,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
                                  context_values = c("supportive", "unsupportive", "mixed", "neutral")), by = c("subid", "dttm_label"))
   
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1197,8 +1197,8 @@ features <- foreach (the_label_num = labels$label_num, .combine = "rbind") %do% 
   
   # incoming vs outgoing
   meta_features <- meta_features %>% 
-    full_join(score_propdatetime(slice(labels, the_label_num)$subid, 
-                                 slice(labels, the_label_num)$dttm_label,
+    full_join(score_propdatetime(subset(labels, label_num == the_label_num)$subid, 
+                                 subset(labels, label_num == the_label_num)$dttm_label,
                                  x_all  = logs_all,
                                  period_durations = period_durations[period_durations >= 24],
                                  lead = lead, 
@@ -1299,10 +1299,7 @@ features <- features %>%
              by = c("subid", "dttm_label")) %>% 
   relocate(label_num)
 
-# # add job num to row ------------------
-# meta_features <- meta_features %>% 
-#   mutate(label_num = label_num) %>% 
-#   relocate(label_num)
+
 
 # save features as rds ------------------
 features %>% 

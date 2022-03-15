@@ -6,9 +6,9 @@ mv features_*.rds features
 
 
 # put files to transfer into zip files
-zip -r -m features features
-zip -r -m error error
-zip -r -m output output
+# zip -r -m features features
+# zip -r -m error error
+# zip -r -m output output
 
 # move input files into input_files
 mkdir input_files
