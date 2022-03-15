@@ -9,11 +9,10 @@ suppressPackageStartupMessages({
   library(lubridate)
   library(vroom)
   library(foreach)
-  source("fun_chtc_features.R")
+  source("fun_features.R")
 })
 
 # get chtc process num ------------------
-# label_num <- 1
 args <- commandArgs(trailingOnly = TRUE) 
 #job_start <- 101
 #job_stop <- 200
