@@ -473,14 +473,6 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
       x_c <- x_all %>%
         filter(.data[[context_col_name]] == context_value) 
     } else x_c <- x_all
-    
-    # period_mean <- function (.x) {
-    #   the_mean <- if (length(.x) > 0 && !all(is.na(.x))) { 
-    #     mean(.x, na.rm = TRUE)
-    #   } else NA
-    #   
-    #   return(the_mean)
-    # }
 
     period_mean <- function (.x) {
       if (length(.x) > 0) { 
@@ -518,6 +510,247 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
             if_else(baseline == 0, NA_real_, (raw_mean - baseline) / baseline)) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
+      }
+    }
+  }
+  
+  features <- features %>%
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>%
+    relocate(subid, dttm_label)
+  
+  return(features)
+}
+
+score_median <- function(the_subid, the_dttm_label, x_all, 
+                       period_durations, lead, data_start, 
+                       col_name, data_type_col_name = NA, data_type_values = NA, 
+                       context_col_name = NA, context_values = NA) {
+  
+  # Gets value for col_name and returns a raw median, a median change, and a proportion change in median from baseline
+  # i.e., (raw mean - baseline mean) / baseline mean
+  # proportion score set to NA if baseline == 0
+  
+  # the_subid: single integer subid
+  # the_dttm_label: single dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of 1+ integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with data_start = min(study_start, comm_start) for all subids
+  # col_name: column name for raw data for feature as string - should be continuous var
+  # data_type_col_name: name of column name to filter on for data log type values
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature. Set to NA if no context filter
+  # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  
+  
+  # nested foreach - period_duration within data_type_value within context_value
+  
+  features <- foreach (context_value = context_values, .combine = "cbind") %do% {
+    
+    # Filter data if context_value provided
+    if (!is.na(context_value)) {
+      x_c <- x_all %>%
+        filter(.data[[context_col_name]] == context_value) 
+    } else x_c <- x_all
+    
+    period_median <- function (.x) {
+      if (length(.x) > 0) { 
+        if (!all(is.na(.x))) {
+          the_median <- median(.x, na.rm = TRUE)
+        } else the_median <- NA
+      } else the_median <- NA
+      
+      return(the_median)
+    }
+    
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
+      
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+      } else x <- x_c
+      
+      # get baseline median using all data before label dttm
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := period_median(.data[[col_name]])) %>% 
+        pull(base)
+      
+      foreach (period_duration = period_durations, .combine = "cbind") %do% {
+        
+        raw_median <- x %>%
+          get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
+          summarise("raw" := period_median(.data[[col_name]])) %>%
+          pull(raw)
+        
+        tibble(
+          "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}" := raw_median,
+          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}" := raw_median - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}" := 
+            if_else(baseline == 0, NA_real_, (raw_median - baseline) / baseline)) %>% 
+          rename_with(~str_remove_all(.x, ".NA")) %>% 
+          rename_with(~str_remove(.x, "^NA."))
+      }
+    }
+  }
+  
+  features <- features %>%
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>%
+    relocate(subid, dttm_label)
+  
+  return(features)
+}
+
+
+score_max <- function(the_subid, the_dttm_label, x_all, 
+                         period_durations, lead, data_start, 
+                         col_name, data_type_col_name = NA, data_type_values = NA, 
+                         context_col_name = NA, context_values = NA) {
+  
+  # Gets value for col_name and returns a raw max, a max change, and a proportion change in max from baseline
+  # i.e., (raw mean - baseline mean) / baseline mean
+  # proportion score set to NA if baseline == 0
+  
+  # the_subid: single integer subid
+  # the_dttm_label: single dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of 1+ integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with data_start = min(study_start, comm_start) for all subids
+  # col_name: column name for raw data for feature as string - should be continuous var
+  # data_type_col_name: name of column name to filter on for data log type values
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature. Set to NA if no context filter
+  # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  
+  
+  # nested foreach - period_duration within data_type_value within context_value
+  
+  features <- foreach (context_value = context_values, .combine = "cbind") %do% {
+    
+    # Filter data if context_value provided
+    if (!is.na(context_value)) {
+      x_c <- x_all %>%
+        filter(.data[[context_col_name]] == context_value) 
+    } else x_c <- x_all
+    
+    period_max <- function (.x) {
+      if (length(.x) > 0) { 
+        if (!all(is.na(.x))) {
+          the_max <- max(.x, na.rm = TRUE)
+        } else the_max <- NA
+      } else the_max <- NA
+      
+      return(the_max)
+    }
+    
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
+      
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+      } else x <- x_c
+      
+      # get baseline max using all data before label dttm
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := period_max(.data[[col_name]])) %>% 
+        pull(base)
+      
+      foreach (period_duration = period_durations, .combine = "cbind") %do% {
+        
+        raw_max <- x %>%
+          get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
+          summarise("raw" := period_max(.data[[col_name]])) %>%
+          pull(raw)
+        
+        tibble(
+          "{data_type_value}.p{period_duration}.l{lead}.rmax_{col_name}.{context_col_name}.{context_value}" := raw_max,
+          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}" := raw_max - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmax_{col_name}.{context_col_name}.{context_value}" := 
+            if_else(baseline == 0, NA_real_, (raw_max - baseline) / baseline)) %>% 
+          rename_with(~str_remove_all(.x, ".NA")) %>% 
+          rename_with(~str_remove(.x, "^NA."))
+      }
+    }
+  }
+  
+  features <- features %>%
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>%
+    relocate(subid, dttm_label)
+  
+  return(features)
+}
+
+score_min <- function(the_subid, the_dttm_label, x_all, 
+                      period_durations, lead, data_start, 
+                      col_name, data_type_col_name = NA, data_type_values = NA, 
+                      context_col_name = NA, context_values = NA) {
+  
+  # Gets value for col_name and returns a raw min, a min change, and a proportion change in min from baseline
+  # i.e., (raw mean - baseline mean) / baseline mean
+  # proportion score set to NA if baseline == 0
+  
+  # the_subid: single integer subid
+  # the_dttm_label: single dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # period_durations: vector of 1+ integer period_durations in hours
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with data_start = min(study_start, comm_start) for all subids
+  # col_name: column name for raw data for feature as string - should be continuous var
+  # data_type_col_name: name of column name to filter on for data log type values
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature. Set to NA if no context filter
+  # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  
+  
+  # nested foreach - period_duration within data_type_value within context_value
+  
+  features <- foreach (context_value = context_values, .combine = "cbind") %do% {
+    
+    # Filter data if context_value provided
+    if (!is.na(context_value)) {
+      x_c <- x_all %>%
+        filter(.data[[context_col_name]] == context_value) 
+    } else x_c <- x_all
+    
+    period_min <- function (.x) {
+      if (length(.x) > 0) { 
+        if (!all(is.na(.x))) {
+          the_min <- min(.x, na.rm = TRUE)
+        } else the_min <- NA
+      } else the_min <- NA
+      
+      return(the_min)
+    }
+    
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
+      
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+      } else x <- x_c
+      
+      # get baseline min using all data before label dttm
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := period_min(.data[[col_name]])) %>% 
+        pull(base)
+      
+      foreach (period_duration = period_durations, .combine = "cbind") %do% {
+        
+        raw_min <- x %>%
+          get_x_period(the_subid, the_dttm_label, ., lead, period_duration) %>% 
+          summarise("raw" := period_min(.data[[col_name]])) %>%
+          pull(raw)
+        
+        tibble(
+          "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}" := raw_min,
+          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}" := raw_min - baseline,
+          "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}" := 
+            if_else(baseline == 0, NA_real_, (raw_min - baseline) / baseline)) %>% 
+          rename_with(~str_remove_all(.x, ".NA")) %>% 
+          rename_with(~str_remove(.x, "^NA."))
       }
     }
   }
