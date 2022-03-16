@@ -21,25 +21,15 @@ knit: (function(input, ...) {
 in development
 
 ### Notes
-This script aggregates all CHTC results for the job `r name_job`. It runs checks for 
-missing jobs, plots hyperparameters, and summarizes model performance across all folds.    
+This script aggregates all results/metrics for a batch or batches of jobs
+that train all model configurations for a specific outcome/label window.  Set label here
+
+```{r}
+window <- "1day"
+```
+
   
 
-Inputs:  
-
-Returned CHTC files   
-
-- output.zip  
-- results.zip    
-- output.zip   
-
-Jobs input file   
-
-- jobs.csv   
-
-Output:   
-
-- results_aggregate.csv   
 
 
 ### Set Up Environment
@@ -49,13 +39,15 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_shared <- "P:/studydata/risk/data_processed/shared"
-          path_gps <- "P:/studydata/risk/data_processed/gps"},
+          #path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_gps_input <- "P:/studydata/risk/chtc/gps"
+          path_gps_processed <- "P:/studydata/risk/data_processed/gps"},
 
         # IOS paths
         Darwin = {
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"}
+          #path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_gps_input <- "/Volumes/private/studydata/risk/chtc/gps"
+          path_gps_processed <- "/Volumes/private/studydata/risk/data_processed/gps"}
         )
 ```
 
@@ -63,7 +55,6 @@ Packages for lab workflow
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
-conflict_prefer("select", "dplyr")
 conflict_prefer("select", "dplyr")
 
 library(here)  # establish project directory consistently as working directory
@@ -98,157 +89,135 @@ options(tibble.print_max = Inf)
 
 Source training controls 
 ```{r}
-source("gps/chtc/training/training_controls_1day.R")
-
-source(here("../lab_support/chtc/fun_chtc.R"))
-source(here("../lab_support/print_kbl.R"))
+# source("gps/chtc/training/training_controls_1day.R")
+# 
+# source(here("../lab_support/chtc/fun_chtc.R"))
+# source(here("../lab_support/print_kbl.R"))
 ```
 
 Set additional paths
 ```{r}
-path_input <- here(path_jobs, name_job, "input")
-path_output <- here(path_jobs, name_job, "output/output")
-path_results <-  here(path_jobs, name_job, "output/results")
-path_error <-  here(path_jobs, name_job, "output/error")
+# path_input <- here(path_jobs, name_job, "input")
+# path_output <- here(path_jobs, name_job, "output/output")
+# path_results <-  here(path_jobs, name_job, "output/results")
+# path_error <-  here(path_jobs, name_job, "output/error")
 ```
 
 
 
 
 
-### Read and check raw data
+### Check for proper results, error, and output files
 
+Will do this part in parallel as needed
 ```{r}
 (n_core <- parallel::detectCores(logical = FALSE))
 plan(multisession, workers = n_core)
 ```
 
+#### Batch 1
 
-Read in jobs
 ```{r}
-jobs <- vroom(here(path_input, "jobs.csv"), show_col_types = FALSE) %>% 
+batch_name <- "train_1day_glmnet"
+```
+
+Read in jobs file
+```{r}
+jobs <- vroom(here(path_gps_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE) %>% 
   glimpse
+
+(n_jobs <- nrow(jobs))
 ```
 
 
-
-check all error files are blank (0 kb)    
-Note: error files also contain warnings
 ```{r}
-# err_files <- map_df(list.files(path_error, full.names = TRUE), file.info)
-# tabyl(err_files$size)
+err_files <- map_dfr(list.files(here(path_gps_input, batch_name, "output", "error"), 
+                               full.names = TRUE), 
+                    file.info)
+n_err_files <- nrow(err_files)
+# out_files <- map_dfr(list.files(here(path_gps_input, batch_name, "output", "out"), 
+#                                full.names = TRUE), 
+#                     file.info)
+# n_out_files <- nrow(out_files)
+
+results_files <- map_dfr(list.files(here(path_gps_input, batch_name, "output", "results"), 
+                               full.names = TRUE), 
+                    file.info)
+n_results_files <- nrow(results_files)
 ```
 
-Pull error messages and jobs if error files are not all blank
+Check counts of error, out, and results
 ```{r}
-# if (nrow(subset(err_files, size > 0)) > 0) {
-#   err_paths <- err_files %>% 
-#     filter(size > 0) %>% 
-#     rownames_to_column("path") %>% 
-#     pull(path) 
-#   for (i in err_paths) {
-#     err_i <- read_file(i) %>% 
-#     enframe(value = "message", name = NULL) %>% 
-#     mutate(job_num = as.numeric(str_remove(str_split(str_split(i, "/")[[1]][11], "_")[[1]][2], ".err")),
-#     message = str_remove_all(message, "\\n")) %>% 
-#     relocate(job_num)
-#     errs <- if (i == err_paths[1]) {
-#       err_i
-#     } else rbind(errs, err_i)
-#   }
-#   
-#   # print error messages
-#   print_kbl(errs, align = "l")
+if (!(n_jobs == n_err_files)) {
+  stop(n_jobs, " jobs != ", n_err_files, " error files!") 
+} else {
+  message(n_err_files, " error files detected.  Correct!")
+}
+
+# if (!(n_jobs == n_out_files)) {
+#   stop(n_jobs, " jobs != ", n_out_files, " out files!")
+# } else {
+#   message(n_out_files, " out files detected.  Correct!")
 # }
+
+if (!(n_jobs == n_results_files)) {
+  stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
+} else {
+  message(n_feature_files, " feature files detected.  Correct!")
+}
 ```
 
-
-Job rows with error messages
+Display path/filename of non-zero error files
 ```{r}
-# if (nrow(subset(err_files, size > 0)) > 0) {
-#   # print jobs
-#   jobs %>% 
-#     inner_join(errs, by = "job_num") %>% 
-#     print_kbl(align = "l")
-# } else print("no errors or warnings")
+err_files %>%
+    filter(size > 0) %>%
+    rownames_to_column("path") %>%
+    pull(path)
 ```
 
-
-check all output files are blank (0 kb)
+Display path/filename of non-zero out files
 ```{r}
-# out_files <- map_df(list.files(path_output, full.names = TRUE), file.info)
-# tabyl(out_files$size)
+# out_files %>%
+#     filter(size > 0) %>%
+#     rownames_to_column("path") %>%
+#     pull(path)
 ```
-
 
 
 read in all result CSVs
 ```{r}
-
-metrics_raw <- list.files(path_results, full.names = TRUE) %>% 
+metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), full.names = TRUE) %>% 
   future_map_dfr(read_csv, col_types = readr::cols()) %>% 
   glimpse()
 ```
 
 
-TEMPORARY DURIG DEVELOPMENT
-```{r}
-metrics_raw <- metrics_raw %>% 
-  filter(algorithm == "glmnet") %>%
-  select(-hp3, -n_fold, -n_repeat, -algorithm) %>% 
-  glimpse()
-```
-
-Basic counts on raw file
+Basic counts
 
 ```{r}
-job_nums <- as.numeric(unique(metrics_raw_glm$job_num))
-length(job_nums)  # should be 132!
-# metrics_raw %>% tabyl(algorithm)
-metrics_raw %>% tabyl(feature_set)  # missing some all feature set jobs
-metrics_raw %>% tabyl(resample)  # missing some smote_1 feature sets
+# job_nums <- as.numeric(unique(metrics_batch$job_num))
+# length(job_nums)  # should be 132!
+# # metrics_raw %>% tabyl(algorithm)
+# metrics_batch %>% tabyl(feature_set)  # missing some all feature set jobs
+# metrics_batch %>% tabyl(resample)  # missing some smote_1 feature sets
 ```
 
 
-Save raw file.  
-```{r}
-metrics_raw %>% 
-  vroom_write(here(path_gps, str_c("metrics_raw_", name_job, ".csv")))
-```
+metrics_raw_all <- metrics_raw_batch
+
+#### Batch 2
 
 
-check for missing jobs
-```{r}
-# missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "job_num") %>% 
-#   filter(!job_num %in% results$job_num)
-```
 
-`r nrow(results)` results from `r nrow(jobs)` jobs.      
 
-```{r}
-# if (nrow(missing_job_nums) > 0) {
-#   print(str_c("missing ", nrow(missing_job_nums), " of ", nrow(jobs),
-#               " jobs: ", str_c(as.character(missing_job_nums$job_num), collapse=", ")))
-#   
-#   # look at missing jobs closer
-#   
-#   jobs %>% 
-#     filter(job_num %in% missing_job_nums$job_num)  %>% 
-#     tabyl(algorithm)
-# 
-#   jobs %>% 
-#     filter(job_num %in% missing_job_nums$job_num)  %>% 
-#     tabyl(feature_set)
-# 
-#   jobs %>% 
-#     filter(job_num %in% missing_job_nums$job_num) %>% 
-#     print_kbl()
-# 
-#   } else print("No missing jobs")
-```
 
-### TEMP CODE FOR DEVELOPMENT SCENARIO
 
+
+
+
+
+
+### Wrap up processing of raw metrics
 
 
 back to sequential
@@ -256,6 +225,8 @@ back to sequential
 plan(sequential)
 ```
 
+
+SAVE RAW METRICS FILE
 
 ### Average metrics across folds 
 
