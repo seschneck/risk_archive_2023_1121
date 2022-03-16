@@ -82,12 +82,12 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_jobs <- str_c("P:/studydata/risk/chtc/gps/features_", window)
-          path_output <- "P:/studydata/risk/data_processed/gps"},
+          path_gps <- "P:/studydata/risk/data_processed/gps"},
 
         # IOS paths
         Darwin = {
           path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/gps/features_", window)
-          path_output <- "/Volumes/private/studydata/risk/data_processed/gps"}
+          path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"}
         )
 ```
 
@@ -320,7 +320,7 @@ features %>%
 message(str_c("features_", window, ".csv"))
 message(str_c("features_", window, ".csv.xz"))
 features %>% 
-  vroom_write(here(path_output, str_c("features_", window, ".csv"))) %>% 
-  vroom_write(here(path_output, str_c("features_", window, ".csv.xz")))
+  vroom_write(here(path_gps, str_c("features_", window, ".csv"))) %>% 
+  vroom_write(here(path_gps, str_c("features_", window, ".csv.xz")))
 ```
 
