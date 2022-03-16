@@ -26,7 +26,7 @@ tar <- c("train.tar.gz") # name of tar packages for submit file - does not trans
 max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "20000MB"
-request_disk <- "1000000KB" # this is pretty large - necessary for gps?
+request_disk <- "2000000KB" # this is pretty large - necessary for gps?
 flock <- FALSE
 glide <- FALSE
 
