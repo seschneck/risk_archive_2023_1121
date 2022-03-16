@@ -22,7 +22,7 @@ hp2_rf <- c(2, 10, 20) # min_n
 hp3_rf <- 1000 # trees (10 x's number of predictors)   UPDATE after CBIT
 
 # CHANGE STUDY PATHS -------------------- 
-name_job <- "train_1day" # the name of the job to set folder names
+name_job <- "train_1day_glmnet" # the name of the job to set folder names
 path_jobs <- "P:/studydata/risk/chtc/gps" # location of where you want your jobs to be setup
 path_data <- "P:/studydata/risk/data_processed/gps" # location of data set
 
@@ -31,7 +31,7 @@ tar <- c("train.tar.gz") # name of tar packages for submit file - does not trans
 max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "20000MB"
-request_disk <- "1000000KB" # this is pretty large - necessary for gps?
+request_disk <- "2000000KB" # this is pretty large - necessary for gps?
 flock <- FALSE
 glide <- FALSE
 
