@@ -218,7 +218,8 @@ features %>%
 
 All missing values should be proportions   
 ```{r}
-t <- naniar::miss_var_summary(features) %>% 
+features %>% 
+  naniar::miss_var_summary() %>% 
   filter(n_miss > 0) %>% 
   print(n = Inf)
 ```
