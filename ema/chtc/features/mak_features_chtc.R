@@ -56,7 +56,7 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
 # make features ------------------
 # i_label <- 1   # for testing
 features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
-  
+  # message(i_label)  # for testing
   label <- labels %>% slice(i_label)
   subid <- label$subid 
   dttm_label <-  label$dttm_label
