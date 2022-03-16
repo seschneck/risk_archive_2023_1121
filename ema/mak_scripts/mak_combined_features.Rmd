@@ -129,10 +129,6 @@ err_files <- map_dfr(list.files(here(path_jobs, "output", "error"),
                                full.names = TRUE), 
                     file.info)
 n_err_files <- nrow(err_files)
-# out_files <- map_dfr(list.files(here(path_jobs, "output", "out"), 
-#                                full.names = TRUE), 
-#                     file.info)
-# n_out_files <- nrow(out_files)
 
 feature_files <- map_dfr(list.files(here(path_jobs, "output", "features"), 
                                full.names = TRUE), 
@@ -148,12 +144,6 @@ if (!(n_jobs == n_err_files)) {
   message(n_err_files, " error files detected.  Correct!")
 }
 
-# if (!(n_jobs == n_out_files)) {
-#   stop(n_jobs, " jobs != ", n_out_files, " out files!")
-# } else {
-#   message(n_out_files, " out files detected.  Correct!")
-# }
-
 if (!(n_jobs == n_feature_files)) {
   stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
 } else {
@@ -167,14 +157,6 @@ err_files %>%
     filter(size > 0) %>%
     rownames_to_column("path") %>%
     pull(path)
-```
-
-Display path/filename of non-zero out files
-```{r}
-# out_files %>%
-#     filter(size > 0) %>%
-#     rownames_to_column("path") %>%
-#     pull(path)
 ```
 
 
