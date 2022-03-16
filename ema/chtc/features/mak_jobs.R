@@ -1,9 +1,12 @@
 # setup jobs to make EMA features on chtc 
 
 # load packages
-library(tidyverse)
-library(conflicted)
 library(here)
+library(conflicted)
+conflict_prefer("filter", "dplyr")
+conflict_prefer("filter", "dplyr")
+
+library(tidyverse)
 library(lubridate)
 library(vroom)
 
@@ -12,6 +15,8 @@ name_job <- "features_1day"
 path_jobs <- "P:/studydata/risk/chtc/ema"
 path_ema <- "P:/studydata/risk/data_processed/ema" 
 name_ema <- "ema.csv"
+path_lapses <- "P:/studydata/risk/data_processed/shared" 
+name_lapses <- "lapses.csv"
 name_labels <- "labels_1day.csv"
 name_study_dates <- "study_dates.csv"
 name_fun <- "fun_features.R"
@@ -39,11 +44,19 @@ tibble(job_start, job_stop) %>%
   vroom_write(here(path_jobs, name_job, "input", "jobs.csv"), delim = ",", 
               col_names = FALSE, append = FALSE)
 
-# select and format relevant variables and then copy enriched gps
+# select and format relevant variables and then copy ema
 vroom(here(path_ema, name_ema), show_col_types = FALSE) %>% 
   select(-ema_type, -ema_1_1, -ema_1_2, -ema_1_3, -ema_1_4, -ema_1_5, -ema_1_6) %>% 
   arrange(subid, dttm_obs) %>% 
-  vroom_write(here(path_jobs, name_job, "input", "data.csv"), delim = ",")
+  vroom_write(here(path_jobs, name_job, "input", "ema.csv"), delim = ",")
+
+# select and format relevant variables and then copy lapses
+vroom(here(path_lapses, name_lapses), show_col_types = FALSE) %>% 
+  filter(!exclude) %>% 
+  select(subid, dttm_obs = lapse_start) %>% 
+  arrange(subid, dttm_obs) %>% 
+  mutate(count = "lapse") %>% 
+  vroom_write(here(path_jobs, name_job, "input", "lapses.csv"), delim = ",")
 
 # copy over other data files verbatim
 file.copy(from = here(path_ema, name_labels),
