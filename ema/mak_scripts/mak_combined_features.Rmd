@@ -1,5 +1,5 @@
 ---
-title: "Aggregates jobs for features from CHTC"
+title: "Aggregates jobs for EMA features from CHTC"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -10,8 +10,8 @@ knit: (function(input, ...) {
     rmarkdown::render(
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/gps", 
-      "/Volumes/private/studydata/risk/knits/gps")
+      "P:/studydata/risk/knits/ema", 
+      "/Volumes/private/studydata/risk/knits/ema")
     )
   })
 ---
@@ -81,13 +81,13 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_jobs <- str_c("P:/studydata/risk/chtc/gps/features_", window)
-          path_gps <- "P:/studydata/risk/data_processed/gps"},
+          path_jobs <- str_c("P:/studydata/risk/chtc/ema/features_", window)
+          path_ema <- "P:/studydata/risk/data_processed/ema"},
 
         # IOS paths
         Darwin = {
-          path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/gps/features_", window)
-          path_gps <- "/Volumes/private/studydata/risk/data_processed/gps"}
+          path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/ema/features_", window)
+          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
         )
 ```
 
@@ -321,7 +321,7 @@ features %>%
 message(str_c("features_", window, ".csv"))
 message(str_c("features_", window, ".csv.xz"))
 features %>% 
-  vroom_write(here(path_gps, str_c("features_", window, ".csv"))) %>% 
-  vroom_write(here(path_gps, str_c("features_", window, ".csv.xz")))
+  vroom_write(here(path_ema, str_c("features_", window, ".csv"))) %>% 
+  vroom_write(here(path_ema, str_c("features_", window, ".csv.xz")))
 ```
 
