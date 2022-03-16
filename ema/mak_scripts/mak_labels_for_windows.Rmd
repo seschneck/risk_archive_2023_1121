@@ -333,15 +333,18 @@ Removes no_lapse labels that we do not want to use (e.g., they are 24 hours befo
 ```{r}
 labels_1_hour <- bind_labels(labels_1_hour) %>% 
   rename(lapse = label) %>% 
-  mutate(lapse = if_else(lapse == "lapse", "yes", "no"))
+  mutate(lapse = if_else(lapse == "lapse", "yes", "no")) %>% 
+  arrange(subid, dttm_label)
 
 labels_1_day <- bind_labels(labels_1_day) %>% 
   rename(lapse = label) %>% 
-  mutate(lapse = if_else(lapse == "lapse", "yes", "no"))
+  mutate(lapse = if_else(lapse == "lapse", "yes", "no")) %>% 
+  arrange(subid, dttm_label)
 
 labels_1_week <- bind_labels(labels_1_week) %>% 
   rename(lapse = label) %>% 
-  mutate(lapse = if_else(lapse == "lapse", "yes", "no"))
+  mutate(lapse = if_else(lapse == "lapse", "yes", "no")) %>% 
+  arrange(subid, dttm_label)
 ```
 
 
