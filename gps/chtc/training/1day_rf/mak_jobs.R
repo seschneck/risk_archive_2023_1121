@@ -7,7 +7,7 @@ library(here)
 
 # CHANGE ME  -------------------- 
 # location of study specific training_controls.R (can use relative path if in repo) 
-path_training_controls <- here("gps/chtc/training/training_controls_1day_rf.R") 
+path_training_controls <- here("gps/chtc/training/1day_rf/training_controls_1day_rf.R") 
 
 
 # DON'T CHANGE -------------------- 
