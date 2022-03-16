@@ -3,9 +3,9 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_1day.csv.xz" 
-feature_set <- c("all", "rratesum", "pratesum") 
+feature_set <- c("rratesum", "rratesum", "pratesum", "r_d", "r_p") 
 algorithm <- c("random_forest") 
-resample <- c("up_1", "down_1", "smote_1") 
+resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
@@ -25,7 +25,7 @@ path_data <- "P:/studydata/risk/data_processed/gps" # location of data set
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "18000MB"
+request_memory <- "20000MB"
 request_disk <- "1000000KB" # this is pretty large - necessary for gps?
 flock <- FALSE
 glide <- FALSE
@@ -58,8 +58,8 @@ build_recipe <- function(d, job) {
   rec <- recipe(y ~ ., data = d) %>%
     update_role(subid, dttm_label, new_role = "id variable") %>%
     step_rm(label_num) %>% 
-    step_string2factor(y, levels = c("no", "yes")) %>% 
-    # reference group will be first level in factor - specify levels to choose reference group
+    step_string2factor(y, levels = c("yes", "no")) %>% 
+    # event level will be first level in factor
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric()) %>% 
@@ -69,11 +69,26 @@ build_recipe <- function(d, job) {
   # no removals if feature_set == "all"
   if (feature_set == "rratesum") {
     rec <- rec   %>% 
+      step_rm(contains("dratesum")) %>% 
+      step_rm(contains("pratesum"))
+  }
+  if (feature_set == "dratesum") {
+    rec <- rec   %>% 
+      step_rm(contains("rratesum")) %>% 
       step_rm(contains("pratesum"))
   }
   if (feature_set == "pratesum") {
     rec <- rec   %>% 
-      step_rm(contains("rratesum"))
+      step_rm(contains("rratesum")) %>% 
+      step_rm(contains("dratesum"))
+  }
+  if (feature_set == "r_d") {
+    rec <- rec   %>% 
+      step_rm(contains("pratesum"))
+  }
+  if (feature_set == "r_p") {
+    rec <- rec   %>% 
+      step_rm(contains("dratesum"))
   }
     
 
@@ -111,6 +126,8 @@ build_recipe <- function(d, job) {
       # drop columns with NA values after imputation (100% NA)
       step_select(where(~ !any(is.na(.))))
   } 
+  
+  # no additional steps for rf
   
   return(rec)
 }

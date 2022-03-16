@@ -22,7 +22,7 @@ perf_metric <- "bal_accuracy" # used for determining best model in post-processi
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate features before removing nzv
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
-hp1_glmnet <- seq(0.5, 1, length.out = 11) # alpha (mixture) 
+hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 11))  # alpha (mixture) 
 hp2_glmnet_min <- -9 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 100 # length of penalty grid
