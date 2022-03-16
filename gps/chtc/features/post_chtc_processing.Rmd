@@ -67,6 +67,7 @@ library(tidyverse)
 library(janitor) 
 library(vroom)
 library(furrr)
+library(purrr)
 library(stringr)
 ```
 
@@ -122,29 +123,21 @@ Get counts of jobs and labels
 ```
 
 Read error, out, and feature files
-```{r}
-n_cores <- parallel::detectCores(logical = FALSE)
-plan(multisession, workers = n_cores)
-```
 
 ```{r}
-err_files <- future_map_df(list.files(here(path_jobs, "output", "error"), 
+err_files <- map_dfr(list.files(here(path_jobs, "output", "error"), 
                                full.names = TRUE), 
                     file.info)
 n_err_files <- nrow(err_files)
-# out_files <- future_map_df(list.files(here(path_jobs, "output", "out"), 
+# out_files <- map_dfr(list.files(here(path_jobs, "output", "out"), 
 #                                full.names = TRUE), 
 #                     file.info)
 # n_out_files <- nrow(out_files)
 
-feature_files <- future_map_df(list.files(here(path_jobs, "output", "features"), 
+feature_files <- map_dfr(list.files(here(path_jobs, "output", "features"), 
                                full.names = TRUE), 
                     file.info)
 n_feature_files <- nrow(feature_files)
-```
-
-```{r}
-plan(sequential)
 ```
 
 Check counts of error, out, and features
