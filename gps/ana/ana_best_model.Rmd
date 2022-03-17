@@ -1,0 +1,223 @@
+---
+title: "Characterize best GPS model"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/gps", 
+      "/Volumes/private/studydata/risk/knits/gps")
+    )
+  })
+---
+
+### Code Status
+
+in development
+
+### Notes
+This script aggregates all results/metrics for a batch or batches of jobs
+that train all model configurations for a specific outcome/label window.  Set label here
+
+```{r}
+window <- "1day"
+```
+
+
+### Set Up Environment
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          #path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_gps_input <- "P:/studydata/risk/chtc/gps"
+          path_gps_processed <- "P:/studydata/risk/data_processed/gps"},
+
+        # IOS paths
+        Darwin = {
+          #path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_gps_input <- "/Volumes/private/studydata/risk/chtc/gps"
+          path_gps_processed <- "/Volumes/private/studydata/risk/data_processed/gps"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("spec", "yardstick")
+conflict_prefer("col_factor", "vroom")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(lubridate)
+library(vroom)
+library(purrr)
+library(furrr)
+library(janitor)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+
+theme_set(theme_classic()) 
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Source training controls 
+```{r}
+# source("gps/chtc/training/training_controls_1day.R")
+# 
+source(here("../lab_support/chtc/static_files/input/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+
+```
+
+
+
+
+
+### Review View best performing models   
+
+Open average metrics
+```{r}
+metrics_avg <- 
+  vroom(here(path_gps_processed, str_c("metrics_avg_train_", window, ".csv")), show_col_types = FALSE)
+```
+
+Best AUC for algorithms x feature sets
+```{r}
+metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  print_kbl()
+```
+
+
+
+
+
+### Refit best model locally
+
+TEMP.  HARD CODE FOR NOW
+Best model is glmnet (CURRENTLY)
+```{r}
+path_best <- "P:/studydata/risk/chtc/gps/train_1day_glmnet/input"   #UPDATE/EDIT
+source(here(path_best, "training_controls.R"))
+```
+
+
+Read in data and create splits
+```{r}
+d <- vroom(here(path_best, "data_trn.csv.xz")) %>% 
+  rename(y = {{y_col_name}})
+
+set.seed(102030)
+splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
+  make_splits(d = d, cv_type = cv_type, group = group)
+} else { 
+  make_splits(d = d, cv_type = cv_type)
+}
+```
+
+```{r}
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+```
+
+Replicates best CHTC models using decision metric specified in study's training controls  
+```{r}
+# build recipe
+rec <- build_recipe(d = d, job = config_best)
+    
+# fit model and get results
+fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
+
+metrics_best <- fit_best[[3]]
+preds_best <- fit_best[[2]]
+```
+
+
+```{r}
+metrics_best %>% collect_metrics()
+```
+
+
+```{r}
+cm <- tibble(truth = preds_best$y, estimate = preds_best$.pred_class) %>% 
+  conf_mat(truth, estimate)
+
+cm %>% autoplot()
+
+cm %>% summary(event_level = "second")
+```
+
+
+
+```{r}
+roc_plot <- 
+  tibble(truth = preds_best$y,
+         prob = preds_best$.pred_yes) %>% 
+  roc_curve(prob, truth = truth, event_level = "second")
+
+
+tibble(truth = preds_best$y,
+       prob = preds_best$.pred_yes) %>% 
+  roc_auc(prob, truth = truth, event_level = "second")
+
+roc_plot %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  labs(x = "1 - Specificity (FPR)",
+       y = "Sensitivity (TPR)")
+```
+
+
+
+
+printing plots
+```{r}
+# library(ggplot2)
+# myplot1 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
+#   geom_point()
+# myplot2 <- ggplot(iris, aes(Species, Sepal.Length)) + 
+#   geom_boxplot()
+# 
+# # Print plots to a pdf file
+# pdf("ggplot.pdf")
+# print(myplot1)     # Plot 1 --> in the first page of PDF
+# print(myplot2)     # Plot 2 ---> in the second page of the PDF
+# dev.off() 
+```
+
+
+
