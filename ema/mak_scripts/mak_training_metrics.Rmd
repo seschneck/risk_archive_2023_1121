@@ -1,5 +1,5 @@
 ---
-title: "Aggregate GPS raw training metrics"
+title: "Aggregate EMA raw training metrics"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -36,13 +36,13 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_gps_input <- "P:/studydata/risk/chtc/gps"
-          path_gps_processed <- "P:/studydata/risk/data_processed/gps"},
+          path_ema_input <- "P:/studydata/risk/chtc/ema"
+          path_ema_processed <- "P:/studydata/risk/data_processed/ema"},
 
         # IOS paths
         Darwin = {
-          path_gps_input <- "/Volumes/private/studydata/risk/chtc/gps"
-          path_gps_processed <- "/Volumes/private/studydata/risk/data_processed/gps"}
+          path_ema_input <- "/Volumes/private/studydata/risk/chtc/ema"
+          path_ema_processed <- "/Volumes/private/studydata/risk/data_processed/ema"}
         )
 ```
 
@@ -109,7 +109,7 @@ batch_name <- "train_1day_glmnet"
 
 Read in jobs file
 ```{r}
-jobs <- vroom(here(path_gps_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE) %>% 
+jobs <- vroom(here(path_ema_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE) %>% 
   glimpse
 
 (n_jobs <- nrow(jobs))
@@ -117,12 +117,12 @@ jobs <- vroom(here(path_gps_input, batch_name, "input", "jobs.csv"), show_col_ty
 
 
 ```{r}
-err_files <- map_dfr(list.files(here(path_gps_input, batch_name, "output", "error"), 
+err_files <- map_dfr(list.files(here(path_ema_input, batch_name, "output", "error"), 
                                full.names = TRUE), 
                     file.info)
 n_err_files <- nrow(err_files)
 
-results_files <- map_dfr(list.files(here(path_gps_input, batch_name, "output", "results"), 
+results_files <- map_dfr(list.files(here(path_ema_input, batch_name, "output", "results"), 
                                full.names = TRUE), 
                     file.info)
 n_results_files <- nrow(results_files)
@@ -153,7 +153,7 @@ err_files %>%
 
 read in all result CSVs
 ```{r}
-metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), full.names = TRUE) %>% 
+metrics_raw_batch <- list.files(here(path_ema_input, batch_name, "output", "results"), full.names = TRUE) %>% 
   future_map_dfr(read_csv, col_types = readr::cols()) %>% 
   glimpse()
 ```
@@ -188,12 +188,93 @@ metrics_raw_all <- metrics_raw_batch
 
 
 
-#### Batch 2
+#### Batch 2: Random Forest
 
 
 
+```{r}
+batch_name <- "train_1day_rf"
+```
+
+Read in jobs file
+```{r}
+jobs <- vroom(here(path_ema_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE) %>% 
+  glimpse
+
+(n_jobs <- nrow(jobs))
+```
 
 
+```{r}
+err_files <- map_dfr(list.files(here(path_ema_input, batch_name, "output", "error"), 
+                               full.names = TRUE), 
+                    file.info)
+n_err_files <- nrow(err_files)
+
+results_files <- map_dfr(list.files(here(path_ema_input, batch_name, "output", "results"), 
+                               full.names = TRUE), 
+                    file.info)
+n_results_files <- nrow(results_files)
+```
+
+Check counts of error, out, and results
+```{r}
+if (!(n_jobs == n_err_files)) {
+  stop(n_jobs, " jobs != ", n_err_files, " error files!") 
+} else {
+  message(n_err_files, " error files detected.  Correct!")
+}
+
+if (!(n_jobs == n_results_files)) {
+  stop(n_jobs, " jobs != ", n_results_files, " feature files!")
+} else {
+  message(n_results_files, " results files detected.  Correct!")
+}
+```
+
+Display path/filename of non-zero error files
+```{r}
+err_files %>%
+    filter(size > 0) %>%
+    rownames_to_column("path") %>%
+    pull(path)
+```
+
+read in all result CSVs
+```{r}
+metrics_raw_batch <- list.files(here(path_ema_input, batch_name, "output", "results"), full.names = TRUE) %>% 
+  future_map_dfr(read_csv, col_types = readr::cols()) %>% 
+  glimpse()
+```
+
+
+Basic counts and checks
+
+```{r}
+job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
+if (!(n_jobs == length(job_nums))) {
+  stop(n_jobs, " jobs != ", length(job_nums), "  job_nums in metrics!") 
+} else {
+  message(length(job_nums), " unique job numbs detected.  Correct!")
+}
+
+metrics_raw_batch %>% tabyl(job_num)
+metrics_raw_batch %>% tabyl(n_repeat)
+metrics_raw_batch %>% tabyl(n_fold)
+metrics_raw_batch %>% tabyl(algorithm)
+metrics_raw_batch %>% tabyl(feature_set)
+metrics_raw_batch %>% tabyl(hp1)
+metrics_raw_batch %>% tabyl(hp2)
+metrics_raw_batch %>% tabyl(hp3)
+metrics_raw_batch %>% tabyl(resample)
+metrics_raw_batch %>% tabyl(n_feats)
+```
+
+Add batch 1 to all metrics
+```{r}
+metrics_raw_all <- metrics_raw_all %>% 
+  bind_rows(metrics_raw_batch)
+```
 
 
 
@@ -213,12 +294,10 @@ Save raw metrics file
 ```{r}
 metrics_raw_all %>% 
   glimpse %>% 
-  vroom_write(here(path_gps_processed, str_c("metrics_raw_train_", window, ".csv")), delim = ",")
+  vroom_write(here(path_ema_processed, str_c("metrics_raw_train_", window, ".csv")), delim = ",")
 ```
 
 ### Average metrics across folds for model configurations
-
-
 
 ```{r}
 metrics_avg <- metrics_raw_all %>% 
@@ -240,7 +319,7 @@ metrics_avg %>%
 Save average metrics
 ```{r}
 metrics_avg %>% 
-  vroom_write(here(path_gps_processed, str_c("metrics_avg_train_", window, ".csv")), delim = ",")
+  vroom_write(here(path_ema_processed, str_c("metrics_avg_train_", window, ".csv")), delim = ",")
 ```
 
 
