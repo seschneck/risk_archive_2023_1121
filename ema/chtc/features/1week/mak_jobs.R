@@ -75,5 +75,5 @@ file.copy(from = here("ema", "chtc", "features", "1week", "unix",
           recursive = TRUE)
 
 # copy R script
-file.copy(from = here("gps", "chtc", "features", "1week", name_script),
+file.copy(from = here("ema", "chtc", "features", "1week", name_script),
           to = here(path_jobs, name_job, "input", name_script))
