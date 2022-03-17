@@ -1,5 +1,5 @@
 ---
-title: "Aggregate raw training metrics"
+title: "Aggregate GPS raw training metrics"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -370,92 +370,6 @@ for (k in algorithms) {
     # }
   }
 }
-```
-
-
-
-### Refit best model
-
-TEMP.  HARD CODE FOR NOW
-Best model is glmnet (CURRENTLY)
-```{r}
-path_best <- "P:/studydata/risk/chtc/gps/train_1day_glmnet/input"   #UPDATE/EDIT
-source(here(path_best, "training_controls.R"))
-```
-
-
-
-
-Read in data and create splits
-```{r}
-# read in data
-d <- vroom(here(path_best, "data_trn.csv.xz")) %>% 
-  rename(y = {{y_col_name}})
-
-# create splits object ---------------
-set.seed(102030)
-splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
-  make_splits(d = d, cv_type = cv_type, group = group)
-} else { 
-  make_splits(d = d, cv_type = cv_type)
-}
-```
-
-```{r}
-best_model <- metrics_avg %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-```
-
-Replicates best CHTC models using decision metric specified in study's training controls  
-```{r}
-# build recipe
-rec <- build_recipe(d = d, job = best_model)
-    
-# fit model and get results
-fit_best <- tune_best_model(best_model = best_model, rec = rec, folds = splits, cv_type = cv_type)
-
-fits <- fit_best[[3]]
-preds <- fit_best[[2]]
-```
-
-
-```{r}
-fits %>% collect_metrics()
-```
-
-
-
-```{r}
-cm <- tibble(truth = preds$y, estimate = preds$.pred_class) %>% 
-  conf_mat(truth, estimate)
-
-cm %>% autoplot()
-
-cm %>% summary(event_level = "second")
-```
-
-
-
-```{r}
-roc_plot <- 
-  tibble(truth = preds$y,
-         prob = preds$.pred_yes) %>% 
-  roc_curve(prob, truth = truth, event_level = "second")
-
-
-tibble(truth = preds$y,
-       prob = preds$.pred_yes) %>% 
-  roc_auc(prob, truth = truth, event_level = "second")
-
-roc_plot %>%
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_path() +
-  geom_abline(lty = 3) +
-  coord_equal() +
-  labs(x = "1 - Specificity (FPR)",
-       y = "Sensitivity (TPR)")
 ```
 
 
