@@ -70,10 +70,10 @@ file.copy(from = here("shared", name_fun),
 
 # copy over unix files(run script, submit, pre, post files)
 file.copy(from = here("ema", "chtc", "features", "1week", "unix", 
-                      c(list.files(here("ema", "chtc", "features","1week",  "unix")))),
+                      c(list.files(here("ema", "chtc", "features", "1week", "unix")))),
           to = here(path_jobs, name_job, "input"),
           recursive = TRUE)
 
 # copy R script
-file.copy(from = here("gps", "chtc", "features", name_script),
+file.copy(from = here("gps", "chtc", "features", "1week", name_script),
           to = here(path_jobs, name_job, "input", name_script))
