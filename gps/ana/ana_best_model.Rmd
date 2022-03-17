@@ -161,7 +161,10 @@ rec <- build_recipe(d = d, job = config_best)
 fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
 
 metrics_best <- fit_best[[3]]
-preds_best <- fit_best[[2]]
+preds_best <- fit_best[[2]] %>% 
+  select(truth = y,
+         estimate = .pred_class,
+         prob = .pred_yes)
 ```
 
 
@@ -171,28 +174,35 @@ metrics_best %>% collect_metrics()
 
 
 ```{r}
-cm <- tibble(truth = preds_best$y, estimate = preds_best$.pred_class) %>% 
+cm <- preds_best %>% 
   conf_mat(truth, estimate)
 
-cm %>% autoplot()
+plot_cm <- cm %>% 
+  autoplot()
 
 cm %>% summary(event_level = "second")
 ```
 
-
-
 ```{r}
-roc_plot <- 
-  tibble(truth = preds_best$y,
-         prob = preds_best$.pred_yes) %>% 
+plot_probs <- preds_best %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15) +
+   facet_wrap(~truth, nrow = 2) +
+   xlab("Pr(Lapse)")
+plot_probs
+```
+
+Here is single ROC by concatenating all folds.
+Could also plot ROC by fold but maybe too confusing?
+```{r}
+roc_data <- preds_best %>% 
   roc_curve(prob, truth = truth, event_level = "second")
 
+# # not best method b/c across folds.  Better to use average roc across folds?
+# preds_best %>% 
+#   roc_auc(prob, truth = truth, event_level = "second")
 
-tibble(truth = preds_best$y,
-       prob = preds_best$.pred_yes) %>% 
-  roc_auc(prob, truth = truth, event_level = "second")
-
-roc_plot %>%
+plot_roc <- roc_data %>%
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
   geom_path() +
   geom_abline(lty = 3) +
@@ -200,8 +210,6 @@ roc_plot %>%
   labs(x = "1 - Specificity (FPR)",
        y = "Sensitivity (TPR)")
 ```
-
-
 
 
 printing plots
@@ -217,6 +225,14 @@ printing plots
 # print(myplot1)     # Plot 1 --> in the first page of PDF
 # print(myplot2)     # Plot 2 ---> in the second page of the PDF
 # dev.off() 
+
+# jpeg(filename = "Rplot%03d.jpg",
+#      width = 480, height = 480, units = "px", pointsize = 12,
+#      quality = 75,
+#      bg = "white", res = NA, family = "", restoreConsole = TRUE,
+#      type = c("windows", "cairo"), antialias,
+#      symbolfamily="default")
+
 ```
 
 
