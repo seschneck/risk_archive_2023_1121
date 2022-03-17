@@ -70,7 +70,7 @@ build_recipe <- function(d, job) {
     step_impute_median(all_numeric()) %>% 
     step_impute_mode(all_nominal(),  -y) 
   
-  # If statements for filtering features based on feature set
+  # If statements for filtering features based on GPS feature set
   # no removals if feature_set == "all"
   if (feature_set == "rratesum") {
     rec <- rec   %>% 
