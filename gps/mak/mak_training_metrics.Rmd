@@ -1,5 +1,5 @@
 ---
-title: "Aggregate features"
+title: "Aggregate raw training metrics"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -27,9 +27,6 @@ that train all model configurations for a specific outcome/label window.  Set la
 ```{r}
 window <- "1day"
 ```
-
-  
-
 
 
 ### Set Up Environment
@@ -115,7 +112,7 @@ Will do this part in parallel as needed
 plan(multisession, workers = n_core)
 ```
 
-#### Batch 1
+#### Batch 1: GLMNET
 
 ```{r}
 batch_name <- "train_1day_glmnet"
@@ -161,9 +158,9 @@ if (!(n_jobs == n_err_files)) {
 # }
 
 if (!(n_jobs == n_results_files)) {
-  stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
+  stop(n_jobs, " jobs != ", n_results_files, " feature files!")
 } else {
-  message(n_feature_files, " feature files detected.  Correct!")
+  message(n_results_files, " feature files detected.  Correct!")
 }
 ```
 
@@ -174,15 +171,6 @@ err_files %>%
     rownames_to_column("path") %>%
     pull(path)
 ```
-
-Display path/filename of non-zero out files
-```{r}
-# out_files %>%
-#     filter(size > 0) %>%
-#     rownames_to_column("path") %>%
-#     pull(path)
-```
-
 
 read in all result CSVs
 ```{r}
