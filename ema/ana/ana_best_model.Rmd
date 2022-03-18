@@ -1,5 +1,5 @@
 ---
-title: "Characterize best GPS model"
+title: "Characterize best EMA model"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -36,15 +36,15 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_gps_input <- "P:/studydata/risk/chtc/gps"
-          path_gps_processed <- "P:/studydata/risk/data_processed/gps"
-          path_gps_models <- "P:/studydata/risk/models/gps"},
+          path_ema_input <- "P:/studydata/risk/chtc/ema"
+          path_ema_processed <- "P:/studydata/risk/data_processed/ema"
+          path_ema_models <- "P:/studydata/risk/models/ema"},
 
         # IOS paths
         Darwin = {
-          path_gps_input <- "/Volumes/private/studydata/risk/chtc/gps"
-          path_gps_processed <- "/Volumes/private/studydata/risk/data_processed/gps"
-          path_gps_models <- "/Volumes/private/studydata/risk/models/gps"}
+          path_ema_input <- "/Volumes/private/studydata/risk/chtc/ema"
+          path_ema_processed <- "/Volumes/private/studydata/risk/data_processed/ema"
+          path_ema_models <- "/Volumes/private/studydata/risk/models/ema"}
         )
 ```
 
@@ -100,7 +100,7 @@ source(here("../lab_support/print_kbl.R"))
 Open average metrics
 ```{r}
 metrics_avg <- 
-  vroom(here(path_gps_processed, str_c("metrics_avg_train_", window, ".csv")), 
+  vroom(here(path_ema_processed, str_c("metrics_avg_train_", window, ".csv")), 
         col_types = "iccdddcddddddd",
         show_col_types = FALSE) %>% 
   glimpse()
@@ -123,7 +123,7 @@ metrics_avg %>%
 TEMP.  HARD CODE FOR NOW
 
 ```{r}
-path_best <- "P:/studydata/risk/chtc/gps/train_1day_rf/input"   #UPDATE/EDIT
+path_best <- "P:/studydata/risk/chtc/ema/train_1day_glmnet/input"   #UPDATE/EDIT
 source(here(path_best, "training_controls.R"))
 ```
 
@@ -159,7 +159,7 @@ if (file.exists((here(path_gps_models, "1day_best.rds")))) {
 } else {
   rec <- build_recipe(d = d, job = config_best)
     
-  # fit model and save
+  # fit model and get results
   fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
     saveRDS(here(path_gps_models, "1day_best.rds"))
 
