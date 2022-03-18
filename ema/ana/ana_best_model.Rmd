@@ -152,16 +152,16 @@ Fit or Read best model
 Replicates best CHTC models using decision metric specified in study's training controls  
 ```{r}
 
-if (file.exists((here(path_gps_models, "1day_best.rds")))) {
+if (file.exists((here(path_ema_models, "1day_best.rds")))) {
   
-  fit_best <- readRDS(here(path_gps_models, "1day_best.rds"))
+  fit_best <- readRDS(here(path_ema_models, "1day_best.rds"))
   
 } else {
   rec <- build_recipe(d = d, job = config_best)
     
-  # fit model and get results
-  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
-    saveRDS(here(path_gps_models, "1day_best.rds"))
+  # fit model and save
+  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
+    saveRDS(here(path_ema_models, "1day_best.rds"))
 
 }
 ```
@@ -187,6 +187,7 @@ cm <- preds_best %>%
 
 plot_cm <- cm %>% 
   autoplot()
+plot_cm
 
 cm %>% summary(event_level = "second")
 ```
