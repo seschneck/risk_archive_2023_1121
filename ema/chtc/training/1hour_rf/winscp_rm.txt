@@ -1,0 +1,27 @@
+# Deletes job files from CHTC.  Use with care!  Leaves folder structure in place
+# run from command window in winscp folder
+# winscp.com /ini=nul /script=C:\Users\jjcurtin\Documents\github\analysis_risk1\ema\chtc\training\1week_rf\winscp_rm.txt
+
+
+# open connection
+open sftp://jjcurtin:Jacob&Hana1@submit-1.chtc.wisc.edu/ -hostkey="ssh-ed25519 255 7mpmJbYlqNG4xDRaYyv+BigqhEct/mST8crUz64+7TQ="
+
+# rm log file
+rm *.log
+
+# rm features
+rm features_*.csv
+
+# rm error files
+cd error
+rm error_*.err
+cd
+
+# rm outout files
+cd output
+rm *.out
+cd
+
+# Disconnect and exit
+close
+exit
