@@ -87,8 +87,6 @@ options(tibble.print_max = Inf)
 
 Source training controls 
 ```{r}
-# source("gps/chtc/training/training_controls_1day.R")
-# 
 source(here("../lab_support/chtc/static_files/input/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
 
@@ -106,7 +104,7 @@ plan(multisession, workers = n_core)
 #### Batch 1: GLMNET
 
 ```{r}
-batch_name <- "train_1day_glmnet"
+(batch_name <- str_c("train_", window, "_glmnet"))
 ```
 
 Read in jobs file
@@ -155,7 +153,8 @@ err_files %>%
 
 read in all result CSVs
 ```{r}
-metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), full.names = TRUE) %>% 
+metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), 
+                                full.names = TRUE) %>% 
   future_map_dfr(read_csv, col_types = readr::cols()) %>% 
   glimpse()
 ```
@@ -195,7 +194,7 @@ metrics_raw_all <- metrics_raw_batch
 
 
 ```{r}
-batch_name <- "train_1day_rf"
+(batch_name <- str_c("train_", window, "_rf"))
 ```
 
 Read in jobs file
@@ -244,7 +243,8 @@ err_files %>%
 
 read in all result CSVs
 ```{r}
-metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), full.names = TRUE) %>% 
+metrics_raw_batch <- list.files(here(path_gps_input, batch_name, "output", "results"), 
+                                full.names = TRUE) %>% 
   future_map_dfr(read_csv, col_types = readr::cols()) %>% 
   glimpse()
 ```
