@@ -1,7 +1,7 @@
 # Script to engineer EMA features on CHTC
 
 # Constants: EDIT
-window <- "1day"  # window for calculating labels
+window <- "1week"  # window for calculating labels
 period_durations <- c(12, 24, 48, 72, 168) # feature duration window
 lead <-  0 # feature lead time
 
