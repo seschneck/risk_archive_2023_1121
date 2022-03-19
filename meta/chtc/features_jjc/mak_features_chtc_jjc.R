@@ -17,12 +17,7 @@ job_stop <- as.numeric(args[2])
 
 # read in data
 data <- vroom("data.csv.xz", show_col_types = FALSE)%>% 
-  mutate(time = with_tz(time, tz = "America/Chicago"),
-         duration = duration / 60) %>% #convert minutes to hours because period duration units are hours
-  rename(dttm_obs = time) %>% 
-  filter(dist_context <= dist_max) # currently only care about observations with context
-                                   # this may change when need to figure out total duration
-                                   # of observations in window in future
+  mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"))
 
 labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
   mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
@@ -38,8 +33,7 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
 period_durations <- c(6, 12, 24, 48, 72, 168) 
 lead <-  0 
 
-# make features
-# i_label <- 1   # for testing
+
 
 # # Done by hand in feature input file (meta_logs_reduced.csv.xz)
 # meta1<- meta1 %>% 
@@ -58,6 +52,10 @@ lead <-  0
 #   mutate(experience1 = case_when(experience == "pleasant" ~ "pleasant",
 #                                  experience == "neutral" ~ "neutral",
 #                                  experience %in% c("unpleasant", "mixed") ~ "unpleasant_mixed"))
+
+
+# make features
+# i_label <- 1   # for testing
 
 features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
@@ -258,12 +256,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   # call duration by context
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -272,12 +270,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
               by = c("subid", "dttm_label")) 
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -287,12 +285,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -302,12 +300,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -318,12 +316,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
  
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -333,12 +331,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -349,12 +347,12 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   
   feature_row <- feature_row %>% 
-    full_join(score_ratesum(subset(labels, label_num == the_label_num)$subid, 
-                            subset(labels, label_num == the_label_num)$dttm_label,
-                            x_all  = logs_all,
+    full_join(score_ratesum(subid, 
+                            dttm_label,
+                            x_all  = data,
                             period_durations = period_durations,
                             lead = lead, 
-                            data_start = data_start, 
+                            data_start = dates, 
                             col_name = "duration", 
                             data_type_col_name = "log_type",
                             data_type_values = c("voi"),
@@ -371,6 +369,6 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
 
 # Add outcome label and other info to features
 features %>%
-  mutate(lapse = labels$lapse) %>% 
+  mutate(lapse = labels$label) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
   vroom_write(str_c("features_", job_start, "_", job_stop, ".csv"), delim = ",")
