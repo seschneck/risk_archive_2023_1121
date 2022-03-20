@@ -91,8 +91,9 @@ source(here("../lab_support/chtc/static_files/input/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
 ```
 
-
-
+```{r}
+(n_core <- parallel::detectCores(logical = FALSE))
+```
 
 
 ### Review View best performing models   
@@ -115,22 +116,32 @@ metrics_avg %>%
   ungroup %>% 
   arrange(desc(roc_auc)) %>% 
   print_kbl()
+
+algorithm_best <- metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  pull(algorithm) %>%
+  print
+
 ```
 
 
-### Refit best model locally
-
-TEMP.  HARD CODE FOR NOW
+### Refit resamples for best model locally
 
 ```{r}
-path_best <- "P:/studydata/risk/chtc/ema/train_1day_glmnet/input"   #UPDATE/EDIT
+
+path_best <- here(str_c("P:/studydata/risk/chtc/ema/train_", window, "_", algorithm_best), "input")   
 source(here(path_best, "training_controls.R"))
 ```
 
 
 Read in data and create splits
 ```{r}
-d <- vroom(here(path_best, "data_trn.csv.xz")) %>% 
+d <- vroom(here(path_best, "data_trn.csv.xz"), show_col_types = FALSE) %>% 
   rename(y = {{y_col_name}})
 
 set.seed(102030)
@@ -148,21 +159,22 @@ config_best <- metrics_avg %>%
   glimpse()
 ```
 
-Fit or Read best model
-Replicates best CHTC models using decision metric specified in study's training controls  
+Fit or Read metrics for  best model configuration
+Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
 ```{r}
+# create recipe outside of if_else b/c always need it for later use
+rec <- build_recipe(d = d, job = config_best)
 
-if (file.exists((here(path_ema_models, "1day_best.rds")))) {
-  
-  fit_best <- readRDS(here(path_ema_models, "1day_best.rds"))
+if (file.exists((here(path_ema_models, str_c("resample_metrics_", window, ".rds"))))) {
+  message("loading previously fit model metrics")
+  fit_best <- readRDS(here(path_ema_models, str_c("resample_metrics_", window, ".rds")))
   
 } else {
-  rec <- build_recipe(d = d, job = config_best)
-    
-  # fit model and save
-  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
-    saveRDS(here(path_ema_models, "1day_best.rds"))
-
+  message("Fitting models to get resampling metrics")
+  plan(multisession, workers = n_core)
+  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
+    saveRDS(here(path_ema_models, str_c("resample_metrics_", window, ".rds")))
+  plan(sequential)
 }
 ```
 
@@ -172,7 +184,11 @@ metrics_best <- fit_best[[3]]
 preds_best <- fit_best[[2]] %>% 
   select(truth = y,
          estimate = .pred_class,
-         prob = .pred_yes)
+         prob = .pred_yes) %>% 
+  mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+         truth = factor(truth, levels = c("no_lapse", "lapse")),
+         estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+         estimate = factor(estimate, levels = c("no_lapse", "lapse")))
 ```
 
 
@@ -180,10 +196,11 @@ preds_best <- fit_best[[2]] %>%
 metrics_best %>% collect_metrics()
 ```
 
-
+Confusion matrix using .5 threshold
 ```{r}
 cm <- preds_best %>% 
   conf_mat(truth, estimate)
+cm
 
 plot_cm <- cm %>% 
   autoplot()
@@ -221,6 +238,29 @@ plot_roc <- roc_data %>%
 plot_roc
 ```
 
+Confusion matrix and metrics based on optimal threshold
+```{r}
+thresh_opt <- roc_data %>% 
+  mutate(j = sensitivity + specificity - 1) %>% 
+  arrange(desc(j)) %>% 
+  slice(1) %>% 
+  pull(.threshold)
+
+preds_best <- preds_best %>% 
+  mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
+         estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
+
+cm_opt <- preds_best %>% 
+  conf_mat(truth, estimate_opt)
+cm_opt
+
+plot_cm_opt <- cm_opt %>% 
+  autoplot()
+plot_cm_opt
+
+cm_opt %>% summary(event_level = "second")
+```
+
 
 printing plots
 ```{r}
@@ -246,4 +286,37 @@ printing plots
 ```
 
 
+
+### Fit best config to full sample
+
+make features for full sample
+```{r}
+ 
+if (file.exists((here(path_ema_models, str_c("model_final_", window, ".rds"))))) {
+  message("Loading previously fit final model to full sample")
+  model_final <- read_rds(here(path_ema_models, str_c("model_final_", window, ".rds")))
+} else {
+  message("Fitting final model to full sample")
+
+  # get features for full sample
+  feat <- rec %>% 
+      prep(training = d, strings_as_factors = FALSE) %>% 
+      bake(new_data = NULL)
+  
+  # fit model
+  model_final <- logistic_reg(penalty = config_best$hp2,
+                           mixture = config_best$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      fit(y ~ ., data = feat)
+
+}
+```
+
+Get coefficients
+```{r}
+coefs_final <- model_final %>% 
+  tidy() %>%  # , penalty = 5.5620
+  glimpse()
+```
 
