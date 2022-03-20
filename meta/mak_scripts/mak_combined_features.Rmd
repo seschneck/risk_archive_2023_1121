@@ -80,8 +80,8 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_jobs <- str_c("P:/studydata/risk/chtc/ema/features_", window)
-          path_meta <- "P:/studydata/risk/data_processed/ema"},
+          path_jobs <- str_c("P:/studydata/risk/chtc/meta/features_", window)
+          path_meta <- "P:/studydata/risk/data_processed/meta"},
 
         # IOS paths
         Darwin = {
@@ -238,3 +238,10 @@ features %>%
   vroom_write(here(path_meta, str_c("features_", window, ".csv.xz")))
 ```
 
+
+TEMP REDUCE FEATURES BY DELETING PROPORTION SCORES
+```{r}
+features %>% 
+  vroom_write(here(path_meta, str_c("features_", window, ".csv"))) %>% 
+  vroom_write(here(path_meta, str_c("features_", window, ".csv.xz")))
+```
