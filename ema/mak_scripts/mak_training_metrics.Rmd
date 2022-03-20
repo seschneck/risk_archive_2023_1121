@@ -10,8 +10,8 @@ knit: (function(input, ...) {
     rmarkdown::render(
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/gps", 
-      "/Volumes/private/studydata/risk/knits/gps")
+      "P:/studydata/risk/knits/ema", 
+      "/Volumes/private/studydata/risk/knits/ema")
     )
   })
 ---
@@ -25,7 +25,7 @@ This script aggregates all results/metrics for a batch or batches of jobs
 that train all model configurations for a specific outcome/label window.  Set label here
 
 ```{r}
-window <- "1week"
+window <- "1hour"
 ```
 
 
@@ -48,13 +48,13 @@ switch (Sys.info()[['sysname']],
 
 Packages for lab workflow 
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) # detect and warn about function conflicts
+library(conflicted) 
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
 
-library(here)  # establish project directory consistently as working directory
+library(here)
 ```
 
 
