@@ -233,15 +233,20 @@ NEED EDA
 ### Write feature file
 
 ```{r}
-features %>% 
-  vroom_write(here(path_meta, str_c("features_", window, ".csv"))) %>% 
-  vroom_write(here(path_meta, str_c("features_", window, ".csv.xz")))
+
+# features %>% 
+#   saveRDS(here(path_meta, str_c("features_", window, ".rds.xz")), compress = "xz")
 ```
 
 
 TEMP REDUCE FEATURES BY DELETING PROPORTION SCORES
 ```{r}
-features %>% 
-  vroom_write(here(path_meta, str_c("features_", window, ".csv"))) %>% 
-  vroom_write(here(path_meta, str_c("features_", window, ".csv.xz")))
+features_reduced <- features %>% 
+  select(-contains("pratesum")) %>% 
+  select(-contains("pratecount")) %>%
+  select(-contains("ppropcount"))
+
+features_reduced %>% 
+  saveRDS(here(path_meta, str_c("features_", window, "_reduced.rds.xz")), compress = "xz")
+
 ```
