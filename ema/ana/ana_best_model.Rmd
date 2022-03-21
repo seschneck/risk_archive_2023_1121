@@ -212,7 +212,7 @@ cm %>% summary(event_level = "second")
 ```{r}
 plot_probs <- preds_best %>% 
   ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15) +
+   geom_histogram(bins = 15, fill = "white", col = "black") +
    facet_wrap(~truth, nrow = 2) +
    xlab("Pr(Lapse)")
 plot_probs
