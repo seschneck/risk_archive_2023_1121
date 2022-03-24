@@ -2,8 +2,10 @@
 # the same across jobs.
 
 # SET GLOBAL PARAMETERS --------
-data_trn <- "features_1day_reduced.csv.xz"    #NOTE- THESE ARE A REDUCED SET WITHOUT PROPORTION SCORES
-feature_set <- c("raw", "diff", "prop", "r_d", "r_p") # EMA Features set names
+data_trn <- "features_1day_reduced.rds.xz"    #NOTE- THESE ARE A REDUCED SET WITHOUT PROPORTION SCORES
+feature_set <- c("diff", 
+                 "propcount",
+                 "all") # Meta Features set names
 algorithm <- c("glmnet") 
 resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -72,52 +74,17 @@ build_recipe <- function(d, job) {
     step_impute_mode(all_nominal(),  -y) 
   
   # If statements for filtering features based on EMA feature set
-  if (feature_set == "raw") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("dmin")) %>% 
-      step_rm(contains("pmin"))
-  }
   if (feature_set == "diff") {
     rec <- rec   %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("rmedian")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("rmax")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("rmin")) %>% 
-      step_rm(contains("pmin"))
+      step_rm(contains("rpropcount"))
   }
-  if (feature_set == "prop") {
+  
+  if (feature_set == "propcount") {
     rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("rmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("rmax")) %>% 
-      step_rm(contains("dmin")) %>% 
-      step_rm(contains("rmin"))
+      step_rm(contains("dratecount"))
   }
-  if (feature_set == "r_d") {
-    rec <- rec   %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("pmin"))
-  }
-  if (feature_set == "r_p") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("dmin")) 
+  if (feature_set == "all") {
+    # no removals
   }
     
   
