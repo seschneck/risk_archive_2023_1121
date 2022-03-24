@@ -7,8 +7,8 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "tmp"
-  window: "tmp"
+  data_type: "meta"
+  window: "1day"
 ---
 
 ### Code Status
@@ -140,7 +140,22 @@ source(here(path_best, "training_controls.R"))
 
 Read in data and create splits
 ```{r}
-d <- vroom(here(path_best, "data_trn.csv.xz"), show_col_types = FALSE) %>% 
+# parse filename
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
+} else {
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+}
+
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(here(path_best, fn))
+}
+
+d <- d %>% 
   rename(y = {{y_col_name}})
 
 set.seed(102030)
