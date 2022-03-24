@@ -9,7 +9,8 @@ windows <- c("1day")
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_combined_features.Rmd"), 
                     output_file = str_c("mak_combined_features_", data_type, "_", window, ".html"), 
-                    output_dir = str_c("P:/studydata/ema/knits/", data_type),
+                    output_dir = str_c("P:/studydata/risk/knits/ema/", data_type),
                     params = list(window = window, data_type = data_type, lead = lead),
                     envir = new.env())
 }
+ 
