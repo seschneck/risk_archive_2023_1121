@@ -1,0 +1,323 @@
+---
+title: "Characterize best `r params$data_type` model for `r params$window`"
+author: "John Curtin & Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  data_type: "tmp"
+  window: "tmp"
+---
+
+### Code Status
+
+in development
+
+### Notes
+This is a generic script that reproduces the CV metrics for the best model configuration,
+calculates various performance metrics from that resampling, makes plots,
+and then fits the best config to the final sample to do feature imporantance.
+
+This script is called by various studies, passing in the data_type and the window.
+
+
+### Set Up Environment
+
+```{r}
+window <- params$window
+data_type <- params$data_type
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("spec", "yardstick")
+conflict_prefer("col_factor", "vroom")
+
+library(here)
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(vroom)
+library(purrr)
+library(furrr)
+library(janitor)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+
+theme_set(theme_classic()) 
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", data_type)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", data_type)
+          path_models <- str_c("P:/studydata/risk/models/", data_type)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", data_type)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", data_type)}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Source training controls 
+```{r}
+source(here("../lab_support/chtc/static_files/input/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+```
+
+```{r}
+(n_core <- parallel::detectCores(logical = FALSE))
+```
+
+
+### Review View best performing models   
+
+Open average metrics
+```{r}
+metrics_avg <- 
+  vroom(here(path_processed, str_c("metrics_avg_train_", window, ".csv")), 
+        col_types = "iccdddcddddddd",
+        show_col_types = FALSE) %>% 
+  glimpse()
+```
+
+Best AUC for algorithms x feature sets
+```{r}
+metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  print_kbl()
+
+algorithm_best <- metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  pull(algorithm) %>%
+  print
+
+```
+
+
+### Refit resamples for best model locally
+
+```{r}
+
+path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), str_c("train_", window, "_", algorithm_best), "input")   
+source(here(path_best, "training_controls.R"))
+```
+
+
+Read in data and create splits
+```{r}
+d <- vroom(here(path_best, "data_trn.csv.xz"), show_col_types = FALSE) %>% 
+  rename(y = {{y_col_name}})
+
+set.seed(102030)
+splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
+  make_splits(d = d, cv_type = cv_type, group = group)
+} else { 
+  make_splits(d = d, cv_type = cv_type)
+}
+```
+
+```{r}
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+```
+
+Fit or Read metrics for  best model configuration
+Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
+```{r}
+# create recipe outside of if_else b/c always need it for later use
+rec <- build_recipe(d = d, job = config_best)
+
+if (file.exists((here(path_models, str_c("resample_metrics_", window, ".rds"))))) {
+  message("loading previously fit model metrics")
+  fit_best <- readRDS(here(path_models, str_c("resample_metrics_", window, ".rds")))
+  
+} else {
+  message("Fitting models to get resampling metrics")
+  plan(multisession, workers = n_core)
+  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
+    saveRDS(here(path_models, str_c("resample_metrics_", window, ".rds")))
+  plan(sequential)
+}
+```
+
+
+```{r}
+metrics_best <- fit_best[[3]]
+preds_best <- fit_best[[2]] %>% 
+  select(truth = y,
+         estimate = .pred_class,
+         prob = .pred_yes) %>% 
+  mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+         truth = factor(truth, levels = c("no_lapse", "lapse")),
+         estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+         estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+```
+
+
+```{r}
+metrics_best %>% collect_metrics()
+```
+
+Confusion matrix using .5 threshold
+```{r}
+cm <- preds_best %>% 
+  conf_mat(truth, estimate)
+cm
+
+plot_cm <- cm %>% 
+  autoplot()
+plot_cm
+
+cm %>% summary(event_level = "second")
+```
+
+```{r}
+plot_probs <- preds_best %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2) +
+   xlab("Pr(Lapse)")
+plot_probs
+```
+
+Here is single ROC by concatenating all folds.
+Could also plot ROC by fold but maybe too confusing?
+```{r}
+roc_data <- preds_best %>% 
+  roc_curve(prob, truth = truth, event_level = "second")
+
+# # not best method b/c across folds.  Better to use average roc across folds?
+# preds_best %>% 
+#   roc_auc(prob, truth = truth, event_level = "second")
+
+plot_roc <- roc_data %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  labs(x = "1 - Specificity (FPR)",
+       y = "Sensitivity (TPR)")
+plot_roc
+```
+
+Confusion matrix and metrics based on optimal threshold
+```{r}
+thresh_opt <- roc_data %>% 
+  mutate(j = sensitivity + specificity - 1) %>% 
+  arrange(desc(j)) %>% 
+  slice(1) %>% 
+  pull(.threshold)
+
+preds_best <- preds_best %>% 
+  mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
+         estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
+
+cm_opt <- preds_best %>% 
+  conf_mat(truth, estimate_opt)
+cm_opt
+
+plot_cm_opt <- cm_opt %>% 
+  autoplot()
+plot_cm_opt
+
+cm_opt %>% summary(event_level = "second")
+```
+
+
+printing plots
+```{r}
+# library(ggplot2)
+# myplot1 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
+#   geom_point()
+# myplot2 <- ggplot(iris, aes(Species, Sepal.Length)) + 
+#   geom_boxplot()
+# 
+# # Print plots to a pdf file
+# pdf("ggplot.pdf")
+# print(myplot1)     # Plot 1 --> in the first page of PDF
+# print(myplot2)     # Plot 2 ---> in the second page of the PDF
+# dev.off() 
+
+# jpeg(filename = "Rplot%03d.jpg",
+#      width = 480, height = 480, units = "px", pointsize = 12,
+#      quality = 75,
+#      bg = "white", res = NA, family = "", restoreConsole = TRUE,
+#      type = c("windows", "cairo"), antialias,
+#      symbolfamily="default")
+
+```
+
+
+
+### Fit best config to full sample
+
+Fit final for full sample
+
+TMP: Current fits glmnet.  NEED TO UPDATE
+```{r}
+ 
+# if (file.exists((here(path_models, str_c("model_final_", window, ".rds"))))) {
+#   message("Loading previously fit final model to full sample")
+#   model_final <- read_rds(here(path_models, str_c("model_final_", window, ".rds")))
+# } else {
+#   message("Fitting final model to full sample")
+# 
+#   # get features for full sample
+#   feat <- rec %>% 
+#       prep(training = d, strings_as_factors = FALSE) %>% 
+#       bake(new_data = NULL)
+#   
+#   # fit model
+#   model_final <- logistic_reg(penalty = config_best$hp2,
+#                            mixture = config_best$hp1) %>%
+#       set_engine("glmnet") %>%
+#       set_mode("classification") %>%
+#       fit(y ~ ., data = feat)
+# 
+# }
+```
+
+Get coefficients
+```{r}
+# coefs_final <- model_final %>% 
+#   tidy() %>%  # , penalty = 5.5620
+#   glimpse()
+```
+
