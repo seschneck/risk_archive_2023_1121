@@ -2,8 +2,11 @@
 
 # Constants: EDIT
 window <- "1day"  # window for calculating labels
-period_durations <- c(12, 24, 48, 72, 168) # feature duration window
 lead <-  0 # feature lead time
+
+period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
+period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
+
 
 
 suppressPackageStartupMessages({
@@ -25,20 +28,24 @@ job_stop <- as.numeric(args[2])
 # read in ema
 ema <- vroom("ema.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"),
-         ema_1 = if_else(ema_1 == "No", 1, 2), # cant use 0
-         ema_2 = ema_2 + 1,
+         ema_2 = ema_2 + 1,  # dont want possible 0 for proportion score
          ema_3 = ema_3 + 1,
          ema_4 = ema_4 + 1,
-         ema_5 = ema_5 + 1)  %>% 
+         ema_5 = ema_5 + 1)  %>%   
+  select(-ema_1) %>%   # not using ema_1.  Info is in lapse df
   arrange(subid, dttm_obs)
+
+# hack b.c I couldnt get data_type_col_name working with ema_long
+ema_count <- ema %>% 
+  mutate(count = if_else(is.na(ema_7), NA_character_, "ema")) %>% 
+  select(dttm_obs, subid, count)
 
 # pivot longer to allow feature function to loop over EMA items across rows
 ema_long <- ema %>% 
   pivot_longer(
     cols = starts_with("ema_"),
     names_to = "ema_num",
-    values_to = "response"
-  )
+    values_to = "response")
 
 lapses <- vroom("lapses.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"))
@@ -66,11 +73,24 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   feature_row <- score_ratecount_value(the_subid = subid, 
                                       the_dttm_label = dttm_label, 
                                       x_all = lapses, 
-                                      period_durations  = period_durations, lead = lead, 
+                                      period_durations  = period_durations_later, # use all durations
+                                      lead = lead, 
                                       data_start = dates, 
                                       col_name = "count", 
                                       col_values = "lapse")
   
+  
+  # rate of previous emas completed,  made count item in ema_count df and set to "ema" when ema was completed through ema_7
+  feature_row <- feature_row %>%
+    full_join(score_ratecount_value(the_subid = subid,
+                                    the_dttm_label = dttm_label,
+                                    x_all = ema_count,
+                                    period_durations  = period_durations_later, # use all durations
+                                    lead = lead,
+                                    data_start = dates,
+                                    col_name = "count",
+                                    col_values = "ema"),
+              by = c("subid", "dttm_label"))
   
 
   # median; use because may be more stable than mean
@@ -79,38 +99,76 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
     full_join(score_median(the_subid = subid,
                            the_dttm_label = dttm_label,
                            x_all  = ema_long,
-                           period_durations = period_durations,
+                           period_durations = period_durations_morning,  # use only longer durations for 1x items
                            lead = lead,
                            data_start = dates,
                            col_name = "response",
                            data_type_col_name = "ema_num",
-                           data_type_values = str_c("ema_", 2:10)),
+                           data_type_values = str_c("ema_", 8:10)),
+              by = c("subid", "dttm_label"))
+  
+  feature_row <- feature_row %>%
+    full_join(score_median(the_subid = subid,
+                           the_dttm_label = dttm_label,
+                           x_all  = ema_long,
+                           period_durations = period_durations_later,
+                           lead = lead,
+                           data_start = dates,
+                           col_name = "response",
+                           data_type_col_name = "ema_num",
+                           data_type_values = str_c("ema_", 2:7)),  # use all durations for 4x items
               by = c("subid", "dttm_label"))
 
   # max
+  # ema_1 not included b/c handled by lapses above
   feature_row <- feature_row %>%
     full_join(score_max(the_subid = subid,
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
-                        period_durations = period_durations,
+                        period_durations = period_durations_morning,
                         lead = lead,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
-                        data_type_values = str_c("ema_", 2:10)),
+                        data_type_values = str_c("ema_", 8:10)),
+              by = c("subid", "dttm_label"))
+  
+  feature_row <- feature_row %>%
+    full_join(score_max(the_subid = subid,
+                        the_dttm_label = dttm_label,
+                        x_all  = ema_long,
+                        period_durations = period_durations_later,
+                        lead = lead,
+                        data_start = dates,
+                        col_name = "response",
+                        data_type_col_name = "ema_num",
+                        data_type_values = str_c("ema_", 2:7)),
               by = c("subid", "dttm_label"))
 
   # min
+  # ema_1 not included b/c handled by lapses above
   feature_row <- feature_row %>%
     full_join(score_min(the_subid = subid,
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
-                        period_durations = period_durations,
+                        period_durations = period_durations_morning,
                         lead = lead,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
-                        data_type_values = str_c("ema_", 2:10)),
+                        data_type_values = str_c("ema_", 8:10)),
+              by = c("subid", "dttm_label"))
+  
+  feature_row <- feature_row %>%
+    full_join(score_min(the_subid = subid,
+                        the_dttm_label = dttm_label,
+                        x_all  = ema_long,
+                        period_durations = period_durations_later,
+                        lead = lead,
+                        data_start = dates,
+                        col_name = "response",
+                        data_type_col_name = "ema_num",
+                        data_type_values = str_c("ema_", 2:7)),
               by = c("subid", "dttm_label"))
   
   feature_row <- feature_row %>% 
@@ -118,6 +176,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   feature_row
 }
+
 
 # Add outcome label and other info to features
 features %>%
