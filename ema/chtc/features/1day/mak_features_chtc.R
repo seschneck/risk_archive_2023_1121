@@ -97,7 +97,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
-                        data_type_values = str_c("ema_", 1:10)),
+                        data_type_values = str_c("ema_", 2:10)),
               by = c("subid", "dttm_label"))
 
   # min
@@ -110,7 +110,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
-                        data_type_values = str_c("ema_", 1:10)),
+                        data_type_values = str_c("ema_", 2:10)),
               by = c("subid", "dttm_label"))
   
   feature_row <- feature_row %>% 
