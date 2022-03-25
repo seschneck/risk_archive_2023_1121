@@ -142,7 +142,7 @@ source(here(path_best, "training_controls.R"))
 
 
 Read in data and create splits
-```{r}
+```{r data_splits}
 # parse filename
 chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
 if (length(chunks) == 2) {
@@ -169,7 +169,7 @@ splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
 }
 ```
 
-```{r}
+```{r best_config}
 config_best <- metrics_avg %>% 
   arrange(desc(roc_auc)) %>% 
   slice(1) %>% 
@@ -178,7 +178,7 @@ config_best <- metrics_avg %>%
 
 Fit or Read metrics for  best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
-```{r}
+```{r resample_best_config}
 # create recipe outside of if_else b/c always need it for later use
 rec <- build_recipe(d = d, job = config_best)
 
@@ -193,10 +193,7 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, ".rds"))))
     saveRDS(here(path_models, str_c("resample_metrics_", window, ".rds")))
   plan(sequential)
 }
-```
 
-
-```{r}
 metrics_best <- fit_best[[3]]
 preds_best <- fit_best[[2]] %>% 
   select(truth = y,
@@ -209,12 +206,12 @@ preds_best <- fit_best[[2]] %>%
 ```
 
 
-```{r}
+```{r model_metrics}
 metrics_best %>% collect_metrics()
 ```
 
 Confusion matrix using .5 threshold
-```{r}
+```{r default_cm}
 cm <- preds_best %>% 
   conf_mat(truth, estimate)
 cm
@@ -226,7 +223,7 @@ plot_cm
 cm %>% summary(event_level = "second")
 ```
 
-```{r}
+```{r prob_plot}
 plot_probs <- preds_best %>% 
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "white", col = "black") +
@@ -237,7 +234,7 @@ plot_probs
 
 Here is single ROC by concatenating all folds.
 Could also plot ROC by fold but maybe too confusing?
-```{r}
+```{r roc_info}
 roc_data <- preds_best %>% 
   roc_curve(prob, truth = truth, event_level = "second")
 
@@ -256,7 +253,7 @@ plot_roc
 ```
 
 Confusion matrix and metrics based on optimal threshold
-```{r}
+```{r opt_cm}
 thresh_opt <- roc_data %>% 
   mutate(j = sensitivity + specificity - 1) %>% 
   arrange(desc(j)) %>% 
