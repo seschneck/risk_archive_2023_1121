@@ -38,7 +38,7 @@ Output:
 
 ### Set Up Environment
 
-```{r}
+```{r set_params}
 data_type <- params$data_type
 window <- params$window
 lead <- params$lead   # NOT USED YET
@@ -98,7 +98,7 @@ options(tibble.print_max = Inf)
 ### Check raw files
 
 Read job file
-```{r}
+```{r read_jobs}
 jobs <- vroom(here(path_jobs, "input", "jobs.csv"), 
               show_col_types = FALSE, 
               col_names = FALSE) %>% 
@@ -107,7 +107,7 @@ jobs <- vroom(here(path_jobs, "input", "jobs.csv"),
 ```
 
 Get counts of jobs and labels
-```{r}
+```{r count_jobs_labels}
 (n_jobs <- nrow(jobs))
 
 (n_labels <- jobs %>% 
@@ -118,7 +118,7 @@ Get counts of jobs and labels
 
 Read error, out, and feature files
 
-```{r}
+```{r read_file_info}
 err_files <- map_dfr(list.files(here(path_jobs, "output", "error"), 
                                full.names = TRUE), 
                     file.info)
@@ -131,7 +131,7 @@ n_feature_files <- nrow(feature_files)
 ```
 
 Check counts of error, and features
-```{r}
+```{r check_files}
 if (!(n_jobs == n_err_files)) {
   stop(n_jobs, " jobs != ", n_err_files, " error files!") 
 } else {
@@ -146,7 +146,7 @@ if (!(n_jobs == n_feature_files)) {
 ```
 
 Display path/filename of non-zero error files
-```{r}
+```{r print_errors}
 err_files %>%
     filter(size > 0) %>%
     rownames_to_column("path") %>%
@@ -156,7 +156,7 @@ err_files %>%
 
 ### Aggregate feature files 
 
-```{r}
+```{r read_features}
  
 #future_map over subids
 (n_core <- parallel::detectCores(logical = FALSE))
@@ -175,7 +175,7 @@ plan(sequential)
 #### Basic Checks
 Check for correct number of features (matches number of labels)  
 
-```{r}
+```{r eda_feature_count}
 if (nrow(features) == n_labels) {
   message("Features detected for ", n_labels, " labels.  Correct!")
 } else {
@@ -185,7 +185,7 @@ if (nrow(features) == n_labels) {
 ```
 
 Check for duplicate labels
-```{r}
+```{r eda_labels}
 features %>% 
   count(subid, dttm_label) %>% 
   filter(n > 1)
@@ -194,7 +194,7 @@ features %>%
 #### Missing Values
 
 All missing values should be proportions   
-```{r}
+```{r eda_na}
 features %>% 
   naniar::miss_var_summary() %>% 
   filter(n_miss > 0) %>% 
@@ -202,7 +202,7 @@ features %>%
 ```
 
 Check for NaN.  Select only columns with NaN
-```{r}
+```{r eda_nan}
 features %>% 
   summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
   select(where(function(x) x < 0)) %>% 
@@ -227,7 +227,7 @@ NEED EDA
 
 ### Write feature file
 
-```{r}
+```{r save_features}
 features %>% 
   vroom_write(here(path_processed, str_c("features_", window, ".csv.xz")))
 ```

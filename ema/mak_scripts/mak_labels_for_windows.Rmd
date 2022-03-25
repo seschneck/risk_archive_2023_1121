@@ -223,10 +223,11 @@ subids <- unique(dates$subid)
 
 
 Make labels with 1 hour window duration
+start at midnight on second day
 ```{r}  
 labels_1_hour <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 3600),
+                                    buffer_start = 60 * 60 * 24, window_dur = 3600),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 ```
@@ -235,7 +236,7 @@ Make labels with 1 day window duration
 ```{r}   
 labels_1_day <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 86400),
+                                    buffer_start = 60 * 60 * 24, window_dur = 86400),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 ```
@@ -244,7 +245,7 @@ Make labels with 1 week window duration
 ```{r}
 labels_1_week <- subids %>% 
   future_map_dfr(~ get_lapse_labels(.x, lapses, dates, 
-                                    buffer_start = 0, window_dur = 604800),
+                                    buffer_start = 60 * 60 * 24, window_dur = 604800),
                  .options = furrr_options(seed = NULL)) %>% 
   glimpse()
 ```
