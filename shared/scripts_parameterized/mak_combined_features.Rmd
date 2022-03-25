@@ -1,5 +1,5 @@
 ---
-title: "Aggregates jobs from CHTC for `r params$data_type` for `r params$window` window and `r params$lead` lead"
+title: "Combines feature jobs from CHTC for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version`"
 date: "`r lubridate::today()`"
 output: 
   html_document:
@@ -9,6 +9,7 @@ params:
   data_type: "tmp"
   window: "tmp"
   lead: 0
+  version: "tmp"
 ---
 
 ### Code Status
@@ -42,6 +43,7 @@ Output:
 data_type <- params$data_type
 window <- params$window
 lead <- params$lead   # NOT USED YET
+version <- params$version # NOT USED YET
 ```
 
 
@@ -173,8 +175,8 @@ plan(sequential)
 ### Brief EDA on Features
 
 #### Basic Checks
-Check for correct number of features (matches number of labels)  
 
+Check for correct number of features (matches number of labels)  
 ```{r eda_feature_count}
 if (nrow(features) == n_labels) {
   message("Features detected for ", n_labels, " labels.  Correct!")
@@ -191,14 +193,10 @@ features %>%
   filter(n > 1)
 ```
 
-#### Missing Values
-
-All missing values should be proportions   
-```{r eda_na}
+Confirm outcome distribution
+```{r}
 features %>% 
-  naniar::miss_var_summary() %>% 
-  filter(n_miss > 0) %>% 
-  print(n = Inf)
+  tabyl(lapse)
 ```
 
 Check for NaN.  Select only columns with NaN
@@ -209,20 +207,53 @@ features %>%
   glimpse() 
 ```
 
+#### Descriptives
 
-TEMP UNTIL FIGURE OUT MISSING
+Skim features
+```{r}
+stats <- features %>% skim_without_charts()
+
+stats %>% summary()
+```
+
+Missing values
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, n_missing, complete_rate) %>% 
+  arrange(desc(n_missing), skim_variable) %>% 
+  print_kbl
+  
+```
+
+Spread
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(range), skim_variable)
+  
+```
+
+Central tendency
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, mean, p50, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(mean), skim_variable)
+  
+```
+
+### Remove high missing
+
 Remove high (> 20%) NA
-
 ```{r}
 features <- features %>% 
   discard(~sum(is.na(.x))/length(.x) >.20)
 ```
-
-#### Descriptives
-
-
-NEED EDA
-
 
 
 ### Write feature file
