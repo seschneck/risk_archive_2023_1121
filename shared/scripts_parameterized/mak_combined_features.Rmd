@@ -199,6 +199,18 @@ features %>%
   tabyl(lapse)
 ```
 
+Confirm all subjects
+```{r}
+length(unique(features$subid))
+```
+
+Count observations per subject
+```{r}
+features %>% 
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
 Check for NaN.  Select only columns with NaN
 ```{r eda_nan}
 features %>% 
