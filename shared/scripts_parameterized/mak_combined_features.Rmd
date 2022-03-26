@@ -166,8 +166,7 @@ plan(multisession, workers = n_core)
 
 features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
   future_map_dfr(~read_csv(file = .x, col_types = cols())) %>% 
-  arrange(subid, dttm_label) %>% 
-  glimpse()
+  arrange(subid, dttm_label)
 plan(sequential)
 ```
 
