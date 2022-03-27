@@ -400,17 +400,14 @@ labels_1_week %>%
 
 ### Save
 
-save valid_observations and labels, raw and compressed csv
+save valid_observations and labels, raw only because file is pretty small
 ```{r}
 labels_1_hour %>% 
-  write_csv(here(path_ema, "labels_1hour.csv")) %>% 
-  write_csv(here(path_ema, "labels_1hour.csv.xz"))
+  write_csv(here(path_ema, "labels_1hour.csv")) 
 
 labels_1_day %>% 
-  write_csv(here(path_ema, "labels_1day.csv")) %>% 
-  write_csv(here(path_ema, "labels_1day.csv.xz"))
+  write_csv(here(path_ema, "labels_1day.csv")) 
 
 labels_1_week %>% 
-  write_csv(here(path_ema, "labels_1week.csv")) %>% 
-  write_csv(here(path_ema, "labels_1week.csv.xz"))
+  write_csv(here(path_ema, "labels_1week.csv")) 
 ```
