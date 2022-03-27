@@ -1,8 +1,11 @@
 # Script to engineer EMA features on CHTC
+# Version 1 was for CBIT
+# this is version 2 - for Nowak group
 
 # Constants: EDIT
 window <- "1day"  # window for calculating labels
 lead <-  0 # feature lead time
+version <- "v2"
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
@@ -182,4 +185,5 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
 features %>%
   mutate(lapse = labels$lapse) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
-  vroom_write(str_c("features_", window, "_", job_start, "_", job_stop, ".csv"), delim = ",")
+  vroom_write(str_c("features_", window, "_", lead, "_", version, "_", 
+                    job_start, "_", job_stop, ".csv"), delim = ",")

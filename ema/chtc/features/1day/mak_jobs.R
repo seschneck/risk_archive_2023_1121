@@ -9,9 +9,9 @@ conflict_prefer("filter", "dplyr")
 library(tidyverse)
 library(lubridate)
 library(vroom)
+library(stringr)
 
 # Paths and filenames
-name_job <- "features_1day"
 path_jobs <- "P:/studydata/risk/chtc/ema"
 path_ema <- "P:/studydata/risk/data_processed/ema" 
 name_ema <- "ema.csv"
@@ -21,6 +21,15 @@ name_labels <- "labels_1day.csv"
 name_study_dates <- "study_dates.csv"
 name_fun <- "fun_features.R"
 name_script <- "mak_features_chtc.R"
+
+window <- "1day"   # remember to edit these in make_features_chtc.R as well
+lead <- 0
+version <- "v2"
+
+
+###############################
+
+name_job <- str_c("features_", window, "_", lead, "_", version)
 
 # create new job directory (if it does not already exist) 
 if (!dir.exists(here(path_jobs, name_job))) {
