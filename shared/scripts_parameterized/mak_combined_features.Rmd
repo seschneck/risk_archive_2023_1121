@@ -63,8 +63,8 @@ library(tidyverse)
 library(janitor) 
 library(vroom)
 library(furrr)
-library(purrr)
 library(stringr)
+library(skimr)
 ```
 
 Source for script
@@ -104,8 +104,7 @@ Read job file
 jobs <- vroom(here(path_jobs, "input", "jobs.csv"), 
               show_col_types = FALSE, 
               col_names = FALSE) %>% 
-  rename(job_start = X1, job_end = X2) %>% 
-  glimpse()
+  rename(job_start = X1, job_end = X2)
 ```
 
 Get counts of jobs and labels
