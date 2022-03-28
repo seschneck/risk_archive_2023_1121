@@ -103,7 +103,7 @@ source(here("../lab_support/print_kbl.R"))
 ### Review View best performing models   
 
 Open average metrics
-```{r}
+```{r open_metrics}
 metrics_avg <- 
   vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, ".csv")), 
         col_types = "iccdddcddddddd",
@@ -112,7 +112,7 @@ metrics_avg <-
 ```
 
 Best AUC for algorithms x feature sets
-```{r}
+```{r best_model_info}
 metrics_avg %>% 
   group_by(algorithm, feature_set, resample) %>% 
   arrange(desc(roc_auc)) %>% 
@@ -120,6 +120,11 @@ metrics_avg %>%
   ungroup %>% 
   arrange(desc(roc_auc)) %>% 
   print_kbl()
+
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
 
 algorithm_best <- metrics_avg %>% 
   group_by(algorithm, feature_set, resample) %>% 
@@ -130,54 +135,10 @@ algorithm_best <- metrics_avg %>%
   slice(1) %>% 
   pull(algorithm) %>%
   print
-
 ```
 
 
 ### Refit resamples for best model locally
-
-```{r}
-
-path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), 
-                  str_c("train_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
-source(here(path_best, "training_controls.R"))
-```
-
-
-Read in data and create splits
-```{r data_splits}
-# parse filename
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
-
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(here(path_best, fn))
-}
-
-d <- d %>% 
-  rename(y = {{y_col_name}})
-
-set.seed(102030)
-splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
-  make_splits(d = d, cv_type = cv_type, group = group)
-} else { 
-  make_splits(d = d, cv_type = cv_type)
-}
-```
-
-```{r best_config}
-config_best <- metrics_avg %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-```
 
 Fit or Read metrics for  best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
@@ -192,11 +153,43 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead,
 } else {
   message("Fitting models to get resampling metrics")
   plan(multisession, workers = n_core)
+  
+  # Read in data and create splits
+  # parse filename
+  path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), 
+                  str_c("train_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
+  source(here(path_best, "training_controls.R"))
+  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+  if (length(chunks) == 2) {
+    fn <- str_c("data_trn.", chunks[[2]])
+  } else {
+    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+  }
+  
+  # open based on file type
+  if (str_detect(fn, "csv")) {
+    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+  } else {
+    d <- readRDS(here(path_best, fn))
+  }
+  
+  d <- d %>% 
+    rename(y = {{y_col_name}})
+  
+  set.seed(102030)
+  splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
+    make_splits(d = d, cv_type = cv_type, group = group)
+  } else { 
+    make_splits(d = d, cv_type = cv_type)
+  }
+  
+  # resample best model config
   fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
     saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
   plan(sequential)
 }
 
+# get info from resamples into separate objects
 metrics_best <- fit_best[[3]]
 preds_best <- fit_best[[2]] %>% 
   select(truth = y,
