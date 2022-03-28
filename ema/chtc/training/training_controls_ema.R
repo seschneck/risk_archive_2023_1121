@@ -32,7 +32,7 @@ hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
 hp1_rf <- c(2, 4, 8, 16, 32) # mtry (p/3 for reg or square root of p for class)
 hp2_rf <- c(2, 15, 30) # min_n
 hp3_rf <- 1500 # trees (10 x's number of predictors)
-
+ 
 
 # SET CHTC SPECIFIC CONTROLS
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
