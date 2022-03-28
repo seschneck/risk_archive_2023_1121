@@ -5,7 +5,7 @@ data_type <- "meta"
 # windows <- c("1hour", "1day", "1week")
 windows <- c("1day")
 lead <- 0
-version <- "v2"
+version <- "v1"
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
