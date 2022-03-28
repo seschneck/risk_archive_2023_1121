@@ -105,7 +105,7 @@ source(here("../lab_support/print_kbl.R"))
 Open average metrics
 ```{r}
 metrics_avg <- 
-  vroom(here(path_processed, str_c("metrics_avg_train_", window, ".csv")), 
+  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, ".csv")), 
         col_types = "iccdddcddddddd",
         show_col_types = FALSE) %>% 
   glimpse()
@@ -138,7 +138,8 @@ algorithm_best <- metrics_avg %>%
 
 ```{r}
 
-path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), str_c("train_", window, "_", algorithm_best), "input")   
+path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), 
+                  str_c("train_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
 source(here(path_best, "training_controls.R"))
 ```
 
@@ -184,15 +185,15 @@ Replicates resampling metrics for best configuration using characteristics speci
 # create recipe outside of if_else b/c always need it for later use
 rec <- build_recipe(d = d, job = config_best)
 
-if (file.exists((here(path_models, str_c("resample_metrics_", window, ".rds"))))) {
+if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds"))))) {
   message("loading previously fit model metrics")
-  fit_best <- readRDS(here(path_models, str_c("resample_metrics_", window, ".rds")))
+  fit_best <- readRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
   
 } else {
   message("Fitting models to get resampling metrics")
   plan(multisession, workers = n_core)
   fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_", window, ".rds")))
+    saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
   plan(sequential)
 }
 
