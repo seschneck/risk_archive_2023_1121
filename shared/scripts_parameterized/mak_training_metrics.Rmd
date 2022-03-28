@@ -103,7 +103,7 @@ plan(multisession, workers = n_core)
 #### Batch 1: GLMNET
 
 ```{r}
-(batch_name <- str_c("train_", window, "_glmnet"))
+(batch_name <- str_c("train_", window, "_", lead, "_", version, "_glmnet"))
 ```
 
 Read in jobs file
@@ -191,7 +191,7 @@ metrics_raw_all <- metrics_raw_batch
 
 
 ```{r}
-(batch_name <- str_c("train_", window, "_random_forest"))
+(batch_name <- str_c("train_", window, "_", lead, "_", version, "_random_forest"))
 ```
 
 Read in jobs file
@@ -287,7 +287,7 @@ plan(sequential)
 Save raw metrics file
 ```{r}
 metrics_raw_all %>% 
-  vroom_write(here(path_processed, str_c("metrics_raw_train_", window, ".csv")), delim = ",")
+  vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
 ```
 
 ### Average metrics across folds for model configurations
@@ -314,7 +314,7 @@ metrics_avg %>%
 Save average metrics
 ```{r}
 metrics_avg %>% 
-  vroom_write(here(path_processed, str_c("metrics_avg_train_", window, ".csv")), delim = ",")
+  vroom_write(here(path_processed, str_c("metrics_avg_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
 ```
 
 
