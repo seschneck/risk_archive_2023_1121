@@ -65,7 +65,7 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
                                        the_dttm_label - duration(period_duration + lead, "hours")), # lead + duration before label
            period_end_dttm = the_dttm_label - duration(lead, "hours")) %>% # lead before label
     filter(dttm_obs >= period_start_dttm,
-           dttm_obs <= period_end_dttm) %>% 
+           dttm_obs < period_end_dttm) %>% # less than to make sure no overlap between features and label period
     select(-c(period_start_dttm, period_end_dttm))
 }
 

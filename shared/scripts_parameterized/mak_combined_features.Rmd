@@ -1,0 +1,273 @@
+---
+title: "Combines feature jobs from CHTC for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version`"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  data_type: "tmp"
+  window: "tmp"
+  lead: 0
+  version: "tmp"
+---
+
+### Code Status
+
+In development.
+
+### Notes   
+
+This script aggregates all CHTC features and checks for missing jobs and other EDA.
+  
+
+Inputs:  
+
+Returned CHTC files: 
+
+* features
+* error
+
+Jobs input file   
+
+* jobs.csv   
+
+Output:   
+
+* features__DATA_TYPE_WINDOW_LEAD.csv 
+
+
+### Set Up Environment
+
+```{r set_params}
+data_type <- params$data_type
+window <- params$window
+lead <- params$lead   # NOT USED YET
+version <- params$version # NOT USED YET
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("cols", "readr")
+
+library(here)
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(vroom)
+library(furrr)
+library(stringr)
+library(skimr)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+source(here("../lab_support/print_kbl.R"))
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_jobs <- str_c("P:/studydata/risk/chtc/", data_type, "/features_", window)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", data_type)},
+
+        # IOS paths
+        Darwin = {
+          path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/", data_type, "/features_", window)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Check raw files
+
+Read job file
+```{r read_jobs}
+jobs <- vroom(here(path_jobs, "input", "jobs.csv"), 
+              show_col_types = FALSE, 
+              col_names = FALSE) %>% 
+  rename(job_start = X1, job_end = X2)
+```
+
+Get counts of jobs and labels
+```{r count_jobs_labels}
+(n_jobs <- nrow(jobs))
+
+(n_labels <- jobs %>% 
+  mutate(n_bundle = job_end - job_start + 1) %>% 
+  summarise(n_labels = sum(n_bundle)) %>% 
+  pull(n_labels))
+```
+
+Read error, out, and feature files
+
+```{r read_file_info}
+err_files <- map_dfr(list.files(here(path_jobs, "output", "error"), 
+                               full.names = TRUE), 
+                    file.info)
+n_err_files <- nrow(err_files)
+
+feature_files <- map_dfr(list.files(here(path_jobs, "output", "features"), 
+                               full.names = TRUE), 
+                    file.info)
+n_feature_files <- nrow(feature_files)
+```
+
+Check counts of error, and features
+```{r check_files}
+if (!(n_jobs == n_err_files)) {
+  stop(n_jobs, " jobs != ", n_err_files, " error files!") 
+} else {
+  message(n_err_files, " error files detected.  Correct!")
+}
+
+if (!(n_jobs == n_feature_files)) {
+  stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
+} else {
+  message(n_feature_files, " feature files detected.  Correct!")
+}
+```
+
+Display path/filename of non-zero error files
+```{r print_errors}
+err_files %>%
+    filter(size > 0) %>%
+    rownames_to_column("path") %>%
+    pull(path)
+```
+
+
+### Aggregate feature files 
+
+```{r read_features}
+ 
+#future_map over subids
+(n_core <- parallel::detectCores(logical = FALSE))
+plan(multisession, workers = n_core)
+
+features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
+  future_map_dfr(~read_csv(file = .x, col_types = cols())) %>% 
+  arrange(subid, dttm_label)
+plan(sequential)
+```
+
+
+### Brief EDA on Features
+
+#### Basic Checks
+
+Check for correct number of features (matches number of labels)  
+```{r eda_feature_count}
+if (nrow(features) == n_labels) {
+  message("Features detected for ", n_labels, " labels.  Correct!")
+} else {
+  stop("Missing features for label_num: \n", 
+       subset(1:n_labels, !1:n_labels %in% features$label_num))
+}
+```
+
+Check for duplicate labels
+```{r eda_labels}
+features %>% 
+  count(subid, dttm_label) %>% 
+  filter(n > 1)
+```
+
+Confirm outcome distribution
+```{r}
+features %>% 
+  tabyl(lapse)
+```
+
+Confirm all subjects
+```{r}
+length(unique(features$subid))
+```
+
+Count observations per subject
+```{r}
+features %>% 
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
+Check for NaN.  Select only columns with NaN
+```{r eda_nan}
+features %>% 
+  summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
+  select(where(function(x) x < 0)) %>% 
+  glimpse() 
+```
+
+#### Descriptives
+
+Skim features
+```{r}
+stats <- features %>% skim_without_charts()
+
+stats %>% summary()
+```
+
+Missing values
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, n_missing, complete_rate) %>% 
+  arrange(desc(n_missing), skim_variable) %>% 
+  print_kbl
+  
+```
+
+Spread
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(range), skim_variable)
+  
+```
+
+Central tendency
+```{r}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, mean, p50, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(mean), skim_variable)
+```
+
+### Remove high missing
+
+Remove high (> 20%) NA
+```{r}
+features <- features %>% 
+  discard(~sum(is.na(.x))/length(.x) >.20)
+```
+
+
+### Write feature file
+
+```{r save_features}
+features %>% 
+  vroom_write(here(path_processed, str_c("features_", window, "_", lead, "_", version, ".csv.xz")))
+```

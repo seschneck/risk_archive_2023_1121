@@ -2,8 +2,8 @@
 # the same across jobs.
 
 # SET GLOBAL PARAMETERS --------
-data_trn <- "features_1day.csv.xz" 
-feature_set <- c("dratesum", "rratesum", "pratesum", "r_d", "r_p") 
+data_trn <- "features_1week.csv.xz" 
+feature_set <- c("raw", "diff", "prop", "r_d", "r_p") # EMA Features set names
 algorithm <- c("glmnet") 
 resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -21,17 +21,18 @@ hp1_rf <- c(5, 10, 20, 50) # mtry (p/3 for reg or square root of p for class)
 hp2_rf <- c(2, 10, 20) # min_n
 hp3_rf <- 1000 # trees (10 x's number of predictors)   UPDATE after CBIT
 
+
 # CHANGE STUDY PATHS -------------------- 
-name_job <- "train_1day" # the name of the job to set folder names
-path_jobs <- "P:/studydata/risk/chtc/gps" # location of where you want your jobs to be setup
-path_data <- "P:/studydata/risk/data_processed/gps" # location of data set
+name_job <- "train_1week_glmnet" # the name of the job to set folder names
+path_jobs <- "P:/studydata/risk/chtc/ema" # location of where you want your jobs to be setup
+path_data <- "P:/studydata/risk/data_processed/ema" # location of data set
 
 # CHANGE CHTC SPECIFIC CONTROLS
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "20000MB"
-request_disk <- "1000000KB" # this is pretty large - necessary for gps?
+request_memory <- "16000MB"
+request_disk <- "1500000KB"
 flock <- FALSE
 glide <- FALSE
 
@@ -64,38 +65,61 @@ build_recipe <- function(d, job) {
     update_role(subid, dttm_label, new_role = "id variable") %>%
     step_rm(label_num) %>% 
     step_string2factor(y, levels = c("yes", "no")) %>% 
-    # event level will be first level in factor (maybe?)
+    # event level will be first level in factor
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric()) %>% 
     step_impute_mode(all_nominal(),  -y) 
   
-  # If statements for filtering features based on feature set
-  # no removals if feature_set == "all"
-  if (feature_set == "rratesum") {
+  # If statements for filtering features based on EMA feature set
+  if (feature_set == "raw") {
     rec <- rec   %>% 
-      step_rm(contains("dratesum")) %>% 
-      step_rm(contains("pratesum"))
+      step_rm(contains("dratecount")) %>% 
+      step_rm(contains("pratecount")) %>% 
+      step_rm(contains("dmedian")) %>% 
+      step_rm(contains("pmedian")) %>% 
+      step_rm(contains("dmax")) %>% 
+      step_rm(contains("pmax")) %>% 
+      step_rm(contains("dmin")) %>% 
+      step_rm(contains("pmin"))
   }
-  if (feature_set == "dratesum") {
+  if (feature_set == "diff") {
     rec <- rec   %>% 
-      step_rm(contains("rratesum")) %>% 
-      step_rm(contains("pratesum"))
+      step_rm(contains("rratecount")) %>% 
+      step_rm(contains("pratecount")) %>% 
+      step_rm(contains("rmedian")) %>% 
+      step_rm(contains("pmedian")) %>% 
+      step_rm(contains("rmax")) %>% 
+      step_rm(contains("pmax")) %>% 
+      step_rm(contains("rmin")) %>% 
+      step_rm(contains("pmin"))
   }
-  if (feature_set == "pratesum") {
+  if (feature_set == "prop") {
     rec <- rec   %>% 
-      step_rm(contains("rratesum")) %>% 
-      step_rm(contains("dratesum"))
+      step_rm(contains("dratecount")) %>% 
+      step_rm(contains("rratecount")) %>% 
+      step_rm(contains("dmedian")) %>% 
+      step_rm(contains("rmedian")) %>% 
+      step_rm(contains("dmax")) %>% 
+      step_rm(contains("rmax")) %>% 
+      step_rm(contains("dmin")) %>% 
+      step_rm(contains("rmin"))
   }
   if (feature_set == "r_d") {
     rec <- rec   %>% 
-      step_rm(contains("pratesum"))
+      step_rm(contains("pratecount")) %>% 
+      step_rm(contains("pmedian")) %>% 
+      step_rm(contains("pmax")) %>% 
+      step_rm(contains("pmin"))
   }
   if (feature_set == "r_p") {
     rec <- rec   %>% 
-      step_rm(contains("dratesum"))
+      step_rm(contains("dratecount")) %>% 
+      step_rm(contains("dmedian")) %>% 
+      step_rm(contains("dmax")) %>% 
+      step_rm(contains("dmin")) 
   }
-
+    
   
   # resampling options for unbalanced outcome variable
   if (resample == "down") {
@@ -120,7 +144,7 @@ build_recipe <- function(d, job) {
       step_normalize(all_predictors()) %>% 
       # drop columns with NA values after imputation (100% NA)
       step_select(where(~ !any(is.na(.))))
-      # step nzv done within fit if training controls remove_nzv is set to TRUE
+    # step nzv done within fit if training controls remove_nzv is set to TRUE
   } 
   
   if (algorithm == "knn") {
@@ -135,5 +159,3 @@ build_recipe <- function(d, job) {
   
   return(rec)
 }
-
-
