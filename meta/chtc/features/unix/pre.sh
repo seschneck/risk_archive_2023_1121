@@ -2,5 +2,5 @@
 # pre.sh
 
 # make directories for output
-mkdir error output features
+mkdir error features
 exit

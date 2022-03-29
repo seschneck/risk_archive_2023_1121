@@ -7,7 +7,8 @@ suppressPackageStartupMessages({
 # CHANGE ME
 name_job <- "features_1_day"
 path_jobs <- "P:/studydata/risk/chtc/meta/jobs/features/"
-path_templates <- "./meta/chtc/features/templates"
+path_templates <- "./meta/chtc/features/unix"
+path_mak_script <- "./meta/chtc/features/1day_full"
 path_data <- "P:/studydata/risk/data_processed/meta" 
 path_fun <- "./shared/fun_features.R"
 fun_name <- "fun_features.R" # this will be name that function appears as on CHTC
@@ -50,12 +51,17 @@ file.copy(from = file.path(path_data, static_features_file_name),
 file.copy(from = path_fun,
           to = file.path(path_jobs, name_job, "input", fun_name))
 
-# copy over input templates (run script, submit, pre, post files)
-file.copy(from = file.path(path_templates, "input", c(list.files(file.path(path_templates, "input")))),
+# copy over mak_features script
+file.copy(from = path_fun,
+          to = file.path(path_jobs, name_job, "input", fun_name))
+
+# copy over mak_features script
+file.copy(from = file.path(path_mak_script, "mak_features_chtc.R"),
+          to = file.path(path_jobs, name_job, "input"))
+
+# copy over input templates (submit, pre, post files)
+file.copy(from = file.path(path_templates, c(list.files(path_templates))),
           to = file.path(path_jobs, name_job, "input"),
           recursive = TRUE) 
 
-# copy over output template (aggregate rows)
-file.copy(from = file.path(path_templates, "output", "post_chtc_processing.rmd"),
-          to = file.path(path_jobs, name_job, "output", "post_chtc_processing.rmd")) 
 
