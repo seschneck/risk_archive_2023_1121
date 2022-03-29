@@ -38,13 +38,14 @@ library(janitor)
 library(lubridate)
 library(ggplot2)
 library(kableExtra)
+library(vroom)
 
 theme_set(theme_classic()) 
 ```
 
 Set additional paths
 ```{r}
-path_job <- here("P:/studydata/risk/chtc/meta/jobs/features/features_1.1000")
+path_job <- here("P:/studydata/risk/chtc/meta/jobs/features/features_1week")
 path_output <- here(path_job, "output/output")
 path_features <-  here(path_job, "output/features")
 path_error <-  here(path_job, "output/error")
@@ -88,9 +89,14 @@ unzip(zipfile = file.path(path_job, "output/error.zip"), exdir = file.path(path_
 Read in jobs
 ```{r}
 jobs <- read_lines(here(path_job, "input/jobs.csv")) %>% 
-    as.numeric() %>%
-    enframe(., value = "label_num", name = NULL) %>% 
+  enframe(name = NULL, value = "jobs") %>%  
+  mutate(jobs = str_replace(jobs, ",", "_")) %>% 
   glimpse()
+
+job_start <- jobs %>% head(1) %>% pull(jobs) 
+job_start <- str_split(job_start, "_")[[1]][1]
+job_end <- jobs %>% tail(1) %>% pull(jobs)
+job_end <- str_split(job_end, "_")[[1]][2]
 ```
 
 
@@ -103,6 +109,9 @@ tabyl(err_files$size)
 ```
 
 Pull error messages and jobs if error files are not all blank
+
+**FIX: label nums**
+
 ```{r}
 if (nrow(subset(err_files, size > 0)) > 0) {
   err_paths <- err_files %>% 
@@ -138,61 +147,23 @@ tabyl(out_files$size)
 read in all result CSVs
 ```{r}
 feat_files <- list.files(path_features, full.names = TRUE)
-# use code block below instead if single map_dfr statement if you have over 100000 jobs
-# features <- map_dfr(feat_files, ~read_rds(.x)) %>% 
-#   glimpse()
+
+features <- map_dfr(feat_files, ~read_rds(.x)) %>%
+  glimpse()
 ```
 
 ```{r}
-features <- map_dfr(feat_files[1:1000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_2000 <- map_dfr(feat_files[1001:2000], ~read_rds(.x)) %>%
-  glimpse()
-
-
-features_10000 <- map_dfr(feat_files[2001:10000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_40000 <- map_dfr(feat_files[10001:40000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_80000 <- map_dfr(feat_files[40001:80000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_100000 <- map_dfr(feat_files[80001:100000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_150000 <- map_dfr(feat_files[100001:150000], ~read_rds(.x)) %>%
-  glimpse()
-
-
-features_200000 <- map_dfr(feat_files[150001:200000], ~read_rds(.x)) %>%
-  glimpse()
-
-features_250000 <- map_dfr(feat_files[200001:250000], ~read_rds(.x)) %>%
-  glimpse()
-
-
-features_end <- map_dfr(feat_files[250001:length(feat_files)], ~read_rds(.x)) %>%
-  glimpse()
-
-features_all <- features %>% 
-  bind_rows(features_2000)
-  bind_rows(features_10000, features_40000, features_80000, features_100000,
-             features_150000,  features_250000, features_200000, features_end)
-
-write_rds(features_all, here(path_job, "output/features_aggregate_2.rds"), "xz")
+write_rds(features, here(path_job, "output/features_aggregate.rds"), "xz")
 ```
 
 
 
 check for missing jobs    
 
-`r nrow(features)` rows from `r nrow(jobs)` jobs.      
+`r nrow(features)` rows from `r job_end` jobs.      
 
 ```{r}
-missing_job_nums <- enframe(seq(1:nrow(jobs)), name = NULL, value = "label_num") %>% 
+missing_job_nums <- enframe(job_start:job_end, name = NULL, value = "label_num") %>% 
   filter(!label_num %in% features$label_num)
 
 if (nrow(missing_job_nums) > 0) {
