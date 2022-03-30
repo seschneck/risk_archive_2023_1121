@@ -5,7 +5,7 @@ data_type <- "ema"
 # windows <- c("1hour", "1day", "1week")
 windows <- c("1day")
 lead <- 0   # constant for now
-version <- "v1"   # update based on version of features
+version <- "v2"   # update based on version of features
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_combined_features.Rmd"), 
