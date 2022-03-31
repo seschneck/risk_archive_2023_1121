@@ -39,7 +39,7 @@ tar <- c("train.tar.gz") # name of tar packages for submit file - does not trans
 max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "16000MB"
-request_disk <- "1500000KB"
+request_disk <- "1000000KB"
 flock <- FALSE
 glide <- FALSE
 
@@ -79,6 +79,7 @@ build_recipe <- function(d, job) {
     step_impute_mode(all_nominal(),  -y) 
   
   # If statements for filtering features based on EMA feature set
+  # no removals if set = "all"
   if (feature_set == "raw") {
     rec <- rec   %>% 
       step_rm(contains("dratecount")) %>% 
@@ -125,6 +126,13 @@ build_recipe <- function(d, job) {
       step_rm(contains("dmedian")) %>% 
       step_rm(contains("dmax")) %>% 
       step_rm(contains("dmin")) 
+  }
+  if (feature_set == "d_p") {
+    rec <- rec   %>% 
+      step_rm(contains("rratecount")) %>% 
+      step_rm(contains("rmedian")) %>% 
+      step_rm(contains("rmax")) %>% 
+      step_rm(contains("rmin")) 
   }
     
   
