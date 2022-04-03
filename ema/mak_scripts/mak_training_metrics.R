@@ -2,10 +2,10 @@ library(here)
 library(stringr)
 
 data_type <- "ema"
-windows <- c("1hour", "1day", "1week")
-# windows <- c("1day")
+# windows <- c("1hour", "1day", "1week")
+windows <- c("1day")
 lead <- 0
-version <- "v1"
+version <- "v2"
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
