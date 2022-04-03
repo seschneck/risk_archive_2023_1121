@@ -6,7 +6,7 @@ data_type <- "ema"   # but still need to change more (e.g., feature set) to swit
 window <- "1day"
 lead <- 0
 version <- "v2"
-algorithm <- "glmnet"
+algorithm <- "random_forest"
 
 
 # SET GLOBAL PARAMETERS
@@ -29,7 +29,7 @@ hp2_glmnet_min <- -8 # min for penalty grid - will be passed into exp(seq(min, m
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 200 # length of penalty grid
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
-hp1_rf <- c(2, 4, 8, 16, 32) # mtry (p/3 for reg or square root of p for class)
+hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
 hp2_rf <- c(2, 15, 30) # min_n
 hp3_rf <- 1500 # trees (10 x's number of predictors)
  
