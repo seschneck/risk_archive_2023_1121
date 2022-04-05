@@ -7,10 +7,10 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "tmp"
-  window: "tmp"
+  data_type: "ema"
+  window: "1day"
   lead: 0
-  version: "tmp"
+  version: "v2"
 ---
 
 ### Code Status
@@ -33,6 +33,7 @@ window <- params$window
 lead <- params$lead  # Not used yet
 version <- params$version  # Not used yet
 
+
 ```
 
 Packages for lab workflow 
@@ -52,8 +53,8 @@ Packages for script
 library(tidyverse)
 library(lubridate)
 library(vroom)
-library(purrr)
-library(furrr)
+# library(purrr)
+# library(furrr)
 library(janitor)
 library(ggplot2)
 library(kableExtra)
@@ -165,7 +166,6 @@ if (str_detect(fn, "csv")) {
 d <- d %>% 
   rename(y = {{y_col_name}})
   
-# CHECK IF RECIPE IS REALLY NEEDED OUTSIDE OF RESAMPLING BELOW
 rec <- build_recipe(d = d, job = config_best)
 
 if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds"))))) {
@@ -174,8 +174,6 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead,
   
 } else {
   message("Fitting models to get resampling metrics")
-  plan(multisession, workers = n_core)
-
 
   #create splits
   set.seed(102030)
@@ -186,14 +184,18 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead,
   }
   
   # resample best model config
-  fit_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type) %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
+  plan(multisession, workers = n_core)
+  fits_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
   plan(sequential)
+  
+  fits_best %>% 
+    saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
+  
 }
 
 # get info from resamples into separate objects
-metrics_best <- fit_best[[3]]
-preds_best <- fit_best[[2]] %>% 
+metrics_best <- fits_best[[3]]
+preds_best <- fits_best[[2]] %>% 
   select(truth = y,
          estimate = .pred_class,
          prob = .pred_yes) %>% 
@@ -258,6 +260,8 @@ thresh_opt <- roc_data %>%
   slice(1) %>% 
   pull(.threshold)
 
+thresh_opt
+
 preds_best <- preds_best %>% 
   mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
          estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
@@ -274,7 +278,7 @@ cm_opt %>% summary(event_level = "second")
 ```
 
 
-printing plots
+saving plots
 ```{r}
 # library(ggplot2)
 # myplot1 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
@@ -299,38 +303,53 @@ printing plots
 
 
 
-### Fit best config to full sample
+### Fit best configs to full sample to explore features
 
-Fit final for full sample
-
-TMP: Current fits glmnet.  NEED TO UPDATE
+glmnet
 ```{r}
- 
-# if (file.exists((here(path_models, str_c("model_final_", window, ".rds"))))) {
-#   message("Loading previously fit final model to full sample")
-#   model_final <- read_rds(here(path_models, str_c("model_final_", window, ".rds")))
-# } else {
-#   message("Fitting final model to full sample")
-# 
-#   # get features for full sample
-#   feat <- rec %>% 
-#       prep(training = d, strings_as_factors = FALSE) %>% 
-#       bake(new_data = NULL)
-#   
-#   # fit model
-#   model_final <- logistic_reg(penalty = config_best$hp2,
-#                            mixture = config_best$hp1) %>%
-#       set_engine("glmnet") %>%
-#       set_mode("classification") %>%
-#       fit(y ~ ., data = feat)
-# 
-# }
+
+config_best_glmnet <- metrics_avg %>% 
+  filter(algorithm == "glmnet") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+rec_glmnet <- build_recipe(d = d, job = config_best_glmnet)
+
+fit_best_glmnet <- fit_best_model(config_best_glmnet, rec_glmnet, d)
+
+fit_best_glmnet %>%
+  vi(lambda = config_best_glmnet$hp2) %>% 
+  mutate(Importance = abs(Importance),
+         Variable = fct_reorder(Variable, Importance)) %>% 
+  filter(Importance > .005) %>% 
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
 ```
 
-Get coefficients
-```{r}
-# coefs_final <- model_final %>% 
-#   tidy() %>%  # , penalty = 5.5620
-#   glimpse()
-```
 
+random forest
+```{r}
+
+config_best_rf <- metrics_avg %>% 
+  filter(algorithm == "random_forest") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+rec_rf <- build_recipe(d = d, job = config_best_rf)
+
+fit_best_rf <- fit_best_model(config_best_glmnet, rec_rf, d)
+
+fit_best_rf %>%
+  vi() %>% 
+  mutate(Importance = abs(Importance),
+         Variable = fct_reorder(Variable, Importance)) %>% 
+  filter(Importance > .1) %>% 
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+```
