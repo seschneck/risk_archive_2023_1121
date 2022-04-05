@@ -43,6 +43,7 @@ conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
+conflict_prefer("vi", "vip")
 
 library(here)
 ```
@@ -167,7 +168,7 @@ rec <- build_recipe(d = d, job = config_best)
 
 if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds"))))) {
   message("loading previously fit model metrics")
-  fit_best <- readRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
+  fits_best <- readRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
   
 } else {
   message("Fitting models to get resampling metrics")
@@ -303,7 +304,7 @@ saving plots
 ### Fit best configs to full sample to explore features
 
 glmnet
-```{r}
+```{r, out.width = '100%'}
 
 config_best_glmnet <- metrics_avg %>% 
   filter(algorithm == "glmnet") %>% 
@@ -329,7 +330,7 @@ fit_best_glmnet %>%
 
 
 random forest
-```{r}
+```{r, out.width = '100%'}
 
 config_best_rf <- metrics_avg %>% 
   filter(algorithm == "random_forest") %>% 
