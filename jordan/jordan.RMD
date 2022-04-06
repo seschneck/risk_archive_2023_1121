@@ -24,6 +24,7 @@ library(kableExtra)
 library(tictoc)
 library(foreach)
 library(ggplot2)
+library(lmSupport)
 
 path_data_clean <- "P:/studydata/risk/data_processed/shared"
 path_burden <- "P:/studydata/risk/data_processed/burden"
@@ -36,7 +37,7 @@ path_burden <- "P:/studydata/risk/data_processed/burden"
 ```{r data}
 
 final_sample <- read_csv(here(path_burden, "disposition.csv")) %>%
-  filter(last_visit == "followup_2" | last_visit == "followup_3")
+  filter(str_detect(last_visit,"followup_"))
 
 screen <- read_csv(here(path_data_clean, "screen.csv")) %>%
   filter(subid %in% final_sample$subid)
@@ -187,9 +188,9 @@ dass_1 <- intake %>%
                                                 . == "Sometimes" ~ 1,
                                                 . == "Often" ~ 2,
                                                 . == "Almost Always" ~ 3))) %>%
-  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
-         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
-         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+  mutate(dass_anx1 = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep1 = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str1 = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
 
 dass_2 <- fu1 %>%
   select(subid, starts_with("dass")) %>% 
@@ -197,18 +198,18 @@ dass_2 <- fu1 %>%
                                                 . == "Sometimes" ~ 1,
                                                 . == "Often" ~ 2,
                                                 . == "Almost Always" ~ 3))) %>%
-  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
-         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
-         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+  mutate(dass_anx2 = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep2 = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str2 = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
 dass_3 <- fu2 %>%
   select(subid, starts_with("dass")) %>% 
   mutate(across(starts_with("dass"), ~ case_when(. == "Never" ~ 0 ,       
                                                 . == "Sometimes" ~ 1,
                                                 . == "Often" ~ 2,
                                                 . == "Almost Always" ~ 3))) %>%
-  mutate(dass_anx = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
-         dass_dep = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
-         dass_str = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
+  mutate(dass_anx3 = dass21_2 + dass21_4 + dass21_7 + dass21_9 + dass21_15 + dass21_19 + dass21_20,
+         dass_dep3 = dass21_3 + dass21_5 + dass21_10 + dass21_13 + dass21_16 + dass21_17 + dass21_21,
+         dass_str3 = dass21_1 + dass21_6 + dass21_8 + dass21_11 + dass21_12 + dass21_14 + dass21_18)
 
 
 
@@ -234,18 +235,26 @@ dass_3 <- fu2 %>%
 Combine datafames
 ```{r}
 
-combine <- left_join(assist_1 %>% select(subid, starts_with("assist_use_ever")), dass_1 %>% select(subid, dass_anx1 = dass_anx, dass_dep1 = dass_dep, dass_str1 = dass_str)) %>%
-  left_join(., dass_2 %>% select(subid, dass_anx2 = dass_anx, dass_dep2 = dass_dep, dass_str2 = dass_str)) %>% 
-  left_join(., dass_3  %>% select(subid, dass_anx3 = dass_anx, dass_dep3 = dass_dep, dass_str3 = dass_str)) %>%
+combine <- full_join(assist_1 %>% select(subid, starts_with("assist_use_ever")), dass_1 %>% select(subid, matches("dass_[a-z]"))) %>%
+  full_join(., dass_2 %>% select(subid, matches("dass_[a-z]"))) %>% 
+  full_join(., dass_3 %>% select(subid, matches("dass_[a-z]"))) %>%
   mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid)
 
 
 combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
 #84/140 need to add Risk2 
 
+
+#select only relevant columns
+data <- combine %>% 
+  left_join(final_sample %>% select(subid, last_visit))  %>% 
+  select(subid, last_visit, starts_with("dass"), n_drugs) 
+  
+
+
 ```
 
-
+Plotting
 ```{r}
 
 plot(x = combine$assist_use_ever_hallucinogen, y =  combine$dass_dep3 - combine$dass_dep1)
@@ -257,19 +266,110 @@ abline(lm((combine$dass_anx3 -combine$dass_anx1) ~ combine$assist_use_ever_hallu
 plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_str3 - combine$dass_str1)
 abline(lm((combine$dass_str3 - combine$dass_str1) ~ combine$assist_use_ever_hallucinogen), col="red")
 
-
-
-```
-
-```{r}
-
 hal <-  filter(combine, assist_use_ever_hallucinogen == 1)
 
 plot(x = hal$dass_dep3, y = hal$dass_dep1)
 abline(lm(hal$dass_dep3 ~ hal$dass_dep1), col="red")
 
 
+```
+
+Set up categorical factor IV. 0, 1, 2+ We do not need to use dummy coding because the relationship of these categories is ordinal.
+
+```{r}
+
+data <- data %>% mutate(drugs = as_factor(case_when(n_drugs == 0 ~ 0,
+                                     n_drugs == 1 ~ 1,
+                                     n_drugs > 1 ~ 2)))
+
+```
+
+Set up DASS subscale difference scores for DV (comparing first visit to last visit, either FU1 - intake or FU2 - intake). This direction is because we expect these scores to increase over time in those who use 0 drugs.
+
+```{r}
+data <-  data %>% mutate(diff_anx = if_else(last_visit == "followup_1", dass_anx2 - dass_anx1, dass_anx3 - dass_anx1),
+                         diff_dep = if_else(last_visit == "followup_1", dass_dep2 - dass_dep1, dass_dep3 - dass_dep1),
+                         diff_str = if_else(last_visit == "followup_1", dass_str2 - dass_str1, dass_str3 - dass_str1))
+
+data <-  data %>%
+ mutate(last_anx = if_else(last_visit == "followup_1", dass_anx2, dass_anx3),
+                         last_dep = if_else(last_visit == "followup_1", dass_dep2, dass_dep3),
+                         last_str = if_else(last_visit == "followup_1", dass_str2, dass_str3))
+```
+
+Regress drugs on anxiety difference score
+```{r}
+m_anx = lm(diff_anx ~ drugs, data = data)
+modelSummary(m_anx)
+
+m_anx1 = lm(diff_anx ~ drugs + dass_anx1, data = data)
+modelSummary(m_anx1)
+
+```
 
 
+Regress drugs on depression difference score
+```{r}
+m_dep = lm(diff_dep ~ drugs, data = data)
+modelSummary(m_dep)
+
+m_dep1 = lm(diff_dep ~ drugs + dass_dep1, data = data)
+modelSummary(m_dep1)
+```
+
+Regress drugs on stress difference score
+```{r}
+m_str = lm(diff_str ~ drugs, data = data)
+modelSummary(m_str)
+
+m_str1 = lm(diff_str ~ drugs + dass_str1, data = data)
+modelSummary(m_str1)
+```
+
+Regress baseline anxiety on group
+```{r}
+m_anx_baseline = lm(dass_anx1 ~ drugs, data = data)
+modelSummary(m_anx_baseline)
+
+```
+
+Regress baseline depression on group
+```{r}
+m_dep_baseline = lm(dass_dep1 ~ drugs, data = data)
+modelSummary(m_dep_baseline)
+
+```
+
+Regress baseline stress on group
+```{r}
+m_str_baseline = lm(dass_str1 ~ drugs, data = data)
+modelSummary(m_str_baseline)
+
+```
+
+
+
+Last scores by drug group
+```{r}
+m_last_anx = lm(last_anx ~ drugs, data = data)
+modelSummary(m_last_anx)
+
+m_last_dep = lm(last_dep ~ drugs, data = data)
+modelSummary(m_last_dep)
+
+m_last_str = lm(last_str ~ drugs, data = data)
+modelSummary(m_last_str)
+
+```
+
+
+
+
+EXPLORATORY:
+
+Regress ndrugs on anxiety difference score
+```{r}
+m_anx_ndrugs = lm(diff_anx ~ n_drugs, data = data)
+modelSummary(m_anx_ndrugs)
 ```
 
