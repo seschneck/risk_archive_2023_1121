@@ -225,7 +225,7 @@ cm %>% summary(event_level = "second")
 plot_probs <- preds_best %>% 
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2) +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)")
 plot_probs
 ```
@@ -304,7 +304,7 @@ saving plots
 ### Fit best configs to full sample to explore features
 
 glmnet
-```{r, out.width = '100%'}
+```{r, fig.height = 5}
 
 config_best_glmnet <- metrics_avg %>% 
   filter(algorithm == "glmnet") %>% 
@@ -330,7 +330,7 @@ fit_best_glmnet %>%
 
 
 random forest
-```{r, out.width = '100%'}
+```{r, fig.height = 5}
 
 config_best_rf <- metrics_avg %>% 
   filter(algorithm == "random_forest") %>% 
