@@ -169,9 +169,7 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
           rates <- 
             tibble(
               "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
           
@@ -259,9 +257,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
           rates <- 
             tibble(
               "{data_type_value}.p{period_duration}.l{lead}.rpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.ppropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+              "{data_type_value}.p{period_duration}.l{lead}.dpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>%   
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
@@ -333,14 +329,14 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
       # baseline is constant across period durations so get outside of lower loop
       baseline <- x %>% 
         get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-        summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   ## CHECK THIS WITH KENDRA;  . was x
+        summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   
         pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
         raw <- x %>%
           get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
-          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   # CHECK . with KENDRA
+          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   
           pull(raw)
         
         passive_label <- if_else(passive, "passive", "NA")
@@ -348,9 +344,7 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
         rates <- 
           tibble(
             "{data_type_value}.p{period_duration}.l{lead}.rpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw,
-            "{data_type_value}.p{period_duration}.l{lead}.dpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-            "{data_type_value}.p{period_duration}.l{lead}.ppropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+            "{data_type_value}.p{period_duration}.l{lead}.dpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>%  
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -441,9 +435,7 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
         rates <- 
           tibble(
             "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-            "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-            "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(baseline == 0, 0, (raw - baseline) / baseline))  %>% 
+            "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline)  %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -526,9 +518,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
       }
@@ -611,9 +601,7 @@ score_median <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -697,9 +685,7 @@ score_max <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max,
-          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw_max - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -782,9 +768,7 @@ score_min <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
