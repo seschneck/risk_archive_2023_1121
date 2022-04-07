@@ -4,7 +4,7 @@
 window <- "1day"   # remember to edit these in make_features_chtc.R as well
 data_type <- "ema"
 lead <- 0
-version <- "v2"
+version <- "v3"
 
 
 # load packages
