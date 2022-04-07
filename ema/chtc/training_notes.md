@@ -18,4 +18,15 @@ Run for meeting with Nowak group
 - recognized that the missing rate is 3% for items 1-7 for 12 hour window.  OK?  Wait to see if it ends up in any models
 - Added a ratecount of completed emas as features
 
+# Version 3
+
+First version after Nowak group
+- Remove proportion scores
+- Only using "all" feature set (now without proportions)
+- Added back smote_1
+- Updated score_min and score_max to use mean baseline (rather than min/max of baseline)
+- Added score_most_recent for items 2-10
+- Added feature for day of week for label being predicted
+
+Only use all features set
 ? p12.l0.dratecount.count.lapse	 missing for p12 and all other durations for 142 observations?  Not all subjects but first observation for most?
