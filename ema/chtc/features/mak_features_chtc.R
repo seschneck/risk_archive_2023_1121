@@ -1,11 +1,12 @@
 # Script to engineer EMA features on CHTC
 # Version 1 was for CBIT
-# this is version 2 - for Nowak group
+# Version 2 was for Nowak group
+# This is version 3
 
 # Constants: EDIT
 window <- "1day"  # window for calculating labels
 lead <-  0 # feature lead time
-version <- "v2"
+version <- "v3"
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
@@ -31,10 +32,10 @@ job_stop <- as.numeric(args[2])
 # read in ema
 ema <- vroom("ema.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"),
-         ema_2 = ema_2 + 1,  # dont want possible 0 for proportion score
-         ema_3 = ema_3 + 1,
-         ema_4 = ema_4 + 1,
-         ema_5 = ema_5 + 1)  %>%   
+         ema_2 = ema_2,  
+         ema_3 = ema_3,
+         ema_4 = ema_4,
+         ema_5 = ema_5)  %>%   
   select(-ema_1) %>%   # not using ema_1.  Info is in lapse df
   arrange(subid, dttm_obs)
 
@@ -72,15 +73,20 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   dttm_label <-  label$dttm_label
   the_label_num <- label$label_num
   
+  # day of lapse label
+  feature_row <- score_label_day(the_subid = subid, 
+                                 the_dttm_label = dttm_label)
   # rate of previous lapses
-  feature_row <- score_ratecount_value(the_subid = subid, 
-                                      the_dttm_label = dttm_label, 
-                                      x_all = lapses, 
-                                      period_durations  = period_durations_later, # use all durations
-                                      lead = lead, 
-                                      data_start = dates, 
-                                      col_name = "count", 
-                                      col_values = "lapse")
+  feature_row <- feature_row %>%   
+    full_join(score_ratecount_value(the_subid = subid, 
+                                    the_dttm_label = dttm_label, 
+                                    x_all = lapses, 
+                                    period_durations  = period_durations_later, # use all durations
+                                    lead = lead, 
+                                    data_start = dates, 
+                                    col_name = "count", 
+                                    col_values = "lapse"),
+              by = c("subid", "dttm_label"))
   
   
   # rate of previous emas completed,  made count item in ema_count df and set to "ema" when ema was completed through ema_7
@@ -95,6 +101,17 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                                     col_values = "ema"),
               by = c("subid", "dttm_label"))
   
+  # most recent score
+  feature_row <- feature_row %>%
+    full_join(score_most_recent(the_subid = subid,
+                           the_dttm_label = dttm_label,
+                           x_all  = ema_long,
+                           lead = lead,
+                           data_start = dates,
+                           col_name = "response",
+                           data_type_col_name = "ema_num",
+                           data_type_values = str_c("ema_", 2:10)),
+              by = c("subid", "dttm_label"))
 
   # median; use because may be more stable than mean
   # ema_1 not included b/c handled by lapses above
