@@ -5,14 +5,14 @@
 data_type <- "ema"   # but still need to change more (e.g., feature set) to switch data_type
 window <- "1day"
 lead <- 0
-version <- "v2"
-algorithm <- "random_forest"
+version <- "v3"
+algorithm <- "glmnet"
 
 
 # SET GLOBAL PARAMETERS
-feature_set <- c("raw", "diff", "prop", "r_d", "r_p", "d_p", "all") # EMA Features set names
+# feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", window, "_", lead, "_", version, ".csv.xz") 
-resample <- c("up_1", "down_1") 
+resample <- c("up_1", "down_1", "smote_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
@@ -69,71 +69,69 @@ build_recipe <- function(d, job) {
   
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
-    update_role(subid, dttm_label, new_role = "id variable") %>%
-    step_rm(label_num) %>% 
-    step_string2factor(y, levels = c("yes", "no")) %>% 
-    # event level will be first level in factor
+    step_rm(subid, dttm_label, label_num) %>% 
+    step_string2factor(y, levels = c("yes", "no")) %>%  # event level will be first level in factor
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric()) %>% 
     step_impute_mode(all_nominal(),  -y) 
   
-  # If statements for filtering features based on EMA feature set
-  # no removals if set = "all"
-  if (feature_set == "raw") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("dmin")) %>% 
-      step_rm(contains("pmin"))
-  }
-  if (feature_set == "diff") {
-    rec <- rec   %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("rmedian")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("rmax")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("rmin")) %>% 
-      step_rm(contains("pmin"))
-  }
-  if (feature_set == "prop") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("rmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("rmax")) %>% 
-      step_rm(contains("dmin")) %>% 
-      step_rm(contains("rmin"))
-  }
-  if (feature_set == "r_d") {
-    rec <- rec   %>% 
-      step_rm(contains("pratecount")) %>% 
-      step_rm(contains("pmedian")) %>% 
-      step_rm(contains("pmax")) %>% 
-      step_rm(contains("pmin"))
-  }
-  if (feature_set == "r_p") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("dmedian")) %>% 
-      step_rm(contains("dmax")) %>% 
-      step_rm(contains("dmin")) 
-  }
-  if (feature_set == "d_p") {
-    rec <- rec   %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("rmedian")) %>% 
-      step_rm(contains("rmax")) %>% 
-      step_rm(contains("rmin")) 
-  }
+  # # If statements for filtering features based on EMA feature set
+  # # no removals if set = "all"
+  # if (feature_set == "raw") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("dratecount")) %>% 
+  #     step_rm(contains("pratecount")) %>% 
+  #     step_rm(contains("dmedian")) %>% 
+  #     step_rm(contains("pmedian")) %>% 
+  #     step_rm(contains("dmax")) %>% 
+  #     step_rm(contains("pmax")) %>% 
+  #     step_rm(contains("dmin")) %>% 
+  #     step_rm(contains("pmin"))
+  # }
+  # if (feature_set == "diff") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("rratecount")) %>% 
+  #     step_rm(contains("pratecount")) %>% 
+  #     step_rm(contains("rmedian")) %>% 
+  #     step_rm(contains("pmedian")) %>% 
+  #     step_rm(contains("rmax")) %>% 
+  #     step_rm(contains("pmax")) %>% 
+  #     step_rm(contains("rmin")) %>% 
+  #     step_rm(contains("pmin"))
+  # }
+  # if (feature_set == "prop") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("dratecount")) %>% 
+  #     step_rm(contains("rratecount")) %>% 
+  #     step_rm(contains("dmedian")) %>% 
+  #     step_rm(contains("rmedian")) %>% 
+  #     step_rm(contains("dmax")) %>% 
+  #     step_rm(contains("rmax")) %>% 
+  #     step_rm(contains("dmin")) %>% 
+  #     step_rm(contains("rmin"))
+  # }
+  # if (feature_set == "r_d") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("pratecount")) %>% 
+  #     step_rm(contains("pmedian")) %>% 
+  #     step_rm(contains("pmax")) %>% 
+  #     step_rm(contains("pmin"))
+  # }
+  # if (feature_set == "r_p") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("dratecount")) %>% 
+  #     step_rm(contains("dmedian")) %>% 
+  #     step_rm(contains("dmax")) %>% 
+  #     step_rm(contains("dmin")) 
+  # }
+  # if (feature_set == "d_p") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("rratecount")) %>% 
+  #     step_rm(contains("rmedian")) %>% 
+  #     step_rm(contains("rmax")) %>% 
+  #     step_rm(contains("rmin")) 
+  # }
     
   
   # resampling options for unbalanced outcome variable
