@@ -57,6 +57,7 @@ library(janitor)
 library(ggplot2)
 library(kableExtra)
 library(vip)
+library(future)
 
 theme_set(theme_classic()) 
 ```
@@ -99,7 +100,7 @@ source(here("../lab_support/print_kbl.R"))
 ```
 
 
-### Review View best performing models   
+### Review best performing models   
 
 Open average metrics
 ```{r open_metrics}
@@ -138,7 +139,7 @@ algorithm_best <- metrics_avg %>%
 
 ### Refit resamples for best model locally
 
-Fit or Read metrics for  best model configuration
+Fit or Read metrics for best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
 ```{r resample_best_config}
 
