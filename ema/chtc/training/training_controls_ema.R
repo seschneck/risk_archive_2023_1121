@@ -6,11 +6,11 @@ data_type <- "ema"   # but still need to change more (e.g., feature set) to swit
 window <- "1day"
 lead <- 0
 version <- "v3"
-algorithm <- "glmnet"
+algorithm <- "random_forest"
 
 
 # SET GLOBAL PARAMETERS
-# feature_set <- c("all") # EMA Features set names
+feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", window, "_", lead, "_", version, ".csv.xz") 
 resample <- c("up_1", "down_1", "smote_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
