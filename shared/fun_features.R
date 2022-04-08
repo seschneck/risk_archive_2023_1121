@@ -52,7 +52,7 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
   # row of lapse tibble
   # Pass in data tibble that will be filtered on by labels (MUST INCLUDE dttm_obs VARIABLE)
   # Set lead_hours parameter to number of hours out from lapse you wish to predict 
-  # Set period duration hours to set the duration over which you wish to use data from  
+  # Set period duration hours to get the duration over which you wish to use data from  
   # set period_duration to Inf if you want all the way back to the first observation
   
   x_all %>% 
@@ -86,6 +86,7 @@ correct_period_duration <- function(the_subid, the_dttm_label, data_start, perio
   
   return(period_duration)
 }
+
 
 
 score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durations, 
@@ -169,9 +170,7 @@ score_ratecount_value <- function(the_subid, the_dttm_label, x_all, period_durat
           rates <- 
             tibble(
               "{data_type_value}.p{period_duration}.l{lead}.rratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.pratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+              "{data_type_value}.p{period_duration}.l{lead}.dratecount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
           
@@ -243,15 +242,15 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
         
         foreach(col_value = col_values, .combine = "cbind") %do% { 
 
-          # baseline moved to here for this scoring function to limit to col_value   CHECK WITH KENDRA
+          # baseline moved to here for this scoring function to limit to col_value  
           baseline <- x %>%
             get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-            summarise("base" := propcount(.data[[col_name]], col_value, nrow(.))) %>%   # CHECK . with KENDRA
+            summarise("base" := propcount(.data[[col_name]], col_value, nrow(.))) %>%   
             pull(base)
           
           raw <- x %>%
             get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
-            summarise("raw" := propcount(.data[[col_name]], col_value, nrow(.))) %>% # CHECK . with KENDRA
+            summarise("raw" := propcount(.data[[col_name]], col_value, nrow(.))) %>% 
             pull(raw)
           
           passive_label <- if_else(passive, "passive", "NA")
@@ -259,9 +258,7 @@ score_propcount_value <- function(the_subid, the_dttm_label, x_all,
           rates <- 
             tibble(
               "{data_type_value}.p{period_duration}.l{lead}.rpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw,
-              "{data_type_value}.p{period_duration}.l{lead}.dpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-              "{data_type_value}.p{period_duration}.l{lead}.ppropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := 
-                if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+              "{data_type_value}.p{period_duration}.l{lead}.dpropcount.{col_name}.{col_value}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>%   
             rename_with(~str_remove_all(.x, ".NA")) %>% 
             rename_with(~str_remove(.x, "^NA."))
         }
@@ -333,14 +330,14 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
       # baseline is constant across period durations so get outside of lower loop
       baseline <- x %>% 
         get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-        summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   ## CHECK THIS WITH KENDRA;  . was x
+        summarise("base" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   
         pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
         
         raw <- x %>%
           get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = period_duration) %>% 
-          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   # CHECK . with KENDRA
+          summarise("raw" := propdatetime(., dttm_col_name, dttm_window, nrow(.))) %>%   
           pull(raw)
         
         passive_label <- if_else(passive, "passive", "NA")
@@ -348,9 +345,7 @@ score_propdatetime <- function(the_subid, the_dttm_label, x_all, period_duration
         rates <- 
           tibble(
             "{data_type_value}.p{period_duration}.l{lead}.rpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw,
-            "{data_type_value}.p{period_duration}.l{lead}.dpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-            "{data_type_value}.p{period_duration}.l{lead}.ppropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(is.na(baseline) | baseline == 0, NA_real_, (raw - baseline) / baseline)) %>%   # Different than other functions b/c baseline can be 0 or NA
+            "{data_type_value}.p{period_duration}.l{lead}.dpropdatetime.{dttm_col_name}.{dttm_description}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>%  
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -441,9 +436,7 @@ score_ratesum <- function(the_subid, the_dttm_label, x_all,
         rates <- 
           tibble(
             "{data_type_value}.p{period_duration}.l{lead}.rratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-            "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-            "{data_type_value}.p{period_duration}.l{lead}.pratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-              if_else(baseline == 0, 0, (raw - baseline) / baseline))  %>% 
+            "{data_type_value}.p{period_duration}.l{lead}.dratesum_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline)  %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -492,6 +485,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
     
     return(the_mean)
   }
+  
   # nested foreach - period_duration within data_type_value within context_value
 
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -526,9 +520,7 @@ score_mean <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmean_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
         rename_with(~str_remove_all(.x, ".NA")) %>% 
         rename_with(~str_remove(.x, "^NA."))
       }
@@ -611,9 +603,7 @@ score_median <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmedian_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -663,6 +653,17 @@ score_max <- function(the_subid, the_dttm_label, x_all,
     return(the_max)
   }
   
+  # define mean function (for baseline change)
+  period_mean <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_mean <- mean(.x, na.rm = TRUE)
+      } else the_mean <- NA
+    } else the_mean <- NA
+    
+    return(the_mean)
+  }
+  
   # nested foreach - period_duration within data_type_value within context_value
   
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -680,10 +681,10 @@ score_max <- function(the_subid, the_dttm_label, x_all,
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
       
-      # get baseline max using all data before label dttm
+      # get baseline mean using all data before label dttm
       baseline <- x %>% 
         get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-        summarise("base" := period_max(.data[[col_name]])) %>% 
+        summarise("base" := period_mean(.data[[col_name]])) %>% 
         pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
@@ -697,9 +698,7 @@ score_max <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max,
-          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw_max - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmax_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw_max - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -749,6 +748,17 @@ score_min <- function(the_subid, the_dttm_label, x_all,
     return(the_min)
   }
   
+  # define mean function (for baseline change)
+  period_mean <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_mean <- mean(.x, na.rm = TRUE)
+      } else the_mean <- NA
+    } else the_mean <- NA
+    
+    return(the_mean)
+  }
+  
   # nested foreach - period_duration within data_type_value within context_value
   
   features <- foreach (context_value = context_values, .combine = "cbind") %do% {
@@ -765,10 +775,10 @@ score_min <- function(the_subid, the_dttm_label, x_all,
         x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
       } else x <- x_c
       
-      # get baseline min using all data before label dttm
+      # get baseline mean using all data before label dttm
       baseline <- x %>% 
         get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
-        summarise("base" := period_min(.data[[col_name]])) %>% 
+        summarise("base" := period_mean(.data[[col_name]])) %>% 
         pull(base)
       
       foreach (period_duration = period_durations, .combine = "cbind") %do% {
@@ -782,9 +792,7 @@ score_min <- function(the_subid, the_dttm_label, x_all,
         
         tibble(
           "{data_type_value}.p{period_duration}.l{lead}.rmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
-          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline,
-          "{data_type_value}.p{period_duration}.l{lead}.pmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := 
-            if_else(baseline == 0, NA_real_, (raw - baseline) / baseline)) %>% 
+          "{data_type_value}.p{period_duration}.l{lead}.dmin_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
           rename_with(~str_remove_all(.x, ".NA")) %>% 
           rename_with(~str_remove(.x, "^NA."))
       }
@@ -797,4 +805,103 @@ score_min <- function(the_subid, the_dttm_label, x_all,
     relocate(subid, dttm_label)
   
   return(features)
+}
+
+score_most_recent <- function(the_subid, the_dttm_label, x_all, 
+                              lead, data_start, 
+                              col_name, data_type_col_name = NA, data_type_values = NA, 
+                              context_col_name = NA, context_values = NA, passive = FALSE) {
+  
+  
+  
+  # Gets most recent value (after considering lead) for col_name and returns it and a change of it vs baseline, 
+  
+  # the_subid: single integer subid
+  # the_dttm_label: single dttm for label onset
+  # x_all:  raw data for all subids and communications
+  # lead: the lead time for prediction in hours (a single integer)
+  # data_start: a df with data_start = min(study_start, comm_start) for all subids
+  # col_name: column name for raw data for feature as string - should be continuous var
+  # data_type_col_name: name of column name to filter on for data log type values
+  # data_type_values: a vector of 1+ meta data log types to filter on (sms, or voice, if empty uses all logs)
+  # context_col_name: col_name of context feature. Set to NA if no context filter
+  # context_values: a vector of 1+ context values to filter on.  Set to NA if no context filter
+  # passive: is a variable to distinguish variables that use no context and to append passive
+  # onto those variable names for filtering down feature sets in recipes (set to TRUE if passive)
+  
+  # define mean function (for baseline change)
+  period_mean <- function (.x) {
+    if (length(.x) > 0) { 
+      if (!all(is.na(.x))) {
+        the_mean <- mean(.x, na.rm = TRUE)
+      } else the_mean <- NA
+    } else the_mean <- NA
+    
+    return(the_mean)
+  }
+  
+  
+  # nested foreach - period_duration within data_type_value within context_value
+  
+  features <- foreach (context_value = context_values, .combine = "cbind") %do% {
+    
+    # Filter data if context_value provided
+    if (!is.na(context_value)) {
+      x_c <- x_all %>%
+        filter(.data[[context_col_name]] == context_value) 
+    } else x_c <- x_all
+    
+    foreach (data_type_value = data_type_values, .combine = "cbind") %do% {
+      
+      if (!is.na(data_type_value)) {
+        x <- x_c %>% filter(.data[[data_type_col_name]] == data_type_value) 
+      } else x <- x_c
+      
+      # get baseline mean using all data before label dttm
+      baseline <- x %>% 
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        summarise("base" := period_mean(.data[[col_name]])) %>% 
+        pull(base)
+      
+
+        
+      raw <- x %>%
+        get_x_period(the_subid, the_dttm_label, ., lead, Inf) %>%   # use Inf to get all data
+        arrange(desc(dttm_label)) %>% 
+        slice(1) %>%   # slice to most recent (after arrange)
+        pull((!!sym(col_name)))
+      
+      if (length(raw) == 0) raw <- NA  # if no recent data exists
+      
+      passive_label <- if_else(passive, "passive", "NA")
+      
+      tibble(
+        "{data_type_value}.p0.l{lead}.rrecent_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw,
+        "{data_type_value}.p0.l{lead}.drecent_{col_name}.{context_col_name}.{context_value}.{passive_label}" := raw - baseline) %>% 
+        rename_with(~str_remove_all(.x, ".NA")) %>% 
+        rename_with(~str_remove(.x, "^NA."))
+      
+    }
+  }
+  
+  features <- features %>%
+    mutate(subid = the_subid,
+           dttm_label = the_dttm_label) %>%
+    relocate(subid, dttm_label)
+  
+  return(features)  
+  
+  
+}
+
+score_label_day <- function(the_subid, the_dttm_label) {
+#  returns the day of the week (string) for the label  
+  day <- as.character(wday(the_dttm_label, label=TRUE))
+  
+  features <- tibble(subid = the_subid,
+                     dttm_label = the_dttm_label,
+                     label_day = day)
+  
+  return(features)  
+  
 }
