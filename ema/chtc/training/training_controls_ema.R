@@ -142,7 +142,7 @@ build_recipe <- function(d, job) {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
     rec <- rec %>% 
-      themis::step_smote(y, over_ratio = over_ratio, seed = 10) 
+      themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
   } else if (resample == "up") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
