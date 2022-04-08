@@ -238,7 +238,16 @@ Combine datafames
 combine <- full_join(assist_1 %>% select(subid, starts_with("assist_use_ever")), dass_1 %>% select(subid, matches("dass_[a-z]"))) %>%
   full_join(., dass_2 %>% select(subid, matches("dass_[a-z]"))) %>% 
   full_join(., dass_3 %>% select(subid, matches("dass_[a-z]"))) %>%
-  mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid)
+  mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid) %>%
+rename(anx_baseline = dass_anx1,
+       dep_baseline = dass_dep1,
+       str_baseline = dass_str1,
+       anx_month_1 = dass_anx2,
+       dep_month_1 = dass_dep2,
+       str_month_1 = dass_str2,
+       anx_month_2 = dass_anx3,
+       dep_month_2 = dass_dep3,
+       str_month_2 = dass_str3)
 
 
 combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
@@ -248,7 +257,7 @@ combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
 #select only relevant columns
 data <- combine %>% 
   left_join(final_sample %>% select(subid, last_visit))  %>% 
-  select(subid, last_visit, starts_with("dass"), n_drugs) 
+  select(subid, last_visit, starts_with("anx"), starts_with("dep"), starts_with("str"), n_drugs) 
   
 
 
@@ -287,22 +296,19 @@ data <- data %>% mutate(drugs = as_factor(case_when(n_drugs == 0 ~ 0,
 Set up DASS subscale difference scores for DV (comparing first visit to last visit, either FU1 - intake or FU2 - intake). This direction is because we expect these scores to increase over time in those who use 0 drugs.
 
 ```{r}
-data <-  data %>% mutate(diff_anx = if_else(last_visit == "followup_1", dass_anx2 - dass_anx1, dass_anx3 - dass_anx1),
-                         diff_dep = if_else(last_visit == "followup_1", dass_dep2 - dass_dep1, dass_dep3 - dass_dep1),
-                         diff_str = if_else(last_visit == "followup_1", dass_str2 - dass_str1, dass_str3 - dass_str1))
+data <-  data %>% mutate(diff_anx = if_else(last_visit == "followup_1", anx_month_1 - anx_baseline, anx_month_2 - anx_baseline),
+                         diff_dep = if_else(last_visit == "followup_1", dep_month_1 - dep_baseline, dep_month_2 - dep_baseline),
+                         diff_str = if_else(last_visit == "followup_1", str_month_1 - str_baseline, str_month_2 - str_baseline))
 
 data <-  data %>%
- mutate(last_anx = if_else(last_visit == "followup_1", dass_anx2, dass_anx3),
-                         last_dep = if_else(last_visit == "followup_1", dass_dep2, dass_dep3),
-                         last_str = if_else(last_visit == "followup_1", dass_str2, dass_str3))
+ mutate(last_anx = if_else(last_visit == "followup_1", anx_month_1, anx_month_2),
+                         last_dep = if_else(last_visit == "followup_1", dep_month_1, dep_month_2),
+                         last_str = if_else(last_visit == "followup_1", str_month_1, str_month_2))
 ```
 
 Regress drugs on anxiety difference score
 ```{r}
-m_anx = lm(diff_anx ~ drugs, data = data)
-modelSummary(m_anx)
-
-m_anx1 = lm(diff_anx ~ drugs + dass_anx1, data = data)
+m_anx1 = lm(diff_anx ~ drugs + anx_baseline, data = data)
 modelSummary(m_anx1)
 
 ```
@@ -310,44 +316,36 @@ modelSummary(m_anx1)
 
 Regress drugs on depression difference score
 ```{r}
-m_dep = lm(diff_dep ~ drugs, data = data)
-modelSummary(m_dep)
-
-m_dep1 = lm(diff_dep ~ drugs + dass_dep1, data = data)
+m_dep1 = lm(diff_dep ~ drugs + dep_baseline, data = data)
 modelSummary(m_dep1)
 ```
 
 Regress drugs on stress difference score
 ```{r}
-m_str = lm(diff_str ~ drugs, data = data)
-modelSummary(m_str)
-
-m_str1 = lm(diff_str ~ drugs + dass_str1, data = data)
+m_str1 = lm(diff_str ~ drugs + str_baseline, data = data)
 modelSummary(m_str1)
 ```
 
 Regress baseline anxiety on group
 ```{r}
-m_anx_baseline = lm(dass_anx1 ~ drugs, data = data)
+m_anx_baseline = lm(anx_baseline ~ drugs, data = data)
 modelSummary(m_anx_baseline)
 
 ```
 
 Regress baseline depression on group
 ```{r}
-m_dep_baseline = lm(dass_dep1 ~ drugs, data = data)
+m_dep_baseline = lm(dep_baseline ~ drugs, data = data)
 modelSummary(m_dep_baseline)
 
 ```
 
 Regress baseline stress on group
 ```{r}
-m_str_baseline = lm(dass_str1 ~ drugs, data = data)
+m_str_baseline = lm(str_baseline ~ drugs, data = data)
 modelSummary(m_str_baseline)
 
 ```
-
-
 
 Last scores by drug group
 ```{r}
@@ -361,6 +359,46 @@ m_last_str = lm(last_str ~ drugs, data = data)
 modelSummary(m_last_str)
 
 ```
+
+## Risk2 data comparisons
+
+Open dataframe
+```{r risk2}
+data_2 <- read_csv("jordan/risk2.csv")
+
+data_all <- full_join(data %>% mutate(study = "risk1"), data_2 %>% mutate(study = "risk2", drugs = as.factor(drugs)))
+
+#tragically, we have several Risk2 people who haven't taken an intake (and 1006 whose intake apparently didn't contain the who-assist drug questions). We must filter them out.
+data_all <- data_all %>% 
+  filter(!is.na(drugs))
+
+```
+
+
+Baseline comparison of polydrug users on baseline anx, dep, and str scores
+```{r}
+
+#filter to polysubstance users and make the study identifier a factor
+poly <- data_all %>% 
+  filter(drugs == 2) %>%
+  mutate(study = as.factor(study))
+
+anx_baseline_poly <- lm(anx_baseline ~ study, data = poly)
+modelSummary(anx_baseline_poly)
+
+dep_baseline_poly <- lm(dep_baseline ~ study, data = poly)
+modelSummary(dep_baseline_poly)
+
+str_baseline_poly <- lm(str_baseline ~ study, data = poly)
+modelSummary(str_baseline_poly)
+```
+
+
+
+
+
+
+
 
 
 
