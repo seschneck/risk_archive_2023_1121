@@ -232,6 +232,8 @@ dass_3 <- fu2 %>%
 
 ```
 
+
+
 Combine datafames
 ```{r}
 
@@ -283,6 +285,42 @@ Plotting
 
 ```
 
+
+
+Plotting baseline and difference scores by drug group
+```{r}
+
+ggplot(data = data,
+       aes(x = anx_baseline, 
+           y = diff_anx,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+ggplot(data = data,
+       aes(x = dep_baseline, 
+           y = diff_dep,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+ggplot(data = data,
+       aes(x = str_baseline, 
+           y = diff_str,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+
+```
+Anx: In general this shows us that higher baseline anxiety is associated with a decrease in anxiety over time (negative diff score) but low baseline anxiety is associated with a slight increase (or no change). BUT there looks like an interaction effect of drug category.
+
+Dep: Similar pattern but 1-drug and poly-drug groups are indistinguishable. In this case polybaseline users had the highest baseline depression and 0 drug users had the starkest change in diff scores vs baseline scores.
+
+Str: Single drug users had almost no effect of baseline on diff score in stress. 0 or poly users had the similar effect as the other measures
+
+
+
 Set up categorical factor IV. 0, 1, 2+ We do not need to use dummy coding because the relationship of these categories is ordinal.
 
 ```{r}
@@ -306,7 +344,7 @@ data <-  data %>%
                          last_str = if_else(last_visit == "followup_1", str_month_1, str_month_2))
 ```
 
-Regress drugs on anxiety difference score
+Regress drugs on anxiety difference score, controlling for baseline anx scores
 ```{r}
 m_anx1 = lm(diff_anx ~ drugs + anx_baseline, data = data)
 summary(m_anx1)
@@ -314,40 +352,41 @@ summary(m_anx1)
 ```
 
 
-Regress drugs on depression difference score
+Regress drugs on depression difference score, controlling for baseline dep scores
 ```{r}
 m_dep1 = lm(diff_dep ~ drugs + dep_baseline, data = data)
 summary(m_dep1)
 ```
 
-Regress drugs on stress difference score
+Regress drugs on stress difference score, controlling for baseline str scores
 ```{r}
 m_str1 = lm(diff_str ~ drugs + str_baseline, data = data)
 summary(m_str1)
 ```
 
-Regress baseline anxiety on group
+
+Regress baseline anxiety on drug use group - does baseline anxiety differ for 0/1/polydrug users
 ```{r}
 m_anx_baseline = lm(anx_baseline ~ drugs, data = data)
 summary(m_anx_baseline)
 
 ```
 
-Regress baseline depression on group
+Regress baseline depression on group  - does baseline dep differ for 0/1/polydrug users
 ```{r}
 m_dep_baseline = lm(dep_baseline ~ drugs, data = data)
 summary(m_dep_baseline)
 
 ```
 
-Regress baseline stress on group
+Regress baseline stress on group - does baseline str differ for 0/1/polydrug users
 ```{r}
 m_str_baseline = lm(str_baseline ~ drugs, data = data)
 summary(m_str_baseline)
 
 ```
 
-Last scores by drug group
+Last scores by drug group - does the last recorded score differ by drug group? (Ie, do they have differences at the end of the study)
 ```{r}
 m_last_anx = lm(last_anx ~ drugs, data = data)
 summary(m_last_anx)
@@ -364,18 +403,33 @@ summary(m_last_str)
 
 Open dataframe
 ```{r risk2}
-data_2 <- read_csv("jordan/risk2.csv")
+data_2 <- read_csv("jordan/risk2.csv")%>% 
+  filter(!is.na(drugs)) #tragically, we have several Risk2 people who haven't taken an intake (and 1006 whose intake apparently didn't contain the who-assist drug questions). We must filter them out.
 
 data_all <- full_join(data %>% mutate(study = 1), data_2 %>% mutate(study = 0, drugs = as.factor(drugs))) #Risk 2 will be the intercept (ie control) group. 
 
-#tragically, we have several Risk2 people who haven't taken an intake (and 1006 whose intake apparently didn't contain the who-assist drug questions). We must filter them out.
-data_all <- data_all %>% 
-  filter(!is.na(drugs))
 
 ```
 
 
-Baseline comparison of polydrug users on baseline anx, dep, and str scores
+Summary stats
+```{r}
+# R1
+summary(data)
+data %>% group_by(drugs) %>% tally()
+nrow(data)
+
+# R2
+summary(data_2)
+data_2 %>% group_by(drugs) %>% tally()
+nrow(data_2)
+
+
+```
+
+
+
+*Baseline* comparison of polydrug users on baseline anx, dep, and str scores (i.e do their baseline scores differ between studies for all polydrug users)
 ```{r}
 
 #filter to polysubstance users and make the study identifier a factor
@@ -383,21 +437,41 @@ poly <- data_all %>%
   filter(drugs == 2) %>%
   mutate(study = as.factor(study))
 
+summary(poly)
+nrow(poly)
+
+
 anx_baseline_poly <- lm(anx_baseline ~ study, data = poly)
 summary(anx_baseline_poly)
+
+
+poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline)) #risk2
+poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline)) #risk1
 
 dep_baseline_poly <- lm(dep_baseline ~ study, data = poly)
 summary(dep_baseline_poly)
 
 str_baseline_poly <- lm(str_baseline ~ study, data = poly)
 summary(str_baseline_poly)
+
 ```
 
+*Difference* score comparison of polydrug users accounting for baseline scores (ie, do their difference scores differ between studies when controlling for baseline differences)
+```{r}
 
+#many risk2 users have not passed their first month so we have far fewer difference scores. First filter out those missing diff scores
+diff_poly <- poly %>% filter(!is.na(diff_anx))
 
+diff_baseline_poly_anx <- lm(diff_anx ~ study + anx_baseline, data = diff_poly)
+summary(diff_baseline_poly_anx)
 
+diff_baseline_poly_dep <- lm(diff_dep ~ study + dep_baseline, data = diff_poly)
+summary(diff_baseline_poly_dep)
 
+diff_baseline_poly_str <- lm(diff_str ~ study + str_baseline, data = diff_poly)
+summary(diff_baseline_poly_str)
 
+```
 
 
 
@@ -405,9 +479,17 @@ summary(str_baseline_poly)
 
 EXPLORATORY:
 
+We can test if there are interactions
+```{r}
+# we need to mean center the baseline variable, and 0 center the categorical study variable
+
+
+```
+
+
+
 Regress ndrugs on anxiety difference score
 ```{r}
 m_anx_ndrugs = lm(diff_anx ~ n_drugs, data = data)
 summary(m_anx_ndrugs)
 ```
-
