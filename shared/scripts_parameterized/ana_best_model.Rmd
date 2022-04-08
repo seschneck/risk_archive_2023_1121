@@ -211,67 +211,58 @@ metrics_best %>% collect_metrics()
 
 Confusion matrix using .5 threshold
 ```{r default_cm}
-cm <- preds_best %>% 
-  conf_mat(truth, estimate)
-cm
+(cm <- preds_best %>% 
+  conf_mat(truth, estimate))
 
-plot_cm <- cm %>% 
+
+cm %>% 
   autoplot()
-plot_cm
 
 cm %>% summary(event_level = "second")
 ```
 
 ```{r prob_plot}
-plot_probs <- preds_best %>% 
+preds_best %>% 
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "white", col = "black") +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)")
-plot_probs
 ```
 
 Here is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
-roc_data <- preds_best %>% 
-  roc_curve(prob, truth = truth, event_level = "second")
-
 preds_best %>%
   roc_auc(prob, truth = truth, event_level = "second")
 
-plot_roc <- roc_data %>%
+preds_best %>% 
+  roc_curve(prob, truth = truth, event_level = "second") %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
   geom_path() +
   geom_abline(lty = 3) +
   coord_equal() +
   labs(x = "1 - Specificity (FPR)",
        y = "Sensitivity (TPR)")
-plot_roc
 ```
 
 Confusion matrix and metrics based on optimal threshold
 ```{r opt_cm}
-thresh_opt <- roc_data %>% 
+(thresh_opt <- roc_data %>% 
   mutate(j = sensitivity + specificity - 1) %>% 
   arrange(desc(j)) %>% 
   slice(1) %>% 
-  pull(.threshold)
-
-thresh_opt
+  pull(.threshold))
 
 preds_best <- preds_best %>% 
   mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
          estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
 
-cm_opt <- preds_best %>% 
-  conf_mat(truth, estimate_opt)
-cm_opt
+(cm_opt <- preds_best %>% 
+  conf_mat(truth, estimate_opt))
 
-plot_cm_opt <- cm_opt %>% 
+cm_opt %>% 
   autoplot()
-plot_cm_opt
 
 cm_opt %>% summary(event_level = "second")
 ```
