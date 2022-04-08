@@ -423,7 +423,7 @@ nrow(data)
 summary(data_2)
 data_2 %>% group_by(drugs) %>% tally()
 nrow(data_2)
-
+nrow(data_2 %>% filter(!is.na(anx_month_1)))
 
 ```
 
@@ -439,14 +439,15 @@ poly <- data_all %>%
 
 summary(poly)
 nrow(poly)
+poly %>% group_by(study) %>% tally()
 
 
 anx_baseline_poly <- lm(anx_baseline ~ study, data = poly)
 summary(anx_baseline_poly)
 
 
-poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline)) #risk2
-poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline)) #risk1
+poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk2
+poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk1
 
 dep_baseline_poly <- lm(dep_baseline ~ study, data = poly)
 summary(dep_baseline_poly)
@@ -461,9 +462,17 @@ summary(str_baseline_poly)
 
 #many risk2 users have not passed their first month so we have far fewer difference scores. First filter out those missing diff scores
 diff_poly <- poly %>% filter(!is.na(diff_anx))
+diff_poly %>% group_by(study) %>% tally()
+
+diff_poly %>% group_by(study,n_drugs) %>% tally()
+
 
 diff_baseline_poly_anx <- lm(diff_anx ~ study + anx_baseline, data = diff_poly)
 summary(diff_baseline_poly_anx)
+
+diff_poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk2
+diff_poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk1
+
 
 diff_baseline_poly_dep <- lm(diff_dep ~ study + dep_baseline, data = diff_poly)
 summary(diff_baseline_poly_dep)
@@ -479,11 +488,16 @@ summary(diff_baseline_poly_str)
 
 EXPLORATORY:
 
-We can test if there are interactions
+We can test if there are interactions in Risk1 data
 ```{r}
 # we need to mean center the baseline variable, and 0 center the categorical study variable
+data$anx_baseline_c <- data$anx_baseline - mean(data$anx_baseline)
+data$dep_baseline_c <- data$dep_baseline - mean(data$dep_baseline)
+data$str_baseline_c <- data$str_baseline - mean(data$str_baseline)
+data$drugs_c <- data$str_baseline - 1
 
-
+m_int <- lm(diff_anx ~drugs_c*anx_baseline_c, data=data)
+summary(m_int)
 ```
 
 
