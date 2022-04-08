@@ -24,10 +24,10 @@ library(kableExtra)
 library(tictoc)
 library(foreach)
 library(ggplot2)
-library(lmSupport)
 
 path_data_clean <- "P:/studydata/risk/data_processed/shared"
 path_burden <- "P:/studydata/risk/data_processed/burden"
+
 
 ```
 
@@ -232,13 +232,24 @@ dass_3 <- fu2 %>%
 
 ```
 
+
+
 Combine datafames
 ```{r}
 
 combine <- full_join(assist_1 %>% select(subid, starts_with("assist_use_ever")), dass_1 %>% select(subid, matches("dass_[a-z]"))) %>%
   full_join(., dass_2 %>% select(subid, matches("dass_[a-z]"))) %>% 
   full_join(., dass_3 %>% select(subid, matches("dass_[a-z]"))) %>%
-  mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid)
+  mutate(n_drugs = assist_use_ever_tobacco + assist_use_ever_cannabis + assist_use_ever_cocaine + assist_use_ever_stimulant  + assist_use_ever_inhalant + assist_use_ever_sedative + assist_use_ever_hallucinogen  + assist_use_ever_opioid) %>%
+rename(anx_baseline = dass_anx1,
+       dep_baseline = dass_dep1,
+       str_baseline = dass_str1,
+       anx_month_1 = dass_anx2,
+       dep_month_1 = dass_dep2,
+       str_month_1 = dass_str2,
+       anx_month_2 = dass_anx3,
+       dep_month_2 = dass_dep3,
+       str_month_2 = dass_str3)
 
 
 combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
@@ -248,7 +259,7 @@ combine %>% filter(n_drugs > 3) %>% nrow() / nrow(combine)
 #select only relevant columns
 data <- combine %>% 
   left_join(final_sample %>% select(subid, last_visit))  %>% 
-  select(subid, last_visit, starts_with("dass"), n_drugs) 
+  select(subid, last_visit, starts_with("anx"), starts_with("dep"), starts_with("str"), n_drugs) 
   
 
 
@@ -257,22 +268,58 @@ data <- combine %>%
 Plotting
 ```{r}
 
-plot(x = combine$assist_use_ever_hallucinogen, y =  combine$dass_dep3 - combine$dass_dep1)
-abline(lm((combine$dass_dep3 - combine$dass_dep1) ~ combine$assist_use_ever_hallucinogen), col="red")
-
-plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_anx3 -combine$dass_anx1)
-abline(lm((combine$dass_anx3 -combine$dass_anx1) ~ combine$assist_use_ever_hallucinogen), col="red")
-
-plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_str3 - combine$dass_str1)
-abline(lm((combine$dass_str3 - combine$dass_str1) ~ combine$assist_use_ever_hallucinogen), col="red")
-
-hal <-  filter(combine, assist_use_ever_hallucinogen == 1)
-
-plot(x = hal$dass_dep3, y = hal$dass_dep1)
-abline(lm(hal$dass_dep3 ~ hal$dass_dep1), col="red")
+# plot(x = combine$assist_use_ever_hallucinogen, y =  combine$dass_dep3 - combine$dass_dep1)
+# abline(lm((combine$dass_dep3 - combine$dass_dep1) ~ combine$assist_use_ever_hallucinogen), col="red")
+# 
+# plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_anx3 -combine$dass_anx1)
+# abline(lm((combine$dass_anx3 -combine$dass_anx1) ~ combine$assist_use_ever_hallucinogen), col="red")
+# 
+# plot(x = combine$assist_use_ever_hallucinogen, y = combine$dass_str3 - combine$dass_str1)
+# abline(lm((combine$dass_str3 - combine$dass_str1) ~ combine$assist_use_ever_hallucinogen), col="red")
+# 
+# hal <-  filter(combine, assist_use_ever_hallucinogen == 1)
+# 
+# plot(x = hal$dass_dep3, y = hal$dass_dep1)
+# abline(lm(hal$dass_dep3 ~ hal$dass_dep1), col="red")
 
 
 ```
+
+
+
+Plotting baseline and difference scores by drug group
+```{r}
+
+ggplot(data = data,
+       aes(x = anx_baseline, 
+           y = diff_anx,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+ggplot(data = data,
+       aes(x = dep_baseline, 
+           y = diff_dep,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+ggplot(data = data,
+       aes(x = str_baseline, 
+           y = diff_str,
+           color = drugs)) +
+  geom_point() +
+  geom_smooth(method=lm)  #this is a best fit line; the shaded area around each is the confidence interval (standard error)
+
+
+```
+Anx: In general this shows us that higher baseline anxiety is associated with a decrease in anxiety over time (negative diff score) but low baseline anxiety is associated with a slight increase (or no change). BUT there looks like an interaction effect of drug category.
+
+Dep: Similar pattern but 1-drug and poly-drug groups are indistinguishable. In this case polybaseline users had the highest baseline depression and 0 drug users had the starkest change in diff scores vs baseline scores.
+
+Str: Single drug users had almost no effect of baseline on diff score in stress. 0 or poly users had the similar effect as the other measures
+
+
 
 Set up categorical factor IV. 0, 1, 2+ We do not need to use dummy coding because the relationship of these categories is ordinal.
 
@@ -287,89 +334,176 @@ data <- data %>% mutate(drugs = as_factor(case_when(n_drugs == 0 ~ 0,
 Set up DASS subscale difference scores for DV (comparing first visit to last visit, either FU1 - intake or FU2 - intake). This direction is because we expect these scores to increase over time in those who use 0 drugs.
 
 ```{r}
-data <-  data %>% mutate(diff_anx = if_else(last_visit == "followup_1", dass_anx2 - dass_anx1, dass_anx3 - dass_anx1),
-                         diff_dep = if_else(last_visit == "followup_1", dass_dep2 - dass_dep1, dass_dep3 - dass_dep1),
-                         diff_str = if_else(last_visit == "followup_1", dass_str2 - dass_str1, dass_str3 - dass_str1))
+data <-  data %>% mutate(diff_anx = if_else(last_visit == "followup_1", anx_month_1 - anx_baseline, anx_month_2 - anx_baseline),
+                         diff_dep = if_else(last_visit == "followup_1", dep_month_1 - dep_baseline, dep_month_2 - dep_baseline),
+                         diff_str = if_else(last_visit == "followup_1", str_month_1 - str_baseline, str_month_2 - str_baseline))
 
 data <-  data %>%
- mutate(last_anx = if_else(last_visit == "followup_1", dass_anx2, dass_anx3),
-                         last_dep = if_else(last_visit == "followup_1", dass_dep2, dass_dep3),
-                         last_str = if_else(last_visit == "followup_1", dass_str2, dass_str3))
+ mutate(last_anx = if_else(last_visit == "followup_1", anx_month_1, anx_month_2),
+                         last_dep = if_else(last_visit == "followup_1", dep_month_1, dep_month_2),
+                         last_str = if_else(last_visit == "followup_1", str_month_1, str_month_2))
 ```
 
-Regress drugs on anxiety difference score
+Regress drugs on anxiety difference score, controlling for baseline anx scores
 ```{r}
-m_anx = lm(diff_anx ~ drugs, data = data)
-modelSummary(m_anx)
-
-m_anx1 = lm(diff_anx ~ drugs + dass_anx1, data = data)
-modelSummary(m_anx1)
+m_anx1 = lm(diff_anx ~ drugs + anx_baseline, data = data)
+summary(m_anx1)
 
 ```
 
 
-Regress drugs on depression difference score
+Regress drugs on depression difference score, controlling for baseline dep scores
 ```{r}
-m_dep = lm(diff_dep ~ drugs, data = data)
-modelSummary(m_dep)
-
-m_dep1 = lm(diff_dep ~ drugs + dass_dep1, data = data)
-modelSummary(m_dep1)
+m_dep1 = lm(diff_dep ~ drugs + dep_baseline, data = data)
+summary(m_dep1)
 ```
 
-Regress drugs on stress difference score
+Regress drugs on stress difference score, controlling for baseline str scores
 ```{r}
-m_str = lm(diff_str ~ drugs, data = data)
-modelSummary(m_str)
-
-m_str1 = lm(diff_str ~ drugs + dass_str1, data = data)
-modelSummary(m_str1)
+m_str1 = lm(diff_str ~ drugs + str_baseline, data = data)
+summary(m_str1)
 ```
 
-Regress baseline anxiety on group
+
+Regress baseline anxiety on drug use group - does baseline anxiety differ for 0/1/polydrug users
 ```{r}
-m_anx_baseline = lm(dass_anx1 ~ drugs, data = data)
-modelSummary(m_anx_baseline)
+m_anx_baseline = lm(anx_baseline ~ drugs, data = data)
+summary(m_anx_baseline)
 
 ```
 
-Regress baseline depression on group
+Regress baseline depression on group  - does baseline dep differ for 0/1/polydrug users
 ```{r}
-m_dep_baseline = lm(dass_dep1 ~ drugs, data = data)
-modelSummary(m_dep_baseline)
+m_dep_baseline = lm(dep_baseline ~ drugs, data = data)
+summary(m_dep_baseline)
 
 ```
 
-Regress baseline stress on group
+Regress baseline stress on group - does baseline str differ for 0/1/polydrug users
 ```{r}
-m_str_baseline = lm(dass_str1 ~ drugs, data = data)
-modelSummary(m_str_baseline)
+m_str_baseline = lm(str_baseline ~ drugs, data = data)
+summary(m_str_baseline)
 
 ```
 
-
-
-Last scores by drug group
+Last scores by drug group - does the last recorded score differ by drug group? (Ie, do they have differences at the end of the study)
 ```{r}
 m_last_anx = lm(last_anx ~ drugs, data = data)
-modelSummary(m_last_anx)
+summary(m_last_anx)
 
 m_last_dep = lm(last_dep ~ drugs, data = data)
-modelSummary(m_last_dep)
+summary(m_last_dep)
 
 m_last_str = lm(last_str ~ drugs, data = data)
-modelSummary(m_last_str)
+summary(m_last_str)
 
 ```
+
+## Risk2 data comparisons
+
+Open dataframe
+```{r risk2}
+data_2 <- read_csv("jordan/risk2.csv")%>% 
+  filter(!is.na(drugs)) #tragically, we have several Risk2 people who haven't taken an intake (and 1006 whose intake apparently didn't contain the who-assist drug questions). We must filter them out.
+
+data_all <- full_join(data %>% mutate(study = 1), data_2 %>% mutate(study = 0, drugs = as.factor(drugs))) #Risk 2 will be the intercept (ie control) group. 
+
+
+```
+
+
+Summary stats
+```{r}
+# R1
+summary(data)
+data %>% group_by(drugs) %>% tally()
+nrow(data)
+
+# R2
+summary(data_2)
+data_2 %>% group_by(drugs) %>% tally()
+nrow(data_2)
+nrow(data_2 %>% filter(!is.na(anx_month_1)))
+
+```
+
+
+
+*Baseline* comparison of polydrug users on baseline anx, dep, and str scores (i.e do their baseline scores differ between studies for all polydrug users)
+```{r}
+
+#filter to polysubstance users and make the study identifier a factor
+poly <- data_all %>% 
+  filter(drugs == 2) %>%
+  mutate(study = as.factor(study))
+
+summary(poly)
+nrow(poly)
+poly %>% group_by(study) %>% tally()
+
+
+anx_baseline_poly <- lm(anx_baseline ~ study, data = poly)
+summary(anx_baseline_poly)
+
+
+poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk2
+poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk1
+
+dep_baseline_poly <- lm(dep_baseline ~ study, data = poly)
+summary(dep_baseline_poly)
+
+str_baseline_poly <- lm(str_baseline ~ study, data = poly)
+summary(str_baseline_poly)
+
+```
+
+*Difference* score comparison of polydrug users accounting for baseline scores (ie, do their difference scores differ between studies when controlling for baseline differences)
+```{r}
+
+#many risk2 users have not passed their first month so we have far fewer difference scores. First filter out those missing diff scores
+diff_poly <- poly %>% filter(!is.na(diff_anx))
+diff_poly %>% group_by(study) %>% tally()
+
+diff_poly %>% group_by(study,n_drugs) %>% tally()
+
+
+diff_baseline_poly_anx <- lm(diff_anx ~ study + anx_baseline, data = diff_poly)
+summary(diff_baseline_poly_anx)
+
+diff_poly %>% filter(study == 0) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk2
+diff_poly %>% filter(study == 1) %>% summarise(mean = mean(anx_baseline), sd = sd(anx_baseline)) #risk1
+
+
+diff_baseline_poly_dep <- lm(diff_dep ~ study + dep_baseline, data = diff_poly)
+summary(diff_baseline_poly_dep)
+
+diff_baseline_poly_str <- lm(diff_str ~ study + str_baseline, data = diff_poly)
+summary(diff_baseline_poly_str)
+
+```
+
 
 
 
 
 EXPLORATORY:
 
+We can test if there are interactions in Risk1 data
+```{r}
+# we need to mean center the baseline variable, and 0 center the categorical study variable
+data$anx_baseline_c <- data$anx_baseline - mean(data$anx_baseline)
+data$dep_baseline_c <- data$dep_baseline - mean(data$dep_baseline)
+data$str_baseline_c <- data$str_baseline - mean(data$str_baseline)
+data$drugs_c <- data$str_baseline - 1
+
+m_int <- lm(diff_anx ~drugs_c*anx_baseline_c, data=data)
+summary(m_int)
+```
+
+
+
 Regress ndrugs on anxiety difference score
 ```{r}
 m_anx_ndrugs = lm(diff_anx ~ n_drugs, data = data)
-modelSummary(m_anx_ndrugs)
+summary(m_anx_ndrugs)
 ```
-
