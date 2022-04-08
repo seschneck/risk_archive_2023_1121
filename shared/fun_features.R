@@ -894,9 +894,13 @@ score_most_recent <- function(the_subid, the_dttm_label, x_all,
   
 }
 
-score_label_day <- function(the_subid, the_dttm_label) {
+score_label_day <- function(the_subid, the_dttm_label, the_tz = "America/Chicago") {
 #  returns the day of the week (string) for the label  
-  day <- as.character(wday(the_dttm_label, label=TRUE))
+  
+  day <- the_dttm_label %>% 
+    with_tz(tzone = the_tz) %>% 
+    wday(label = TRUE) %>% 
+    as.character()
   
   features <- tibble(subid = the_subid,
                      dttm_label = the_dttm_label,
