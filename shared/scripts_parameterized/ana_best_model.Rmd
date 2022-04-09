@@ -236,8 +236,10 @@ Could also plot ROC by fold but maybe too confusing?
 preds_best %>%
   roc_auc(prob, truth = truth, event_level = "second")
 
-preds_best %>% 
-  roc_curve(prob, truth = truth, event_level = "second") %>% 
+roc_data <- preds_best %>% 
+  roc_curve(prob, truth = truth, event_level = "second")
+  
+roc_data %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
   geom_path() +
   geom_abline(lty = 3) +
@@ -245,6 +247,23 @@ preds_best %>%
   labs(x = "1 - Specificity (FPR)",
        y = "Sensitivity (TPR)")
 ```
+
+Here is precision/recall by concatenating all folds
+Same approach as above for ROC
+```{r pr_info}
+preds_best %>%
+  pr_auc(prob, truth = truth, event_level = "second")
+
+preds_best %>% 
+  pr_curve(prob, truth = truth, event_level = "second") %>% 
+  ggplot(aes(x = recall, y = precision)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_equal() +
+  labs(x = "Recall (Sensitivity)",
+       y = "Precision (PPV)")
+```
+
 
 Confusion matrix and metrics based on optimal threshold
 ```{r opt_cm}
@@ -267,36 +286,10 @@ cm_opt %>%
 cm_opt %>% summary(event_level = "second")
 ```
 
-
-saving plots
-```{r}
-# library(ggplot2)
-# myplot1 <- ggplot(iris, aes(Sepal.Length, Sepal.Width)) + 
-#   geom_point()
-# myplot2 <- ggplot(iris, aes(Species, Sepal.Length)) + 
-#   geom_boxplot()
-# 
-# # Print plots to a pdf file
-# pdf("ggplot.pdf")
-# print(myplot1)     # Plot 1 --> in the first page of PDF
-# print(myplot2)     # Plot 2 ---> in the second page of the PDF
-# dev.off() 
-
-# jpeg(filename = "Rplot%03d.jpg",
-#      width = 480, height = 480, units = "px", pointsize = 12,
-#      quality = 75,
-#      bg = "white", res = NA, family = "", restoreConsole = TRUE,
-#      type = c("windows", "cairo"), antialias,
-#      symbolfamily="default")
-
-```
-
-
-
 ### Fit best configs to full sample to explore features
 
 glmnet
-```{r, fig.height = 7}
+```{r glmnet_imp, fig.height = 7}
 
 config_best_glmnet <- metrics_avg %>% 
   filter(algorithm == "glmnet") %>% 
@@ -322,7 +315,7 @@ fit_best_glmnet %>%
 
 
 random forest
-```{r, fig.height = 7}
+```{r rf_imp, fig.height = 7}
 
 config_best_rf <- metrics_avg %>% 
   filter(algorithm == "random_forest") %>% 
