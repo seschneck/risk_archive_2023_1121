@@ -1,6 +1,6 @@
 library(here)
 library(stringr)
-
+ 
 data_type <- "ema"
 # windows <- c("1hour", "1day", "1week")
 windows <- c("1day")
