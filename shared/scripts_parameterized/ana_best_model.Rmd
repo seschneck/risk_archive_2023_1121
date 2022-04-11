@@ -245,7 +245,7 @@ roc_data %>%
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
   geom_path() +
   geom_abline(lty = 3) +
-  coord_equal() +
+  coord_fixedl(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "1 - Specificity (FPR)",
        y = "Sensitivity (TPR)")
 ```
@@ -261,7 +261,7 @@ preds_best %>%
   ggplot(aes(x = recall, y = precision)) +
   geom_path() +
   geom_hline(lty = 3, yintercept = mean(preds_best$truth == "lapse")) +
-  coord_equal() +
+  coord_fixedl(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Recall (Sensitivity)",
        y = "Precision (PPV)")
 ```
