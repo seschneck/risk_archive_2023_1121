@@ -1,6 +1,8 @@
 library(readxl)
 library(tidyverse)  # local functions so fine to load all tidyverse packages
 library(purrr)
+library(lubridate)
+library(foreach)
 
 merge_excel_files <- function(file_suffix, path_root) {
   # Merges excel files that were created by the interview. For example,
