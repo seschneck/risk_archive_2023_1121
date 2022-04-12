@@ -1,0 +1,105 @@
+---
+title: "Convert CHTC text log to tibble"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/shared", 
+      "/Volumes/private/studydata/risk/knits/shared")
+    )
+  })
+---
+
+chunk defaults
+```{r}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+
+libraries
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(skimr)
+library(janitor)
+
+theme_set(theme_classic())
+```
+
+source function
+```{r warning = FALSE, message = FALSE}
+source(here("shared/fun_local.R"))
+```
+
+set log path
+```{r}
+log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v1_glmnet/output/15381626.log"
+```
+
+
+Read in log
+```{r}
+log_raw <- read_lines(log_path)
+```
+
+
+Convert log to tibble   
+```{r}
+log <- convert_log(log_raw) %>% 
+  glimpse()
+```
+
+
+Get summary stats
+```{r}
+log %>% 
+  select(-job_num) %>% 
+  skim_without_charts()
+```
+
+Run time duration (minutes)
+```{r}
+log %>% 
+  mutate(run_time = as.numeric(run_time)) %>% 
+  ggplot(aes(x = run_time)) +
+  geom_histogram(bins = 30) +
+  xlab("run time (minutes)")
+
+log %>% 
+  tabyl(run_time)
+```
+
+
+Memory usage
+```{r}
+log %>% 
+  ggplot(aes(x = memory_usage)) +
+  geom_histogram(bins = 30) +
+  xlab("memory usage (KB)")
+
+log %>% 
+  tabyl(memory_usage)
+```
+
+
+Disk space usage
+```{r}
+log %>% 
+  ggplot(aes(x = disk_usage)) +
+  geom_histogram(bins = 10) +
+  xlab("disk usage (KB)")
+
+log %>% 
+  tabyl(disk_usage)
+```
+
+
+
+

@@ -495,7 +495,8 @@ convert_log <- function (log_file) {
     # create tibble
     tibble_i <- tibble(job_num, cpus_usage, cpus_requested, cpus_allocated, 
                        disk_usage, disk_requested, disk_allocated, 
-                       memory_usage, memory_requested, memory_allocated)
+                       memory_usage, memory_requested, memory_allocated) %>% 
+      mutate(across(cpus_usage:memory_allocated, ~ as.numeric(.x)))
   }
   
   # merge into final log
