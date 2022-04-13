@@ -40,13 +40,13 @@ source(here("shared/fun_local.R"))
 
 set log path
 ```{r}
-log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v1_glmnet/output/15381626.log"
+log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v1_glmnet/output/"
 ```
 
 
 Read in log
 ```{r}
-log_raw <- read_lines(log_path)
+log_raw <- read_lines(here(log_path, "15381626.log"))
 ```
 
 
@@ -100,6 +100,11 @@ log %>%
   tabyl(disk_usage)
 ```
 
+
+Save out log
+```{r}
+write_csv(log, here(log_path, "log.csv"))
+```
 
 
 
