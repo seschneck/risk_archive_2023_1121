@@ -6,6 +6,15 @@
 # - Feature engineer numbers (blocked, out of country, n unique numbers, repeated outgoing or incoming calls to/from a single number)    
 # - General descriptives about social network based on all logs in window (is significant other a drinker? Do they have friends in recovery? How many?)    
 
+
+# EDIT: initialize feature constants ------------------
+window <- "1day"  # window for calculating labels
+lead <-  0 # feature lead time
+version <- "v2"
+period_durations <- c(6, 12, 24, 48, 72, 168) 
+
+
+
 # load packages and functions ------------------
 suppressPackageStartupMessages({
   require(dplyr)
@@ -43,10 +52,6 @@ labels <- slice(labels, job_start:job_stop) %>%
   # add label num
   mutate(label_num = seq(job_start, job_stop, by = 1))
   
-
-# initialize period durations and lead hours ------------------
-period_durations <- c(6, 12, 24, 48, 72, 168) 
-lead <-  0 
 
 # make features ------------------
 
@@ -1303,7 +1308,8 @@ features <- features %>%
 
 # save features as rds ------------------
 features %>% 
-  write_rds(., str_c("features_", job_start, "_", job_stop, ".rds"))
+  write_rds(., str_c("features_",  window, "_", lead, "_", version, "_", 
+                     job_start, "_", job_stop, ".rds"))
 
 
 
