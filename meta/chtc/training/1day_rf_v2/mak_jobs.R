@@ -4,7 +4,7 @@
 # for the relative paths to access local copy of lab_support to work
 
 # Set path for training_controls.R -------------------- 
-path_training_controls <- "./meta/chtc/training/training_controls_model_selection.R" # location of study specific training_controls.R (can use relative path if in repo) 
+path_training_controls <- "./meta/chtc/training/1day_rf_v2/training_controls.R" # location of study specific training_controls.R (can use relative path if in repo) 
 
 
 # Make jobs -------------------- 
