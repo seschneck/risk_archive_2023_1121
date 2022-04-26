@@ -3,8 +3,7 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_1day_0_v2.rds.xz" # can be csv or rds file
-feature_set <- c("feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets
-feature_fun_type <- c("raw", "diff", "r_d")
+feature_set <- c("feat_logs") # 1+ feature sets
 algorithm <- c("random_forest") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("up_1", "down_1") # 1+ resampling methods (up, down, smote, or none)
 y_col_name <- "label" # outcome variable - will be changed to y in recipe for consistency across studies 
@@ -96,22 +95,22 @@ build_recipe <- function(d, job) {
   }
   
   # If statements for filtering features based on EMA feature set
-  if (feature_fun_type == "raw") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("dpropcount")) %>% 
-      step_rm(contains("dpropdatetime")) %>% 
-      step_rm(contains("dmean")) %>% 
-      step_rm(contains("dratesum")) 
-  }
-  if (feature_fun_type == "diff") {
-    rec <- rec   %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("rpropcount")) %>% 
-      step_rm(contains("rpropdatetime")) %>% 
-      step_rm(contains("rmean")) %>% 
-      step_rm(contains("rratesum")) 
-  }
+  # if (feature_fun_type == "raw") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("dratecount")) %>% 
+  #     step_rm(contains("dpropcount")) %>% 
+  #     step_rm(contains("dpropdatetime")) %>% 
+  #     step_rm(contains("dmean")) %>% 
+  #     step_rm(contains("dratesum")) 
+  # }
+  # if (feature_fun_type == "diff") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("rratecount")) %>% 
+  #     step_rm(contains("rpropcount")) %>% 
+  #     step_rm(contains("rpropdatetime")) %>% 
+  #     step_rm(contains("rmean")) %>% 
+  #     step_rm(contains("rratesum")) 
+  # }
   
   
   # resampling options for unbalanced outcome variable
