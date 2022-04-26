@@ -38,15 +38,16 @@ source function
 source(here("shared/fun_local.R"))
 ```
 
-set log path
+CHANGE ME: set log path
 ```{r}
-log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v1_glmnet/output/"
+log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/output/"
 ```
 
 
 Read in log
 ```{r}
-log_raw <- read_lines(here(log_path, "15381626.log"))
+log_raw <- read_lines(here(log_path, 
+                           list.files(here(log_path), pattern = "*.log")))
 ```
 
 
