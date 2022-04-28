@@ -167,15 +167,19 @@ build_recipe <- function(d, job) {
     # step nzv done within fit if training controls remove_nzv is set to TRUE
   } 
   
-  if (algorithm == "knn") {
+  if (algorithm == "random_forest") {
     rec <- rec  %>% 
-      step_dummy(all_nominal(), -y) %>% 
-      step_normalize(all_predictors()) %>% 
       # drop columns with NA values after imputation (100% NA)
       step_select(where(~ !any(is.na(.))))
   } 
   
-  # no additional steps for rf
+  if (algorithm == "xgboost") {
+    rec <- rec  %>% 
+      step_dummy(all_nominal(), -y) %>% 
+      # drop columns with NA values after imputation (100% NA)
+      step_select(where(~ !any(is.na(.))))
+  } 
+  
   
   return(rec)
 }
