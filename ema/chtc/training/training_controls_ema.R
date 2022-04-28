@@ -6,7 +6,7 @@ data_type <- "ema"   # but still need to change more (e.g., feature set) to swit
 window <- "1day"
 lead <- 0
 version <- "v3"
-algorithm <- "random_forest"
+algorithm <- "xgboost"
 
 
 # SET GLOBAL PARAMETERS
@@ -28,10 +28,16 @@ hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture)
 hp2_glmnet_min <- -8 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 200 # length of penalty grid
+
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
+
 hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
 hp2_rf <- c(2, 15, 30) # min_n
 hp3_rf <- 1500 # trees (10 x's number of predictors)
+
+hp1_xgboost <- seq(0.001, 0.2, length.out = 20)  # learn_rate
+hp2_xgboost <- c(1, 2, 4, 8) # tree_depth
+hp3_xgboost <- c(2, 10, 20, 30, 40)  # mtry
  
 
 # SET CHTC SPECIFIC CONTROLS
