@@ -12,7 +12,7 @@ algorithm <- "random_forest"
 # SET GLOBAL PARAMETERS
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", window, "_", lead, "_", version, ".csv.xz") 
-resample <- c("up_1", "down_1", "smote_1") 
+resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
@@ -141,8 +141,9 @@ build_recipe <- function(d, job) {
   } else if (resample == "smote") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
-    rec <- rec %>% 
-      themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
+    stop("SMOTE not currently implemented")
+    # rec <- rec %>% 
+    #   themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
   } else if (resample == "up") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
