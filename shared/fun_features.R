@@ -1,8 +1,10 @@
+suppressWarnings(suppressPackageStartupMessages({
 require(lubridate)
 require(vroom)
 require(dplyr)
 require(stringr)
 require(foreach)
+}))
 
 get_study_dates <- function(filename_visits, filename_emam, filename_emal) {
   # Returns a tibble with study start and end dates as dttms in central time
@@ -909,3 +911,25 @@ score_label_day <- function(the_subid, the_dttm_label, the_tz = "America/Chicago
   return(features)  
   
 }
+
+score_label_hour <- function(the_subid, the_dttm_label, levels = 24, the_tz = "America/Chicago") {
+  #  returns the hour of the day  (as string) for the label  
+  # levels = 24 for every hour, levels = 2 for 5 - midnight vs. midnight to 5 pm
+  hour <- the_dttm_label %>% 
+    with_tz(tzone = the_tz) %>% 
+    hour()
+  
+  if (levels == 2) {
+    hour <- if_else(hour >= 17 & hour <= 23, "evening", "other")
+  } else {
+    hour <- as.character(hour) # treat as nominal variable
+  }
+  
+  features <- tibble(subid = the_subid,
+                     dttm_label = the_dttm_label,
+                     label_hour = hour)
+  
+  return(features)  
+  
+}
+
