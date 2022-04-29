@@ -4,23 +4,22 @@
 # This is version 3
 
 # Constants: EDIT
-window <- "1day"  # window for calculating labels
+window <- "1week"  # window for calculating labels
 lead <-  0 # feature lead time
-version <- "v3"
+version <- "v4"
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 
 
-
-suppressPackageStartupMessages({
+suppressWarnings(suppressPackageStartupMessages({
   library(dplyr)
   library(lubridate)
   library(vroom)
   library(foreach)
   library(tidyr) # for pivot_wider.  Using train.tar as kludge b/c it currently contains tidyr
   source("fun_features.R")
-})
+}))
 
 # get chtc process num
 args <- commandArgs(trailingOnly = TRUE) 
@@ -63,6 +62,24 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
+demos <- vroom(file.choose(), show_col_types = FALSE) %>% 
+  select(subid,
+         demo_age = dem_1,
+         demo_sex = dem_2,
+         dem_3, dem_4,
+         demo_educ = dem_5,
+         demo_marital = dem_8) %>% 
+  mutate(demo_race = if_else(str_detect(dem_3, "White/Caucasian"), "White/Caucasian", "Other"),
+         demo_race = if_else(str_detect(dem_4, "Yes"), "Other", demo_race),
+         demo_educ = str_replace(demo_educ, "High school or GED", "High school or less"),
+         demo_educ = str_replace(demo_educ, "Less than high school or GED degree", "High school or less"),
+         demo_educ = str_replace(demo_educ, "2-Year degree", "Some college"),
+         demo_educ = str_replace(demo_educ, "College degree", "College or more"),
+         demo_educ = str_replace(demo_educ, "Advanced degree", "College or more"),
+         demo_marital = str_replace(demo_marital, "Divorced", "Other"),
+         demo_marital = str_replace(demo_marital, "Widowed", "Other"),
+         demo_marital = str_replace(demo_marital, "Separated", "Other")) %>% 
+  select(-dem_3, -dem_4)
 
 # make features ------------------
 # i_label <- 1   # for testing
@@ -75,7 +92,16 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   # day of lapse label
   feature_row <- score_label_day(the_subid = subid, 
-                                 the_dttm_label = dttm_label)
+                                 the_dttm_label = dttm_label, 
+                                 the_tz = "America/Chicago")
+  
+  # hour of lapse label
+  feature_row <- feature_row %>%   
+    score_label_hour(the_subid = subid, 
+                     the_dttm_label = dttm_label, 
+                     levels = 2, 
+                     the_tz = "America/Chicago")
+  
   # rate of previous lapses
   feature_row <- feature_row %>%   
     full_join(score_ratecount_value(the_subid = subid, 
@@ -197,6 +223,9 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   feature_row
 }
 
+# Add demos
+features <- features %>% 
+  left_join(demos, by = "subid")
 
 # Add outcome label and other info to features
 features %>%
