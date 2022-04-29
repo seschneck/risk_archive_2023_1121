@@ -3,10 +3,10 @@
 
 #EDIT THIS
 data_type <- "ema"   # but still need to change more (e.g., feature set) to switch data_type
-window <- "1day"
+window <- "1week"
 lead <- 0
-version <- "v3"
-algorithm <- "xgboost"
+version <- "v4"
+algorithm <- "random_forest"
 
 
 # SET GLOBAL PARAMETERS
@@ -144,15 +144,21 @@ build_recipe <- function(d, job) {
   if (resample == "down") {
     rec <- rec %>% 
       themis::step_downsample(y, under_ratio = under_ratio, seed = 10) 
-  } else if (resample == "smote") {
+  }
+  
+  if (resample == "smote") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
+    
     stop("SMOTE not currently implemented")
     # rec <- rec %>% 
     #   themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
-  } else if (resample == "up") {
+  }
+  
+  if (resample == "up") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
+    
     rec <- rec %>% 
       themis::step_upsample(y, over_ratio = over_ratio, seed = 10)
   }
