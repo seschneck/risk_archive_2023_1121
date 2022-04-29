@@ -62,7 +62,7 @@ dates <- vroom("study_dates.csv", show_col_types = FALSE) %>%
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
-demos <- vroom(file.choose(), show_col_types = FALSE) %>% 
+demos <- vroom("screen.csv", show_col_types = FALSE) %>% 
   select(subid,
          demo_age = dem_1,
          demo_sex = dem_2,
@@ -97,10 +97,11 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
   
   # hour of lapse label
   feature_row <- feature_row %>%   
-    score_label_hour(the_subid = subid, 
-                     the_dttm_label = dttm_label, 
-                     levels = 2, 
-                     the_tz = "America/Chicago")
+    full_join(score_label_hour(the_subid = subid, 
+                               the_dttm_label = dttm_label, 
+                               levels = 2, 
+                               the_tz = "America/Chicago"),
+              by = c("subid", "dttm_label"))
   
   # rate of previous lapses
   feature_row <- feature_row %>%   
