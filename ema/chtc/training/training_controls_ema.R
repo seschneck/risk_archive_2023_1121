@@ -3,16 +3,16 @@
 
 #EDIT THIS
 data_type <- "ema"   # but still need to change more (e.g., feature set) to switch data_type
-window <- "1day"
+window <- "1week"
 lead <- 0
-version <- "v3"
+version <- "v4"
 algorithm <- "random_forest"
 
 
 # SET GLOBAL PARAMETERS
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", window, "_", lead, "_", version, ".csv.xz") 
-resample <- c("up_1", "down_1", "smote_1") 
+resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
@@ -28,10 +28,16 @@ hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture)
 hp2_glmnet_min <- -8 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 200 # length of penalty grid
+
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
+
 hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
 hp2_rf <- c(2, 15, 30) # min_n
 hp3_rf <- 1500 # trees (10 x's number of predictors)
+
+hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3)  # learn_rate
+hp2_xgboost <- c(1, 2, 4, 8) # tree_depth
+hp3_xgboost <- c(2, 10, 20, 30, 40)  # mtry
  
 
 # SET CHTC SPECIFIC CONTROLS
@@ -138,14 +144,21 @@ build_recipe <- function(d, job) {
   if (resample == "down") {
     rec <- rec %>% 
       themis::step_downsample(y, under_ratio = under_ratio, seed = 10) 
-  } else if (resample == "smote") {
+  }
+  
+  if (resample == "smote") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
-    rec <- rec %>% 
-      themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
-  } else if (resample == "up") {
+    
+    stop("SMOTE not currently implemented")
+    # rec <- rec %>% 
+    #   themis::step_smotenc(y, over_ratio = over_ratio, seed = 10) 
+  }
+  
+  if (resample == "up") {
     if (under_ratio != 1) { over_ratio <- under_ratio / (under_ratio + 1)
     } else over_ratio <- under_ratio
+    
     rec <- rec %>% 
       themis::step_upsample(y, over_ratio = over_ratio, seed = 10)
   }
@@ -160,15 +173,19 @@ build_recipe <- function(d, job) {
     # step nzv done within fit if training controls remove_nzv is set to TRUE
   } 
   
-  if (algorithm == "knn") {
+  if (algorithm == "random_forest") {
     rec <- rec  %>% 
-      step_dummy(all_nominal(), -y) %>% 
-      step_normalize(all_predictors()) %>% 
       # drop columns with NA values after imputation (100% NA)
       step_select(where(~ !any(is.na(.))))
   } 
   
-  # no additional steps for rf
+  if (algorithm == "xgboost") {
+    rec <- rec  %>% 
+      step_dummy(all_nominal(), -y) %>% 
+      # drop columns with NA values after imputation (100% NA)
+      step_select(where(~ !any(is.na(.))))
+  } 
+  
   
   return(rec)
 }

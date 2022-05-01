@@ -1,10 +1,10 @@
 # setup jobs to make EMA features on CHTC 
 
 # EDIT THESE
-window <- "1day"   # remember to edit these in make_features_chtc.R as well
+window <- "1week"   # remember to edit these in make_features_chtc.R as well
 data_type <- "ema"
 lead <- 0
-version <- "v3"
+version <- "v4"
 
 
 # load packages
@@ -73,6 +73,8 @@ file.copy(from = here(path_processed, name_labels),
           to = here(path_jobs, name_job, "input", "labels.csv")) 
 file.copy(from = here(path_processed, name_study_dates),
           to = here(path_jobs, name_job, "input", "study_dates.csv")) 
+file.copy(from = here(path_shared, "screen.csv"),
+          to = here(path_jobs, name_job, "input", "screen.csv")) 
 
 # copy over function script
 file.copy(from = here("shared", name_fun),
