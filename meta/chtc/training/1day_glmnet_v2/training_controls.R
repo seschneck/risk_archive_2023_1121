@@ -3,7 +3,7 @@
 
 # SET GLOBAL PARAMETERS --------
 data_trn <- "features_1day_0_v2.rds.xz" # can be csv or rds file
-feature_set <- c("feat_all", "feat_all_passive", "feat_logs") # 1+ feature sets
+feature_set <- c("feat_logs") # 1+ feature sets
 feature_fun_type <- c("raw", "diff", "r_d")
 algorithm <- c("glmnet") # 1+ algorithm (glmnet, random_forest) 
 resample <- c("up_1", "down_1") # 1+ resampling methods (up, down, smote, or none)
@@ -13,7 +13,7 @@ group <- "subid" # grouping variable for grouped k-fold - remove if not using gr
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate number of features before removing nzv
 
 # CHANGE ALGORITHM-SPECIFIC HYPERPARAMETERS -------------------
-hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 11)) # alpha (mixture) 
+hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture) 
 hp2_glmnet_min <- -8 # min for penalty grid - will be passed into exp(seq(min, max, length.out = out))
 hp2_glmnet_max <- 2 # max for penalty grid
 hp2_glmnet_out <- 100 # length of penalty grid
@@ -60,7 +60,7 @@ build_recipe <- function(d, job) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     step_rm(label_num, subid, dttm_label) %>% 
-    step_string2factor(y, levels = c("no", "yes")) %>% 
+    step_string2factor(y, levels = c("yes", "no")) %>% 
     # reference group will be first level in factor - specify levels to choose reference group
     step_string2factor(label_weekday, levels = c("Mon", "Tues", "Wed", "Thu", "Fri", "Sat", "Sun")) %>%
     step_num2factor(label_hour, levels = c("4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
