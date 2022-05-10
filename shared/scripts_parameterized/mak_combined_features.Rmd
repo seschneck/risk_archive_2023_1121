@@ -243,7 +243,8 @@ stats %>%
   mutate(range = p100 - p0) %>% 
   select(skim_variable, sd, range, p0, p100) %>% 
   filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
-  arrange(desc(range), skim_variable)
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
   
 ```
 
@@ -253,7 +254,8 @@ stats %>%
   yank("numeric") %>% 
   select(skim_variable, mean, p50, p0, p100) %>% 
   filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
-  arrange(desc(mean), skim_variable)
+  arrange(desc(mean), skim_variable) %>% 
+  print_kbl
 ```
 
 ### Remove high missing
