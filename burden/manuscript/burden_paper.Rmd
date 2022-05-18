@@ -698,7 +698,7 @@ a <- notes_incomplete %>%
   filter(intake != "ineligible" | is.na(intake)) %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
   adorn_totals("row") 
 
 b <- notes_incomplete %>% 
@@ -707,7 +707,7 @@ b <- notes_incomplete %>%
   filter(intake == "complete") %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
   adorn_totals("row") 
 
 c <- notes_incomplete %>% 
@@ -715,7 +715,7 @@ c <- notes_incomplete %>%
   filter(completed_1month == "yes") %>% 
   group_by(characterize) %>% 
   summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
   adorn_totals("row") 
 
 footnote_table_3 <- "Bolded rows depict acceptability-related discontinuation." 
@@ -733,7 +733,7 @@ a %>%
       col.names = c("", "n", "%"), 
       caption = "Characterization of Discontinued Participants",
       align = c("l", "c", "c"),
-      digits = 2,
+      digits = 1,
       longtable = TRUE) %>% 
   kable_styling(latex_options = c("HOLD_position")) %>%
   row_spec(row = 0, align = "c", italic = TRUE) %>%
@@ -1288,7 +1288,7 @@ However, missing data from non-compliance is not the only way bias can be introd
 fig_caption_1 <- "Flowchart of participant retention over the course of the 3-month study. This figure displays retention and attrition of all eligible participants at various stages from consent though study completion.  It also display the reasons for attrition categorized as due to acceptability, other reasons, or unknown.  We present additional detail on reasons for attrition in Table 3."
 ```
 
-```{r figure-1, fig.cap = fig_caption_1, out.extra = "", fig.pos="h"}
+```{r figure-1, fig.cap = fig_caption_1, out.extra = "", fig.pos="h", warning = FALSE}
 include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), dpi = 150)
 ```
 
