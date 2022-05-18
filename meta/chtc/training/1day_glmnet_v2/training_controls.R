@@ -84,22 +84,22 @@ build_recipe <- function(d, job) {
   }
   
   # If statements for filtering features based on EMA feature set
-  if (feature_fun_type == "raw") {
-    rec <- rec   %>% 
-      step_rm(contains("dratecount")) %>% 
-      step_rm(contains("dpropcount")) %>% 
-      step_rm(contains("dpropdatetime")) %>% 
-      step_rm(contains("dmean")) %>% 
-      step_rm(contains("dratesum")) 
-  }
-  if (feature_fun_type == "diff") {
-    rec <- rec   %>% 
-      step_rm(contains("rratecount")) %>% 
-      step_rm(contains("rpropcount")) %>% 
-      step_rm(contains("rpropdatetime")) %>% 
-      step_rm(contains("rmean")) %>% 
-      step_rm(contains("rratesum")) 
-  }
+  # if (feature_fun_type == "raw") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("dratecount")) %>% 
+  #     step_rm(contains("dpropcount")) %>% 
+  #     step_rm(contains("dpropdatetime")) %>% 
+  #     step_rm(contains("dmean")) %>% 
+  #     step_rm(contains("dratesum")) 
+  # }
+  # if (feature_fun_type == "diff") {
+  #   rec <- rec   %>% 
+  #     step_rm(contains("rratecount")) %>% 
+  #     step_rm(contains("rpropcount")) %>% 
+  #     step_rm(contains("rpropdatetime")) %>% 
+  #     step_rm(contains("rmean")) %>% 
+  #     step_rm(contains("rratesum")) 
+  # }
   
   
   # resampling options for unbalanced outcome variable

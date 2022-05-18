@@ -29,6 +29,7 @@ library(here)
 library(ggplot2)
 library(skimr)
 library(janitor)
+library(vroom)
 
 theme_set(theme_classic())
 ```
@@ -41,6 +42,7 @@ source(here("shared/fun_local.R"))
 CHANGE ME: set log path
 ```{r}
 log_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/output/"
+jobs_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/input/jobs.csv"
 ```
 
 
@@ -50,10 +52,16 @@ log_raw <- read_lines(here(log_path,
                            list.files(here(log_path), pattern = "*.log")))
 ```
 
+Read in jobs
+```{r}
+jobs <- vroom(here(jobs_path), col_types = vroom::cols())
+```
+
+
 
 Convert log to tibble   
 ```{r}
-log <- convert_log(log_raw) %>% 
+log <- convert_log(log_raw, jobs) %>% 
   glimpse()
 ```
 
@@ -76,6 +84,8 @@ log %>%
 log %>% 
   tabyl(run_time)
 ```
+
+<!-- get run time by algorithm and resample -->
 
 
 Memory usage

@@ -359,9 +359,9 @@ bind_labels <- function(valid_labels, p_lapse = NULL, seed = NULL) {
 }
 
 
-convert_log <- function (log_file) {
+convert_log <- function (log_file, jobs_file) {
   
-  # function takes in a text CHTC log file and outputs a tibble with one row per job
+  # function takes in a text CHTC log file and jobs file and outputs a tibble with one row per job
   
   # convert text file to tibble
   log <- enframe(log_file, name = NULL, value = "raw_text") 
@@ -502,6 +502,10 @@ convert_log <- function (log_file) {
   # merge into final log
   final_log <- final_log %>% 
     full_join(usage, by = "job_num") 
+  
+  # merge with jobs file
+  final_log <- jobs_file %>% 
+    left_join(final_log, by = "job_num")
   
   return(final_log)
 }
