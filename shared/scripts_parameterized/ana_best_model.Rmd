@@ -8,9 +8,9 @@ output:
     toc_depth: 4
 params:
   data_type: "ema"
-  window: "1day"
+  window: "1week"
   lead: 0
-  version: "v2"
+  version: "v4"
 ---
 
 ### Code Status
@@ -187,7 +187,7 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead,
   # resample best model config
   plan(multisession, workers = n_core)
   fits_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
-  plan(sequential)
+  plan(sequential) 
   
   fits_best %>% 
     saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
@@ -288,7 +288,9 @@ cm_opt %>%
 cm_opt %>% summary(event_level = "second")
 ```
 
-### Fit best configs to full sample to explore features
+### Feature Importance
+
+Fit best model configs to full data to view important features
 
 glmnet
 ```{r glmnet_imp, fig.height = 7}
