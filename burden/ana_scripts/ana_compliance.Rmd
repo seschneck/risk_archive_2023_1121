@@ -240,6 +240,23 @@ mean_audio <- audio_study_dates %>%
 
 On average participants (N = 154) completed `r round(mean_audio$mean, 2)` audio checkins each day they were on study. That is their overall compliance for a once daily audio check-in was `r round(mean_audio$mean, 2)*100`%.    
 
+Hist of overall compliance by subid
+```{r}
+audio_study_dates %>% 
+  group_by(subid) %>% 
+  summarise(n_total = sum(n),
+            n_prompts = sum(n_prompts)) %>% 
+  mutate(compliance = n_total/n_prompts) %>% 
+  ggplot(aes(x = compliance)) +
+  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .2, center = .5) +
+  scale_x_continuous(breaks = c(0, 0.20, 0.40, 0.60, 0.80, 1.0)) +
+  labs(y = "Frequency", x = "Proportion of audio check-in's completed",
+       subtitle = "Audio Check-in (N = 154)") +
+  geom_vline(aes(xintercept = mean_audio$mean), size = .3) +
+  theme_classic() 
+```
+
+
 
 **Compliance over time**
 
