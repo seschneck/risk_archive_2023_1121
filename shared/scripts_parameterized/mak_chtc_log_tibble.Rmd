@@ -1,0 +1,155 @@
+---
+title: "Convert CHTC text log to tibble and get summary statistics"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  job_path: "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/"
+---
+
+### Code Status
+
+First version of script
+
+### Notes
+This script reads in a chtc log and jobs file, runs summary statistics, and outputs 
+a csv log tibble with one row per job.  
+
+
+### Set Up Environment
+
+```{r set_params}
+job_path <- params$job_path
+```
+
+
+```{r defaults, include = FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+options(tibble.print_max = Inf)
+```
+
+
+libraries
+```{r warning = FALSE, message = FALSE}
+library(tidyverse)
+library(here)
+library(ggplot2)
+library(skimr)
+library(janitor)
+library(vroom)
+```
+
+source function
+```{r warning = FALSE, message = FALSE}
+source(here("shared/fun_local.R"))
+```
+
+### Read in data
+
+Read in log
+```{r}
+log_raw <- read_lines(here(job_path, "output",
+                           list.files(here(job_path, "output"), pattern = "*.log")))
+
+# check log file read in
+if (is_empty(log_raw)) {
+  stop("Log not read in. Check log is in ", job_path, "output")
+}
+```
+
+Read in jobs
+```{r}
+jobs <- vroom(here(job_path, "input/jobs.csv"), col_types = vroom::cols())
+
+# check jobs file is read in
+if (is_empty(jobs)) {
+  stop("Jobs file not read in. Check jobs file is in ", job_path, "input")
+}
+```
+
+### Convert log to tibble   
+```{r}
+log <- convert_log(log_raw, jobs) %>% 
+  glimpse()
+```
+
+Save log
+```{r}
+write_csv(log, here(job_path, "output/log.csv"))
+```
+
+
+### Check for unfinished jobs
+
+`r nrow(subset(log, is.na(termination_dttm)))` incomplete jobs
+```{r}
+log %>% 
+  filter(is.na(termination_dttm)) %>% 
+  print(n = Inf)
+
+log %>% 
+  filter(is.na(termination_dttm)) %>% 
+  tabyl(algorithm)
+
+log %>% 
+  filter(is.na(termination_dttm)) %>% 
+  tabyl(resample)
+```
+
+
+### Skim Run time (minutes)
+
+```{r}
+log %>% 
+  skim(run_time)
+```
+
+```{r}
+log %>% 
+  group_by(resample) %>% 
+  skim(run_time)
+```
+
+### Skim memory
+```{r}
+log %>% 
+  skim(contains("memory"))
+```
+
+By resample type
+```{r}
+log %>% 
+  group_by(resample) %>% 
+  skim(contains("memory"))
+```
+
+### Skim disk space
+```{r}
+log %>% 
+  skim(contains("disk"))
+```
+
+By resample type
+```{r}
+log %>% 
+  group_by(resample) %>% 
+  skim(contains("disk"))
+```
+
+### Skim CPUs
+```{r}
+log %>% 
+  skim(contains("cpus"))
+```
+
+By resample type
+```{r}
+log %>% 
+  group_by(resample) %>% 
+  skim(contains("cpus"))
+```
+
+
