@@ -253,7 +253,34 @@ audio_study_dates %>%
   labs(y = "Frequency", x = "Proportion of audio check-in's completed",
        subtitle = "Audio Check-in (N = 154)") +
   geom_vline(aes(xintercept = mean_audio$mean), size = .3) +
-  theme_classic() 
+  theme_classic()
+
+audio_study_dates %>% 
+  group_by(subid) %>% 
+  summarise(n_total = sum(n),
+            n_prompts = sum(n_prompts)) %>% 
+  mutate(compliance = n_total/n_prompts) %>% 
+  ggplot(aes(x = compliance)) +
+  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .1, center = .55) +
+  scale_x_continuous(breaks = c(0, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 1.0)) +
+  labs(y = "Frequency", x = "Proportion of audio check-in's completed",
+       subtitle = "Audio Check-in (N = 154)") +
+  geom_vline(aes(xintercept = mean_audio$mean), size = .3) +
+  theme_classic()
+
+
+audio_study_dates %>%
+  group_by(subid) %>%
+  summarise(n_total = sum(n),
+            n_prompts = sum(n_prompts)) %>%
+  mutate(compliance = n_total/n_prompts) %>%
+  ggplot(aes(x = compliance)) +
+  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .15, center = .5) +
+  scale_x_continuous(breaks = c(0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90, 1)) +
+  labs(y = "Frequency", x = "Proportion of audio check-in's completed",
+       subtitle = "Audio Check-in (N = 154)") +
+  geom_vline(aes(xintercept = mean_audio$mean), size = .3) +
+  theme_classic()
 ```
 
 
