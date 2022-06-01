@@ -86,17 +86,23 @@ write_csv(log, here(job_path, "output/log.csv"))
 
 `r nrow(subset(log, is.na(termination_dttm)))` incomplete jobs
 ```{r}
-log %>% 
-  filter(is.na(termination_dttm)) %>% 
-  print(n = Inf)
+if (nrow(subset(log, is.na(termination_dttm))) != 0) {
+  log %>% 
+    filter(is.na(termination_dttm)) %>% 
+    print(n = Inf)
+}
 
-log %>% 
-  filter(is.na(termination_dttm)) %>% 
-  tabyl(algorithm)
+if (nrow(subset(log, is.na(termination_dttm))) != 0) {
+  log %>% 
+    filter(is.na(termination_dttm)) %>% 
+    tabyl(algorithm) 
+}
 
-log %>% 
-  filter(is.na(termination_dttm)) %>% 
-  tabyl(resample)
+if (nrow(subset(log, is.na(termination_dttm))) != 0) {
+  log %>% 
+    filter(is.na(termination_dttm)) %>% 
+    tabyl(resample)
+}
 ```
 
 
