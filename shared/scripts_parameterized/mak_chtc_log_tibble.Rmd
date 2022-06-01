@@ -12,7 +12,7 @@ params:
 
 ### Code Status
 
-First version of script
+Revised version of script after meeting with John
 
 ### Notes
 This script reads in a chtc log and jobs file, runs summary statistics, and outputs 
@@ -90,15 +90,7 @@ if (nrow(subset(log, is.na(termination_dttm))) != 0) {
   log %>% 
     filter(is.na(termination_dttm)) %>% 
     print(n = Inf)
-}
 
-if (nrow(subset(log, is.na(termination_dttm))) != 0) {
-  log %>% 
-    filter(is.na(termination_dttm)) %>% 
-    tabyl(algorithm) 
-}
-
-if (nrow(subset(log, is.na(termination_dttm))) != 0) {
   log %>% 
     filter(is.na(termination_dttm)) %>% 
     tabyl(resample)
@@ -106,56 +98,58 @@ if (nrow(subset(log, is.na(termination_dttm))) != 0) {
 ```
 
 
-### Skim Run time (minutes)
-
+### Create skim object
 ```{r}
-log %>% 
-  skim(run_time)
-```
-
-```{r}
-log %>% 
+skim_log <- log %>% 
   group_by(resample) %>% 
-  skim(run_time)
+  skim_without_charts()
 ```
 
-### Skim memory
+
+
+### Run time
+
+Min, max, and median for `run_time` in minutes by resample type.
 ```{r}
-log %>% 
-  skim(contains("memory"))
+skim_log %>% 
+  yank("difftime") %>% 
+  select(skim_variable, resample, min, max, median)
 ```
 
-By resample type
+
+### Memory
+
+Min, max, and median for `memory_usage` and `memory_requested` by resample type.
+```{r}
+skim_log %>% 
+  filter(skim_variable == "memory_usage" | skim_variable == "memory_requested") %>% 
+  select(skim_variable, skim_type, resample, min = numeric.p0, max = numeric.p100, median = numeric.p50) %>% 
+  yank("numeric")
+```
+
+Histogram of memory usage
 ```{r}
 log %>% 
+  # filter out unfinished jobs
+  filter(!is.na(termination_dttm)) %>% 
   group_by(resample) %>% 
-  skim(contains("memory"))
+  ggplot(aes(x = memory_usage)) +
+  geom_histogram(bins = 20, color = "black", fill = "light grey") +
+  facet_wrap(~ resample, scales = "free_x", ncol = 1) +
+  theme_classic()
 ```
 
-### Skim disk space
+
+### Disk space
+
+Min, max, and median for `disk_usage` and `disk_requested` by resample type.
 ```{r}
-log %>% 
-  skim(contains("disk"))
+skim_log %>% 
+  filter(skim_variable == "disk_usage" | skim_variable == "disk_requested") %>% 
+  select(skim_variable, skim_type, resample, min = numeric.p0, max = numeric.p100, median = numeric.p50) %>% 
+  yank("numeric")
 ```
 
-By resample type
-```{r}
-log %>% 
-  group_by(resample) %>% 
-  skim(contains("disk"))
-```
 
-### Skim CPUs
-```{r}
-log %>% 
-  skim(contains("cpus"))
-```
-
-By resample type
-```{r}
-log %>% 
-  group_by(resample) %>% 
-  skim(contains("cpus"))
-```
 
 
