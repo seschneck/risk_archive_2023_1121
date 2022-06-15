@@ -303,8 +303,8 @@ metrics_avg <- metrics_raw_all %>%
   relocate(n_jobs)
 ```
 
-Brief check of job counts. 
-Glmnet should have 1 job.  Other algorithms should have folds X repeats jobs
+Brief check of job counts.  
+Number of jobs should = folds X repeats 
 ```{r}
 metrics_avg %>% 
   group_by(algorithm) %>% 
