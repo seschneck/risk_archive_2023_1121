@@ -1,5 +1,5 @@
 ---
-title: "Convert CHTC text log to tibble and get summary statistics"
+title: "Convert CHTC text log to tibble and get summary statistics for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version` for `r params$algorithm` algorithm"
 author: "Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -8,6 +8,11 @@ output:
     toc_depth: 4
 params:
   job_path: "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/"
+  data_type: "meta"
+  window: "1day"
+  lead: 0
+  version: "v2"
+  algorithm: "glmnet"
 ---
 
 ### Code Status
@@ -23,6 +28,11 @@ a csv log tibble with one row per job.
 
 ```{r set_params}
 job_path <- params$job_path
+data_type <- params$data_type
+window <- params$window
+lead <- params$lead 
+version <- params$version
+algorithm <- params$algorithm
 ```
 
 
