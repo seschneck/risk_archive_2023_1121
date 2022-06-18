@@ -1,0 +1,206 @@
+---
+title: "Self-reported Acceptability Below Neutral Midpoint"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
+---
+
+
+
+### Setup
+```{r}
+path_data <- "P:/studydata/risk/data_processed/burden"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(broom)
+library(lme4)
+library(ggtext)
+library(car)
+library(corx)
+library(patchwork)
+library(psych)
+library(janitor)
+
+options(knitr.kable.NA = '')
+```
+
+
+### Read in data
+```{r}
+data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols()) %>% 
+  # wristband will be analyzed in supplemental - not enough observations
+  select(-contains("wristband"))
+```
+
+Pull out last observation for each participant
+```{r}
+# pull out last available sleep monitor data since this date will be earlier than last 
+# survey date for some due to discontinuation of monitor
+data_sleep <- data %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+  
+# pull out most recent survey for each subid
+data_last <- data %>% 
+  select(-c(starts_with("sleep_"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # join with sleep data
+  full_join(data_sleep, by = c("subid")) %>% 
+  glimpse()
+```
+
+-----
+
+<br>
+
+### Interference
+
+Percentages
+```{r}
+data_last %>% 
+  select(contains("interfere"), -carrying_phone_interfere) %>%   
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_interfere", "daily_survey_interfere", 
+                                     "sleep_interfere"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_percentages() %>% 
+  adorn_rounding(digits = 2) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") 
+```
+
+
+Counts
+```{r}
+data_last %>% 
+  select(contains("interfere"), -carrying_phone_interfere) %>%   
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_interfere", "daily_survey_interfere", 
+                                     "sleep_interfere"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_totals("col") %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") %>% 
+  column_spec(7, bold = TRUE)
+```
+
+
+
+
+### Dislike
+
+Percentages
+```{r}
+data_last %>% 
+  select(contains("dislike"), -carrying_phone_dislike) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+   mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
+                                     "location_dislike", "all_logs_dislike", "sms_content_dislike"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality",
+                                     "Geolocation", "Cellular Communication Logs", "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_percentages() %>% 
+  adorn_rounding(digits = 2) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") 
+```
+
+Counts
+```{r}
+data_last %>% 
+  select(contains("dislike"), -carrying_phone_dislike) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+   mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
+                                     "location_dislike", "all_logs_dislike", "sms_content_dislike"),
+                          labels = c("Audio Check-in", "EMA", "Sleep Quality",
+                                     "Geolocation", "Cellular Communication Logs", "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_totals("col") %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") %>% 
+  column_spec(7, bold = TRUE)
+```
+
+
+
+
+### Willingness to Continue for One Year
+
+Percentages
+```{r}
+data_last %>% 
+  select(contains("1year"), -carrying_phone_1year) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_1year", "daily_survey_4_1year", 
+                                     "daily_survey_1_1year", "sleep_1year", "location_1year", 
+                                     "all_logs_1year", "sms_content_1year"),
+                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)",
+                                     "Sleep Quality", "Geolocation", "Cellular Communication Logs", 
+                                     "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_percentages() %>% 
+  adorn_rounding(digits = 2) %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") 
+```
+
+counts
+```{r}
+data_last %>% 
+  select(contains("1year"), -carrying_phone_1year) %>%  
+  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  mutate(measure = factor(measure, 
+                          levels = c("audio_checkin_1year", "daily_survey_4_1year", 
+                                     "daily_survey_1_1year", "sleep_1year", "location_1year", 
+                                     "all_logs_1year", "sms_content_1year"),
+                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)",
+                                     "Sleep Quality", "Geolocation", "Cellular Communication Logs", 
+                                     "Text Message Content"))) %>% 
+  mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  tabyl(measure, value) %>% 
+  adorn_totals("col") %>% 
+  kbl() %>% 
+  kable_styling() %>% 
+  column_spec(2:3, color = "red") %>% 
+  column_spec(7, bold = TRUE) 
+```
+
