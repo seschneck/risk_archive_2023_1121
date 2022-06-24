@@ -8,7 +8,7 @@ lead <- 0
 version <- "v2"
 
 for (window in windows) {
-  rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
+  rmarkdown::render(input = here("meta/mak_training_metrics_temp.Rmd"), 
                     output_file = str_c("mak_training_metrics_", window, "_", 
                                         version, ".html"), 
                     output_dir = str_c("P:/studydata/risk/knits/", data_type),

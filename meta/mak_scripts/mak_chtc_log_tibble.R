@@ -2,13 +2,13 @@ library(here)
 library(stringr)
  
 # set parameters
-job_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/"
+job_path <- "P:/studydata/risk/chtc/meta/train_1day_0_v2_random_forest/"
 data_type <- "meta"
 # windows <- c("1hour", "1day", "1week")
 windows <- c("1day")
 lead <- 0
 version <- "v2"
-algorithm <- "glmnet"
+algorithm <- "random_forest"
 
 # render parameterized report
 for (window in windows) {
