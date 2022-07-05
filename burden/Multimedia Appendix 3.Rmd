@@ -77,7 +77,7 @@ get_study_days <- function(the_subid, dates) {
 ```
 
 
-<br>
+
 
 ### Physiology Analysis
 
@@ -168,11 +168,11 @@ p_wrist +
         plot.subtitle = element_markdown(size = 12))
 ```
 
-<br>
+
 
 ----
 
-<br>
+
 
 ### Time Analysis
 
@@ -276,17 +276,16 @@ time_plot %>%
 ```
 
 
-<br>
+
 
 -----
 
-<br>
+
 
 ### Compliance over time
 
 In the manuscript we report compliance over time on study (i.e., week) for our whole sample (N = 154). It is possible that compliance averages are lower for participants who drop out of the study (N = 21) compared to those who complete the full 3 months of the study (N = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups. 
 
-<br>
 
 #### EMA
 
@@ -420,7 +419,7 @@ ema_week_compliance %>%
   geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
 ```
 
-<br>
+
 
 Below we plot compliance with at least one daily EMA over time for participants who completed the study (Figure S4 from the manuscript). A t-test revealed that participants who did not complete the study on average had significantly lower compliance (M = .86, SD = .14) compared to participants who completed the study (M = .95, SD = .09), t(152) = -4.4, p < .001.
 
@@ -536,7 +535,7 @@ ema_1_week_compliance %>%
   geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
 ```
 
-<br>
+
 
 #### Audio check-in
 
@@ -653,11 +652,11 @@ audio_week_compliance %>%
   geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
 ```
 
-<br>
+
 
 ----
 
-<br>
+
 
 
 ### Analysis on willingness to use EMA one time daily
@@ -704,7 +703,7 @@ plot_ema_1x +
 ```
 
 
-<br>
+
 
 A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
 
@@ -732,11 +731,73 @@ Additionally, we ran a paired samples t-test to compare participants' willingess
 # car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
 ```
 
-<br>
+
+----
+
+### Audio compliance distribution
+
+Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4 from the manuscript).
+
+```{r}
+# get vector of subids who made it to followup 1 
+subids_fu1 <- visit_dates %>% 
+  filter(!is.na(followup_1)) %>% 
+  pull(subid)
+
+# filter audio and visit dates
+audio_fu1 <- audio %>% 
+  filter(subid %in% subids_fu1)
+dates_fu1 <- visit_dates %>% 
+  filter(subid %in% subids_fu1) %>% 
+  select(subid, start_study, end_study)
+
+# get study dates
+study_dates_fu1 <- subids_fu1 %>% 
+  map_dfr(~get_study_days(.x, dates_fu1))
+
+# count audio surveys per day
+audio_count_fu1 <- audio_fu1 %>%  
+  count(subid, date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
+
+# left join with study dates
+dates_fu1 <- study_dates_fu1 %>% 
+  left_join(audio_count_fu1, by = c("subid", "study_day" = "date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1)
+
+# calculate mean audio compliance
+mean_audio <- dates_fu1 %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+
+# Histogram of overall compliance by subid
+plot_audio_fu1 <- dates_fu1 %>% 
+  group_by(subid) %>% 
+  summarise(n_total = sum(n),
+            n_prompts = sum(n_prompts)) %>% 
+  mutate(compliance = n_total/n_prompts) %>% 
+  ggplot(aes(x = compliance)) +
+  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .2, center = .5) +
+  scale_x_continuous(breaks = c(0, 0.20, 0.40, 0.60, 0.80, 1.0)) +
+  labs(y = "Frequency", x = "Proportion of audio check-in's completed") +
+  geom_vline(aes(xintercept = mean_audio$mean), linetype = "solid", size = .705, color = "#b44343") +
+  theme_classic()
+
+plot_audio_fu1 +
+ plot_annotation(
+  title = "Figure S7<br><br>Audio Compliance by Participant",
+  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean."
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
 
 -----
 
-<br>
 
 ### Uncorrected pairwise comparisons among personal sensing data streams
 
@@ -847,7 +908,7 @@ tibble(
                         # willingness
                         NA, NA, NA, NA, ".44")) %>% 
   kbl(align = c("l", "c", "c", "c", "c", "c"),
-      caption = "<b>Table S1<br><br>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability</b>",
+      caption = "Table S1<br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability</i>",
       escape = FALSE) %>% 
   kable_classic(html_font = "Arial") %>% 
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
@@ -858,11 +919,10 @@ tibble(
 
 
 
-<br> 
+
 
 ----
 
-<br>
 
 ### Group differences between continued and discontinued participants
 
@@ -1001,11 +1061,89 @@ screen_combined_long %>%
          p) %>% 
   kbl(digits = 2,
       align = c("l", "c", "c", "c"),
-      caption = "<b>Table S2<br><br>Pairwise T-tests to Compare Group Differences between Continued (N = 154) and Discontinued (N = 36) Participants</b>") %>% 
+      caption = "Table S2<br><br><i>Pairwise T-tests to Compare Group Differences between Continued (N = 154) and Discontinued (N = 36) Participants</i>") %>% 
   kable_classic(html_font = "Arial")
 ```
 
 
 
+----
 
-<br>
+### Participant free-responses to each personal sensing measure
+
+We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability (Supplemental tables 3-7 in manuscript).
+
+```{r}
+# read in comments
+comments_audio <- vroom(file.path(path_data, "comments_audio.csv"), col_types = vroom::cols())
+comments_location <- vroom(file.path(path_data, "comments_location.csv"), col_types = vroom::cols())
+comments_phone <- vroom(file.path(path_data, "comments_phone.csv"), col_types = vroom::cols())
+comments_sleep <- vroom(file.path(path_data, "comments_sleep.csv"), col_types = vroom::cols())
+comments_survey <- vroom(file.path(path_data, "comments_survey.csv"), col_types = vroom::cols())
+```
+
+#### Audio Check-in
+```{r}
+comments_audio %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S3<br><br><i>Participant Free Response Comments about Audio Check-in (N = 154)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
+
+
+#### Geolocation
+
+*FIX: Only 153 comments for some comments - see which subid is missing*
+
+```{r}
+comments_location %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S4<br><br><i>Participant Free Response Comments about Geolocation (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
+
+
+#### Cellular Communications and Text Message Logs
+```{r}
+comments_phone %>% 
+  unite("Positive", `positive/informative`:`positive/uninformative`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S5<br><br><i>Participant Free Response Comments about Cellular Communications and Text Message Content (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
+
+#### Sleep Quality
+```{r}
+comments_sleep %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S6<br><br><i>Participant Free Response Comments about Sleep Quality (N = 78)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
+
+
+#### EMA
+```{r}
+comments_survey %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S7<br><br><i>Participant Free Response Comments about 4x Daily EMA (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```

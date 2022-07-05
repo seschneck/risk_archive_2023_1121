@@ -1,0 +1,183 @@
+---
+title: "Additional Analyses Following Burden Meeting"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/burden", 
+      "/Volumes/private/studydata/risk/knits/burden")
+    )
+  })
+---
+
+
+
+### Setup
+
+Paths
+```{r}
+path_data <- "P:/studydata/risk/data_processed/burden"
+path_shared <- "P:/studydata/risk/data_processed/shared"
+```
+
+Packages and Sources
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(kableExtra)
+library(ggtext)
+library(cowplot)
+library(patchwork)
+library(rstatix)
+library(janitor)
+library(here)
+library(vroom)
+
+theme_set(theme_classic())
+options(knitr.kable.NA = '')
+```
+
+
+### Read in data
+```{r}
+# self-report acceptability data
+# data <- vroom(here(path_data, "acceptability.csv"), col_types = vroom::cols())
+
+# disposition status for burden project
+disp <- vroom(here(path_data, "disposition.csv"), col_types = vroom::cols())
+
+# Monthly survey data 
+fu_12 <- vroom(here(path_shared, "followup_12.csv"), col_types = vroom::cols())
+screen <- vroom(here(path_shared, "screen.csv"), col_types = vroom::cols())
+```
+
+Get subids for analysis sample (N = 154)
+```{r}
+ana_subids <- disp %>% 
+  filter(last_visit != "screen" & last_visit != "intake")
+```
+
+
+### Past Month Drug Use
+
+Only reported at followup 1 and 2 (so for first 2 months on study)    
+
+Followup 1 reports (N = 154)
+```{r}
+fu_1 <- fu_12 %>% 
+  filter(subid %in% ana_subids$subid) %>% 
+  group_by(subid) %>% 
+  slice(1) %>% 
+  select(subid,
+         tobacco = assist_2_1,
+         cannabis = assist_2_2,
+         cocaine = assist_2_3,
+         amphetamine = assist_2_4,
+         inhalants = assist_2_5,
+         sedatives = assist_2_6,
+         hallucinogens = assist_2_7,
+         opioids = assist_2_8,
+         other = assist_2_9) %>% 
+  ungroup()
+```
+
+number of drugs endorsed for past month (including tobacco)   
+68% of participants endorsed using at least one other substance in past month
+```{r}
+fu_1 %>%
+  mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+  rowwise() %>%
+  mutate(total = sum(across(tobacco:other))) %>%
+  tabyl(total)
+```
+
+number of drugs endorsed for past month (not including tobacco)   
+46% of participants endorsed using at least one other substance besides tobacco in past month
+```{r}
+fu_1 %>%
+  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+  rowwise() %>%
+  mutate(total = sum(across(cannabis:other))) %>%
+  tabyl(total)
+```
+
+Table of raw responses for each drug
+```{r}
+map(fu_1 %>% select(tobacco:other), tabyl)
+```
+
+
+Followup 2 reports (N = 140)
+```{r}
+fu_2 <- fu_12 %>% 
+  filter(subid %in% subset(ana_subids, last_visit != "followup_1")$subid) %>% 
+  group_by(subid) %>%
+  arrange(desc(start_date)) %>% 
+  slice(1) %>% 
+  select(subid,
+         tobacco = assist_2_1,
+         cannabis = assist_2_2,
+         cocaine = assist_2_3,
+         amphetamine = assist_2_4,
+         inhalants = assist_2_5,
+         sedatives = assist_2_6,
+         hallucinogens = assist_2_7,
+         opioids = assist_2_8,
+         other = assist_2_9) %>% 
+  ungroup()
+```
+
+number of drugs endorsed for past month (including tobacco)   
+62% of participants endorsed using at least one other substance in past month
+```{r}
+fu_2 %>%
+  mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+  rowwise() %>%
+  mutate(total = sum(across(tobacco:other))) %>%
+  tabyl(total)
+```
+
+number of drugs endorsed for past month (not including tobacco)   
+39% of participants endorsed using at least one other substance besides tobacco in past month
+```{r}
+fu_2 %>%
+  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+  rowwise() %>%
+  mutate(total = sum(across(cannabis:other))) %>%
+  tabyl(total)
+```
+
+Table of raw responses for each drug
+```{r}
+map(fu_2 %>% select(tobacco:other), tabyl)
+```
+
+
+
+### Personal Income
+
+Question on screener: Please indicate your approximate total personal gross income (prior to deducting taxes) in dollars per year. Do not include a dollar sign ($).    
+
+
+Mean income = $34,233    
+11% report income <= $1000
+
+```{r}
+screen %>% 
+  filter(subid %in% ana_subids$subid) %>% 
+  ggplot(aes(x = dem_7)) +
+  geom_histogram(bins = 40, color = "black", fill = "light grey") +
+  geom_vline(aes(xintercept = mean), screen %>% 
+               filter(subid %in% ana_subids$subid) %>% 
+               summarize(mean = mean(dem_7)), color = "dark red")
+
+screen %>% 
+  filter(subid %in% ana_subids$subid) %>% 
+  tabyl(dem_7)
+```
+

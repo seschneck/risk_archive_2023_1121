@@ -57,7 +57,7 @@ data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols())
 
 ----
 
-<br>
+
 
 ### Physiology Analysis
 
@@ -151,7 +151,7 @@ p_wrist +
 
 ----
 
-<br>
+
 
 ### Time Analysis
 
@@ -254,7 +254,7 @@ time_plot %>%
 
 
 
-<br>
+
 
 -----
 
@@ -301,7 +301,7 @@ plot_ema_1x +
         plot.subtitle = element_markdown(size = 12))
 ```
 
-<br>
+
 
 A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S3) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
 
@@ -310,8 +310,6 @@ model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
 summary(model_ema_1x)
 ```
 
-
-<br>
 
 
 Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
@@ -333,10 +331,25 @@ car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
 ```
 
  
-
 ----
 
-<br>
+### Audio compliance distribution
+
+Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4 from the manuscript).
+
+```{r}
+# read in audio data
+audio <- vroom::vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
+  mutate(subid = as.numeric(subid))
+
+audio <- audio %>% 
+  filter(subid %in% fu_1$subid)
+```
+
+
+
+
+----
 
 
 ### Group differences between continued and discontinued participants
@@ -345,9 +358,10 @@ We ran a series of t-tests to compare demographic information and information re
 
 Prepare data for analyses
 ```{r}
-# read in additional data on participant dipsosition
+# read in additional data on participant disposition
 screen <- read_csv(file.path(path_shared, "screen.csv"), col_types = cols()) 
-disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols()) 
+# uncomment if we remove supplemental audio compliance distribution figure
+# disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols()) 
 
 # remove ineligible participants
 eligible_sample <- disposition %>%  
@@ -483,7 +497,6 @@ screen_combined_long %>%
 
 -----
 
-<br>
 
 
 ### Uncorrected pairwise comparisons among personal sensing data streams
@@ -608,6 +621,13 @@ tibble(
 ```
 
 
-<br>
+----
+
+### Participant free-responses to each personal sensing measure
+
+
+
+
+
 
 
