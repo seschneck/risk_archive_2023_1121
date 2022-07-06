@@ -18,45 +18,138 @@ library("scales")
 
 
 # Set paths
-data_path <- "P:/StudyData/RISK/Analysis/shared/data"
+data_path <- "P:/studydata/risk/data_processed/shared"
+rppr_path <- "P:/grants/Curtin_R01_NIAAA(RiskPrediction)/NIH Correspondence/Final RPPR 2022"
 ```
 
 ### Get Valid subIDs
 ```{r,results="hide"}
-valid_subs <- read_rds(file.path(data_path,"valid_subIDs.rds"))
+visit_dates <- read_csv(file.path(data_path,"visit_dates.csv"))
+
+started_subs <- visit_dates %>% filter(!is.na(intake)) %>% select(subid)
+valid_subs <- visit_dates %>% filter(!is.na(followup_1)) %>% select(subid)
+
 ```
 
 ### Open and process ID data file containing demographics
 ```{r,results="hide"}
-dem_data <- read_rds(file.path(data_path, "ID.rds")) %>%
-#select/rename relevant columns
-  select(SubID, 
-         age = DEM_1, 
-         sex = DEM_2, 
-         race = DEM_3, 
-         hispanic = DEM_4,
-         income = DEM_7) %>%
-#recode categorical variables for percentages
-  mutate(sex = recode(sex, 
-                         `1`="Female",
-                         `2`="Male"),
-         race = recode(race,
-           `1` = "American Indian/Alaska Native",
-           `2` = "Asian",
-           `3` = "Native Hawaiian or Other Pacific Islander",
-           `4` = "Black/African American",
-           `5` = "White/Caucasian",
-           `6` = "Other/Multiracial"),
-         hispanic = recode(hispanic,
-           `1` = "No",
-           `2` = "Yes",
-           `3` = "Yes",
-           `4` = "Yes",
-           `5` = "Yes")) %>%
- #filter by valid subIDs
-  filter(SubID %in% valid_subs$SubID)
+dem_data <- read_csv(file.path(data_path, "screen.csv")) %>%
+  select(subid,  
+         age = dem_1, 
+         sex = dem_2, 
+         race = dem_3, 
+         hispanic = dem_4) %>%
+         mutate(hispanic = if_else(str_detect(hispanic, "Yes"), "1", "0")) %>% 
+    mutate(american_native = ifelse(str_detect(race,"American Indian/Alaska Native"),1,0),
+        asian = ifelse(str_detect(race,"Asian"),1,0),
+        pacific = ifelse(str_detect(race,"Native Hawaiian or Other Pacific Islander"),1,0),
+        black = ifelse(str_detect(race,"Black/African American"),1,0),
+        white = ifelse(str_detect(race,"White/Caucasian"),1,0),
+        other = ifelse(str_detect(race,"Other/Multiracial"),1,0),
+        )
+
+#add pilot data for NIH
+pilot_subs <- read_csv(file.path(rppr_path, "pilot_participants.csv")) %>%
+         mutate(hispanic = if_else(str_detect(hispanic, "Yes"), "1", "0")) %>% 
+    mutate(american_native = ifelse(str_detect(race,"American Indian/Alaska Native"),1,0),
+        asian = ifelse(str_detect(race,"Asian"),1,0),
+        pacific = ifelse(str_detect(race,"Native Hawaiian or Other Pacific Islander"),1,0),
+        black = ifelse(str_detect(race,"African American"),1,0),
+        white = ifelse(str_detect(race,"White"),1,0),
+        other = ifelse(str_detect(race,"Other/Multiracial"),1,0),
+        not_specified = ifelse(str_detect(race,"Not Specified"),1,0),)
+
+dem_data <- full_join(dem_data %>% mutate(subid = as.character(subid)), pilot_subs)
 
 ```
+
+
+All subs including screen fails
+```{r}
+#N
+dem_data  %>% nrow()
+
+#by sex
+dem_data %>% group_by(sex) %>% tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  tally()
+
+# non-hispanic
+dem_data %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  tally()
+  
+```
+
+
+Only started subs (screened in)
+```{r}
+#N
+dem_data  %>% 
+  filter(subid %in% started_subs$subid) %>%
+  nrow()
+
+#by sex
+dem_data %>% 
+    filter(subid %in% started_subs$subid) %>%
+    group_by(sex) %>% 
+  tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% started_subs$subid) %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  tally()
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% started_subs$subid) %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  tally()
+  
+```
+
+
+
+Only valid subs (made to FU1)
+```{r}
+#N
+dem_data  %>% 
+  filter(subid %in% valid_subs$subid) %>%
+  nrow()
+
+#by sex
+dem_data %>% 
+    filter(subid %in% valid_subs$subid) %>%
+    group_by(sex) %>% 
+  tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% valid_subs$subid) %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  tally()
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% valid_subs$subid) %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  tally()
+  
+```
+
 
 
 ### Age
