@@ -6,7 +6,7 @@ data_type <- "ema"   # but still need to change more (e.g., feature set) to swit
 window <- "1week"
 lead <- 0
 version <- "v4"
-algorithm <- "xgboost"
+algorithm <- "glmnet"
 
 
 # SET GLOBAL PARAMETERS
