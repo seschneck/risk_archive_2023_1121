@@ -57,9 +57,13 @@ pilot_subs <- read_csv(file.path(rppr_path, "pilot_participants.csv")) %>%
         black = ifelse(str_detect(race,"African American"),1,0),
         white = ifelse(str_detect(race,"White"),1,0),
         other = ifelse(str_detect(race,"Other/Multiracial"),1,0),
-        not_specified = ifelse(str_detect(race,"Not Specified"),1,0),)
+        not_specified = ifelse(str_detect(race,"Not specified"),1,0),)
 
-dem_data <- full_join(dem_data %>% mutate(subid = as.character(subid)), pilot_subs)
+pilot_subids <- pilot_subs %>% select(subid)
+
+
+dem_data <- full_join(dem_data %>% mutate(subid = as.character(subid)), pilot_subs) %>%
+  mutate_if(is.numeric , replace_na, replace = 0)
 
 ```
 
@@ -76,13 +80,13 @@ dem_data %>% group_by(sex) %>% tally()
 # non-hispanic
 dem_data %>%
   filter(hispanic == 0) %>%
-  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
 
-# non-hispanic
+# hispanic
 dem_data %>%
   filter(hispanic == 1) %>%
-  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
   
 ```
@@ -92,28 +96,28 @@ Only started subs (screened in)
 ```{r}
 #N
 dem_data  %>% 
-  filter(subid %in% started_subs$subid) %>%
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
   nrow()
 
 #by sex
 dem_data %>% 
-    filter(subid %in% started_subs$subid) %>%
+    filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
     group_by(sex) %>% 
   tally()  
 
 
 # non-hispanic
 dem_data %>%
-  filter(subid %in% started_subs$subid) %>%
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
   filter(hispanic == 0) %>%
-  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
 
-# non-hispanic
+# hispanic
 dem_data %>%
-  filter(subid %in% started_subs$subid) %>%
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
   filter(hispanic == 1) %>%
-  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
   
 ```
@@ -124,28 +128,28 @@ Only valid subs (made to FU1)
 ```{r}
 #N
 dem_data  %>% 
-  filter(subid %in% valid_subs$subid) %>%
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
   nrow()
 
 #by sex
 dem_data %>% 
-    filter(subid %in% valid_subs$subid) %>%
+    filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
     group_by(sex) %>% 
   tally()  
 
 
 # non-hispanic
 dem_data %>%
-  filter(subid %in% valid_subs$subid) %>%
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
   filter(hispanic == 0) %>%
-  group_by(sex,  american_native, asian, pacific, black, white, other) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
 
-# non-hispanic
+# hispanic
 dem_data %>%
-  filter(subid %in% valid_subs$subid) %>%
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
   filter(hispanic == 1) %>%
-  group_by(sex, american_native, asian, pacific, black, white, other) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
   tally()
   
 ```
