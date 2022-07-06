@@ -7,10 +7,10 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "ema"
-  window: "1week"
+  data_type: "meta"
+  window: "1day"
   lead: 0
-  version: "v4"
+  version: "v2"
 ---
 
 ### Code Status
@@ -167,9 +167,11 @@ d <- d %>%
   
 
 
-if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds"))))) {
+if (file.exists((here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds"))))) {
+  
   message("loading previously fit model metrics")
-  fits_best <- readRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
+  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
+  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
   
 } else {
   message("Fitting models to get resampling metrics")
@@ -189,21 +191,20 @@ if (file.exists((here(path_models, str_c("resample_metrics_", window, "_", lead,
   fits_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
   plan(sequential) 
   
-  fits_best %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_", window, "_", lead, "_", version, ".rds")))
+  metrics_best <- fits_best[[3]] %>% 
+    saveRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
   
+  preds_best <- fits_best[[2]] %>% 
+    select(truth = y,
+           estimate = .pred_class,
+           prob = .pred_yes) %>% 
+    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+           truth = factor(truth, levels = c("no_lapse", "lapse")),
+           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+           estimate = factor(estimate, levels = c("no_lapse", "lapse"))) %>% 
+    saveRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
 }
 
-# get info from resamples into separate objects
-metrics_best <- fits_best[[3]]
-preds_best <- fits_best[[2]] %>% 
-  select(truth = y,
-         estimate = .pred_class,
-         prob = .pred_yes) %>% 
-  mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-         truth = factor(truth, levels = c("no_lapse", "lapse")),
-         estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-         estimate = factor(estimate, levels = c("no_lapse", "lapse")))
 ```
 
 
