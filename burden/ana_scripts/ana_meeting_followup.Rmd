@@ -65,179 +65,258 @@ ana_subids <- disp %>%
 
 ### Past Month Drug Use
 
-Only reported at followup 1 and 2 (so for first 2 months on study)    
-
-Followup 1 reports (N = 154)
+Any past month drug use reported (at fu 1 or 2)
 ```{r}
-fu_1 <- fu_12 %>% 
+assist_fu_1 <- fu_12 %>% 
   filter(subid %in% ana_subids$subid) %>% 
   group_by(subid) %>% 
   slice(1) %>% 
   select(subid,
-         tobacco = assist_2_1,
-         cannabis = assist_2_2,
-         cocaine = assist_2_3,
-         amphetamine = assist_2_4,
-         inhalants = assist_2_5,
-         sedatives = assist_2_6,
-         hallucinogens = assist_2_7,
-         opioids = assist_2_8,
-         other = assist_2_9) %>% 
+         tobacco_fu1 = assist_2_1,
+         cannabis_fu1 = assist_2_2,
+         cocaine_fu1 = assist_2_3,
+         amphetamine_fu1 = assist_2_4,
+         inhalants_fu1 = assist_2_5,
+         sedatives_fu1 = assist_2_6,
+         hallucinogens_fu1 = assist_2_7,
+         opioids_fu1 = assist_2_8,
+         other_fu1 = assist_2_9) %>% 
   ungroup()
-```
 
-number of drugs endorsed for past month (including tobacco)   
-68% of participants endorsed using at least one other substance in past month
-```{r}
-fu_1 %>%
-  mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(tobacco:other))) %>%
-  tabyl(total)
-```
-
-51% endorsed past month tobacco use
-```{r}
-fu_1 %>% 
-  mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>% 
-  tabyl(tobacco)
-```
-
-45% of participants endorsed using at least one illicit substance in past month
-```{r}
-fu_1 %>%
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(cannabis:other)),
-         illicit_drug_use = if_else(total == 0, "no", "yes")) %>%
-  tabyl(illicit_drug_use)
-```
-
-number of illicit drugs endorsed for past month
-```{r}
-fu_1 %>%
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(cannabis:other))) %>%
-  tabyl(total)
-```
-
-Table of raw responses for each drug
-```{r}
-map(fu_1 %>% select(tobacco:other), tabyl)
-```
-
-
-Followup 2 reports (N = 140)
-```{r}
-fu_2 <- fu_12 %>% 
+assist_fu_2 <- fu_12 %>% 
   filter(subid %in% subset(ana_subids, last_visit != "followup_1")$subid) %>% 
   group_by(subid) %>%
   arrange(desc(start_date)) %>% 
   slice(1) %>% 
   select(subid,
-         tobacco = assist_2_1,
-         cannabis = assist_2_2,
-         cocaine = assist_2_3,
-         amphetamine = assist_2_4,
-         inhalants = assist_2_5,
-         sedatives = assist_2_6,
-         hallucinogens = assist_2_7,
-         opioids = assist_2_8,
-         other = assist_2_9) %>% 
+         tobacco_fu2 = assist_2_1,
+         cannabis_fu2 = assist_2_2,
+         cocaine_fu2 = assist_2_3,
+         amphetamine_fu2 = assist_2_4,
+         inhalants_fu2 = assist_2_5,
+         sedatives_fu2 = assist_2_6,
+         hallucinogens_fu2 = assist_2_7,
+         opioids_fu2 = assist_2_8,
+         other_fu2 = assist_2_9) %>% 
   ungroup()
+
+
+assist <- assist_fu_1 %>% 
+  left_join(assist_fu_2, by = "subid") %>%
+  mutate(across(tobacco_fu1:other_fu2, ~if_else(.x == "Never" | is.na(.x), 0, 1)),
+         tobacco = if_else(tobacco_fu1 == 1 | tobacco_fu2 == 1, "yes", "no"),
+         cannabis = if_else(cannabis_fu1 == 1 | cannabis_fu2 == 1, "yes", "no"),
+         cocaine = if_else(cocaine_fu1 == 1 | cocaine_fu2 == 1, "yes", "no"),
+         amphetamine = if_else(amphetamine_fu1 == 1 | amphetamine_fu2 == 1, "yes", "no"),
+         inhalants = if_else(inhalants_fu1 == 1 | inhalants_fu2 == 1, "yes", "no"),
+         sedatives = if_else(sedatives_fu1 == 1 | sedatives_fu2 == 1, "yes", "no"),
+         hallucinogens = if_else(hallucinogens_fu1 == 1 | hallucinogens_fu2 == 1, "yes", "no"),
+         opioids = if_else(opioids_fu1 == 1 | opioids_fu2 == 1, "yes", "no"),
+         other = if_else(other_fu1 == 1 | other_fu2 == 1, "yes", "no")) %>% 
+  select(subid, tobacco:other)
 ```
 
-number of drugs endorsed for past month (including tobacco)   
-62% of participants endorsed using at least one other substance in past month
+
+Number of drugs endorsed (including tobacco)
+69.5% of participants reported past month drug use (at followup 1 or 2)   
 ```{r}
-fu_2 %>%
-  mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+assist %>% 
+  mutate(across(tobacco:other, ~if_else(.x == "no" | is.na(.x), 0, 1))) %>%
   rowwise() %>%
   mutate(total = sum(across(tobacco:other))) %>%
   tabyl(total)
 ```
 
-47% endorsed past month tobacco use
-```{r}
-fu_2 %>% 
-  mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>% 
-  tabyl(tobacco)
-```
 
-39% of participants endorsed using at least one illicit drug in past month
+Number of drugs endorsed (not including tobacco)
+49% of participants reported past month illicit drug use (at followup 1 or 2)   
 ```{r}
-fu_2 %>%
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(cannabis:other)),
-         illicit_drug_use = if_else(total == 0, "no", "yes")) %>%
-  tabyl(illicit_drug_use)
-```
-
-
-number of illicit drugs endorsed for past month 
-```{r}
-fu_2 %>%
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
+assist %>% 
+  mutate(across(cannabis:other, ~if_else(.x == "no" | is.na(.x), 0, 1))) %>%
   rowwise() %>%
   mutate(total = sum(across(cannabis:other))) %>%
   tabyl(total)
 ```
 
-Table of raw responses for each drug
-```{r}
-map(fu_2 %>% select(tobacco:other), tabyl)
-```
 
 
-#### subids lost between followups 1 and 2
 
-Tobacco + drug use in subids not in fu 2   
-86% of participants (12/14) lost between fu 1 and 2 endorsed using another substance including tobacco
-```{r}
-fu_1 %>% 
-  filter(!subid %in% fu_2$subid) %>% 
-  mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(tobacco:other))) %>%
-  tabyl(total)
-```
 
-71% endorsed past month tobacco use
-```{r}
-fu_1 %>% 
-  filter(!subid %in% fu_2$subid) %>% 
-  mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>% 
-  tabyl(tobacco)
-```
+<!-- ### Old -->
 
-50% of participants endorsed using at least one illicit drug in past month
-```{r}
-fu_1 %>% 
-  filter(!subid %in% fu_2$subid) %>% 
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(cannabis:other)),
-         illicit_drug_use = if_else(total == 0, "no", "yes")) %>%
-  tabyl(illicit_drug_use)
-```
+<!-- Only reported at followup 1 and 2 (so for first 2 months on study)     -->
 
-number of illicit drugs endorsed for past month
-```{r}
-fu_1 %>% 
-  filter(!subid %in% fu_2$subid) %>% 
-  mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>%
-  rowwise() %>%
-  mutate(total = sum(across(cannabis:other))) %>%
-  tabyl(total)
-```
+<!-- Followup 1 reports (N = 154) -->
+<!-- ```{r} -->
+<!--  fu_1 <- fu_12 %>%  -->
+<!--   filter(subid %in% ana_subids$subid) %>%  -->
+<!--   group_by(subid) %>%  -->
+<!--   slice(1) %>%  -->
+<!--   select(subid, -->
+<!--          tobacco = assist_2_1, -->
+<!--          cannabis = assist_2_2, -->
+<!--          cocaine = assist_2_3, -->
+<!--          amphetamine = assist_2_4, -->
+<!--          inhalants = assist_2_5, -->
+<!--          sedatives = assist_2_6, -->
+<!--          hallucinogens = assist_2_7, -->
+<!--          opioids = assist_2_8, -->
+<!--          other = assist_2_9) %>%  -->
+<!--   ungroup() -->
+<!-- ``` -->
 
-Table of raw responses for each drug
-```{r}
-map(fu_1 %>% 
-  filter(!subid %in% fu_2$subid) %>% select(cannabis:other), tabyl)
-```
+<!-- number of drugs endorsed for past month (including tobacco)    -->
+<!-- 68% of participants endorsed using at least one other substance in past month -->
+<!-- ```{r} -->
+<!-- fu_1 %>% -->
+<!--   mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(tobacco:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- 51% endorsed past month tobacco use -->
+<!-- ```{r} -->
+<!-- fu_1 %>%  -->
+<!--   mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>%  -->
+<!--   tabyl(tobacco) -->
+<!-- ``` -->
+
+<!-- 45% of participants endorsed using at least one illicit substance in past month -->
+<!-- ```{r} -->
+<!-- fu_1 %>% -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other)), -->
+<!--          illicit_drug_use = if_else(total == 0, "no", "yes")) %>% -->
+<!--   tabyl(illicit_drug_use) -->
+<!-- ``` -->
+
+<!-- number of illicit drugs endorsed for past month -->
+<!-- ```{r} -->
+<!-- fu_1 %>% -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- Table of raw responses for each drug -->
+<!-- ```{r} -->
+<!-- map(fu_1 %>% select(tobacco:other), tabyl) -->
+<!-- ``` -->
+
+
+<!-- Followup 2 reports (N = 140) -->
+<!-- ```{r} -->
+<!-- fu_2 <- fu_12 %>%  -->
+<!--   filter(subid %in% subset(ana_subids, last_visit != "followup_1")$subid) %>%  -->
+<!--   group_by(subid) %>% -->
+<!--   arrange(desc(start_date)) %>%  -->
+<!--   slice(1) %>%  -->
+<!--   select(subid, -->
+<!--          tobacco = assist_2_1, -->
+<!--          cannabis = assist_2_2, -->
+<!--          cocaine = assist_2_3, -->
+<!--          amphetamine = assist_2_4, -->
+<!--          inhalants = assist_2_5, -->
+<!--          sedatives = assist_2_6, -->
+<!--          hallucinogens = assist_2_7, -->
+<!--          opioids = assist_2_8, -->
+<!--          other = assist_2_9) %>%  -->
+<!--   ungroup() -->
+<!-- ``` -->
+
+<!-- number of drugs endorsed for past month (including tobacco)    -->
+<!-- 62% of participants endorsed using at least one other substance in past month -->
+<!-- ```{r} -->
+<!-- fu_2 %>% -->
+<!--   mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(tobacco:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- 47% endorsed past month tobacco use -->
+<!-- ```{r} -->
+<!-- fu_2 %>%  -->
+<!--   mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>%  -->
+<!--   tabyl(tobacco) -->
+<!-- ``` -->
+
+<!-- 39% of participants endorsed using at least one illicit drug in past month -->
+<!-- ```{r} -->
+<!-- fu_2 %>% -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other)), -->
+<!--          illicit_drug_use = if_else(total == 0, "no", "yes")) %>% -->
+<!--   tabyl(illicit_drug_use) -->
+<!-- ``` -->
+
+
+<!-- number of illicit drugs endorsed for past month  -->
+<!-- ```{r} -->
+<!-- fu_2 %>% -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- Table of raw responses for each drug -->
+<!-- ```{r} -->
+<!-- map(fu_2 %>% select(tobacco:other), tabyl) -->
+<!-- ``` -->
+
+
+<!-- #### subids lost between followups 1 and 2 -->
+
+<!-- Tobacco + drug use in subids not in fu 2    -->
+<!-- 86% of participants (12/14) lost between fu 1 and 2 endorsed using another substance including tobacco -->
+<!-- ```{r} -->
+<!-- fu_1 %>%  -->
+<!--   filter(!subid %in% fu_2$subid) %>%  -->
+<!--   mutate(across(tobacco:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(tobacco:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- 71% endorsed past month tobacco use -->
+<!-- ```{r} -->
+<!-- fu_1 %>%  -->
+<!--   filter(!subid %in% fu_2$subid) %>%  -->
+<!--   mutate(tobacco = if_else(tobacco == "Never" | is.na(tobacco), "no", "yes")) %>%  -->
+<!--   tabyl(tobacco) -->
+<!-- ``` -->
+
+<!-- 50% of participants endorsed using at least one illicit drug in past month -->
+<!-- ```{r} -->
+<!-- fu_1 %>%  -->
+<!--   filter(!subid %in% fu_2$subid) %>%  -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other)), -->
+<!--          illicit_drug_use = if_else(total == 0, "no", "yes")) %>% -->
+<!--   tabyl(illicit_drug_use) -->
+<!-- ``` -->
+
+<!-- number of illicit drugs endorsed for past month -->
+<!-- ```{r} -->
+<!-- fu_1 %>%  -->
+<!--   filter(!subid %in% fu_2$subid) %>%  -->
+<!--   mutate(across(cannabis:other, ~if_else(.x == "Never" | is.na(.x), 0, 1))) %>% -->
+<!--   rowwise() %>% -->
+<!--   mutate(total = sum(across(cannabis:other))) %>% -->
+<!--   tabyl(total) -->
+<!-- ``` -->
+
+<!-- Table of raw responses for each drug -->
+<!-- ```{r} -->
+<!-- map(fu_1 %>%  -->
+<!--   filter(!subid %in% fu_2$subid) %>% select(cannabis:other), tabyl) -->
+<!-- ``` -->
 
 ### Personal Income
 
