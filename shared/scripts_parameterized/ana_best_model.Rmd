@@ -193,7 +193,9 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   fits_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
   plan(sequential) 
   
-  metrics_best <- fits_best[[3]] %>% 
+  
+  metrics_best <- fits_best[[3]] 
+  metrics_best  %>% 
     saveRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
   
   preds_best <- fits_best[[2]] %>% 
@@ -203,7 +205,8 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
     mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
            truth = factor(truth, levels = c("no_lapse", "lapse")),
            estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-           estimate = factor(estimate, levels = c("no_lapse", "lapse"))) %>% 
+           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+  preds_best %>% 
     saveRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
 }
 
