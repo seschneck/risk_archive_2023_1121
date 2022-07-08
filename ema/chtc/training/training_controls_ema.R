@@ -35,8 +35,8 @@ hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class
 hp2_rf <- c(2, 15, 30) # min_n
 hp3_rf <- 1500 # trees (10 x's number of predictors)
 
-hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3)  # learn_rate
-hp2_xgboost <- c(1, 3, 5) # tree_depth
+hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
+hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
 hp3_xgboost <- c(20, 30, 40, 50)  # mtry (previously included 2 and 10 but not needed)
 # trees = 100
 # early stopping = 10
