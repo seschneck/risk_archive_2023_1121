@@ -168,7 +168,7 @@ dates <- dates %>%
 
 Adjust start start and end dates for missing GPS.  Notes in mak_gps_enriched.rds
 
-* This is commmented out for now!
+* This is commented out for now!
 ```{r}
 # dates$study_end[dates$subid == 80] = as_datetime("2018-07-31", tz = "America/Chicago")
 # dates$study_start[dates$subid == 74] = as_datetime("2018-07-19", tz = "America/Chicago")
@@ -235,6 +235,6 @@ dates <- dates %>%
 save dates
 ```{r}
 dates %>% 
-  write_csv(here(path_messages, "study_dates.csv")) %>% 
+  write_csv(here(path_messages, "study_dates_all.csv")) %>% 
   glimpse()
 ```
