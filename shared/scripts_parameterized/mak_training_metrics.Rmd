@@ -316,11 +316,10 @@ if (!(n_jobs == n_results_files)) {
 
 Display path/filename of non-zero error files
 ```{r}
-# NOT INCLUDED BECAUSE OF XGBOOST WARNING
-# err_files %>%
-#     filter(size > 0) %>%
-#     rownames_to_column("path") %>%
-#     pull(path)
+err_files %>%
+    filter(size > 0) %>%
+    rownames_to_column("path") %>%
+    pull(path)
 ```
 
 read in all result CSVs
@@ -524,7 +523,7 @@ for (k in algorithms) {
           geom_line() +
           facet_grid(vars(hp2)) +
           scale_color_discrete(name = "mtry") +
-          labs(title = plot_title, x = "learning rate", y = "ROC AUC")
+          labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
       
        print(plot_i)
     }  
