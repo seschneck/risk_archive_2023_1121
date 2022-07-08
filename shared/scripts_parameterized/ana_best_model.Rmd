@@ -7,10 +7,10 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "meta"
-  window: "1day"
+  data_type: "ema"
+  window: "1week"
   lead: 0
-  version: "v2"
+  version: "v4"
 ---
 
 ### Code Status
@@ -52,6 +52,8 @@ library(here)
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(tidyverse)
+library(tidymodels)
+library(themis)
 library(vroom)
 library(janitor)
 library(ggplot2)
@@ -167,7 +169,7 @@ d <- d %>%
   
 
 
-if (file.exists((here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds"))))) {
+if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds"))))) {
   
   message("loading previously fit model metrics")
   preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
@@ -333,5 +335,22 @@ rec_rf <- build_recipe(d = d, job = config_best_rf)
 fit_best_rf <- fit_best_model(config_best_rf, rec_rf, d)
 
 fit_best_rf %>%
+  vip(num_features = 40, geom = "point") 
+```
+
+xgboost
+```{r xgb_imp, fig.height = 7}
+
+config_best_xgb <- metrics_avg %>% 
+  filter(algorithm == "xgboost") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+rec_xgb <- build_recipe(d = d, job = config_best_xgb)
+
+fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
+
+fit_best_xgb %>%
   vip(num_features = 40, geom = "point") 
 ```

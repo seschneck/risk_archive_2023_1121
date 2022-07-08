@@ -6,7 +6,7 @@ data_type <- "ema"   # but still need to change more (e.g., feature set) to swit
 window <- "1week"
 lead <- 0
 version <- "v4"
-algorithm <- "glmnet"
+algorithm <- "xgboost"
 
 
 # SET GLOBAL PARAMETERS
@@ -37,7 +37,7 @@ hp3_rf <- 1500 # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3)  # learn_rate
 hp2_xgboost <- c(1, 2, 4, 8) # tree_depth
-hp3_xgboost <- c(2, 10, 20, 30, 40)  # mtry
+hp3_xgboost <- c(10, 20, 30, 40, 50)  # mtry (previously included 2 but not needed)
  
 
 # SET CHTC SPECIFIC CONTROLS
