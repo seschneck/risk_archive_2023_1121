@@ -167,6 +167,12 @@ audio <- vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %
   mutate(subid = as.numeric(subid))
 ```
 
+```{r fu12 and disposition data for calculating past month drug use}
+fu_12 <- vroom(here(path_shared, "followup_12.csv"), col_types = vroom::cols())
+disp <- vroom(here(path_burden, "disposition.csv"), col_types = vroom::cols())
+```
+
+
 
 <!-- Need to decide on terminology RE mental health, mental illness, psychatric disorders.   Currently we use mental health in the context of health generally and then psychiatric disorders.   Lets make sure we use these two terms consistently-->
 
@@ -196,7 +202,7 @@ Ecological momentary assessment (EMA), a personal sensing method that collects b
 
 More recently, mental health relevant research using personal sensing of raw data streams other than self report is emerging. This includes methods to sense geolocation [@epsteinPredictionStressDrug2020; @palmiusDetectingBipolarDepression2016; @moshontzProspectivePredictionLapses2021], cellular communications [@jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021; @razaviDepressionScreeningUsing2020; @baiTrackingMonitoringMood2021; @moshontzProspectivePredictionLapses2021], sleep [@baiTrackingMonitoringMood2021], and physiology [@kleimanUsingWearablePhysiological2019; @kleimanCanPassiveMeasurement2021] as examples. These alternative personal sensing methods provide benefits and opportunities not possible with EMA. For example, many of these data streams can be sensed passively such that they have very low assessment burden. This may allow their use for long-term longitudinal monitoring of patients that would not be feasible with EMA, which requires more active effort for data collection. These data streams can also support measures that are not possible by self report.
 
-Personal sensing is a powerful tool for mental health research[@shiffmanEcologicalMomentaryAssessment2008a]. These data are inherently longitudinal, which allows observation of the temporal ordering for putative etiologic mechanisms and their effects. Longitudinal measurement is also critical for many mental health constructs that display meaningful, and often frequent, temporal variation within person (e.g., psychiatric symptoms). Measures based on personal sensing data generally have high ecological validity because they are collected in situ.  Personal sensing measures also have low retrospective bias because they are often collected in real-time. Furthermore, personal sensing can derive measures from raw data streams (e.g., in situ behavior, physiology, interpersonal interactions) that are difficult or even impossible to obtain through other traditional research measurement methods.
+Personal sensing is a powerful tool for mental health research[@shiffmanEcologicalMomentaryAssessment2008]. These data are inherently longitudinal, which allows observation of the temporal ordering for putative etiologic mechanisms and their effects. Longitudinal measurement is also critical for many mental health constructs that display meaningful, and often frequent, temporal variation within person (e.g., psychiatric symptoms). Measures based on personal sensing data generally have high ecological validity because they are collected in situ.  Personal sensing measures also have low retrospective bias because they are often collected in real-time. Furthermore, personal sensing can derive measures from raw data streams (e.g., in situ behavior, physiology, interpersonal interactions) that are difficult or even impossible to obtain through other traditional research measurement methods.
 
 Personal sensing may have even higher value in the future for mental health applications that target patient mental health care than it does for research[@huckvaleClinicalDigitalPhenotyping2019; @onnelaHarnessingSmartphoneBasedDigital2016; @torousRealizingPotentialMobile2015].<!--All the citations in this paragraph are focussed on passive/more novel personal sensing methods. I wonder if we should make this clear in the topic sentence. Maybe "Personal sensing may have even higher value in the future for mental health applications that target patient mental health care as more passive and novel data streams become feasible."--> Data collected by personal sensing methods may be used for preliminary screening for psychiatric disorders [@eichstaedtFacebookLanguagePredicts2018; @razaviDepressionScreeningUsing2020]. These methods can also be used to monitor psychiatric symptoms or even predict future risk for symptom reoccurrence, relapse, or other harmful behaviors (e.g., suicide attempts)[@barnettRelapsePredictionSchizophrenia2018; @chihPredictiveModelingAddiction2014; @epsteinPredictionStressDrug2020; @jashinskyTrackingSuicideRisk2013; @jacobsonPassiveSensingPrediction2020]. Personal sensing measures or risk indicators may be shared with health care providers to allow for cost effective, targeted allocation of limited mental health resources to patients with greatest or most urgent need [@quanbeckIntegratingAddictionTreatment2014]. Personal sensing has the potential to support precision mental health care by adapting and timing interventions based on characteristics of the patient and the moment in time [@nahum-shaniJustinTimeAdaptiveInterventions2018; @aggarwalAdvancingArtificialIntelligence2020; @kaiserObamaGivesEast2015]. To be clear, these applications of personal sensing are currently aspirational rather than available for clinical implementation today. However, clinical research is advancing us rapidly toward these goals [@moshontzProspectivePredictionLapses2021; @chihPredictiveModelingAddiction2014; @sheikhWearableEnvironmentalSmartphoneBased2021; @baiTrackingMonitoringMood2021].
 
@@ -289,7 +295,7 @@ Participants completed a brief EMA 4 times each day following reminders from us 
 
 ### Sleep Quality
 
-We collected information about participants' sleep duration, timing, and overall quality with a Beddit sleep monitor (Beddit Oy Inc., Espoo, Finland) that was placed in their beds and connected to their smartphones. We used an early version of the sleep monitor that required participants to actively start and stop the monitor when they entered and exited their bed each night and morning, respectively. These data are available for only 82 participants because Beddit Oy was acquired by Apple Inc. during data collection for this study. Apple discontinued cloud support for data collection with the sleep monitor in November 2018, which prevented its further use for our remaining participants.
+We collected information about participants' sleep duration, timing, and overall quality with a Beddit sleep monitor (Beddit Oy Inc., Espoo, Finland) that was placed in their beds and connected to their smartphones. We used an early version of the sleep monitor that required participants to actively start and stop the monitor when they entered and exited their bed each night and morning, respectively. These data are available for only 87 participants because Beddit Oy was acquired by Apple Inc. during data collection for this study. Apple discontinued cloud support for data collection with the sleep monitor in November 2018, which prevented its further use for our remaining participants.
 
 ### Physiology
 
@@ -625,6 +631,134 @@ auh <- screen %>%
   drop_na() %>%
   summarise(n = n()) %>%
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc"))
+
+
+
+
+# add assist past month drug use data
+assist_fu_1 <- fu_12 %>% 
+  filter(subid %in% screen$subid) %>% 
+  group_by(subid) %>% 
+  slice(1) %>% 
+  select(subid,
+         tobacco_fu1 = assist_2_1,
+         cannabis_fu1 = assist_2_2,
+         cocaine_fu1 = assist_2_3,
+         amphetamine_fu1 = assist_2_4,
+         inhalants_fu1 = assist_2_5,
+         sedatives_fu1 = assist_2_6,
+         hallucinogens_fu1 = assist_2_7,
+         opioids_fu1 = assist_2_8,
+         other_fu1 = assist_2_9) %>% 
+  ungroup()
+
+assist_fu_2 <- fu_12 %>% 
+  filter(subid %in% screen$subid) %>% 
+  filter(subid %in% subset(disp, last_visit != "followup_1")$subid) %>% 
+  group_by(subid) %>%
+  arrange(desc(start_date)) %>% 
+  slice(1) %>% 
+  select(subid,
+         tobacco_fu2 = assist_2_1,
+         cannabis_fu2 = assist_2_2,
+         cocaine_fu2 = assist_2_3,
+         amphetamine_fu2 = assist_2_4,
+         inhalants_fu2 = assist_2_5,
+         sedatives_fu2 = assist_2_6,
+         hallucinogens_fu2 = assist_2_7,
+         opioids_fu2 = assist_2_8,
+         other_fu2 = assist_2_9) %>% 
+  ungroup()
+
+
+assist <- assist_fu_1 %>% 
+  left_join(assist_fu_2, by = "subid") %>%
+  mutate(across(tobacco_fu1:other_fu2, ~if_else(.x == "Never" | is.na(.x), 0, 1)),
+         tobacco = if_else(tobacco_fu1 == 1 | tobacco_fu2 == 1, "Yes", "No"),
+         cannabis = if_else(cannabis_fu1 == 1 | cannabis_fu2 == 1, "Yes", "No"),
+         cocaine = if_else(cocaine_fu1 == 1 | cocaine_fu2 == 1, "Yes", "No"),
+         amphetamine = if_else(amphetamine_fu1 == 1 | amphetamine_fu2 == 1, "Yes", "No"),
+         inhalants = if_else(inhalants_fu1 == 1 | inhalants_fu2 == 1, "Yes", "No"),
+         sedatives = if_else(sedatives_fu1 == 1 | sedatives_fu2 == 1, "Yes", "No"),
+         hallucinogens = if_else(hallucinogens_fu1 == 1 | hallucinogens_fu2 == 1, "Yes", "No"),
+         opioids = if_else(opioids_fu1 == 1 | opioids_fu2 == 1, "Yes", "No"),
+         other = if_else(other_fu1 == 1 | other_fu2 == 1, "Yes", "No")) %>% 
+  select(subid, tobacco:other)
+
+
+auh <- auh %>% 
+  full_join(assist %>%
+  select(var = tobacco) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = cannabis) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = cocaine) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = amphetamine) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = inhalants) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = sedatives) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = hallucinogens) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>%
+  full_join(assist %>%
+  select(var = opioids) %>%
+  filter(var == "Yes") %>%
+  mutate(var = case_when(var == "Yes" ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ var)) %>%
+  group_by(var) %>%
+  drop_na() %>%
+  summarise(n = n()) %>%
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc"))
 ```
 
 ```{r table-2}
@@ -641,7 +775,9 @@ auh %>%
   pack_rows("Types of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>%
   pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>%
   pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>%
-  footnote("N = 154")
+  pack_rows("Current Drug Use$^a$", 24, 30, bold = FALSE, escape = FALSE) %>%
+  footnote("N = 154", general_title = "") %>% 
+  footnote(alphabet = "Current refers to past month drug use reported at follow-up visits 1 or 2", alphabet_title = "Note: ")
 ```
 
 \newpage
@@ -663,7 +799,7 @@ All participants (100%) opted-in to provide data for EMA, sleep quality, and all
 
 <!--combine two EMA compliance figures into one 2-panel figure-->
 <!--histogram for audio check-in compliance?-->
-Daily compliance rates were relatively high for EMA such that 94% of participants completed at least 1 of the 4 EMAs every day. Figure 2 shows mean weekly compliance with completing 1 EMA per day for each week on study. On average, participants completed 3.2 EMAs every day. The overall compliance rate for all requested EMAs was 81%. Figure 3 shows mean weekly compliance with our 4-time daily EMA protocol. Participants' completion rate for the audio check-in was 55%. That is, of their total days on study, participants completed an audio check-in on approximately half of them. Figure 4 shows mean weekly compliance for completing the daily audio check-in. In Multimedia Appendix 3 we also report compliance for participants who completed the 3-month study compared to those who dropped out prior to completion (Figures S3 -- S5 in Multimedia Appendix 3).
+Daily compliance rates were relatively high for EMA such that 94% of participants completed at least 1 of the 4 EMAs every day. On average, participants completed 3.2 EMAs every day. The overall compliance rate for all requested EMAs was 81%. Participants' completion rate for the audio check-in was 55%. That is, of their total days on study, participants completed an audio check-in on approximately half of them. Figure 2 shows mean weekly compliance with each of these methods for each week on study. In Multimedia Appendix 3 we also report compliance for participants who completed the 3-month study compared to those who dropped out prior to completion (Figures S3 -- S5 in Multimedia Appendix 3).
 
 
 
@@ -833,19 +969,19 @@ model_willingness <- lm(willingness_diff ~ 1, data = data_willingness)
 
 ### Interference
 
-Figure 5 shows the distribution of participant responses to the self-reported acceptability item about interference. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it. One sample t-tests revealed that each mean interference score (depicted as the solid red line) was significantly more acceptable than 0 (gray dashed line indicating undecided). Table 4 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, interference ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.31 - .53].
+Figure 3 shows the distribution of participant responses to the self-reported acceptability item about interference. Responses are grouped by personal sensing data stream and the amount of active effort required to collect it. One sample t-tests revealed that each mean interference score (depicted as the solid red line) was significantly more acceptable than 0 (gray dashed line indicating undecided). Table 4 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, interference ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.31 - .53].
 
 ### Dislike.
 
-Figure 6 shows the distribution of participant responses to the self-reported acceptability item about dislike by personal sensing data stream and amount of active effort required to collect it. One sample t-tests revealed that each mean dislike score was significantly more acceptable than 0. Table 5 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the dislike ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.35 - .48].
+Figure 4 shows the distribution of participant responses to the self-reported acceptability item about dislike by personal sensing data stream and amount of active effort required to collect it. One sample t-tests revealed that each mean dislike score was significantly more acceptable than 0. Table 5 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the dislike ratings were moderately consistent across the data streams, ICC = .42, 95% CI = [.35 - .48].
 
-We also assessed the effect of active effort on dislike ratings (Figure 7). We conducted a paired samples t-test to compare the average dislike for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) methods. Participants did not significantly differ in their dislike of active vs. passive methods, $t(153)$ = `r round(broom::tidy(summary(model_dislike))$statistic, 2)`, $p$ = `r round(broom::tidy(summary(model_dislike))$p.value, 2)`, $d$ = `r round((mean(data_dislike$Passive) - mean(data_dislike$Active)) / sd(data_dislike$dislike_diff), 2)`. 
+We also assessed the effect of active effort on dislike ratings (Figure 5). We conducted a paired samples t-test to compare the average dislike for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) methods. Participants did not significantly differ in their dislike of active vs. passive methods, $t(153)$ = `r round(broom::tidy(summary(model_dislike))$statistic, 2)`, $p$ = `r round(broom::tidy(summary(model_dislike))$p.value, 2)`, $d$ = `r round((mean(data_dislike$Passive) - mean(data_dislike$Active)) / sd(data_dislike$dislike_diff), 2)`. 
 
 ### Willingness to Use for 1 Year
 
-Figure 8 shows the distribution of participant responses to the self-reported acceptability item about willingness to use for 1 year for each personal sensing data stream. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0. Table 6 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
+Figure 6 shows the distribution of participant responses to the self-reported acceptability item about willingness to use for 1 year for each personal sensing data stream. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0. Table 6 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
 
-We also assessed the effect of active effort on willingness ratings (Figure 9). We conducted a paired samples t-test of average the average willingness to use for 1 year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams ($M$ = `r round(mean(data_willingness$Passive), 1)`, $SD$ = `r round(sd(data_willingness$Passive), 1)`) relative to active data streams ($M$ = `r round(mean(data_willingness$Active), 1)`, $SD$ = `r round(sd(data_willingness$Active), 1)`), $t(153)$ = `r round(broom::tidy(summary(model_willingness))$statistic, 2)`, $p$ = `r round(broom::tidy(summary(model_willingness))$p.value, 2)`, $d$ = `r round((mean(data_willingness$Passive) - mean(data_willingness$Active)) / sd(data_willingness$willingness_diff), 2)`. 
+We also assessed the effect of active effort on willingness ratings (Figure 7). We conducted a paired samples t-test of average the average willingness to use for 1 year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams ($M$ = `r round(mean(data_willingness$Passive), 1)`, $SD$ = `r round(sd(data_willingness$Passive), 1)`) relative to active data streams ($M$ = `r round(mean(data_willingness$Active), 1)`, $SD$ = `r round(sd(data_willingness$Active), 1)`), $t(153)$ = `r round(broom::tidy(summary(model_willingness))$statistic, 2)`, $p$ = `r round(broom::tidy(summary(model_willingness))$p.value, 2)`, $d$ = `r round((mean(data_willingness$Passive) - mean(data_willingness$Active)) / sd(data_willingness$willingness_diff), 2)`. 
 
 
 ```{r}
@@ -1253,7 +1389,7 @@ include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), dpi = 150)
 \newpage
 
 ```{r}
-fig_caption_2 <- "EMA Compliance (1x Daily) over Time.\\linebreak Notes:  Mean compliance for each week on study. Overall mean compliance is depicted by the dashed line. N = 154."
+fig_caption_2 <- "Compliance over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean compliance for each week on study. Overall mean compliance is depicted by the dashed line. N = 154."
 ```
 
 ```{r figure-2, fig.height = 3.5, fig.cap = fig_caption_2, out.extra = "", fig.pos="h"}
@@ -1346,61 +1482,13 @@ ema_1_week_compliance <- ema_study_weeks %>%
   mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
 
-ema_1_week_compliance %>% 
-  group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance)) %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
-  geom_line() +
-  theme_classic() +
-  scale_x_continuous(name = "Week", 
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance", 
-                     breaks = seq(0, 1, .1), 
-                     limits = c(0, 1)) +
-  theme(legend.position = "none",
-        text = element_text(size = 12)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
-```
-
-
-\newpage
-
-```{r}
-fig_caption_3 <- "EMA Compliance (4x Daily) over Time.\\linebreak Notes:  Mean compliance for each week on study. Overall mean compliance is depicted by the dashed line. N = 154."
-```
-
-```{r figure-3, fig.height = 3.5, fig.cap = fig_caption_3, out.extra = "", fig.pos="h"}
 ema_4_week_compliance <- ema_study_weeks %>% 
   group_by(subid, week) %>% 
   summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
   mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
 
-ema_4_week_compliance %>% 
-  group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance)) %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
-  geom_line() +
-  theme_classic() +
-  scale_x_continuous(name = "Week", 
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance", 
-                     breaks = seq(0, 1, .1), 
-                     limits = c(0, 1)) +
- theme(legend.position = "none",
-        text = element_text(size = 12)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
-```
 
-\newpage
-
-```{r}
-fig_caption_4 <- "Audio Check-in Compliance over Time.\\linebreak Notes:  Mean compliance for each week on study. Overall mean compliance is depicted by the dashed line. N = 154."
-```
-
-```{r figure-4, fig.height = 3.5, fig.cap = fig_caption_4, out.extra = "", fig.pos="h"}
 audio <- audio %>% 
   filter(subid %in% sample_fu1$subid)
 
@@ -1473,10 +1561,24 @@ audio_week_compliance <- audio_study_weeks %>%
   mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
 
-audio_week_compliance %>% 
+
+week_compliance_all <- audio_week_compliance %>% 
   group_by(week) %>% 
   summarize(mean_compliance = mean(compliance)) %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
+  mutate(signal = "Audio Check-in") %>% 
+  bind_rows(ema_4_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance)) %>% 
+              mutate(signal = "EMA (4x Daily)")) %>% 
+  bind_rows(ema_1_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance)) %>% 
+              mutate(signal = "EMA (1x Daily)"))
+
+week_compliance_all %>% 
+  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
+  group_by(week, signal) %>% 
+  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
   geom_point() +
   geom_line() +
   theme_classic() +
@@ -1485,20 +1587,29 @@ audio_week_compliance %>%
   scale_y_continuous(name = "Compliance", 
                      breaks = seq(0, 1, .1), 
                      limits = c(0, 1)) +
-  theme(legend.position = "none",
-        text = element_text(size = 12)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .4)
+  scale_shape_manual(values = c(19, 1, 17)) +
+  geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
+               group_by(signal) %>% 
+               summarize(mean_compliance = mean(mean_compliance)),
+             linetype = "dashed", size = .3) +
+  theme(legend.title = element_blank(),
+        legend.text = element_markdown(),
+        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
+        text = element_text(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) 
 ```
+
 
 \newpage
 
 ```{r}
-fig_caption_5 <- "Interference Ratings by Personal Sensing Data Stream.\\linebreak Notes:  Mean responses to [Personal sensing method name] interfered with my daily activities. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
+fig_caption_3 <- "Interference Ratings by Personal Sensing Data Stream.\\linebreak Notes:  Mean responses to [Personal sensing method name] interfered with my daily activities. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
 
 ```
 
 
-```{r figure-5, fig.height = 3.5, fig.cap = fig_caption_5, out.extra = "", fig.pos="h"}
+```{r figure-3, fig.height = 3.5, fig.cap = fig_caption_3, out.extra = "", fig.pos="h"}
 interference_plot_data <- data_last %>% 
   select(contains("interfere")) %>%   
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -1533,10 +1644,10 @@ interference_plot_data %>%
 
 \newpage
 ```{r}
-fig_caption_6 <- "Dislike Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I disliked [Personal sensing method name]. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_4 <- "Dislike Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I disliked [Personal sensing method name]. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure-6, fig.height = 6, fig.cap = fig_caption_6, out.extra = "", fig.pos="h"}
+```{r figure-4, fig.height = 6, fig.cap = fig_caption_4, out.extra = "", fig.pos="h"}
 dislike_plot_data <- data_last %>% 
   select(contains("dislike")) %>%  
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -1603,10 +1714,10 @@ dislike_plot  %>%
 
 \newpage
 ```{r}
-fig_caption_7 <- "Average Dislike by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_5 <- "Average Dislike by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure-7, fig.width = 5, fig.cap = fig_caption_7, out.extra = "", fig.pos="h"}
+```{r figure-5, fig.width = 5, fig.cap = fig_caption_5, out.extra = "", fig.pos="h"}
 # transform dataframe of active/passive means to long
 data_dislike_long <- data_dislike %>% 
   pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "dislike") %>% 
@@ -1640,10 +1751,10 @@ data_dislike_long %>%
 \newpage
 
 ```{r}
-fig_caption_8 <- "Willingness to Use for 1 Year Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I would be willing to use [Personal sensing method name] for 1 year to help with my recovery. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_6 <- "Willingness to Use for 1 Year Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I would be willing to use [Personal sensing method name] for 1 year to help with my recovery. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure-8, fig.height = 6, fig.cap = fig_caption_8, out.extra = "", fig.pos="h"}
+```{r figure-6, fig.height = 6, fig.cap = fig_caption_6, out.extra = "", fig.pos="h"}
 willingness_plot_data <- data_last %>% 
   select(contains("1year")) %>%  
   pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
@@ -1712,10 +1823,10 @@ willingness_final_plot  %>%
 \newpage
 
 ```{r}
-fig_caption_9 <- "Average Willingness to Continue for 1 Year by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for 1 year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_7 <- "Average Willingness to Continue for 1 Year by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for 1 year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
-```{r figure-9, fig.width = 5, fig.cap = fig_caption_9, out.extra = "", fig.pos="h"}
+```{r figure-7, fig.width = 5, fig.cap = fig_caption_7, out.extra = "", fig.pos="h"}
 # transform dataframe of active/passive means to long
 data_willingness_long <- data_willingness %>% 
   pivot_longer(cols = c(Active, Passive), names_to = "effort", values_to = "willingness") %>% 

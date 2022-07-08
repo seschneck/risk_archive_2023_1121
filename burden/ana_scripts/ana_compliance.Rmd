@@ -620,11 +620,11 @@ week_compliance_all <- audio_week_compliance %>%
 week_compliance_all %>% 
   mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
   group_by(week, signal) %>% 
-  ggplot(aes(x = week, y = mean_compliance, group = signal, color = signal)) +
+  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
   geom_point() +
   geom_line() +
   theme_classic() +
-  scale_color_manual(values = c("dodgerblue4", "skyblue3", "thistle3")) +
+  scale_shape_manual(values = c(19, 1, 17)) +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
   scale_y_continuous(name = "Compliance", 
