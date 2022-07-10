@@ -197,6 +197,8 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   
   metrics_best <- fits_best[[3]] 
   metrics_best  %>% 
+    # remove predictions to reduce file size
+    select(-.predictions) %>% 
     saveRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
   
   preds_best <- fits_best[[2]] %>% 
@@ -344,17 +346,20 @@ fit_best_rf %>%
 
 xgboost
 ```{r xgb_imp, fig.height = 7}
-
 config_best_xgb <- metrics_avg %>% 
   filter(algorithm == "xgboost") %>% 
   arrange(desc(roc_auc)) %>% 
   slice(1) %>% 
   glimpse()
 
-rec_xgb <- build_recipe(d = d, job = config_best_xgb)
+if (nrow(config_best_xgb) == 0) {
+  print("No xgboost algorithm results")
+} else {
+ rec_xgb <- build_recipe(d = d, job = config_best_xgb)
 
-fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
+ fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
 
-fit_best_xgb %>%
-  vip(num_features = 40, geom = "point") 
+ fit_best_xgb %>%
+   vip(num_features = 40, geom = "point")  
+}
 ```
