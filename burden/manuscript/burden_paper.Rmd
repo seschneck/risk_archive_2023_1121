@@ -1389,7 +1389,7 @@ include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), dpi = 150)
 \newpage
 
 ```{r}
-fig_caption_2 <- "Compliance over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean compliance for each week on study. Overall mean compliance is depicted by the dashed line. N = 154."
+fig_caption_2 <- "Compliance over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean compliance for each week on study. Mean standard error is depicted by the solid error bars. Overall mean compliance is depicted by the dashed line. N = 154."
 ```
 
 ```{r figure-2, fig.height = 3.5, fig.cap = fig_caption_2, out.extra = "", fig.pos="h"}
@@ -1564,23 +1564,34 @@ audio_week_compliance <- audio_study_weeks %>%
 
 week_compliance_all <- audio_week_compliance %>% 
   group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance)) %>% 
-  mutate(signal = "Audio Check-in") %>% 
+  summarize(mean_compliance = mean(compliance),
+            n = n(),
+            sd = sd(compliance)) %>% 
+  mutate(se = sd/sqrt(n),
+         signal = "Audio Check-in") %>% 
   bind_rows(ema_4_week_compliance %>% 
               group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance)) %>% 
-              mutate(signal = "EMA (4x Daily)")) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (4x Daily)")) %>% 
   bind_rows(ema_1_week_compliance %>% 
               group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance)) %>% 
-              mutate(signal = "EMA (1x Daily)"))
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (1x Daily)"))
 
 week_compliance_all %>% 
   mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
   group_by(week, signal) %>% 
   ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
-  geom_point() +
+  geom_point(size = 2) +
   geom_line() +
+  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
+                width = .3, size = .3) +
   theme_classic() +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
@@ -1594,6 +1605,7 @@ week_compliance_all %>%
              linetype = "dashed", size = .3) +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
+        legend.position = "bottom",
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
         text = element_text(),
         plot.title = element_markdown(),

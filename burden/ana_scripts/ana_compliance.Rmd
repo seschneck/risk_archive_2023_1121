@@ -605,24 +605,35 @@ ema_1_week_compliance %>%
 ```{r}
 week_compliance_all <- audio_week_compliance %>% 
   group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance)) %>% 
-  mutate(signal = "Audio Check-in") %>% 
+  summarize(mean_compliance = mean(compliance),
+            n = n(),
+            sd = sd(compliance)) %>% 
+  mutate(se = sd/sqrt(n),
+         signal = "Audio Check-in") %>% 
   bind_rows(ema_week_compliance %>% 
               group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance)) %>% 
-              mutate(signal = "EMA (4x Daily)")) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (4x Daily)")) %>% 
   bind_rows(ema_1_week_compliance %>% 
               group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance)) %>% 
-              mutate(signal = "EMA (1x Daily)"))
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (1x Daily)"))
 
 
 week_compliance_all %>% 
   mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
   group_by(week, signal) %>% 
   ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
-  geom_point() +
+  geom_point(size = 2) +
   geom_line() +
+  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
+                width = .3, size = .3) +
   theme_classic() +
   scale_shape_manual(values = c(19, 1, 17)) +
   scale_x_continuous(name = "Week", 
@@ -641,6 +652,7 @@ week_compliance_all %>%
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
         text = element_text(),
         plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) 
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25),
+        legend.position = "bottom")
 ```
 
