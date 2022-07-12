@@ -1,0 +1,81 @@
+---
+title: "Make combined EMA"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/messages", 
+      "/Volumes/private/studydata/risk/knits/messages")
+    )
+  })
+---
+
+### Code Status
+
+Complete
+
+### Notes
+
+Combines the morning and later ema files from shared folder and saves in processed data for messages
+
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_messages <- "P:/studydata/risk/data_processed/messages"},
+
+        # IOS paths
+        Darwin = {
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_messages <- "/Volumes/private/studydata/risk/data_processed/messages"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+library(here) 
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(vroom)
+```
+
+
+### Process and save ema
+```{r}
+ema_morning <- vroom(here(path_shared, "ema_morning.csv"), show_col_types = FALSE) %>% 
+  glimpse()
+
+ema_later <- vroom(here(path_shared, "ema_later.csv"), show_col_types = FALSE) %>% 
+  glimpse()
+```
+
+```{r}
+ema <- ema_morning %>% 
+  bind_rows(ema_later) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  select(-response_id, -end_date, -finished, -status, -utc, -send_date, -send_time) %>% 
+  rename(dttm_obs = start_date) %>% 
+  glimpse()
+```
+
+
+```{r}
+ema %>% 
+  write_csv(here(path_messages, "ema.csv"))
+```
