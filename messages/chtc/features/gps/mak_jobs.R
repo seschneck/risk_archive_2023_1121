@@ -1,4 +1,4 @@
-# setup jobs to make GPS features on chtc 
+# setup jobs to make GPS features on chtc for messages
 
 # EDIT THESE
 study <- "messages"
@@ -59,9 +59,9 @@ vroom(here(path_processed, name_gps), show_col_types = FALSE) %>%
   vroom_write(here(path_jobs, name_job, "input", "data.csv.xz"), delim = ",")
 
 # copy over other data files verbatim
-file.copy(from = here(path_gps, name_labels),
+file.copy(from = here(path_processed, name_labels),
           to = here(path_jobs, name_job, "input", "labels.csv")) 
-file.copy(from = here(path_gps, name_study_dates),
+file.copy(from = here(path_processed, name_study_dates),
           to = here(path_jobs, name_job, "input", "study_dates.csv")) 
 
 # copy over function script
@@ -77,3 +77,4 @@ file.copy(from = here(study, "chtc", "features", data_type, "unix", c(list.files
 # copy R script
 file.copy(from = here(study, "chtc", "features", data_type, name_script),
           to = here(path_jobs, name_job, "input", name_script))
+

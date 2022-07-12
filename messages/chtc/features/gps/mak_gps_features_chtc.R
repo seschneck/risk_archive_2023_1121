@@ -6,13 +6,13 @@ window <- "1week"  #window for calculating labels
 lead <-  0 # feature lead time
 version <- "v1"
 
-suppressPackageStartupMessages({
+suppressWarnings(suppressPackageStartupMessages({
   library(dplyr)
   library(lubridate)
   library(vroom)
   library(foreach)
-  source("fun_features.R")
-})
+  #source("fun_features.R")
+}))
 
 # get chtc process num
 args <- commandArgs(trailingOnly = TRUE) 
