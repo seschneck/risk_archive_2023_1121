@@ -82,10 +82,10 @@ file.copy(from = here("shared", name_fun),
           to = here(path_jobs, name_job, "input", name_fun))
 
 # copy over unix files(run script, submit, pre, post files)
-file.copy(from = here("messages", "chtc", "features", data_type, "unix", c(list.files(here("messages", "chtc", "features", data_type, "unix")))),
+file.copy(from = here(study, "chtc", "features", data_type, "unix", c(list.files(here("messages", "chtc", "features", data_type, "unix")))),
           to = here(path_jobs, name_job, "input"),
           recursive = TRUE)
 
 # copy R script
-file.copy(from = here("messages", "chtc", "features", data_type, name_script),
+file.copy(from = here(study, "chtc", "features", data_type, name_script),
           to = here(path_jobs, name_job, "input", name_script))
