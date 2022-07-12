@@ -1,6 +1,7 @@
 # setup jobs to make EMA features on CHTC 
 
 # EDIT THESE
+study <- "messages"
 window <- "1week"   # remember to edit these in make_features_chtc.R as well
 data_type <- "ema"
 lead <- 0
@@ -19,10 +20,10 @@ library(vroom)
 library(stringr)
 
 # Paths and filenames
-path_jobs <- str_c("P:/studydata/risk/chtc/messages")
+path_jobs <- str_c("P:/studydata/risk/chtc/", study)
 name_job <- str_c("features_", data_type, "_", window, "_", lead, "_", version)
 
-path_processed <- "P:/studydata/risk/data_processed/messages" 
+path_processed <- str_c("P:/studydata/risk/data_processed/", study) 
 name_ema <- "ema.csv"
 name_labels <- str_c("labels_", window, ".csv")
 name_study_dates <- "study_dates_all.csv"
