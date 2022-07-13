@@ -191,7 +191,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   
   # resample best model config
   plan(multisession, workers = n_core)
-  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
+  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits)
   plan(sequential) 
   
   
