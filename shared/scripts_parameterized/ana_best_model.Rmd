@@ -191,14 +191,12 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   
   # resample best model config
   plan(multisession, workers = n_core)
-  fits_best <- tune_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
+  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
   plan(sequential) 
   
   
-  metrics_best <- fits_best[[3]] 
+  metrics_best <- fits_best[[1]] 
   metrics_best  %>% 
-    # remove predictions to reduce file size
-    select(-.predictions) %>% 
     saveRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
   
   preds_best <- fits_best[[2]] %>% 
