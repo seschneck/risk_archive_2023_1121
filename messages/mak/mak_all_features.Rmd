@@ -1,0 +1,79 @@
+---
+title: "Make all features"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/messages", 
+      "/Volumes/private/studydata/risk/knits/messages")
+    )
+  })
+---
+
+### Code Status
+
+Complete
+
+### Notes
+
+This combines GPS and EMA features into one larger feature file
+
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_messages <- "P:/studydata/risk/data_processed/messages"},
+
+        # IOS paths
+        Darwin = {
+          path_messages <- "/Volumes/private/studydata/risk/data_processed/messages"}
+        )
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+library(here) 
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(vroom)
+```
+
+
+### Process and save ema
+```{r}
+ema <- vroom(here(path_messages, "features_ema_1week_0_v4.csv.xz"), show_col_types = FALSE) %>% 
+  glimpse()
+
+gps <- vroom(here(path_messages, "features_gps_1week_0_v1.csv.xz"), show_col_types = FALSE) %>% 
+  glimpse()
+```
+
+```{r}
+if (nrow(ema) != nrow(gps)) stop("number of rows does not match for EMA and GPS features")
+
+all <- full_join(ema, gps, by = c("subid", "dttm_label", "lapse")) %>% 
+  glimpse
+
+if (nrow(all) != nrow(ema)) stop ("number of rows in all does not match individual feature files")
+```
+
+
+```{r}
+all %>% 
+  vroom_write(here(path_messages, "features_all_1week.csv.xz"), delim = ",")
+```
