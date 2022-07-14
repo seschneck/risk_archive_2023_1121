@@ -191,7 +191,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   
   # resample best model config
   plan(multisession, workers = n_core)
-  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits, cv_type = cv_type)
+  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits)
   plan(sequential) 
   
   
@@ -215,7 +215,10 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
 
 
 ```{r model_metrics}
-metrics_best %>% collect_metrics()
+metrics_best %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
+  glimpse()
 ```
 
 Confusion matrix using .5 threshold
