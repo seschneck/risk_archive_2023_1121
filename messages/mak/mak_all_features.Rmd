@@ -66,7 +66,7 @@ gps <- vroom(here(path_messages, "features_gps_1week_0_v1.csv.xz"), show_col_typ
 ```{r}
 if (nrow(ema) != nrow(gps)) stop("number of rows does not match for EMA and GPS features")
 
-all <- full_join(ema, gps, by = c("subid", "dttm_label", "lapse")) %>% 
+all <- full_join(ema, gps, by = c("subid", "dttm_label", "lapse", "label_num")) %>% 
   glimpse
 
 if (nrow(all) != nrow(ema)) stop ("number of rows in all does not match individual feature files")
