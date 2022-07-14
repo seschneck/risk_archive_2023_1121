@@ -3,11 +3,11 @@
 
 #EDIT THIS
 study <- "messages"
-data_type <- "all"   # but still need to change more (e.g., feature set) to switch data_type
+data_type <- "all"
 window <- "1week"
 lead <- 0
 version <- "v1"
-algorithm <- "xgboost"
+algorithm <- "random_forest"
 
 
 # SET GLOBAL PARAMETERS
