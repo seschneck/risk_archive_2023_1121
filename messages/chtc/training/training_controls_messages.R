@@ -7,7 +7,7 @@ data_type <- "all"
 window <- "1week"
 lead <- 0
 version <- "v1"
-algorithm <- "random_forest"
+algorithm <- "glmnet"
 
 
 # SET GLOBAL PARAMETERS
@@ -47,8 +47,8 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry (previously included 2 and 10 but not n
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "16000MB"
-request_disk <- "2000MB"
+request_memory <- "20000MB"
+request_disk <- "2000MB" # in KB if set in CHTC via command line
 flock <- FALSE
 glide <- FALSE
 
