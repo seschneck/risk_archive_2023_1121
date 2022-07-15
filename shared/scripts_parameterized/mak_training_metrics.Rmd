@@ -7,10 +7,11 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "ema"
+  study: "messages"
+  data_type: "all"
   window: "1week"
   lead: 0
-  version: "v4"
+  version: "v1"
 ---
 
 ### Code Status
@@ -24,6 +25,7 @@ that train all model configurations for a specific outcome/label window.
 ### Set Up Environment
 
 ```{r set_params}
+study <- params$study
 data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
@@ -63,13 +65,13 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_input <- str_c("P:/studydata/risk/chtc/", data_type)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", data_type)},
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)},
 
         # IOS paths
         Darwin = {
-          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", data_type)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)}
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)}
         )
 ```
 
