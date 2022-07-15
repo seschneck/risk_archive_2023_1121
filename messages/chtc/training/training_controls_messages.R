@@ -48,7 +48,7 @@ tar <- c("train.tar.gz") # name of tar packages for submit file - does not trans
 max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "16000MB"
-request_disk <- "2000000KB"
+request_disk <- "2000MB"
 flock <- FALSE
 glide <- FALSE
 
