@@ -7,10 +7,11 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  data_type: "ema"
+  study: "messages"
+  data_type: "all"
   window: "1week"
   lead: 0
-  version: "v4"
+  version: "v1"
 ---
 
 ### Code Status
@@ -28,6 +29,7 @@ This script is called by various studies, passing in the data_type, window, lead
 ### Set Up Environment
 
 ```{r}
+study <- params$study
 data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
@@ -71,14 +73,14 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_input <- str_c("P:/studydata/risk/chtc/", data_type)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", data_type)
-          path_models <- str_c("P:/studydata/risk/models/", data_type)},
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
 
         # IOS paths
         Darwin = {
-          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", data_type)
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
           path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)
-          path_models <- str_c("/Volumes/private/studydata/risk/models/", data_type)}
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
         )
 ```
 
@@ -147,7 +149,7 @@ Replicates resampling metrics for best configuration using characteristics speci
 ```{r resample_best_config}
 
 # create recipe outside of if_else b/c always need it for later use
-path_best <- here(str_c("P:/studydata/risk/chtc/", data_type), 
+path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
                 str_c("train_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
 source(here(path_best, "training_controls.R"))
 
