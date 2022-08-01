@@ -1,7 +1,7 @@
 ---
 title: "Multimedia Appendix 3: Supplemental Analyses"
 subtitle: "Acceptability of Personal Sensing among People with Alcohol Use Disorder"
-author: "Kendra Wyant, Hannah Moshontz, Stephanie Ward, John Curtin"
+author: "Kendra Wyant, Hannah Moshontz, Stephanie Ward, Gaylen Fronk, John Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
@@ -284,41 +284,40 @@ time_plot %>%
 
 ### Compliance over time
 
-In the manuscript we report compliance over time on study (i.e., week) for our whole sample (N = 154). It is possible that compliance averages are lower for participants who drop out of the study (N = 21) compared to those who complete the full 3 months of the study (N = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups. 
+In the manuscript we report compliance over time on study (i.e., week) for our whole sample (N = 154). It is possible that compliance averages are lower for participants who drop out of the study (N = 21) compared to those who complete the full 3 months of the study (N = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups.  
+
+A t-test revealed that participants who did not complete the study on average had significantly lower compliance for the 4x daily EMA (M = .66, SD = .19) compared to participants who completed the study (M = .82, SD = .14), t(152) = -4.6, p < .001. Additionally, participants who did not complete the study on average had significantly lower compliance for a 1x daily EMA (M = .86, SD = .14) compared to participants who completed the study (M = .95, SD = .09), t(152) = -4.4, p < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower compliance for the daily audio check-in (M = .36, SD = .23) compared to participants who completed the study (M = .58, SD = .29), t(152) = -3.2, p < .01.   
 
 
-#### EMA
-
-Below we plot the total compliance with EMA (4 prompts per day) over time for participants who completed the study (Figure S3 from the manuscript). A t-test revealed that participants who did not complete the study on average had significantly lower compliance (M = .66, SD = .19) compared to participants who completed the study (M = .82, SD = .14), t(152) = -4.6, p < .001.
-
+Below we plot the total compliance with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3 from the manuscript). 
 
 ```{r}
-# calculate compliance
-part_complete <- visit_dates %>% 
+sample_fu3 <- visit_dates %>% 
   filter(!is.na(final_visit))
 
-study_dates <- visit_dates$subid %>% 
-  map_dfr(~get_study_days(.x, visit_dates %>% select(subid, start_study, end_study)))
+subids_fu3 <- sample_fu3$subid
+dates_fu3 <- sample_fu3 %>% 
+  select(subid, start_study, end_study)
 
-# join morning and later EMAs
+study_dates <- subids_fu3 %>% 
+  map_dfr(~get_study_days(.x, dates_fu3))
+
 ema <- ema_m %>% 
   select(subid, start_date) %>% 
   full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
-  mutate(start_date = lubridate::date(start_date),
-         subid = as.numeric(subid))
+  mutate(start_date = date(start_date),
+         subid = as.numeric(subid)) %>% 
+  filter(subid %in% sample_fu3$subid)
 
-# count EMAs per day
 ema_count <- ema %>%  
   count(subid, start_date) %>%
   mutate(n = if_else(n > 4, 4, as.numeric(n)))
 
-# left join with study dates
 ema_study_dates <- study_dates %>% 
   left_join(ema_count, by = c("subid", "study_day" = "start_date")) %>% 
   mutate(n = if_else(is.na(n), 0, n)) %>% 
   mutate(n_prompts = 4)
 
-# slice into 7 day bins
 ema_study_weeks <- ema_study_dates %>% 
   group_by(subid) %>% 
   slice(1:7) %>% 
@@ -369,190 +368,36 @@ ema_study_weeks <- ema_study_dates %>%
     mutate(week = 12)) %>% 
   ungroup()
 
-# get individual compliance scores
-ema_week_compliance <- ema_study_weeks %>% 
+ema_1_week_compliance <- ema_study_weeks %>%
+  mutate(n = if_else(n > 1, 1, n),
+         n_prompts = 1) %>% 
   group_by(subid, week) %>% 
   summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
   mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
-```
 
-```{r}
-# t-test
-# ema_4x_t_test <- ema_week_compliance %>%
-#   group_by(subid) %>%
-#   summarize(compliance = mean(compliance), .groups = "drop") %>%
-#   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete"))
-
-# ema_4x_t_test %>% 
-#   group_by(complete) %>% 
-#   summarize(mean = mean(compliance), sd = sd(compliance))
-
-# summary(lm(compliance ~ complete, data = ema_4x_t_test))
-
-```
-
-
-```{r}
-# plot 4x daily compliance
-ema_week_compliance %>% 
-  filter(subid %in% part_complete$subid) %>% 
-  group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance), .groups = "drop") %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
-  geom_line() +
-  theme_classic() +
-  scale_x_continuous(name = "Week", 
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance", 
-                     breaks = seq(0, 1, .1), 
-                     limits = c(0, 1)) +
-  labs(title = "Figure S3 <br><br>4x Daily EMA compliance over time for participants who completed the study",
-       caption = "<i>Note:</i>  Average 4x daily EMA compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
-  theme(legend.title = element_blank(),
-        legend.text = element_markdown(),
-        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(),
-        plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
-```
-
-
-
-Below we plot compliance with at least one daily EMA over time for participants who completed the study (Figure S4 from the manuscript). A t-test revealed that participants who did not complete the study on average had significantly lower compliance (M = .86, SD = .14) compared to participants who completed the study (M = .95, SD = .09), t(152) = -4.4, p < .001.
-
-```{r}
-# count EMAs per day
-ema_1_count <- ema %>%
-  count(subid, start_date) %>%
-  mutate(n = if_else(n > 1, 1, as.numeric(n)))
-
-# left join with study dates
-ema_1_study_dates <- study_dates %>%
-  left_join(ema_1_count, by = c("subid", "study_day" = "start_date")) %>%
-  mutate(n = if_else(is.na(n), 0, n)) %>%
-  mutate(n_prompts = 1)
-
-# slice into 7 day bins
-ema_1_study_weeks <- ema_1_study_dates %>%
-  group_by(subid) %>%
-  slice(1:7) %>%
-  mutate(week = 1) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(8:14) %>%
-    mutate(week = 2)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(15:21) %>%
-    mutate(week = 3)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(22:28) %>%
-    mutate(week = 4)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(29:35) %>%
-    mutate(week = 5)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(36:42) %>%
-    mutate(week = 6)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(43:49) %>%
-    mutate(week = 7)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(50:56) %>%
-    mutate(week = 8)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(57:63) %>%
-    mutate(week = 9)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(64:70) %>%
-    mutate(week = 10)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(71:77) %>%
-    mutate(week = 11)) %>%
-  bind_rows(ema_1_study_dates %>%
-    group_by(subid) %>%
-    slice(78:84) %>%
-    mutate(week = 12)) %>%
+ema_4_week_compliance <- ema_study_weeks %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
 
-# get individual compliance scores
-ema_1_week_compliance <- ema_1_study_weeks %>%
-  group_by(subid, week) %>%
-  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>%
-  mutate(compliance = sum_n/sum_prompts) %>%
-  ungroup()
-```
 
-```{r}
-# t-test
-# ema_1x_t_test <- ema_1_week_compliance %>%
-#   group_by(subid) %>%
-#   summarize(compliance = mean(compliance), .groups = "drop") %>%
-#   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete"))
+audio <- audio %>% 
+  filter(subid %in% sample_fu3$subid)
 
-# ema_1x_t_test %>%
-#   group_by(complete) %>%
-#   summarize(mean = mean(compliance), sd = sd(compliance))
-
-# summary(lm(compliance ~ complete, data = ema_1x_t_test))
-
-```
-
-```{r}
-# plot
-ema_1_week_compliance %>%
-  filter(subid %in% part_complete$subid) %>% 
-  group_by(week) %>%
-  summarize(mean_compliance = mean(compliance), .groups = "drop") %>%
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
-  geom_line() +
-  theme_classic() +
-  scale_x_continuous(name = "Week",
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance",
-                     breaks = seq(0, 1, .1),
-                     limits = c(0, 1)) +
-  labs(title = "Figure S4 <br><br>1x Daily EMA compliance over time for participants who completed the study",
-       caption = "<i>Note:</i>  Average 1x daily EMA compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
-  theme(legend.title = element_blank(),
-        legend.text = element_markdown(),
-        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(),
-        plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
-```
-
-
-
-#### Audio check-in
-
-Below we plot compliance with the daily audio check-in over time for participants who completed the study (Figure S5 from the manuscript). A t-test revealed that participants who did not complete the study on average had significantly lower compliance (M = .36, SD = .23) compared to participants who completed the study (M = .58, SD = .29), t(152) = -3.2, p < .01.
-
-```{r}
-# count audio surveys per day
 audio_count <- audio %>%  
   count(subid, date) %>%
-  mutate(n = if_else(n > 1, 1, as.numeric(n)),
-         subid = as.numeric(subid))
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
 
-# left join with study dates
 audio_study_dates <- study_dates %>% 
   left_join(audio_count, by = c("subid", "study_day" = "date")) %>% 
   mutate(n = if_else(is.na(n), 0, n)) %>% 
   mutate(n_prompts = 1)
+
+mean_audio <- audio_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
 
 audio_study_weeks <- audio_study_dates %>% 
   group_by(subid) %>% 
@@ -609,7 +454,92 @@ audio_week_compliance <- audio_study_weeks %>%
   summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
   mutate(compliance = sum_n/sum_prompts) %>% 
   ungroup()
+
+
+week_compliance_all <- audio_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance),
+            n = n(),
+            sd = sd(compliance)) %>% 
+  mutate(se = sd/sqrt(n),
+         signal = "Audio Check-in") %>% 
+  bind_rows(ema_4_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (4x Daily)")) %>% 
+  bind_rows(ema_1_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (1x Daily)"))
+
+week_compliance_all %>% 
+  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
+  group_by(week, signal) %>% 
+  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
+  geom_point(size = 2) +
+  geom_line() +
+  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
+                width = .3, size = .3) +
+  theme_classic() +
+  scale_x_continuous(name = "Week", 
+                     breaks = seq(1, 12, 1)) +
+  scale_y_continuous(name = "Compliance", 
+                     breaks = seq(0, 1, .1), 
+                     limits = c(0, 1)) +
+  scale_shape_manual(values = c(19, 1, 17)) +
+  geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
+               group_by(signal) %>% 
+               summarize(mean_compliance = mean(mean_compliance)),
+             linetype = "dashed", size = .3) +
+  labs(title = "Figure S3 <br><br>1X Daily EMA, 4x daily EMA, and audio check-in compliance over time for participants who completed the study",
+       caption = "<i>Note:</i>  Average compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
+  theme(legend.title = element_blank(),
+        legend.text = element_markdown(),
+        legend.position = "bottom",
+        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
+        text = element_text(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25))
 ```
+
+
+```{r}
+# t-test
+# ema_4x_t_test <- ema_week_compliance %>%
+#   group_by(subid) %>%
+#   summarize(compliance = mean(compliance), .groups = "drop") %>%
+#   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete"))
+
+# ema_4x_t_test %>% 
+#   group_by(complete) %>% 
+#   summarize(mean = mean(compliance), sd = sd(compliance))
+
+# summary(lm(compliance ~ complete, data = ema_4x_t_test))
+
+```
+
+
+```{r}
+# t-test
+# ema_1x_t_test <- ema_1_week_compliance %>%
+#   group_by(subid) %>%
+#   summarize(compliance = mean(compliance), .groups = "drop") %>%
+#   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete"))
+
+# ema_1x_t_test %>%
+#   group_by(complete) %>%
+#   summarize(mean = mean(compliance), sd = sd(compliance))
+
+# summary(lm(compliance ~ complete, data = ema_1x_t_test))
+
+```
+
 
 ```{r}
 # t-test
@@ -626,113 +556,8 @@ audio_week_compliance <- audio_study_weeks %>%
 
 ```
 
-```{r}
-# plot
-audio_week_compliance %>% 
-  filter(subid %in% part_complete$subid) %>% 
-  group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance), .groups = "drop") %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
-  geom_line() +
-  theme_classic() +
-  scale_x_continuous(name = "Week", 
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance", 
-                     breaks = seq(0, 1, .1), 
-                     limits = c(0, 1)) +
-  labs(title = "Figure S5 <br><br>Daily audio check-in compliance over time for participants who completed the study",
-       caption = "<i>Note:</i>  Average audio check-in compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
-  theme(legend.title = element_blank(),
-        legend.text = element_markdown(),
-        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(),
-        plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
-```
-
-
-
 ----
 
-
-
-
-### Analysis on willingness to use EMA one time daily
-
-Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S6 from the manuscript).   
-
-
-```{r}
-# pull out data for 1x EMA
-ema_1x <- data %>% 
-  select(subid, date, daily_survey_1_1year) %>% 
-  group_by(subid) %>% 
-  arrange(desc(date)) %>% 
-  slice(1) %>% 
-  ungroup()
-
-plot_ema_1x <- ema_1x %>% 
-  rename(`Willingness to Continue for One Year` = daily_survey_1_1year) %>% 
-  pivot_longer(`Willingness to Continue for One Year`, names_to = "measure") %>% 
-  mutate(value = factor(value, levels = c(-2:2),
-                        labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
-  ggplot(aes(x = value, y = ..prop.., group = measure)) +
-  geom_bar(color = "black", fill = "#FFDEDE") +
-  facet_wrap(~measure) +
-  theme_classic() +
-  ylim(0, .7) +
-  labs(y = "Proportion",
-       x = NULL) +
-    theme(legend.position = "none",
-        text = element_text(),
-        axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
-
-plot_ema_1x +
- plot_annotation(
-  title = "Figure S6<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
-  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score."
-) &
-  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
-        text = element_text(),
-        plot.title = element_markdown(size = 12),
-        plot.subtitle = element_markdown(size = 12))
-```
-
-
-
-
-A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
-
-```{r}
-# model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
-# summary(model_ema_1x)
-```
-
-
-Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
-
-```{r}
-# create long dataframe
-# ema_1x_and_4x <- data %>% 
-#   select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
-#   group_by(subid) %>% 
-#   arrange(desc(date)) %>% 
-#   slice(1) %>% 
-#   ungroup() %>% 
-#   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
-# 
-# # t-test
-# m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
-# summary(m_ema_1x_and_4x)
-# car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
-```
-
-
-----
 
 ### Audio compliance distribution
 
@@ -786,7 +611,7 @@ plot_audio_fu1 <- dates_fu1 %>%
 
 plot_audio_fu1 +
  plot_annotation(
-  title = "Figure S7<br><br>Audio Compliance by Participant",
+  title = "Figure S4<br><br>Audio Compliance by Participant",
   caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean."
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
@@ -797,6 +622,80 @@ plot_audio_fu1 +
 
 
 -----
+
+### Analysis on willingness to use EMA one time daily
+
+Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S5 from the manuscript).   
+
+
+```{r}
+# pull out data for 1x EMA
+ema_1x <- data %>% 
+  select(subid, date, daily_survey_1_1year) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup()
+
+plot_ema_1x <- ema_1x %>% 
+  rename(`Willingness to Continue for One Year` = daily_survey_1_1year) %>% 
+  pivot_longer(`Willingness to Continue for One Year`, names_to = "measure") %>% 
+  mutate(value = factor(value, levels = c(-2:2),
+                        labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
+  ggplot(aes(x = value, y = ..prop.., group = measure)) +
+  geom_bar(color = "black", fill = "#FFDEDE") +
+  facet_wrap(~measure) +
+  theme_classic() +
+  ylim(0, .7) +
+  labs(y = "Proportion",
+       x = NULL) +
+    theme(legend.position = "none",
+        text = element_text(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+
+plot_ema_1x +
+ plot_annotation(
+  title = "Figure S5<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
+  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score."
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
+
+
+
+A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
+
+```{r}
+# model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
+# summary(model_ema_1x)
+```
+
+
+Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
+
+```{r}
+# create long dataframe
+# ema_1x_and_4x <- data %>% 
+#   select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
+#   group_by(subid) %>% 
+#   arrange(desc(date)) %>% 
+#   slice(1) %>% 
+#   ungroup() %>% 
+#   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
+# 
+# # t-test
+# m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
+# summary(m_ema_1x_and_4x)
+# car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
+```
+
+----
 
 
 ### Uncorrected pairwise comparisons among personal sensing data streams
@@ -1071,7 +970,7 @@ screen_combined_long %>%
 
 ### Participant free-responses to each personal sensing measure
 
-We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability (Supplemental tables 3-7 in manuscript).
+We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Supplemental tables 3-7 in manuscript).
 
 ```{r}
 # read in comments
