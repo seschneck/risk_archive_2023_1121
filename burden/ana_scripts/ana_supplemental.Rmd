@@ -1,6 +1,7 @@
 ---
-title: "Supplemental Analyses"
-author: "Kendra Wyant"
+title: "Multimedia Appendix 3: Supplemental Analyses"
+subtitle: "Acceptability of Personal Sensing among People with Alcohol Use Disorder"
+author: "Kendra Wyant, Hannah Moshontz, Stephanie Ward, Gaylen Fronk, John Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
   html_document:
@@ -16,25 +17,23 @@ knit: (function(input, ...) {
   })
 ---
 
+
+
 Purpose: This file is the supplemental analysis script for *Acceptability of Personal Sensing among People with Alcohol Use Disorder*. It includes all supplemental figures, tables, and statistical analyses.
 
-### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
+
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = FALSE)
 ```
 
-Paths
+
+
 ```{r}
 path_data <- "P:/studydata/risk/data_processed/burden"
 path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
-Packages and Sources
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
 library(kableExtra)
@@ -43,24 +42,44 @@ library(cowplot)
 library(patchwork)
 library(rstatix)
 library(janitor)
+library(vroom)
+library(lubridate)
 
 theme_set(theme_bw())
 options(knitr.kable.NA = '')
 ```
 
 
-### Read in data
 ```{r}
 # self-report acceptability data
-data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols())
+data <- vroom(file.path(path_data, "acceptability.csv"), col_types = vroom::cols())
+visit_dates <- read_csv(file.path(path_shared, "visit_dates.csv"), col_types = cols()) %>% 
+  filter(!is.na(followup_1))
+ema_m <- vroom(file.path(path_shared, "ema_morning.csv"), col_types = vroom::cols()) %>% 
+  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
+         subid = as.numeric(subid))
+ema_l <- vroom(file.path(path_shared, "ema_later.csv"), col_types = vroom::cols()) %>% 
+  mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
+         subid = as.numeric(subid))
+audio <- vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
+  mutate(subid = as.numeric(subid))
+
 ```
 
-----
+```{r}
+# function to get study days for each participant
+get_study_days <- function(the_subid, dates) {
+  start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
+  end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
+  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study, by = "day")) 
+  return(study_days)
+}
+```
+
 
 
 
 ### Physiology Analysis
-
 
 We initially monitored participants physiology using an early version of the Empatica E4 wristband monitor. Due to a complicated sensing platform and software bugs we discontinued the wristband after nine participants. Below are the self-reported acceptability ratings (interference, dislike, willingness to continue for one year) for this sensing method from the nine participants who used it (Figure S1 from the manuscript). 
 
@@ -149,14 +168,17 @@ p_wrist +
         plot.subtitle = element_markdown(size = 12))
 ```
 
+
+
 ----
 
 
 
 ### Time Analysis
 
-Create dataframe of only subids with three time points (N = 133).
+
 ```{r}
+# Create dataframe of only subids with three time points (N = 133).
 acceptability_time <- data %>% 
   # filter out wristband and carrying_phone
   select(-c(contains("wristband"), contains("phone"))) %>% 
@@ -169,7 +191,7 @@ acceptability_time <- data %>%
   ungroup()
 ```
 
-The figure below is Figure S2 from the manuscript. We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
+The figure below is Figure S2 from the manuscript. We examined acceptability ratings over time for participants who completed the study through follow-up 3 (N = 133). We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
 
 ```{r warning = FALSE, fig.height=6, fig.width=8}
 # create grouping variables to use for figure
@@ -189,7 +211,7 @@ sleep <- acceptability_time %>%
   select(contains("sleep")) %>% 
   keep(~is.numeric(.x)) %>% 
   pivot_longer(everything(), "measure")
-audio <- acceptability_time %>% 
+audio_checkin <- acceptability_time %>% 
   select(contains("audio")) %>% 
   keep(~is.numeric(.x)) %>% 
   pivot_longer(everything(), "measure")
@@ -211,7 +233,8 @@ time_plot <- acceptability_time %>%
   select(time,
          contains("interfere"),
          contains("dislike"),
-         contains("1year")) %>% 
+         contains("1year"),
+         -daily_survey_1_1year) %>% 
   pivot_longer(sleep_interfere:all_logs_1year, "measure") %>% 
   mutate(acceptability = case_when(measure %in% dislike$measure ~ "Dislike",
                              measure %in% interfere$measure ~ "Interference",
@@ -219,7 +242,7 @@ time_plot <- acceptability_time %>%
          acceptability = factor(acceptability, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
   mutate(method = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
                                   measure %in% sleep$measure ~ "Sleep Quality",
-                                  measure %in% audio$measure ~ "Audio Check-in",
+                                  measure %in% audio_checkin$measure ~ "Audio Check-in",
                                   measure %in% ema$measure ~ "EMA",
                                   measure %in% geolocation$measure ~ "Geolocation",
                                   measure %in% text_content$measure ~ "Text Message Content")) 
@@ -255,12 +278,354 @@ time_plot %>%
 
 
 
+-----
+
+
+
+### Compliance over time
+
+In the manuscript we report compliance over time on study (i.e., week) for our whole sample (N = 154). It is possible that compliance averages are lower for participants who drop out of the study (N = 21) compared to those who complete the full 3 months of the study (N = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups.  
+
+A t-test revealed that participants who did not complete the study on average had significantly lower compliance for the 4x daily EMA (M = .66, SD = .19) compared to participants who completed the study (M = .82, SD = .14), t(152) = -4.6, p < .001. Additionally, participants who did not complete the study on average had significantly lower compliance for a 1x daily EMA (M = .86, SD = .14) compared to participants who completed the study (M = .95, SD = .09), t(152) = -4.4, p < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower compliance for the daily audio check-in (M = .36, SD = .23) compared to participants who completed the study (M = .58, SD = .29), t(152) = -3.2, p < .01.   
+
+
+Below we plot the total compliance with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3 from the manuscript). 
+
+```{r}
+sample_fu3 <- visit_dates %>% 
+  filter(!is.na(final_visit))
+
+subids_fu3 <- sample_fu3$subid
+dates_fu3 <- sample_fu3 %>% 
+  select(subid, start_study, end_study)
+
+study_dates <- subids_fu3 %>% 
+  map_dfr(~get_study_days(.x, dates_fu3))
+
+ema <- ema_m %>% 
+  select(subid, start_date) %>% 
+  full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
+  mutate(start_date = date(start_date),
+         subid = as.numeric(subid)) %>% 
+  filter(subid %in% sample_fu3$subid)
+
+ema_count <- ema %>%  
+  count(subid, start_date) %>%
+  mutate(n = if_else(n > 4, 4, as.numeric(n)))
+
+ema_study_dates <- study_dates %>% 
+  left_join(ema_count, by = c("subid", "study_day" = "start_date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 4)
+
+ema_study_weeks <- ema_study_dates %>% 
+  group_by(subid) %>% 
+  slice(1:7) %>% 
+  mutate(week = 1) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(8:14) %>% 
+    mutate(week = 2)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(15:21) %>% 
+    mutate(week = 3)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(22:28) %>% 
+    mutate(week = 4)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(29:35) %>% 
+    mutate(week = 5)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(36:42) %>% 
+    mutate(week = 6)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(43:49) %>% 
+    mutate(week = 7)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(50:56) %>% 
+    mutate(week = 8)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(57:63) %>% 
+    mutate(week = 9)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(64:70) %>% 
+    mutate(week = 10)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(71:77) %>% 
+    mutate(week = 11)) %>% 
+  bind_rows(ema_study_dates %>% 
+    group_by(subid) %>% 
+    slice(78:84) %>% 
+    mutate(week = 12)) %>% 
+  ungroup()
+
+ema_1_week_compliance <- ema_study_weeks %>%
+  mutate(n = if_else(n > 1, 1, n),
+         n_prompts = 1) %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup()
+
+ema_4_week_compliance <- ema_study_weeks %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup()
+
+
+audio <- audio %>% 
+  filter(subid %in% sample_fu3$subid)
+
+audio_count <- audio %>%  
+  count(subid, date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
+
+audio_study_dates <- study_dates %>% 
+  left_join(audio_count, by = c("subid", "study_day" = "date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1)
+
+mean_audio <- audio_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+
+audio_study_weeks <- audio_study_dates %>% 
+  group_by(subid) %>% 
+  slice(1:7) %>% 
+  mutate(week = 1) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(8:14) %>% 
+    mutate(week = 2)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(15:21) %>% 
+    mutate(week = 3)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(22:28) %>% 
+    mutate(week = 4)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(29:35) %>% 
+    mutate(week = 5)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(36:42) %>% 
+    mutate(week = 6)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(43:49) %>% 
+    mutate(week = 7)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(50:56) %>% 
+    mutate(week = 8)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(57:63) %>% 
+    mutate(week = 9)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(64:70) %>% 
+    mutate(week = 10)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(71:77) %>% 
+    mutate(week = 11)) %>% 
+  bind_rows(audio_study_dates %>% 
+    group_by(subid) %>% 
+    slice(78:84) %>% 
+    mutate(week = 12)) %>% 
+  ungroup()
+
+audio_week_compliance <- audio_study_weeks %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup()
+
+
+week_compliance_all <- audio_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance),
+            n = n(),
+            sd = sd(compliance)) %>% 
+  mutate(se = sd/sqrt(n),
+         signal = "Audio Check-in") %>% 
+  bind_rows(ema_4_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (4x Daily)")) %>% 
+  bind_rows(ema_1_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (1x Daily)"))
+
+week_compliance_all %>% 
+  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
+  group_by(week, signal) %>% 
+  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
+  geom_point(size = 2) +
+  geom_line() +
+  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
+                width = .3, size = .3) +
+  theme_classic() +
+  scale_x_continuous(name = "Week", 
+                     breaks = seq(1, 12, 1)) +
+  scale_y_continuous(name = "Compliance", 
+                     breaks = seq(0, 1, .1), 
+                     limits = c(0, 1)) +
+  scale_shape_manual(values = c(19, 1, 17)) +
+  geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
+               group_by(signal) %>% 
+               summarize(mean_compliance = mean(mean_compliance)),
+             linetype = "dashed", size = .3) +
+  labs(title = "Figure S3 <br><br>1X Daily EMA, 4x daily EMA, and audio check-in compliance over time for participants who completed the study",
+       caption = "<i>Note:</i>  Average compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
+  theme(legend.title = element_blank(),
+        legend.text = element_markdown(),
+        legend.position = "bottom",
+        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
+        text = element_text(),
+        plot.title = element_markdown(),
+        plot.subtitle = element_markdown(size = 12, lineheight = 1.25))
+```
+
+
+<!-- ```{r} -->
+<!-- # t-test -->
+<!-- ema_4x_t_test <- ema_4_week_compliance %>% -->
+<!--   group_by(subid) %>% -->
+<!--   summarize(compliance = mean(compliance), .groups = "drop") %>% -->
+<!--   mutate(complete = ifelse(subid %in% subids_fu3$subid, "complete", "incomplete")) -->
+
+<!-- ema_4x_t_test %>% -->
+<!--   group_by(complete) %>% -->
+<!--   summarize(mean = mean(compliance), sd = sd(compliance)) -->
+
+<!-- summary(lm(compliance ~ complete, data = ema_4x_t_test)) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- # t-test -->
+<!-- ema_1x_t_test <- ema_1_week_compliance %>% -->
+<!--   group_by(subid) %>% -->
+<!--   summarize(compliance = mean(compliance), .groups = "drop") %>% -->
+<!--   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete")) -->
+
+<!-- ema_1x_t_test %>% -->
+<!--   group_by(complete) %>% -->
+<!--   summarize(mean = mean(compliance), sd = sd(compliance)) -->
+
+<!-- summary(lm(compliance ~ complete, data = ema_1x_t_test)) -->
+
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- # t-test -->
+<!-- audio_t_test <- audio_week_compliance %>% -->
+<!--   group_by(subid) %>% -->
+<!--   summarize(compliance = mean(compliance), .groups = "drop") %>% -->
+<!--   mutate(complete = ifelse(subid %in% part_complete$subid, "complete", "incomplete")) -->
+
+<!-- audio_t_test %>% -->
+<!--   group_by(complete) %>% -->
+<!--   summarize(mean = mean(compliance), sd = sd(compliance)) -->
+
+<!-- summary(lm(compliance ~ complete, data = audio_t_test)) -->
+
+<!-- ``` -->
+
+----
+
+
+### Audio compliance distribution
+
+Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4 from the manuscript).
+
+```{r}
+# get vector of subids who made it to followup 1 
+subids_fu1 <- visit_dates %>% 
+  filter(!is.na(followup_1)) %>% 
+  pull(subid)
+
+# filter audio and visit dates
+audio_fu1 <- audio %>% 
+  filter(subid %in% subids_fu1)
+dates_fu1 <- visit_dates %>% 
+  filter(subid %in% subids_fu1) %>% 
+  select(subid, start_study, end_study)
+
+# get study dates
+study_dates_fu1 <- subids_fu1 %>% 
+  map_dfr(~get_study_days(.x, dates_fu1))
+
+# count audio surveys per day
+audio_count_fu1 <- audio_fu1 %>%  
+  count(subid, date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
+
+# left join with study dates
+dates_fu1 <- study_dates_fu1 %>% 
+  left_join(audio_count_fu1, by = c("subid", "study_day" = "date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1)
+
+# calculate mean audio compliance
+mean_audio <- dates_fu1 %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+
+# Histogram of overall compliance by subid
+plot_audio_fu1 <- dates_fu1 %>% 
+  group_by(subid) %>% 
+  summarise(n_total = sum(n),
+            n_prompts = sum(n_prompts)) %>% 
+  mutate(compliance = n_total/n_prompts) %>% 
+  ggplot(aes(x = compliance)) +
+  geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .2, center = .5) +
+  scale_x_continuous(breaks = c(0, 0.20, 0.40, 0.60, 0.80, 1.0)) +
+  labs(y = "Frequency", x = "Proportion of audio check-in's completed") +
+  geom_vline(aes(xintercept = mean_audio$mean), linetype = "solid", size = .705, color = "#b44343") +
+  theme_classic()
+
+plot_audio_fu1 +
+ plot_annotation(
+  title = "Figure S4<br><br>Audio Compliance by Participant",
+  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean."
+) &
+  theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
+        text = element_text(),
+        plot.title = element_markdown(size = 12),
+        plot.subtitle = element_markdown(size = 12))
+```
+
 
 -----
 
 ### Analysis on willingness to use EMA one time daily
 
-Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S3 from the manuscript).   
+Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S5 from the manuscript).   
 
 
 ```{r}
@@ -292,7 +657,7 @@ plot_ema_1x <- ema_1x %>%
 
 plot_ema_1x +
  plot_annotation(
-  title = "Figure S3<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
+  title = "Figure S5<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
   caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score."
 ) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
@@ -303,7 +668,8 @@ plot_ema_1x +
 
 
 
-A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S3) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
+
+A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
 
 ```{r}
 model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
@@ -311,40 +677,145 @@ summary(model_ema_1x)
 ```
 
 
-
 Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
 
 ```{r}
 # create long dataframe
-ema_1x_and_4x <- data %>% 
-  select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
-  group_by(subid) %>% 
-  arrange(desc(date)) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
+ema_1x_and_4x <- data %>%
+  select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>%
+  group_by(subid) %>%
+  arrange(desc(date)) %>%
+  slice(1) %>%
+  ungroup() %>%
   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
 
-# t-test
+# # t-test
 m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
 summary(m_ema_1x_and_4x)
 car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
 ```
 
- 
 ----
 
-### Audio compliance distribution
 
-Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4 from the manuscript).
+### Uncorrected pairwise comparisons among personal sensing data streams
+
+Table S1 contains all possible combinations of pairwise comparisons among active and passive personal sensing data streams.   
 
 ```{r}
-# read in audio data
-audio <- vroom::vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
-  mutate(subid = as.numeric(subid))
-
-audio <- audio %>% 
-  filter(subid %in% fu_1$subid)
+# dataframe of last survey
+# pull out last available sleep monitor data since this date will be earlier than last survey date for some
+last_sleep <- data %>% 
+  select(-contains("wristband")) %>% 
+  filter(!is.na(sleep_interfere)) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  select(c(subid, starts_with("sleep_")))
+  
+# pull out most recent survey for each subid
+last_data <- data %>% 
+  select(-c(starts_with("sleep_"), contains("wristband"))) %>% 
+  group_by(subid) %>% 
+  arrange(desc(date)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  # join with sleep data
+  full_join(last_sleep, by = c("subid"))
 ```
+
+
+```{r}
+int_pair <- last_data %>% 
+  select(`EMA` = daily_survey_interfere,
+         `Audio Check-in` = audio_checkin_interfere,
+         `Sleep Quality` = sleep_interfere) %>%
+  pivot_longer(cols = everything(), names_to = "signal") %>% 
+  mutate(signal = factor(signal)) 
+
+# uncomment to only look at comparisons within interference measure
+# pairwise.t.test(int_pair$value, int_pair$signal, p.adj = "none") 
+
+dis_pair <- last_data %>% 
+  select(`EMA` = daily_survey_dislike,
+         `Audio Check-in` = audio_checkin_dislike,
+         `Sleep Quality` = sleep_dislike,
+         `Geolocation` = location_dislike,
+         `Cellular Communication Logs` = all_logs_dislike,
+         `Text Message Content` = sms_content_dislike) %>%
+  pivot_longer(cols = everything(), names_to = "signal") %>% 
+  mutate(signal = factor(signal)) 
+
+# uncomment to only look at comparisons within dislike measure
+# pairwise.t.test(dis_pair$value, dis_pair$signal, p.adj = "none") 
+
+will_pair <- last_data %>% 
+  select(`EMA` = daily_survey_4_1year,
+         `Audio Check-in` = audio_checkin_1year,
+         `Sleep Quality` = sleep_1year,
+         `Geolocation` = location_1year,
+         `Cellular Communication Logs` = all_logs_1year,
+         `Text Message Content` = sms_content_1year) %>%
+  pivot_longer(cols = everything(), names_to = "signal") %>% 
+  mutate(signal = factor(signal)) 
+
+# uncomment to only look at comparisons within willingness measure
+# pairwise.t.test(will_pair$value, will_pair$signal, p.adj = "none") 
+```
+
+ 
+```{r}
+# format table
+tibble(
+  Measure = c("EMA", "Sleep Quality",
+              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content",
+              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content"),
+  "Audio Check-in" = c(
+                       # interference
+                       ".25", "< .001***", 
+                       # dislike
+                       "< .001***", "< .001***", "< .001***", ".001***", ".56", 
+                       # willingness
+                       ".47", ".46", ".14", ".42", ".96"), 
+  "EMA" = c(
+                     # interference
+                     NA, "< .001***", 
+                     # Dislike
+                     NA, ".30", ".56", ".63", ".002**",
+                     # willingness
+                     NA, ".18", ".03*", ".13", ".44"), 
+  "Sleep Quality" = c(
+                      # interference
+                      NA, NA, 
+                      # dislike
+                      NA, NA, ".59", ".15", "< .001***", 
+                      # willingness
+                      NA, NA, ".60", ".97", ".49"), 
+  "Geolocation" = c(
+                 # interference
+                 NA, NA,  
+                 # dislike 
+                 NA, NA, NA, ".29", "< .001***", 
+                 # willingness 
+                 NA, NA, NA, ".50", ".15"), 
+  "Cellular Communication Logs" = c(
+                        # interference
+                        NA, NA, 
+                        # dislike
+                        NA, NA, NA, NA, ".01**", 
+                        # willingness
+                        NA, NA, NA, NA, ".44")) %>% 
+  kbl(align = c("l", "c", "c", "c", "c", "c"),
+      caption = "Table S1<br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability</i>",
+      escape = FALSE) %>% 
+  kable_classic(html_font = "Arial") %>% 
+  pack_rows("Interference", 1, 2, bold = FALSE) %>% 
+  pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
+  pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
+  footnote("Sample size for all personal sensing measures is 154 except for the sleep quality which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
+```
+
 
 
 
@@ -354,14 +825,13 @@ audio <- audio %>%
 
 ### Group differences between continued and discontinued participants
 
-We ran a series of t-tests to compare demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms in participants who continued vs. discontinued. Continued participants included all participants who were used in the study analyses (i.e., completed through first month followup; N = 154). Discontinued participants consisted of eligible participants who did not enroll or discontinued prior to the first month follow-up (N = 36).   
+We ran a series of t-tests to compare demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms in participants who continued vs. discontinued. Continued participants included all participants who were used in the study analyses (i.e., completed through first month followup; N = 154). Discontinued participants consisted of eligible participants who did not enroll or discontinued prior to the first month follow-up (N = 36). We found no significant differences between groups (Table S2).     
 
-Prepare data for analyses
+
 ```{r}
-# read in additional data on participant disposition
+# read in additional data on participant dipsosition
 screen <- read_csv(file.path(path_shared, "screen.csv"), col_types = cols()) 
-# uncomment if we remove supplemental audio compliance distribution figure
-# disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols()) 
+disposition <- read_csv(file.path(path_data, "disposition.csv"), col_types = cols()) 
 
 # remove ineligible participants
 eligible_sample <- disposition %>%  
@@ -473,161 +943,88 @@ screen_combined <- screen %>%
             employment, marrital_status)) 
 ```
 
-Run t-tests
-```{r}
-# pivot longer
-screen_combined_long <- screen_combined %>% 
-  select(-subid) %>% 
-  mutate(education = as.numeric(education)) %>% 
-  pivot_longer(-disposition, names_to = "variables", values_to = "value")
-
-screen_combined_long %>%
-  group_by(variables) %>%
-  t_test(value ~ disposition) %>%
-  select(` ` = variables,
-         t = statistic,
-         df,
-         p) %>% 
-  kbl(digits = 2,
-      align = c("l", "c", "c", "c"),
-      caption = "<b>Table S1<br><br>Pairwise T-tests to Compare Group Differences between Continued (N = 154) and Discontinued (N = 36) Participants</b>") %>% 
-  kable_classic(html_font = "Arial")
-```
-
-
------
 
 
 
-### Uncorrected pairwise comparisons among personal sensing data streams
-
-
-
-
-Prepare data for analyses
-```{r}
-# dataframe of last survey
-# pull out last available sleep monitor data since this date will be earlier than last survey date for some
-last_sleep <- data %>% 
-  select(-contains("wristband")) %>% 
-  filter(!is.na(sleep_interfere)) %>% 
-  group_by(subid) %>% 
-  arrange(desc(date)) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
-  select(c(subid, starts_with("sleep_")))
-  
-# pull out most recent survey for each subid
-last_data <- data %>% 
-  select(-c(starts_with("sleep_"), contains("wristband"))) %>% 
-  group_by(subid) %>% 
-  arrange(desc(date)) %>% 
-  slice(1) %>% 
-  ungroup() %>% 
-  # join with sleep data
-  full_join(last_sleep, by = c("subid"))
-```
-
-
-Run pairwise comparisons
-```{r}
-int_pair <- last_data %>% 
-  select(`EMA` = daily_survey_interfere,
-         `Audio Check-in` = audio_checkin_interfere,
-         `Sleep Quality` = sleep_interfere) %>%
-  pivot_longer(cols = everything(), names_to = "signal") %>% 
-  mutate(signal = factor(signal)) 
-
-# uncomment to only look at comparisons within interference measure
-# pairwise.t.test(int_pair$value, int_pair$signal, p.adj = "none") 
-
-dis_pair <- last_data %>% 
-  select(`EMA` = daily_survey_dislike,
-         `Audio Check-in` = audio_checkin_dislike,
-         `Sleep Quality` = sleep_dislike,
-         `Geolocation` = location_dislike,
-         `Cellular Communication Logs` = all_logs_dislike,
-         `Text Message Content` = sms_content_dislike) %>%
-  pivot_longer(cols = everything(), names_to = "signal") %>% 
-  mutate(signal = factor(signal)) 
-
-# uncomment to only look at comparisons within dislike measure
-# pairwise.t.test(dis_pair$value, dis_pair$signal, p.adj = "none") 
-
-will_pair <- last_data %>% 
-  select(`EMA` = daily_survey_4_1year,
-         `Audio Check-in` = audio_checkin_1year,
-         `Sleep Quality` = sleep_1year,
-         `Geolocation` = location_1year,
-         `Cellular Communication Logs` = all_logs_1year,
-         `Text Message Content` = sms_content_1year) %>%
-  pivot_longer(cols = everything(), names_to = "signal") %>% 
-  mutate(signal = factor(signal)) 
-
-# uncomment to only look at comparisons within willingness measure
-# pairwise.t.test(will_pair$value, will_pair$signal, p.adj = "none") 
-```
-
-Create table of p-values  
-```{r}
-# format table
-tibble(
-  Measure = c("EMA", "Sleep Quality",
-              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content",
-              "EMA", "Sleep Quality", "Geolocation", "Cellular Communication Logs", "Text Message Content"),
-  "Audio Check-in" = c(
-                       # interference
-                       ".25", "< .001***", 
-                       # dislike
-                       "< .001***", "< .001***", "< .001***", ".001***", ".56", 
-                       # willingness
-                       ".47", ".46", ".14", ".42", ".96"), 
-  "EMA" = c(
-                     # interference
-                     NA, "< .001***", 
-                     # Dislike
-                     NA, ".30", ".56", ".63", ".002**",
-                     # willingness
-                     NA, ".18", ".03*", ".13", ".44"), 
-  "Sleep Quality" = c(
-                      # interference
-                      NA, NA, 
-                      # dislike
-                      NA, NA, ".59", ".15", "< .001***", 
-                      # willingness
-                      NA, NA, ".60", ".97", ".49"), 
-  "Geolocation" = c(
-                 # interference
-                 NA, NA,  
-                 # dislike 
-                 NA, NA, NA, ".29", "< .001***", 
-                 # willingness 
-                 NA, NA, NA, ".50", ".15"), 
-  "Cellular Communication Logs" = c(
-                        # interference
-                        NA, NA, 
-                        # dislike
-                        NA, NA, NA, NA, ".01**", 
-                        # willingness
-                        NA, NA, NA, NA, ".44")) %>% 
-  kbl(align = c("l", "c", "c", "c", "c", "c"),
-      caption = "<b>Table S2<br><br>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability</b>",
-      escape = FALSE) %>% 
-  kable_classic(html_font = "Arial") %>% 
-  pack_rows("Interference", 1, 2, bold = FALSE) %>% 
-  pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
-  pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
-  footnote("Sample size for all personal sensing measures is 154 except for the sleep quality which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
-```
 
 
 ----
 
 ### Participant free-responses to each personal sensing measure
 
+We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Supplemental tables 3-7 in manuscript).
+
+```{r}
+# read in comments
+comments_audio <- vroom(file.path(path_data, "comments_audio.csv"), col_types = vroom::cols())
+comments_location <- vroom(file.path(path_data, "comments_location.csv"), col_types = vroom::cols())
+comments_phone <- vroom(file.path(path_data, "comments_phone.csv"), col_types = vroom::cols())
+comments_sleep <- vroom(file.path(path_data, "comments_sleep.csv"), col_types = vroom::cols())
+comments_survey <- vroom(file.path(path_data, "comments_survey.csv"), col_types = vroom::cols())
+```
+
+#### Audio Check-in
+```{r}
+comments_audio %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S3<br><br><i>Participant Free Response Comments about Audio Check-in (N = 154)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
 
 
+#### Geolocation
+
+*FIX: Only 153 comments for some comments - see which subid is missing*
+
+```{r}
+comments_location %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S4<br><br><i>Participant Free Response Comments about Geolocation (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
 
 
+#### Cellular Communications and Text Message Logs
+```{r}
+comments_phone %>% 
+  unite("Positive", `positive/informative`:`positive/uninformative`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S5<br><br><i>Participant Free Response Comments about Cellular Communications and Text Message Content (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
+
+#### Sleep Quality
+```{r}
+comments_sleep %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S6<br><br><i>Participant Free Response Comments about Sleep Quality (N = 78)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
 
 
+#### EMA
+```{r}
+comments_survey %>% 
+  unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
+  select(Text = text, Positive, Negative) %>% 
+  kbl(caption = "Table S7<br><br><i>Participant Free Response Comments about 4x Daily EMA (N = 153)</i>") %>% 
+  kable_classic(html_font = "Arial",
+                lightable_options = "striped") %>% 
+  scroll_box(height = "800px")
+```
