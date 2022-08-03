@@ -176,26 +176,6 @@ disp <- vroom(here(path_burden, "disposition.csv"), col_types = vroom::cols())
 
 
 
-<!-- Need to decide on terminology RE mental health, mental illness, psychatric disorders.   Currently we use mental health in the context of health generally and then psychiatric disorders.   Lets make sure we use these two terms consistently-->
-
-<!--Density, depth, and duration.  Report for EMA in method--->
-
-
-<!--Resolved formatting issues below:--> 
-<!-- I cannot seem to improve tables any further - still need to control width, change spacing (maybe single?) to fit on a single page, and get line returns in footnote to work. I have latex line breaks and it looks like it is trying to add a new line based on weird spacing in knit file but I think it might be interfering with papaja template. Additionally, I cannot seem to color the tables as I did in word. -->  
-
-<!-- https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_pdf.pdf-->
-<!-- Kendra line return in footnotes solved, see table 3 -->
-<!-- Kendra we can use kable_styling(latex_options = "scale_down") if you want to shrink tables to fit on a single page. However it doesn't work on longtable/threeparttable so those would need additional formatting. Looking at JMIR's example doc, i'm not clear that this is required, as it says they'll do it during typesetting.-->
-
-<!-- My figures are also at a standstill - outstanding issues include placement (I can not seem to alter the float parameter to get the figures to stay in the correct manuscript place) and fig.caption parsing error where figure# appears after Figure X.-->  
-
-<!-- @Kendra re: fig placement: Although they're now moved to end, if wanted in text, use fig.pos and (out.extra="" or out.width="x%") in chunk options. It won't respect fig.pos setting unless a) at least one of those other two is specified and b) there is enough room where you want it, so you can always start with out.width="50%" just to force them where you wanted them. -->
-
-<!-- @Kendra re: fig.caption parsing error: 2 issues here. 1) figure names cannot have spaces or underscores, I replaced them with hyphens; 2) fig.cap must be specified for it to be inserted into latex's figure workspace.-->
-
-<!-- @Kendra re: line breaks in figure captions: use \\linebreak and the added usepackage{caption} where it specifies allowing ragged right margin. https://mirror.math.princeton.edu/pub/CTAN/macros/latex/contrib/caption/caption-eng.pdf for further documentation -->
-
 ## Personal Sensing
 
 The World Health Organization's Global Observatory for eHealth has concluded that "the use of mobile and wireless technologies to support the achievement of health objectives has the potential to transform the face of health service delivery across the   globe" [@whoglobalobservatoryforehealthMHealthNewHorizons2011]. This conclusion applies to research and care for mental health as well as other traditional health services. These opportunities are now possible in part because of rapid advances in smartphone and related mobile technologies [@majumderSmartphoneSensorsHealth2019] and high levels of smartphone access across race, socioeconomic status, geographic region, and other demographic characteristics [@pewresearchcenterMobileFactSheet2021].
@@ -208,7 +188,7 @@ More recently, mental health relevant research using personal sensing of raw dat
 
 Personal sensing is a powerful tool for mental health research[@shiffmanEcologicalMomentaryAssessment2008]. These data are inherently longitudinal, which allows observation of the temporal ordering for putative etiologic mechanisms and their effects. Longitudinal measurement is also critical for many mental health constructs that display meaningful, and often frequent, temporal variation within person (e.g., psychiatric symptoms). Measures based on personal sensing data generally have high ecological validity because they are collected in situ.  Personal sensing measures also have low retrospective bias because they are often collected in real-time. Furthermore, personal sensing can derive measures from raw data streams (e.g., in situ behavior, physiology, interpersonal interactions) that are difficult or even impossible to obtain through other traditional research measurement methods.
 
-Personal sensing may have even higher value in the future for mental health applications that target patient mental health care than it does for research[@huckvaleClinicalDigitalPhenotyping2019; @onnelaHarnessingSmartphoneBasedDigital2016; @torousRealizingPotentialMobile2015].<!--KW: All the citations in this paragraph are focussed on passive/more novel personal sensing methods. I wonder if we should make this clear in the topic sentence. Maybe "Personal sensing may have even higher value in the future for mental health applications that target patient mental health care as more passive and novel data streams become feasible."--> Data collected by personal sensing methods may be used for preliminary screening for psychiatric disorders [@eichstaedtFacebookLanguagePredicts2018; @razaviDepressionScreeningUsing2020]. These methods can also be used to monitor psychiatric symptoms or even predict future risk for symptom reoccurrence, relapse, or other harmful behaviors (e.g., suicide attempts)[@barnettRelapsePredictionSchizophrenia2018; @chihPredictiveModelingAddiction2014; @epsteinPredictionStressDrug2020; @jashinskyTrackingSuicideRisk2013; @jacobsonPassiveSensingPrediction2020]. Personal sensing measures or risk indicators may be shared with health care providers to allow for cost effective, targeted allocation of limited mental health resources to patients with greatest or most urgent need [@quanbeckIntegratingAddictionTreatment2014]. Personal sensing has the potential to support precision mental health care by adapting and timing interventions based on characteristics of the patient and the moment in time [@nahum-shaniJustinTimeAdaptiveInterventions2018; @aggarwalAdvancingArtificialIntelligence2020; @kaiserObamaGivesEast2015]. To be clear, these applications of personal sensing are currently aspirational rather than available for clinical implementation today. However, clinical research is advancing us rapidly toward these goals [@moshontzProspectivePredictionLapses2021; @chihPredictiveModelingAddiction2014; @sheikhWearableEnvironmentalSmartphoneBased2021; @baiTrackingMonitoringMood2021].
+Personal sensing may have even higher value in the future for mental health applications that target patient mental health care than it does for research[@huckvaleClinicalDigitalPhenotyping2019; @onnelaHarnessingSmartphoneBasedDigital2016; @torousRealizingPotentialMobile2015]. Data collected by personal sensing methods may be used for preliminary screening for psychiatric disorders [@eichstaedtFacebookLanguagePredicts2018; @razaviDepressionScreeningUsing2020]. These methods can also be used to monitor psychiatric symptoms or even predict future risk for symptom reoccurrence, relapse, or other harmful behaviors (e.g., suicide attempts)[@barnettRelapsePredictionSchizophrenia2018; @chihPredictiveModelingAddiction2014; @epsteinPredictionStressDrug2020; @jashinskyTrackingSuicideRisk2013; @jacobsonPassiveSensingPrediction2020]. Personal sensing measures or risk indicators may be shared with health care providers to allow for cost effective, targeted allocation of limited mental health resources to patients with greatest or most urgent need [@quanbeckIntegratingAddictionTreatment2014]. Personal sensing has the potential to support precision mental health care by adapting and timing interventions based on characteristics of the patient and the moment in time [@nahum-shaniJustinTimeAdaptiveInterventions2018; @aggarwalAdvancingArtificialIntelligence2020; @kaiserObamaGivesEast2015]. To be clear, these applications of personal sensing are currently aspirational rather than available for clinical implementation today. However, clinical research is advancing us rapidly toward these goals [@moshontzProspectivePredictionLapses2021; @chihPredictiveModelingAddiction2014; @sheikhWearableEnvironmentalSmartphoneBased2021; @baiTrackingMonitoringMood2021].
 
 Mental health research and applications with emerging, often more passively sensed, novel data streams like geolocation and cellular communications is still nascent.  This research has predominately involved "proof-of-concept" studies that typically include only healthy controls or other convenience samples rather than patients with psychiatric disorders [@razaviDepressionScreeningUsing2020; @jacobsonDigitalBiomarkersSocial2020; @wangExaminingCorrelationDepression2021].  It has also often used very small sample sizes and/or short monitoring periods [@palmiusDetectingBipolarDepression2016; @jacobsonDigitalBiomarkersSocial2020; @kleimanUsingWearablePhysiological2019; @kleimanCanPassiveMeasurement2021].  Recent reviews of this emerging literature have highlighted gaps in reporting on participant exclusions, attrition, and compliance that are necessary to assess selection biases and feasibility of these more novel personal sensing methods [@deangelDigitalHealthTools2022; @ortizAppsGapsBipolar2021; @faurholt-jepsenSmartphonebasedObjectiveMonitoring2018].
 
@@ -237,29 +217,6 @@ This study reports on the acceptability of both active and passive personal sens
 
 
 # Methods
-
-<!--Comments from Hannah to Address
-I think that the distinction between active/passive doesn't belong in the methods section and should come earlier. I think we can then just use subheadings of 'active' and 'passive' in the methods > procedure section.
-
-Similarly, the explanation of how acceptability was operationalized and what the compensation scheme was might be better suited to sections other than the measures section (which I see as typically giving very precise operationalization information rather than procedural info or study design reasoning). I'd recommend providing a list of the variables rather than a narrative / paragraph.
-
-Same basic point, but since we refer to variables later ("dislike", "willingness to use for one year"), I think we should define these variables explicitly in a list in the measures section rather than in a narrative paragraph.
-
-Some sections are a little wordy -- didn't feel necessary to cut down, but if we are up against space limitations, I can suggest some more concise language throughout the methods section.
-
-There is some flip-flopping between passive voice and active voice in this section (e.g., between the subsections of the personal sensing header in procedure). I find passive voice more readable, personally, but most of the section is in active voice.
-
-I think that the personal sensing section in the procedure fits better in the measures section and is consistent with the choice to describe the surveys there.
-
-I think any 'individual differences' variables that we report in this study (like in tables) should be listed in the measures section rather than in the appendix.
-
-There is some redundant information in the analysis strategy section (e.g., the first sentence of the self-reported acceptability subsection). Also, this section seems to introduce new information about the timing of measurement.
-
-I disagree that one-sample t-tests can tell us about polarization. When I read 'to detect polarized perceptions' I'm expecting something that can test whether a distribution is bimodal.
-I'd suggest just cutting the clause on line ~311.
-
-I think it's worth leveraging the error-prevention benefits of Rmd and swapping out the typed numbers in text for printed stored variables or in-line computations.
--->
 
 ## Research Transparency
 
@@ -353,7 +310,7 @@ Participants responded to the three self-report items related to acceptability (
 
 Participants responded to these items at each monthly follow-up visit. Therefore, participants had up to 3 responses for each item depending on when they ended their participation. We analyzed their last available response in our primary analyses to allow us to include all participants and to represent their final perception of each personal sensing signal. However, mean responses across each time point remained relatively constant for all signals (see Figure S2 in Multimedia Appendix 3).
 
-To detect polarized perceptions of the personal sensing signals (i.e., mean responses to any items that are different from 0/undecided), we conducted one sample t-tests for the three self-report items for each personal sensing signal. To examine relative perceptions of the signals, we compared perceptions of the active vs. passive categories of signals using within-sample t-tests for dislike and willingness to use for 1 year ^[Participants did not provide ratings of interference for passive signals so the comparisons of active vs. passive categories were limited to dislike and willingness to use for 1 year. Also, due to high proportion of missing data for the sleep monitor, we excluded this signal from these analyses and the intra-class correlations described next.]. We also report pairwise comparisons among all personal sensing signals using within-sample t-tests for each of the three self-report items in Table S1 in Multimedia Appendix 3.
+To detect mean perceptions of the personal sensing signals that diverge from neutral (i.e., mean responses to any items that are different from 0/undecided), we conducted one sample t-tests for the three self-report items for each personal sensing signal. To examine relative perceptions of the signals, we compared perceptions of the active vs. passive categories of signals using within-sample t-tests for dislike and willingness to use for 1 year ^[Participants did not provide ratings of interference for passive signals so the comparisons of active vs. passive categories were limited to dislike and willingness to use for 1 year. Also, due to high proportion of missing data for the sleep monitor, we excluded this signal from these analyses and the intra-class correlations described next.]. We also report pairwise comparisons among all personal sensing signals using within-sample t-tests for each of the three self-report items in Table S1 in Multimedia Appendix 3.
 
 Finally, we conducted two analyses to examine the consistency of perceptions across personal sensing signals (e.g., do participants who dislike one signal also dislike the other signals?). First, we calculated bivariate correlations among the personal sensing signals for each item. Second, we calculated intraclass correlations (single, case 3 [@shroutIntraclassCorrelationsUses1979]) separately for each item to quantify agreement in participants' perceptions across the signals.
 
@@ -796,12 +753,8 @@ Study phases where we lost eligible participants are highlighted in red in Figur
 
 ### Opt-In and Compliance
 
-<!-- KW - descriptives below are based on our analysis sample (N = 154). Not sure if we should clarify this somewhere. Especially since percentages above are based on starting sample (N = 192).-->
-
-<!--JJC - participatns didnt "opt-in" for EMA.   It was required.  Not sure about sleep or audio-->
 All participants (100%) opted-in to provide data for EMA, sleep quality, and all passive personal sensing methods (geolocation, cellular communication logs, text message content). Three participants (2%) did not provide any audio check-ins while on study. 
 
-<!--reference fig S4 - histogram for audio check-in compliance?-->
 Daily compliance rates were relatively high for EMA such that 94% of participants completed at least 1 of the 4 EMAs every day. On average, participants completed 3.2 EMAs every day. The overall compliance rate for all requested EMAs was 81%. Participants' completion rate for the audio check-in was 55%. That is, of their total days on study, participants completed an audio check-in on approximately half of them. Figure 2 shows mean weekly compliance with each of these methods for each week on study. In Multimedia Appendix 3 we also report compliance for participants who completed the 3-month study compared to those who dropped out prior to completion (Figure S3 in Multimedia Appendix 3).
 
 
@@ -864,7 +817,6 @@ footnote_table_3a <- "These participants are labeled as `Not Enrolled' in Figure
 footnote_table_3b <- "These participants are labeled as `Discontinued' in Figure 1." 
 footnote_table_3c <- "These participants are labeled as `Participated through 1st month follow-up' or `Participated through 2nd month follow-up' in Figure 1."
 ```
-<!-- Kendra two notes here. First, linebreaks don't work in footnotes, but you can have separate footnotes that appear on separate lines. See below for syntax. Also, I fixed the open single quote not rendering correctly by replacing it with a backtick-->
 
 
 ```{r table-3}
@@ -889,7 +841,7 @@ a %>%
   pack_rows("Enrolled participants discontinued after the first month follow-up$^c$", 14, 22, bold = FALSE, escape = FALSE) %>% 
   footnote(general=footnote_table_3, alphabet = c(footnote_table_3a, footnote_table_3b, footnote_table_3c), threeparttable = TRUE, escape = FALSE)
 ```
-<!-- General footnotes are not preceded by anything, alphabet by a letter, you can also specify symbol=c(). Anything in the c() will appear on separate lines with the specified initial marker-->
+
 \newpage
 
 ## Self-reported Acceptability
@@ -981,8 +933,6 @@ Figure 4 shows the distribution of participant responses to the self-reported ac
 We also assessed the effect of active effort on dislike ratings (Figure 5). We conducted a paired samples t-test to compare the average dislike for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) methods. Participants did not significantly differ in their dislike of active vs. passive methods, $t(153)$ = `r round(broom::tidy(summary(model_dislike))$statistic, 2)`, $p$ = `r round(broom::tidy(summary(model_dislike))$p.value, 2)`, $d$ = `r round((mean(data_dislike$Passive) - mean(data_dislike$Active)) / sd(data_dislike$dislike_diff), 2)`. 
 
 ### Willingness to Use for 1 Year
-
-<!--KW: Need to reference fig S5 - willingness to do 1x EMA for 1 year if we mention in discussion.-->
 
 Figure 6 shows the distribution of participant responses to the self-reported acceptability item about willingness to use for 1 year for each personal sensing data stream. One sample t-tests revealed that each mean willingness score was significantly more acceptable than 0. Table 6 reports the summary statistics for each one sample t-test and pairwise correlations between personal sensing data streams. An ICC (type 3) showed that, on average, the willingness ratings were moderately consistent across the data streams, ICC = .52, 95% CI = [.46 - .58].
 
@@ -1129,11 +1079,7 @@ corrplot_will %>%
 This study evaluated the acceptability of active and passive personal sensing methods for a variety of raw data streams and associated methods.  To this end, we assessed participants’ subjective perceptions of each sensing method and their choices/behaviors about both participating in the study and providing raw data streams for each method.  We focused on participants with moderate to severe alcohol use disorder because they might have been expected to be less willing to share sensitive, private information due to the stigma associated with their disorder [@kilianStigmatizationPeopleAlcohol2021].  However, if these sensing methods were acceptable to them, highly promising opportunities are now emerging to address their largely unmet treatment needs [@substanceabuseandmentalhealthservicesadministrationKeySubstanceUse2020] with technological solutions that include digital therapeutics combined with personal sensing [@tedxtalksMentalHealthcareOur2022].  We organize our discussion around 7 key conclusions from our analyses.
 
 
-## 1. Individuals with alcohol use disorder will generally accept the use of personal sensing methods
-
-<!--  * consent, enroll, opt-in at high rates
-	    * Even true for sensitve/private info like geolocation and celluar communications
-     	* Room for improvements in perceptions for all methods.-->   
+## 1. Individuals with alcohol use disorder will generally accept the use of personal sensing methods 
 
 It appears that a large majority of individuals with alcohol use disorder are indeed willing to provide these sensitive, personally sensed raw data streams based on their behavioral choices regarding consent, enrollment, and opt-in for data collection in this study.  All but one of the individuals (191/192; 99.5%) who were eligible to participate consented to the personal sensing procedures.  Most of these individuals also returned one week later to formally enroll in the study and begin to provide these data (169/191; 88%).  Furthermore, all (169/169; 100%) of the participants who enrolled in the study explicitly opted-in to provide the three arguably most sensitive passive data streams - geolocation, cellular communication logs, and text message content.  
 
@@ -1144,14 +1090,7 @@ Participants' explicit self-report of their perceptions about the acceptability 
 Despite the aggregate positive perceptions of the full sample, non-trivial percentages of participants did report individual ratings that were more negative than the neutral mid-point across sensing methods and specific self-report items. For example, 18% of participants agreed or strongly agreed that the audio check-ins interfered with their daily activities.  Approximately 25% of participants agreed or strongly agreed that they disliked both the audio check-ins (27%) and providing access to the content of their text messages (22%).  And approximately 20% of participants disagreed or strongly disagreed that they would be willing to use our sensing methods for audio check-ins (16%), EMA (23%), and text message content (15%) for 1 year to help their recovery.  This suggests that there is still need to improve each of these sensing methods to make them more acceptable to a larger percentage of individuals.  The free response evaluations of each method (Tables S3 -- S7 in Multimedia Appendix 3) provide a starting point to address participant concerns.  That said, our participants did generally opt-in and comply with our sensing methods despite reporting these concerns.  Therefore, it is not clear yet at what threshold these concerns will translate to barriers for use or compliance with these methods.  
 
 ## 2.  Individuals can sustain the use of personal sensing for relatively long periods
-<!--	* Good compliance generally for three months
-	    * Relative low attrition for three months
-	    * self report on use for up to one year
-     	* Three months still not long enough.  Need research on longer use within clinical applications
-    	* Tie back to chronic disease model to make point that the need for monitoring will be very long-term.-->
 
-<!--need to find a better way to describe the combined subsamples of discontinued and those who did not compete-->
-<!--no longer interested is included in personal sensing reasons in results.   Decide and be consistent-->
 Most enrolled participants were also able to sustain their commitment to provide these sensed data streams over time.  More than 91% (154/169) provided at least one month of sensed data and a large majority (133/169; 79%) provided data for all three months. As with enrollment statistics, these numbers also likely underestimate participants' ability to sustain personal sensing because many of the participants who discontinued or did not complete the study reported reasons to stop their participation that were unrelated to personal sensing (e.g., family crisis, relapse, moved out of state).  However, some participants (N = 4) did explicitly report reasons that appeared related to personal sensing (e.g., study demands too burdensome).  Additionally, others who stopped participating may have been influenced by their experiences with personal sensing without formally reporting those concerns.  
 
 Participants who enrolled but then discontinued because of the personal sensing methods may have been influenced more by issues related to the burden associated with active sensing rather than more general issues related to data sensitivity/privacy.  Participants concerned about sharing passively sensed private information such as their moment by moment location or cellular communications would likely have had these concerns from the beginning such that they would not have consented, enrolled, and then opted-in to provide these sensitive data.  However, the burden associated with active sensing (e.g., 4x daily EMA, daily audio check-ins) may not have been clear to them until they tried to sustain those methods over time. 
@@ -1207,15 +1146,12 @@ There was some evidence that participants found passive sensing methods to be mo
 
 Some sensing methods (e.g., EMA, audio check-ins) will always require active input from users but other methods may become more passive with further technological advances.  For example, our sensing of sleep quality in this study made use of an early version of the Beddit sleep monitor that required participants to actively log when they entered and exited their bed during each period of sleep.   However, later versions of the Beddit detect periods of sleep automatically. Similarly, we discontinued sensing of physiology with the Empatica E4 in an early phase of our study because participants had to manually connect the wristband each night to a tablet to upload their data.  This proved too burdensome and complex for most participants.  However, the current version of the Empatica E4 claims to have improved automatic bluetooth streaming of the data to the cloud, which if robust, would greatly reduce the burden associated with physiology sensing.
 
-The acceptability of active sensing methods, likely to be made more acceptable by technological improvements over time, holds great clinical utility. Active personal sensing methods such as EMA offer unique insight into patient experiences, thoughts, and feelings that cannot always be captured accurately or comprehensively by passive methods. Self-report EMA in particular seems likely to maintain a role in risk monitoring and other, similar clinical applications. Thus, we were encouraged to find that even with relatively high active burden of 4X daily surveys, EMA was acceptable to participants as assessed via self-report and behavioral compliance. 
+The acceptability of active sensing methods holds great clinical utility. Active personal sensing methods such as EMA offer unique insight into patient experiences, thoughts, and feelings that cannot always be captured accurately or comprehensively by passive methods. Self-report EMA in particular seems likely to maintain a role in risk monitoring and other, similar clinical applications. Thus, we were encouraged to find that even with relatively high active burden of 4X daily surveys, EMA was acceptable to participants as assessed via self-report and behavioral compliance. 
 
 
 ## 4. Important individual differences in subjective perceptions exist both within and across personal sensing methods.
-<!--	* ICCs
-	    * Free response about daily check in.  Some hate, some love.  Some do it well, some not at all.
-	    * Raise options for opt-in algorithms-->
 
-We included a second <!--We also called sleep active but we dont say much about it here in this section--> and more novel daily active sensing method in this study, audio check-ins.  These audio check-ins have high potential as a rich source of information about participants' daily experiences.  Natural language processing of transcripts of their check-ins can provide a novel window into their thoughts [@tausczikPsychologicalMeaningWords2010; @tackmanDepressionNegativeEmotionality2019; @jacobucciUseTextbasedResponses2021; @lowNaturalLanguageProcessing2020]. These audio check-ins provided participants the opportunity to share more openly and candidly (i.e., without close-ended questions) their thoughts, feelings, and progress towards recovery without being limited to researcher-selected prompts. Analyses of the acoustic characteristics of their check-ins may yield independent measures of their affective state [@beloualiAcousticLanguageAnalysis2021; @faurholt-jepsenVoiceAnalysisObjective2016], including the potential for affect outside of a participant's conscious awareness. 
+We included a second and more novel daily active sensing method in this study, audio check-ins.  These audio check-ins have high potential as a rich source of information about participants' daily experiences.  Natural language processing of transcripts of their check-ins can provide a novel window into their thoughts [@tausczikPsychologicalMeaningWords2010; @tackmanDepressionNegativeEmotionality2019; @jacobucciUseTextbasedResponses2021; @lowNaturalLanguageProcessing2020]. These audio check-ins provided participants the opportunity to share more openly and candidly (i.e., without close-ended questions) their thoughts, feelings, and progress towards recovery without being limited to researcher-selected prompts. Analyses of the acoustic characteristics of their check-ins may yield independent measures of their affective state [@beloualiAcousticLanguageAnalysis2021; @faurholt-jepsenVoiceAnalysisObjective2016], including the potential for affect outside of a participant's conscious awareness. 
 
 Unfortunately, overall participant compliance with the daily audio check-ins was relatively low (on average 55% of audio check-ins completed) and 2% of the sample did not complete any check-ins throughout their entire study period. Participants' free-response evaluations of this method highlighted some concerns that could be addressed in the future to increase compliance (e.g., timing of the check-ins, technical issues with recording and sending check-ins, use of the same prompt for all check-ins).  However, privacy issues related to recording the audio check-in were also reported by many participants.  As examples of this concern, participants reported:     
 
@@ -1239,9 +1175,6 @@ Consistent with this somewhat polarized evaluation of the audio check-ins, a mor
 	
 More broadly, participants' self-reported perceptions were only moderately consistent across the different sensing methods.  This can be seen in the moderate ICCs (and bivariate correlations) across methods for each self-report item.  In other words, high dislike ratings for one sensing method by a specific participant did not strongly indicate that this same participant would also dislike the other sensing methods.  This is also true for ratings of interference and willingness to use for 1 year items.  Participants could dislike (or be unwilling to use, etc) one method but not others.  To the degree to which concerns are method-specific, opportunities may exist to tailor sensing systems to user preferences.  In other words, participants could opt-out of methods they deemed unacceptable but provide those other sensing methods that were acceptable to them.  For example, our behavioral compliance data suggest that some participants would not have completed the study if daily audio check-ins were required, yet they were willing to provide data via other personal sensing methods. Algorithms that use sensed data for clinical applications could then be developed for different combinations of available raw data streams.  Participants could be educated that personalized algorithms will likely perform better if given access to more raw data streams. This education will allow them to make an informed choice as to the threshold they set for themselves to opt-out and the potential consequences of not providing that data source.  However, allowing them to opt-out of some methods may increase the number of participants who will agree to provide sensed data. 
 	
- 
-
-
 ## 5.  Benefits likely matter
 <!--	* Benefits not formally assessed in our study
 	    * Monetary incentives may have helped in our study.
@@ -1271,14 +1204,6 @@ Given this, the acceptability of personal sensing may be higher than observed in
 
 
 ## 6.  Trust likely matters
-<!--	* Research studies well positioned for trust (describe protections, etc)
-	    * Free responses
-	    * Established literature
-     	* Not same for everyone
-   		* SUD;  Our sample was willing to report illegal drug use as well as alcohol use
-	  	* other marginalized groups
-	  	* not well represented in our study
-	  	* actions that need to be implemented-->
 
 Trust is also likely to affect the overall acceptability of personal sensing data, which are inherently private and sensitive in nature.  Acceptability may depend on who employs personal sensing and who has access to the raw and processed data [@atienzaConsumerAttitudesPerceptions2015; @riegerPsychiatryOutpatientsWillingness2019; @rendinaPrivacyTrustData2018; @nicholasRoleDataType2019; @prasadExposingPrivacyConcerns2011].  The available evidence suggests that people are more comfortable sharing private, sensitive information with researchers and their doctor and less comfortable sharing information with family members, electronic health record databases, and third party apps and websites [@rendinaPrivacyTrustData2018; @nicholasRoleDataType2019; @prasadExposingPrivacyConcerns2011].
 
@@ -1307,8 +1232,6 @@ Trust and related privacy concerns may also be more difficult to overcome in his
 
 
 ## 7.  Feasibility is a function of more than participant perceptions of acceptabilty
-<!--	* cost/accessibility - smartphone is better than wearables
-     	* Churn-->
 
 Of course, user acceptance of personal sensing methods is necessary but not sufficient to expand use of these methods in research and clinical implementations.  A variety of other key issues may facilitate or present barriers to wider use of personal sensing.  These include cost and accessibility, stability over time, and the utility of personal sensing relative to other more traditional methods.  
 
@@ -1331,70 +1254,11 @@ High rates of churn can also affect the perceived acceptability of the software.
 > "There were problems with the sleep monitor in that I was not able to activate the monitor when I was going to sleep." 
 
 	
-## Future Directions?
-
-<!-- * Technology is here now
-     * Smart phone is king
-     * Other sensors will become more accessible/feasible in the future.  
-     * Acceptable to many/most even in this stigmatized population.  
-     * Briefly highlight the potential of Smart Digital Therapeutics--> 
+## Future Directions
 
 The present study demonstrates the acceptability of several personal sensing methods. These methods were acceptable 1) over a longer period of time than has previously been assessed, 2) across active and passive methods, 3) despite the sensitivity of the data, 4) among individuals with alcohol use disorder who may have greater stigma or privacy concerns, and 5) without explicit clinical benefits to the participants. These findings suggest personal sensing methods are poised as accessible, feasible avenues to collect data about individuals to be used for clinical applications. More work is needed to determine the predictive utility of the data that can be collected via personal sensing, but our study shows that this work will be worthwhile to pursue. 
 
 Personal sensing is acceptable, and the technology to collect it (namely, the smartphone) is widely accessible. Personal sensing can make digital therapeutics - smartphone and web-based apps that provide mental healthcare - smart. These methods can personalize care for individuals such that they receive the specific interventions and supports they need at the time they need them. Smart digital therapeutics can be scaled widely to provide treatment to the overwhelming majority of individuals who do not currently receive mental healthcare. They can reach those who have been historically excluded from or have otherwise faced barriers to care. With personal sensing powering digital therapeutics, we are positioned for a paradigm shift in mental healthcare. The present study brings us one step closer to this goal, ensuring that the methods we hope to use to revolutionalize care are acceptable to the patients who will use them.
-
-
-
-
-
-
-
-
-
-
-## Unused old text from JJC
-
-
-
-```Of course, even if these sensing systems are affordable, accessible, and stable, the use of personal sensing will only increase if the measures derived from the raw data streams prove useful.  The use of EMAs to sense mood, psychiatric symptoms, and other key mental health constructs has been well-established [@ebner-priemerEcologicalMomentaryAssessment2009; @shiffmanEcologicalMomentaryAssessment2009; @shiffmanEcologicalMomentaryAssessment2008; @sedano-capdevilaUseEcologicalMomentary2021] and in situ, momentary measurement of these constructs is difficult at best with other more traditional (self-report) approaches.  However, the validity and utility of more innovative passive sensing approaches (e.g., location and cellular communications) has yet to be confirmed.  Proof of concept studies are rapidly accruing but larger N, rigorous studies are needed.```
-
-
-
-
-## Remaining unused sections from Kendra. Consider including  ideas/text in main text above
-
-
-```Cut from intro: The ability to predict the presence or absence of these constructs prospectively can also open the door for more efficient monitoring. Current treatment approaches lack the necessary resources required for long-term monitoring of symptom onset and overall mental health stability. Yet detecting a symptom lapse early on could have benefits for both an patient's prognosis [@mcglashanEarlyDetectionIntervention1996; @scottCanWePredict1992] and overall cost [@kesslerGlobalBurdenMental2009; @wangTelephoneScreeningOutreach2007]. Additionally, mental health disorders are not static states [@nelsonMovingStaticDynamic2017]. Someone might be stable for months or years before re-experiencing symptoms [@hayesChangeNotAlways2007; @witkiewitzModelingComplexityPosttreatment2007]. Integrating personal sensing methods into clinical settings may be one way to improve the reach of treatment resources and may allow for intervention prior to a full symptom relapse.```
-
-
-
-```Situation matters - Ben-Zeev et al., 2016 found that 1/3rd of inpatient participants were concerned about privacy but no outpatients were.; additionally all 9 outpatients approached consented to be in study but 9 out of 20 approached inpatients declined due to concerns about tracking technology.```
-
-
-
-```Implementing personal sensing platforms in applied settings could potentially put the end user at risk [@oneilWeaponsMathDestruction2016]. Companies and third-party applications could be subpoenaed and required to disclose sensitive information to be used as ammunition in a custody case or as evidence in a criminal trial. Likewise, a company might be providing a patient's healthcare data to both their provider and their health insurance company resulting in higher insurance premiums or dropped coverage. This risk is not lost on the people being asked to provide their data and control over who can access their data and unauthorized secondary use of that information are often cited concerns [@ackermanPrivacyIssuesHumanComputer2008; @atienzaConsumerAttitudesPerceptions2015].```
-
-
-```We might also want to mention difficulty getting access to data (restricted to Androids - Bai et al., 2021; Lind et al., 2018; app not running in background 24x7 -  Bai et al., 2021; GPS tracking not always working accurately and consistently - Palmius et al., 2016)```
-
-```Mendes et al., 2021 review - "A related issue is the predominance of solutions developed for Android OS, for which all apps have a version. This is expected as Android provides an open development platform, different from iOS, with significantly more flexibility to gather the data of interest. The divergent approaches to sensing on iOS and Android yield further issues in terms of standardization and the collection of comparable results across large cohorts, invariably with both Android and iOS users."```
-
-```Trifan et al., 2019 review - "In the spectrum of smartphone technologies, 1 of the main challenges that can affect the health-related collection of data when developing monitoring systems is the choice of the operating system. In fact, there are some differences and difficulties in development for Android or IOS systems, the 2 most used phone operating systems worldwide. Android is currently the most popular system and has the advantage of being convenient from the programming point of view. Scanning rates of sensors are found to be superior with this operating system. Furthermore, IOS hampers third-party apps to run endlessly in background, which may make the data collection difficult. Of the selected papers, 56.7% (67/118) developed their system only for Android smartphones, 6 developed for both Android and IOS, and 45 did not provide any information about the chosen operating system."```
-
-
-
-
-```Future studies should use longer study durations (i.e., 1 year) and recruit nationally representative samples.```
-
-```Our study also only generalizes to our specific personal sensing methods. Although we do not expect general self-reported acceptability about the types of raw data streams to change, different methods may increase or reduce user burden resulting in shifts of behavioral acceptability (i.e., compliance and retention). For example, participants were more willing to use passive personal sensing measures for 1 year compared to active measures. In clinical applications we may expect individuals to be engaging with these methods for years. Thus, it is important to test newer and more passive personal sensing methods as they become available.```
-
-
-
-```Two key aspects of personal sensing methods that may affect their acceptability are the sensitivity of the data being collected [@pasipanodyaPerceivedRisksAmelioration2020; @rendinaPrivacyTrustData2018], and the active effort required by the individual [@atienzaConsumerAttitudesPerceptions2015; @eiseleEffectsSamplingFrequency2020]. Importantly, these two dimensions explicitly differ from one personal sensing measure to the next. For example, text message content monitoring is completely passive, requiring no active effort from the participant, but the data are highly sensitive. On the other hand, an EMA method may ask generic questions that are not perceived to be sensitive, but the high level of effort required (e.g., lengthy questionnaire, high prompt frequency) may be too burdensome. As a result, acceptability of personal sensing methods may be best assessed at the individual level of the measure being sensed.```
-
-
-
-```However, missing data from non-compliance is not the only way bias can be introduced into the data. Data provided irrespective of burden could result in hurried or careless response patterns likely due to study fatigue [@eiseleEffectsSamplingFrequency2020; @meadeIdentifyingCarelessResponses2012]. For example, when reimbursement is structured around compliance rates, participants may answer questions from memory or strategically answer items to avoid follow-up questions and shorten the length of the survey [@freedmanCellPhonesEcological2006].```
 
 \newpage
 
@@ -1402,7 +1266,6 @@ Personal sensing is acceptable, and the technology to collect it (namely, the sm
 <div id="refs"></div>
 
 \newpage
-<!--We need to generate figure 1 by code. Also, I can't get text references to work. This hacky solution works as long as we don't need special formating in the figure caption. See: http://frederikaust.com/papaja_man/tips-and-tricks.html#text-references-->
 
 ```{r}
 fig_caption_1 <- "Flowchart of participant retention over the course of the 3-month study. This figure displays retention and attrition of all eligible participants at various stages from consent though study completion.  It also display the reasons for attrition categorized as due to acceptability, other reasons, or unknown.  We present additional detail on reasons for attrition in Table 3."
