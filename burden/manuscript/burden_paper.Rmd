@@ -31,7 +31,7 @@ abstract: |
   **Background:** Personal sensing may improve digital applications targeting patient mental health care in areas such as early screening, long-term symptom monitoring, and personalized and adaptive treatment suggestions. However, further development and use of personal sensing necessitates better understanding of its acceptability to people targeted for these mental health applications.
   **Objective:** We assessed the acceptability of both active and passive personal sensing methods in a sample of people with moderate to severe alcohol use disorder.
   **Method:** Participants (N = 154; 50% female; mean age = 41; 87% White, 97.4% Non-Hispanic) in early recovery (1 – 8 weeks of abstinence) from alcohol use disorder were recruited from the Madison, WI area to participate in a 3-month longitudinal study. Participants engaged with active (ecological momentary assessment; EMA, audio check-in, and sleep quality) and passive (geolocation, cellular communication logs, and text message content) personal sensing methods for up to 3 months. We assessed 3 behavioral indicators of acceptability: participants’ choices about their participation in the study at various stages in the study procedure (e.g., consent, enrollment), their choice to opt-in to provide data for each personal sensing method, and their compliance for a subset of the active methods (EMA, audio check-in). We also assessed 3 subjective self-report measures of acceptability (interference, dislike, and willingness to use for 1 year) for each method.
-  **Results:** All but 1 of the individuals who were eligible to participate consented to the personal sensing procedures. Most of these individuals (88%) also returned 1 week later to formally enroll in the study and begin to provide these data. All participants (100%) opted-in to provide data for EMA, sleep quality, and all passive methods (geolocation, cellular communication logs, text message content). Three participants (2%) did not provide any audio check-ins while on study. The average completion rate for all requested EMAs (4X daily) was 81%. The completion rate for 1 daily EMA was 94%. The completion rate for the daily audio check-in was 55%. Aggregate participant ratings indicated all personal sensing methods to be significantly more acceptable (p < .05) compared to neutral across subjective measures of interference, dislike, and willingness to use for 1 year. Participants did not significantly differ in their dislike of active compared to passive methods (p = .23). However, participants reported a higher willingness to use passive methods for 1 year compared to active methods (p = .04).
+  **Results:** All but 1 of the individuals who were eligible to participate consented to the personal sensing procedures. Most of these individuals (88%) also returned 1 week later to formally enroll in the study and begin to provide these data. All participants (100%) opted-in to provide data for EMA, sleep quality, and all passive methods (geolocation, cellular communication logs, text message content). Three participants (2%) did not provide any audio check-ins while on study. The average completion rate for all requested EMAs (4X daily) was 81%. The completion rate for 1 daily EMA was 94%. The completion rate for the daily audio check-in was 55%. Aggregate participant ratings indicated all personal sensing methods to be significantly more acceptable (all *P*'s < .05) compared to neutral across subjective measures of interference, dislike, and willingness to use for 1 year. Participants did not significantly differ in their dislike of active compared to passive methods (*P* = .23). However, participants reported a higher willingness to use passive methods for 1 year compared to active methods (*P* = .04).
   **Conclusions:** The results of our study suggest personal sensing methods are acceptable 1) over a longer period than has previously been assessed, 2) across active and passive methods, 3) despite the sensitivity of the data, 4) among individuals with alcohol use disorder who may have greater privacy concerns, and 5) without explicit clinical benefits to the participants. 
 
 
@@ -310,7 +310,7 @@ Finally, we conducted 2 analyses to examine the consistency of perceptions acros
 
 ## Participant Characteristics
 
-A total of 154 participants completed at least 1 monthly follow-up visit and provided self-report acceptability ratings for interference, dislike, and willingness to use for 1 year. These participants serve as our primary sample for our analyses. Table 1 presents demographic information for these participants. Table 2 characterizes information relevant to alcohol use for these participants. We compared demographics and alcohol use information for participants who were included in the analyses vs. eligible participants who did not provide study measures (i.e., did not enroll or discontinued prior to the first month follow-up; N = 36 ^[We are missing demographic data for 1 participant who consented but did not subsequently enroll in the study.]) and found no significant differences (see Table S2 in Multimedia Appendix 3 for more detail on these analyses).
+A total of 154 participants completed at least 1 monthly follow-up visit and provided self-report acceptability ratings for interference, dislike, and willingness to use for 1 year. These participants serve as our primary sample for our analyses. Table 1 presents demographic information for these participants. Table 2 characterizes information relevant to alcohol use for these participants. We compared demographics and alcohol use information for participants who were included in the analyses vs. eligible participants who did not provide study measures (i.e., did not enroll or discontinued prior to the first month follow-up; $N$ = 36 ^[We are missing demographic data for 1 participant who consented but did not subsequently enroll in the study.]) and found no significant differences (see Table S2 in Multimedia Appendix 3 for more detail on these analyses).
 
 \newpage
 
@@ -400,7 +400,7 @@ dem %>%
   pack_rows("Education", 11, 16, bold = FALSE) %>%
   pack_rows("Employment", 17, 25, bold = FALSE) %>%
   pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
-  footnote("N = 154")
+  footnote("$N$ = 154", escape = FALSE)
 ```
 
 \newpage
@@ -729,7 +729,7 @@ auh %>%
   pack_rows("Received Medication for Alcohol Use Disorder", 13, 14, bold = FALSE) %>%
   pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>%
   pack_rows("Current Drug Use$^a$", 24, 30, bold = FALSE, escape = FALSE) %>%
-  footnote("N = 154", general_title = "") %>% 
+  footnote("$N$ = 154", escape = FALSE, general_title = "") %>% 
   footnote(alphabet = "Current refers to past month drug use reported at follow-up visits 1 or 2", alphabet_title = "Note: ")
 ```
 
@@ -933,7 +933,7 @@ We also assessed the effect of active effort on willingness ratings (Figure 7). 
 
 ```{r}
 footnote_table_4 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants ($N$), mean and standard deviation ($M$, $SD$), t-statistic ($t$) and Cohen’s d Effect size ($d$) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability.  Active methods are displayed in red."
-footnote_table_4a <- "$p$ < .05"
+footnote_table_4a <- "$P$ < .05"
 ```
 
 ```{r table-4}
@@ -972,7 +972,7 @@ corrplot_int %>%
 
 ```{r}
 footnote_table_5 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants ($N$), mean and standard deviation ($M$, $SD$), t-statistic ($t$) and Cohen’s d Effect size ($d$) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue."
-footnote_table_5a <- "$p$ < .05"
+footnote_table_5a <- "$P$ < .05"
 ```
 
 ```{r table-5}
@@ -1018,7 +1018,7 @@ corrplot_dis %>%
 
 ```{r}
 footnote_table_6 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants ($N$), mean and standard deviation ($M$, $SD$), t-statistic ($t$) and Cohen’s d Effect size ($d$) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability. Active methods are displayed in red and passive methods are displayed in blue."
-footnote_table_6a <- "$p$ < .05"
+footnote_table_6a <- "$P$ < .05"
 ```  
 
 
@@ -1083,7 +1083,7 @@ Despite the aggregate positive perceptions of the full sample, non-trivial perce
 
 ## 2.  Individuals can sustain the use of personal sensing for relatively long periods
 
-Most enrolled participants were also able to sustain their commitment to provide these sensed data streams over time.  More than 91% (154/169) provided at least 1 month of sensed data and a large majority (133/169; 79%) provided data for all 3 months. As with enrollment statistics, these numbers also likely underestimate participants' ability to sustain personal sensing because many of the participants who discontinued or did not complete the study reported reasons to stop their participation that were unrelated to personal sensing (e.g., family crisis, relapse, moved out of state).  However, some participants (N = 4) did explicitly report reasons that appeared related to personal sensing (e.g., study demands too burdensome).  Additionally, others who stopped participating may have been influenced by their experiences with personal sensing without formally reporting those concerns.  
+Most enrolled participants were also able to sustain their commitment to provide these sensed data streams over time.  More than 91% (154/169) provided at least 1 month of sensed data and a large majority (133/169; 79%) provided data for all 3 months. As with enrollment statistics, these numbers also likely underestimate participants' ability to sustain personal sensing because many of the participants who discontinued or did not complete the study reported reasons to stop their participation that were unrelated to personal sensing (e.g., family crisis, relapse, moved out of state).  However, some participants ($N$ = 4) did explicitly report reasons that appeared related to personal sensing (e.g., study demands too burdensome).  Additionally, others who stopped participating may have been influenced by their experiences with personal sensing without formally reporting those concerns.  
 
 Participants who enrolled but then discontinued because of the personal sensing methods may have been influenced more by issues related to the burden associated with active sensing rather than more general issues related to data sensitivity/privacy.  Participants concerned about sharing passively sensed private information such as their moment by moment location or cellular communications would likely have had these concerns from the beginning such that they would not have consented, enrolled, and then opted-in to provide these sensitive data.  However, the burden associated with active sensing (e.g., 4x daily EMA, daily audio check-ins) may not have been clear to them until they tried to sustain those methods over time. 
 
@@ -1257,7 +1257,7 @@ include_graphics(here("burden/manuscript/figs/fig_disposition.jpg"), dpi = 150)
 \newpage
 
 ```{r}
-fig_caption_2 <- "Compliance over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean compliance for each week on study. Mean standard error is depicted by the solid error bars. Overall mean compliance is depicted by the dashed line. N = 154."
+fig_caption_2 <- "Compliance over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean compliance for each week on study. Mean standard error is depicted by the solid error bars. Overall mean compliance is depicted by the dashed line. $N$ = 154."
 ```
 
 ```{r figure-2, fig.height = 3.5, fig.cap = fig_caption_2, out.extra = "", fig.pos="h"}
@@ -1484,7 +1484,7 @@ week_compliance_all %>%
 \newpage
 
 ```{r}
-fig_caption_3 <- "Interference Ratings by Personal Sensing Data Stream.\\linebreak Notes:  Mean responses to [Personal sensing method name] interfered with my daily activities. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep  quality (N = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
+fig_caption_3 <- "Interference Ratings by Personal Sensing Data Stream.\\linebreak Notes:  Mean responses to [Personal sensing method name] interfered with my daily activities. X-axes are ordered to display higher acceptability on the right side.  $N$ = 154 for all data streams except sleep  quality ($N$ = 87). Solid red line represents the mean and dashed black line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Interference ratings were only collected for active methods."
 
 ```
 
@@ -1524,7 +1524,7 @@ interference_plot_data %>%
 
 \newpage
 ```{r}
-fig_caption_4 <- "Dislike Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I disliked [Personal sensing method name]. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep quality (N = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_4 <- "Dislike Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I disliked [Personal sensing method name]. X-axes are ordered to display higher acceptability on the right side.  $N$ = 154 for all data streams except sleep quality ($N$ = 87). Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
 ```{r figure-4, fig.height = 6, fig.cap = fig_caption_4, out.extra = "", fig.pos="h"}
@@ -1594,7 +1594,7 @@ dislike_plot  %>%
 
 \newpage
 ```{r}
-fig_caption_5 <- "Average Dislike by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_5 <- "Average Dislike by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided).  Participants did not different significantly in their dislike of active vs. passive methods. $N$ = 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
 ```{r figure-5, fig.width = 5, fig.cap = fig_caption_5, out.extra = "", fig.pos="h"}
@@ -1631,7 +1631,7 @@ data_dislike_long %>%
 \newpage
 
 ```{r}
-fig_caption_6 <- "Willingness to Use for 1 Year Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I would be willing to use [Personal sensing method name] for 1 year to help with my recovery. X-axes are ordered to display higher acceptability on the right side.  N = 154 for all data streams except sleep monitoring (N = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_6 <- "Willingness to Use for 1 Year Ratings by Personal Sensing Data Stream.\\linebreak  Notes:  Mean responses to I would be willing to use [Personal sensing method name] for 1 year to help with my recovery. X-axes are ordered to display higher acceptability on the right side.  $N$ = 154 for all data streams except sleep monitoring ($N$ = 87). Solid blue or red line represents the mean and dashed line represents the neutral midpoint (undecided). All raw data streams had a mean significantly higher than the neutral midpoint.  Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
 ```{r figure-6, fig.height = 6, fig.cap = fig_caption_6, out.extra = "", fig.pos="h"}
@@ -1703,7 +1703,7 @@ willingness_final_plot  %>%
 \newpage
 
 ```{r}
-fig_caption_7 <- "Average Willingness to Continue for 1 Year by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for 1 year for passive compared to active methods. N= 154. Active methods are displayed in red and passive methods are displayed in blue."
+fig_caption_7 <- "Average Willingness to Continue for 1 Year by Active vs. Passive Methods.\\linebreak  Notes:  X-axes are ordered to display higher acceptability on the right side.  Active methods (displayed in red) represent an average of audio check-in and EMA.  Passive methods (displayed in blue) represent an average of geolocation, cellular communication logs and text message content.  Solid red or blue line represents the mean and dashed line represents the neutral midpoint (undecided). Participants reported on average significantly higher acceptability with respect to willingness to continue using for 1 year for passive compared to active methods. $N$ = 154. Active methods are displayed in red and passive methods are displayed in blue."
 ```
 
 ```{r figure-7, fig.width = 5, fig.cap = fig_caption_7, out.extra = "", fig.pos="h"}
