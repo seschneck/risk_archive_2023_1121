@@ -4,7 +4,7 @@ subtitle: "Acceptability of Personal Sensing among People with Alcohol Use Disor
 author: "Kendra Wyant, Hannah Moshontz, Stephanie Ward, Gaylen Fronk, John Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: 
-  html_document:
+  pdf_document:
     toc: true 
     toc_depth: 4
 knit: (function(input, ...) {
@@ -15,6 +15,22 @@ knit: (function(input, ...) {
       "/Volumes/private/studydata/risk/knits/burden")
     )
   })
+  
+floatsintext      : yes
+figurelist        : yes
+tablelist         : no
+footnotelist      : yes
+linenumbers       : no
+mask              : no
+draft             : no
+
+
+header-includes:
+  - \raggedbottom
+  - \usepackage{booktabs}
+  - \usepackage[justification=raggedright]{caption}
+  - \usepackage{colortbl}
+  - \captionsetup{labelformat=empty}
 ---
 
 
@@ -77,13 +93,17 @@ get_study_days <- function(the_subid, dates) {
 ```
 
 
-
+\newpage
 
 ### Physiology Analysis
 
-We initially monitored participants physiology using an early version of the Empatica E4 wristband monitor. Due to a complicated sensing platform and software bugs we discontinued the wristband after nine participants. Below are the self-reported acceptability ratings (interference, dislike, willingness to continue for one year) for this sensing method from the nine participants who used it (Figure S1 from the manuscript). 
+We initially monitored participants physiology using an early version of the Empatica E4 wristband monitor. Due to a complicated sensing platform and software bugs we discontinued the wristband after 9 participants. Below are the self-reported acceptability ratings (interference, dislike, willingness to continue for 1 year) for this sensing method from the nine participants who used it (Figure S1). 
 
-```{r fig.height = 6}
+```{r}
+fig_caption_s1 <- "Figure S1: Subjective Acceptability of Physiology Personal Sensing Method. X-axes are ordered to display higher acceptability on the right side. $N$ = 9. Solid red line represents the mean and dashed line represents the neutral midpoint (undecided)."
+```
+
+```{r figure-s1, fig.width = 7, fig.cap = fig_caption_s1, out.extra = "", fig.pos="h"}
 # subset to physiology variables
 wristband_descr <- data %>% 
   select(c(subid, date, contains("wristband"))) %>% 
@@ -158,10 +178,6 @@ wrist_1yr <- wristband_descr %>%
 
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
 p_wrist +
- plot_annotation(
-   title = "Figure S1<br><br> Physiology Acceptability",
-  caption =  "<i>Note:</i> Sample size is 9. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score.</i>"
-) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
         plot.title = element_markdown(size = 12),
@@ -170,14 +186,20 @@ p_wrist +
 
 
 
-----
+\newpage
 
 
 
 ### Time Analysis
 
 
+We examined acceptability ratings over time for participants who completed the study through follow-up 3 ($N$ = 133). We see average acceptability ratings for each personal sensing data stream are relatively stable across time (Figure S2).   
+
 ```{r}
+fig_caption_s2 <- "Figure S2: Acceptability over Time by Personal Sensing Data Stream. Participant ratings ($N$ = 133) for each subjective measure of acceptability at three different time points one-month apart. Sleep quality $N$ = 87. X-axes are ordered to display higher acceptability on the right side. Dashed line represents the neutral midpoint (undecided)."
+```
+
+```{r figure-s2, warning = FALSE, fig.width = 7, fig.cap = fig_caption_s2, out.extra = "", fig.pos="h"}
 # Create dataframe of only subids with three time points (N = 133).
 acceptability_time <- data %>% 
   # filter out wristband and carrying_phone
@@ -189,11 +211,7 @@ acceptability_time <- data %>%
   arrange(date) %>%
   mutate(time = row_number()) %>% 
   ungroup()
-```
 
-The figure below is Figure S2 from the manuscript. We examined acceptability ratings over time for participants who completed the study through follow-up 3 (N = 133). We see average acceptability ratings for each personal sensing data stream are relatively stable across time.   
-
-```{r warning = FALSE, fig.height=6, fig.width=8}
 # create grouping variables to use for figure
 dislike <- acceptability_time %>% 
   select(contains("dislike")) %>% 
@@ -264,8 +282,6 @@ time_plot %>%
   scale_y_continuous(name = "Mean Score", 
                      breaks = c(-2, -1, 0, 1, 2), 
                      limits = c(-2, 2)) +
-  labs(title = "Figure S2<br><br>Acceptability over Time by Personal Sensing Data Stream",
-       caption = "<i>Note:</i>  Participant ratings (<i>N</i> = 133) for each measure of acceptability at three different time points one-month <br>apart. Sleep quality N = 87. Each measure is on a 5-point bipolar scale anchored around a neutral/<br>ambivalent response of 0 (i.e., undecided) with higher values representing higher acceptability. Dashed line <br>represents neutral score.") +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
@@ -278,20 +294,23 @@ time_plot %>%
 
 
 
------
-
+\newpage
 
 
 ### Compliance over time
 
-In the manuscript we report compliance over time on study (i.e., week) for our whole sample (N = 154). It is possible that compliance averages are lower for participants who drop out of the study (N = 21) compared to those who complete the full 3 months of the study (N = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups.  
+In the manuscript we report compliance over time on study (i.e., week) for our whole sample ($N$ = 154). It is possible that compliance averages are lower for participants who drop out of the study ($N$ = 21) compared to those who complete the full 3 months of the study ($N$ = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups.  
 
-A t-test revealed that participants who did not complete the study on average had significantly lower compliance for the 4x daily EMA (M = .66, SD = .19) compared to participants who completed the study (M = .82, SD = .14), t(152) = -4.6, p < .001. Additionally, participants who did not complete the study on average had significantly lower compliance for a 1x daily EMA (M = .86, SD = .14) compared to participants who completed the study (M = .95, SD = .09), t(152) = -4.4, p < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower compliance for the daily audio check-in (M = .36, SD = .23) compared to participants who completed the study (M = .58, SD = .29), t(152) = -3.2, p < .01.   
+A t-test revealed that participants who did not complete the study on average had significantly lower compliance for the 4x daily EMA ($M$ = .66, $SD$ = .19) compared to participants who completed the study ($M$ = .82, $SD$ = .14), $t$(152) = -4.6, $P$ < .001. Additionally, participants who did not complete the study on average had significantly lower compliance for a 1x daily EMA ($M$ = .86, $SD$ = .14) compared to participants who completed the study ($M$ = .95, $SD$ = .09), $t$(152) = -4.4, $P$ < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower compliance for the daily audio check-in ($M$ = .36, $SD$ = .23) compared to participants who completed the study ($M$ = .58, $SD$ = .29), $t$(152) = -3.2, $P$ < .01.  
 
 
-Below we plot the total compliance with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3 from the manuscript). 
+Below we plot the total compliance with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3). 
 
 ```{r}
+fig_caption_s3 <- "Figure S3: 1X Daily EMA, 4x Daily EMA, and Audio Check-in Compliance over Time for Participants who Completed the Study. Average compliance by week for participants who completed the full 3-month study ($N$ = 133). Dashed line represents overall mean compliance."
+```
+
+```{r figure-s3, fig.width = 7, fig.cap = fig_caption_s3, out.extra = "", fig.pos="h"}
 sample_fu3 <- visit_dates %>% 
   filter(!is.na(final_visit))
 
@@ -497,8 +516,6 @@ week_compliance_all %>%
                group_by(signal) %>% 
                summarize(mean_compliance = mean(mean_compliance)),
              linetype = "dashed", size = .3) +
-  labs(title = "Figure S3 <br><br>1X Daily EMA, 4x daily EMA, and audio check-in compliance over time for participants who completed the study",
-       caption = "<i>Note:</i>  Average compliance by week for participants who completed the full 3-month study (N = 133). <br>Dashed line represents overall mean compliance.") +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         legend.position = "bottom",
@@ -556,14 +573,18 @@ week_compliance_all %>%
 
 ```
 
-----
+\newpage
 
 
 ### Audio compliance distribution
 
-Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4 from the manuscript).
+Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4).
 
 ```{r}
+fig_caption_s4 <- "Figure S4: Audio Compliance by Participant. $N$ = 154. Solid red line represents mean compliance."
+```
+
+```{r figure-s4, fig.width = 7, fig.cap = fig_caption_s4, out.extra = "", fig.pos="h"}
 # get vector of subids who made it to followup 1 
 subids_fu1 <- visit_dates %>% 
   filter(!is.na(followup_1)) %>% 
@@ -610,10 +631,6 @@ plot_audio_fu1 <- dates_fu1 %>%
   theme_classic()
 
 plot_audio_fu1 +
- plot_annotation(
-  title = "Figure S4<br><br>Audio Compliance by Participant",
-  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean."
-) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
         plot.title = element_markdown(size = 12),
@@ -621,14 +638,44 @@ plot_audio_fu1 +
 ```
 
 
------
+\newpage
 
 ### Analysis on willingness to use EMA one time daily
 
-Participants reported on their willingness to continue an EMA method that was one time daily for one year. This method was hypothetical in that although they were asked about a one time daily EMA they were expected to do four daily EMAs. Below is the distribution of responses for this question (Figure S5 from the manuscript).   
+Participants reported on their willingness to continue to use an EMA method that was 1X daily for 1 year. This method was hypothetical in that although they were asked about a 1X daily EMA they were expected to do 4 daily EMAs. 
 
+A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), $t$(153) = 15.21, $P$ < .001.
 
 ```{r}
+# model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
+# summary(model_ema_1x)
+```
+
+Additionally, we ran a paired samples t-test to compare participants' willingess to use a 1X daily EMA for 1 year compared to a 4X daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's 1X daily ($M$ = 1.26, $SD$ = 1.03) compared to 4X daily ($M$ = 0.64, $SD$ = 1.22) for 1 year to help their recovery, $t$(153) = -8.32, $P$ < .001.   
+
+```{r}
+# create long dataframe
+# ema_1x_and_4x <- data %>% 
+#   select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
+#   group_by(subid) %>% 
+#   arrange(desc(date)) %>% 
+#   slice(1) %>% 
+#   ungroup() %>% 
+#   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
+# 
+# # t-test
+# m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
+# summary(m_ema_1x_and_4x)
+# car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
+```
+
+Below is the distribution of responses for this question (Figure S5).
+
+```{r}
+fig_caption_s5 <- "Figure S5: Willingness to Complete a 1X Daily EMA for One Year. $N$ = 154. Solid red line represents the mean and dashed line represents the neutral midpoint (undecided)."
+```
+
+```{r figure-s5, fig.width = 7, fig.cap = fig_caption_s5, out.extra = "", fig.pos="h"}
 # pull out data for 1x EMA
 ema_1x <- data %>% 
   select(subid, date, daily_survey_1_1year) %>% 
@@ -656,10 +703,6 @@ plot_ema_1x <- ema_1x %>%
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 plot_ema_1x +
- plot_annotation(
-  title = "Figure S5<br><br>Willingness to Complete a Once Daily Ecological Momentary Assessment for One Year",
-  caption =  "<i>Note:</i> Sample size is 154. Solid red line represents the mean and dashed line represents the neutral/<br>ambivalent score."
-) &
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
         text = element_text(),
         plot.title = element_markdown(size = 12),
@@ -669,38 +712,15 @@ plot_ema_1x +
 
 
 
-A one sample t-test revealed that the mean willingness score (depicted as the solid red line in Figure S6) was significantly more acceptable than 0 (gray dashed line indicating undecided), t(153) = 15.21, p < .001.
-
-```{r}
-# model_ema_1x <- lm(daily_survey_1_1year ~ 1, data = ema_1x)
-# summary(model_ema_1x)
-```
 
 
-Additionally, we ran a paired samples t-test to compare participants' willingess to use a one time daily EMA for 1 year compared to a four time daily EMA. We found that Participants were significantly more likely to be willing to complete EMA's one time daily (M = 1.26, SD = 1.03) compared to four times daily (M = 0.64, SD = 1.22) for one year to help their recovery, t(153) = -8.32, p < .001.   
-
-```{r}
-# create long dataframe
-# ema_1x_and_4x <- data %>% 
-#   select(subid, date, `EMA 1x` = daily_survey_1_1year, `EMA 4x` = daily_survey_4_1year) %>% 
-#   group_by(subid) %>% 
-#   arrange(desc(date)) %>% 
-#   slice(1) %>% 
-#   ungroup() %>% 
-#   pivot_longer(`EMA 1x`:`EMA 4x`, names_to = "ema_frequency")
-# 
-# # t-test
-# m_ema_1x_and_4x <- lme4::lmer(value ~ ema_frequency + (1| subid), data = ema_1x_and_4x)
-# summary(m_ema_1x_and_4x)
-# car::Anova(m_ema_1x_and_4x, type = 3, test = "F")
-```
-
-----
-
+\newpage
 
 ### Uncorrected pairwise comparisons among personal sensing data streams
 
 Table S1 contains all possible combinations of pairwise comparisons among active and passive personal sensing data streams.   
+
+
 
 ```{r}
 # dataframe of last survey
@@ -764,6 +784,13 @@ will_pair <- last_data %>%
 # pairwise.t.test(will_pair$value, will_pair$signal, p.adj = "none") 
 ```
 
+```{r}
+footnote_table_s1 <- "Sample size for all personal sensing measures is 154 except for the sleep quality which had a sample size of 87."
+footnote_table_s1a <- "$P$ < .05"
+footnote_table_s1b <- "$P$ < .01"
+footnote_table_s1c <- "$P$ < .001"
+```
+
  
 ```{r}
 # format table
@@ -806,26 +833,26 @@ tibble(
                         NA, NA, NA, NA, ".01**", 
                         # willingness
                         NA, NA, NA, NA, ".44")) %>% 
-  kbl(align = c("l", "c", "c", "c", "c", "c"),
-      caption = "Table S1<br><br><i>Uncorrected Pairwise Comparison P Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability</i>",
-      escape = FALSE) %>% 
-  kable_classic(html_font = "Arial") %>% 
+  kbl(booktabs = TRUE,
+      caption = "Table S1: Uncorrected Pairwise Comparison $P$ Values for Pairs of Personal Sensing Data Streams across the Three Measures of Self Reported Acceptability",
+      align = c("l", "c", "c", "c", "c", "c")) %>% 
+  kable_styling(latex_options = c("HOLD_position", "scale_down")) %>% 
   pack_rows("Interference", 1, 2, bold = FALSE) %>% 
   pack_rows("Dislike", 3, 7, bold = FALSE) %>% 
   pack_rows("Willingness to Continue", 8, 12, bold = FALSE) %>% 
-  footnote("Sample size for all personal sensing measures is 154 except for the sleep quality which had a sample size of 87.<br>* <i>p</i> < .05, ** <i>p</i> < .01, *** <i>p</i> < .001", escape = FALSE)
+  footnote(general = footnote_table_s1, symbol = c(footnote_table_s1a, footnote_table_s1b, footnote_table_s1c), symbol_manual = c("*", "**", "***"), escape = FALSE)
 ```
 
 
 
 
 
-----
+\newpage
 
 
 ### Group differences between continued and discontinued participants
 
-We ran a series of t-tests to compare demographic information and information relevant to participants’ alcohol use and DSM-5 AUD symptoms in participants who continued vs. discontinued. Continued participants included all participants who were used in the study analyses (i.e., completed through first month followup; N = 154). Discontinued participants consisted of eligible participants who did not enroll or discontinued prior to the first month follow-up (N = 36). We found no significant differences between groups (Table S2).     
+We ran a series of t-tests to compare demographic information and information relevant to participants’ alcohol use in participants who continued vs. discontinued. Continued participants included all participants who were used in the study analyses (i.e., completed through first month followup; $N$ = 154). Discontinued participants consisted of eligible participants who did not enroll or discontinued prior to the first month follow-up ($N$ = 36). We found no significant differences between groups (Table S2).     
 
 
 ```{r}
@@ -957,20 +984,22 @@ screen_combined_long %>%
   select(` ` = variables,
          t = statistic,
          df,
-         p) %>% 
-  kbl(digits = 2,
-      align = c("l", "c", "c", "c"),
-      caption = "Table S2<br><br><i>Pairwise T-tests to Compare Group Differences between Continued (N = 154) and Discontinued (N = 36) Participants</i>") %>% 
-  kable_classic(html_font = "Arial")
+         P = p) %>% 
+   kbl(booktabs = TRUE,
+      caption = "Table S2: Pairwise T-tests to Compare Group Differences between Continued ($N$ = 154) and Discontinued ($N$ = 36) Participants",
+      digits = 2,
+      align = c("l", "c", "c", "c")) %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) 
 ```
 
 
 
-----
+\newpage
 
 ### Participant free-responses to each personal sensing measure
 
-We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Supplemental tables 3-7 in manuscript).
+We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Tables S3-S7).
 
 ```{r}
 # read in comments
@@ -987,11 +1016,17 @@ comments_audio %>%
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
   unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
   select(Text = text, Positive, Negative) %>% 
-  kbl(caption = "Table S3<br><br><i>Participant Free Response Comments about Audio Check-in (N = 154)</i>") %>% 
-  kable_classic(html_font = "Arial",
-                lightable_options = "striped") %>% 
-  scroll_box(height = "800px")
+  kbl(booktabs = TRUE,
+      caption = "Table S3: Participant Free Response Comments about Audio Check-in ($N$ = 154)",
+      longtable = TRUE,
+      linesep = "\\addlinespace") %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(1, width = "15em") %>% 
+  column_spec(2, width = "15em") %>% 
+  column_spec(3, width = "15em")
 ```
+
+\newpage
 
 
 #### Geolocation
@@ -1002,11 +1037,17 @@ comments_location %>%
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
   unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
   select(Text = text, Positive, Negative) %>% 
-  kbl(caption = "Table S4<br><br><i>Participant Free Response Comments about Geolocation (N = 153)</i>") %>% 
-  kable_classic(html_font = "Arial",
-                lightable_options = "striped") %>% 
-  scroll_box(height = "800px")
+  kbl(booktabs = TRUE,
+      caption = "Table S4: Participant Free Response Comments about Geolocation ($N$ = 153)",
+      longtable = TRUE,
+      linesep = "\\addlinespace") %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(1, width = "15em") %>% 
+  column_spec(2, width = "15em") %>% 
+  column_spec(3, width = "15em")
 ```
+
+\newpage
 
 
 #### Cellular Communications and Text Message Logs
@@ -1015,11 +1056,18 @@ comments_phone %>%
   unite("Positive", `positive/informative`:`positive/uninformative`, sep = ";", na.rm = TRUE) %>% 
   unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE) %>% 
   select(Text = text, Positive, Negative) %>% 
-  kbl(caption = "Table S5<br><br><i>Participant Free Response Comments about Cellular Communications and Text Message Content (N = 153)</i>") %>% 
-  kable_classic(html_font = "Arial",
-                lightable_options = "striped") %>% 
-  scroll_box(height = "800px")
+  kbl(booktabs = TRUE,
+      caption = "Table S5: Participant Free Response Comments about Cellular Communication Logs and Text Message Content ($N$ = 153)",
+      longtable = TRUE,
+      linesep = "\\addlinespace") %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(1, width = "15em") %>% 
+  column_spec(2, width = "15em") %>% 
+  column_spec(3, width = "15em")
 ```
+
+\newpage
+
 
 #### Sleep Quality
 ```{r}
@@ -1027,11 +1075,17 @@ comments_sleep %>%
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
   unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
   select(Text = text, Positive, Negative) %>% 
-  kbl(caption = "Table S6<br><br><i>Participant Free Response Comments about Sleep Quality (N = 78)</i>") %>% 
-  kable_classic(html_font = "Arial",
-                lightable_options = "striped") %>% 
-  scroll_box(height = "800px")
+  kbl(booktabs = TRUE,
+      caption = "Table S6: Participant Free Response Comments about Sleep Quality ($N$ = 78)",
+      longtable = TRUE,
+      linesep = "\\addlinespace") %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(1, width = "15em") %>% 
+  column_spec(2, width = "15em") %>% 
+  column_spec(3, width = "15em")
 ```
+
+\newpage
 
 
 #### EMA
@@ -1040,8 +1094,12 @@ comments_survey %>%
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
   unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
   select(Text = text, Positive, Negative) %>% 
-  kbl(caption = "Table S7<br><br><i>Participant Free Response Comments about 4x Daily EMA (N = 153)</i>") %>% 
-  kable_classic(html_font = "Arial",
-                lightable_options = "striped") %>% 
-  scroll_box(height = "800px")
+  kbl(booktabs = TRUE,
+      caption = "Table S7: Participant Free Response Comments about 4X Daily EMA ($N$ = 153)",
+      longtable = TRUE,
+      linesep = "\\addlinespace") %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(1, width = "15em") %>% 
+  column_spec(2, width = "15em") %>% 
+  column_spec(3, width = "15em")
 ```
