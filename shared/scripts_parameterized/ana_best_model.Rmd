@@ -7,11 +7,11 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  study: "messages"
+  study: "ema"
   data_type: "all"
   window: "1week"
   lead: 0
-  version: "v1"
+  version: "v4"
 ---
 
 ### Code Status
@@ -43,6 +43,7 @@ Packages for lab workflow
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
+conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
 conflict_prefer("vi", "vip")
@@ -363,9 +364,26 @@ if (nrow(config_best_xgb) == 0) {
  fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
 
  fit_best_xgb %>%
-   vip(num_features = 40, geom = "point")  
+   vip(num_features = 100, geom = "point", scale = TRUE) 
+ fit_best_xgb %>%
+   vi(scale = FALSE) 
+ 
+ features <- rec_xgb %>% 
+    prep(training = d, strings_as_factors = FALSE) %>% 
+    bake(new_data = NULL) %>% 
+    select(-y)
+
+ 
+ feature_names <- names(features)
+
+pfun <- function(object, newdata) predict(object, data = newdata)$predictions
+pfun2 <- function(object, newdata) predict(object, newdata)$.pred_class
+
+fit_best_xgb %>%
+   vip(method = "permute", train = features, target = "y", metric = "auc", reference_class = "yes", num_features = 40, geom = "point", pred_wrapper = pfun, nsims = 20)  
+ 
  
  fit_best_xgb %>%
-   vip(method = "shap", num_features = 40, geom = "point")  
+   vip(method = "shap", train = features, feature_names = feature_names, num_features = 40, geom = "point", pred_wrapper = pfun2)  
 }
 ```
