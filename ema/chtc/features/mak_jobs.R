@@ -2,7 +2,8 @@
 
 # EDIT THESE
 window <- "1week"   # remember to edit these in make_features_chtc.R as well
-data_type <- "ema"
+study <- "ema"
+data_type <- "all"
 lead <- 0
 version <- "v4"
 
@@ -19,8 +20,8 @@ library(vroom)
 library(stringr)
 
 # Paths and filenames
-path_jobs <- str_c("P:/studydata/risk/chtc/", data_type)
-name_job <- str_c("features_", window, "_", lead, "_", version)
+path_jobs <- str_c("P:/studydata/risk/chtc/", study)
+name_job <- str_c("features_", data_type, "_", window, "_", lead, "_", version)
 
 path_processed <- "P:/studydata/risk/data_processed/ema" 
 name_ema <- "ema.csv"
