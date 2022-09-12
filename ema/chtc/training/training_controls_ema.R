@@ -2,8 +2,9 @@
 # the same across jobs.
 
 #EDIT THIS
-data_type <- "ema"   # but still need to change more (e.g., feature set) to switch data_type
-window <- "1week"
+study <- "ema"
+data_type <- "all"   # but still need to change more (e.g., feature set) to switch data_type
+window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
@@ -11,7 +12,7 @@ algorithm <- "xgboost"
 
 # SET GLOBAL PARAMETERS
 feature_set <- c("all") # EMA Features set names
-data_trn <- str_c("features_", window, "_", lead, "_", version, ".csv.xz") 
+data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", version, ".csv.xz") 
 resample <- c("up_1", "down_1") 
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
@@ -19,9 +20,9 @@ group <- "subid" # grouping variable for grouped k-fold - remove if not using gr
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate features before removing nzv
 
 # SET STUDY PATHS
-name_job <- str_c("train_", window, "_", lead, "_", version, "_", algorithm) # the name of the job to set folder names
-path_jobs <- str_c("P:/studydata/risk/chtc/", data_type) # location of where you want your jobs to be setup
-path_data <- str_c("P:/studydata/risk/data_processed/", data_type) # location of data set
+name_job <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm) # the name of the job to set folder names
+path_jobs <- str_c("P:/studydata/risk/chtc/", study) # location of where you want your jobs to be setup
+path_data <- str_c("P:/studydata/risk/data_processed/", study) # location of data set
 
 # SET ALGORITHM-SPECIFIC HYPERPARAMETERS
 hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture)
