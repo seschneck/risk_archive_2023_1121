@@ -19,16 +19,22 @@ knit: (function(input, ...) {
 Packages and Paths
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
+library(vroom)
+library(conflicted)
+library(here)
+library(lubridate)
 
 conflict_prefer("cols", "vroom")
+conflict_prefer("filter", "dplyr")
 
-path_data <- "P:/studydata/risk/data_processed/burden"
+path_acceptability <- "P:/studydata/risk/data_processed/burden"
+path_shared <- "P:/studydata/risk/data_processed/shared"
 ```
 
 
 ### Read in data
 ```{r}
-data <- vroom(file.path(path_data, "acceptability.csv"), col_types = cols()) %>% 
+data <- vroom(here(path_acceptability, "acceptability.csv"), col_types = cols()) %>% 
   select(subid, date, contains("daily_survey")) %>% 
   glimpse()
 ```
@@ -80,7 +86,6 @@ plot_ema_interfere
 
 
 Uncomment to save figure  
-*Note: Replace PATH with location to save plot.*
 ```{r}
 # ggsave(plot = plot_ema_interfere, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
@@ -115,7 +120,6 @@ plot_ema_dislike
 
 
 Uncomment to save figure  
-*Note: Replace PATH with location to save plot.*
 ```{r}
 # ggsave(plot = plot_ema_dislike, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
@@ -150,7 +154,6 @@ plot_ema_1x
 
 
 Uncomment to save figure  
-*Note: Replace PATH with location to save plot.*
 ```{r}
 # ggsave(plot = plot_ema_1x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
@@ -183,7 +186,200 @@ plot_ema_4x
 
 
 Uncomment to save figure  
-*Note: Replace PATH with location to save plot.*
 ```{r}
 # ggsave(plot = plot_ema_4x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+```
+
+
+### Compliance Figure
+
+Overall compliance with at least 1 EMA per day by week on study     
+
+
+
+#### Read in data
+
+```{r}
+ema_m <- vroom(here(path_shared, "ema_morning.csv"), col_types = cols()) %>% 
+  glimpse()
+ema_l <- vroom(here(path_shared, "ema_later.csv"), col_types = cols()) %>% 
+  glimpse()
+```
+
+Join morning and evening EMA datasets to get subids and survey start dates
+```{r}
+ema <- ema_m %>% 
+  select(subid, start_date) %>% 
+  full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
+  mutate(subid = as.numeric(subid),
+         start_date = date(start_date)) %>% 
+  glimpse()
+```
+
+Restrict subids to EMA sample
+```{r}
+ema <- ema %>% 
+  filter(subid %in% data_last$subid) %>% 
+  glimpse()
+```
+
+Check there are 151 subids
+```{r}
+length(unique(ema$subid))
+```
+
+
+#### Calculate study dates
+
+Read in visit dates
+```{r}
+visit_dates <- vroom(here(path_shared, "visit_dates.csv"), col_types = cols()) %>%  
+  glimpse()
+```
+
+
+Get all study days for each subid
+```{r}
+# function to map over
+get_study_days <- function(the_subid, dates) {
+  start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
+  end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
+  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study - days(1), by = "day")) 
+  return(study_days)
+}
+
+subids <- unique(ema$subid)
+
+study_dates <- subids %>% 
+  map_dfr(~get_study_days(.x, visit_dates)) %>% 
+  glimpse()
+```
+
+
+#### Calculate compliance with 1 EMA per day
+
+Count EMAs per study day
+```{r}
+# count EMAs per day
+ema_1_count <- ema %>%  
+  count(subid, start_date) %>%
+  mutate(n = if_else(n > 1, 1, as.numeric(n)))
+
+# left join with study dates
+ema_1_study_dates <- study_dates %>% 
+  left_join(ema_1_count, by = c("subid", "study_day" = "start_date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 1) %>% 
+  glimpse()
+```
+
+
+calculate mean compliance
+```{r}
+mean_ema_1 <- ema_1_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+```
+
+mean compliance for one daily survey is `r mean_ema_1$mean`
+
+
+
+**Compliance over time**
+
+Slice into 7 day bins 
+```{r}
+ema_study_weeks <- ema_1_study_dates %>% 
+  group_by(subid) %>% 
+  slice(1:7) %>% 
+  mutate(week = 1) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(8:14) %>% 
+    mutate(week = 2)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(15:21) %>% 
+    mutate(week = 3)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(22:28) %>% 
+    mutate(week = 4)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(29:35) %>% 
+    mutate(week = 5)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(36:42) %>% 
+    mutate(week = 6)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(43:49) %>% 
+    mutate(week = 7)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(50:56) %>% 
+    mutate(week = 8)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(57:63) %>% 
+    mutate(week = 9)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(64:70) %>% 
+    mutate(week = 10)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(71:77) %>% 
+    mutate(week = 11)) %>% 
+  bind_rows(ema_1_study_dates %>% 
+    group_by(subid) %>% 
+    slice(78:84) %>% 
+    mutate(week = 12)) %>% 
+  ungroup()
+```
+
+Get individual compliance scores 
+```{r}
+ema_1_week_compliance <- ema_study_weeks %>%
+  mutate(n = if_else(n > 1, 1, n),
+         n_prompts = 1) %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup() %>% 
+  glimpse()
+```
+
+Summarize total compliance
+```{r}
+ema_1_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance)) 
+```
+
+
+```{r}
+plot_weekly_compliance_1x <- ema_1_week_compliance %>% 
+  group_by(week) %>% 
+  summarize(mean_compliance = mean(compliance)) %>% 
+  ggplot(aes(x = week, y = mean_compliance)) +
+  geom_point() +
+  geom_line() +
+  theme_classic() +
+  scale_x_continuous(name = "Week", 
+                     breaks = seq(1, 12, 1)) +
+  scale_y_continuous(name = "Compliance", 
+                     breaks = seq(0, 1, .1), 
+                     limits = c(0, 1)) +
+  labs(title = "1X daily EMA compliance over time") +
+  theme(text = element_text(size = 14)) +
+  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
+```
+
+
+Uncomment to save figure  
+```{r}
+# ggsave(plot = plot_weekly_compliance_1x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
