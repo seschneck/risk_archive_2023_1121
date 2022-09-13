@@ -360,7 +360,7 @@ ema_1_week_compliance %>%
 ```
 
 
-```{r}
+```{r ema_1_week_compliance}
 plot_weekly_compliance_1x <- ema_1_week_compliance %>% 
   group_by(week) %>% 
   summarize(mean_compliance = mean(compliance)) %>% 
@@ -376,6 +376,8 @@ plot_weekly_compliance_1x <- ema_1_week_compliance %>%
   labs(title = "1X daily EMA compliance over time") +
   theme(text = element_text(size = 14)) +
   geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
+
+plot_weekly_compliance_1x
 ```
 
 
