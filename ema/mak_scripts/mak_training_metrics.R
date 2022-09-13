@@ -1,17 +1,20 @@
 library(here)
 library(stringr)
 
-data_type <- "ema"
+study <- "ema"
+data_type <- "all"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1week")
+windows <- c("1day")
 lead <- 0
 version <- "v4"
+
+algorithms <- "xgboost"  # "all" or algorithm name
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
                     output_file = str_c("mak_training_metrics_", data_type, "_", 
                                         window, "_", lead, "_", version, ".html"), 
-                    output_dir = str_c("P:/studydata/risk/knits/", data_type),
-                    params = list(window = window, data_type = data_type, lead = lead, version = version),
+                    output_dir = str_c("P:/studydata/risk/knits/", study),
+                    params = list(window = window, study = study, data_type = data_type, lead = lead, version = version),
                     envir = new.env())
 }
