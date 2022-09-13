@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1week"
+  window: "1day"
   lead: 0
   version: "v4"
 ---
@@ -34,8 +34,6 @@ data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
 version <- params$version
-
-
 ```
 
 Packages for lab workflow 
@@ -151,7 +149,7 @@ Replicates resampling metrics for best configuration using characteristics speci
 
 # create recipe outside of if_else b/c always need it for later use
 path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
-                str_c("train_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
+                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
 source(here(path_best, "training_controls.R"))
 
 chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
