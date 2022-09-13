@@ -285,11 +285,11 @@ mean compliance for one daily survey is `r mean_ema_1$mean`
 
 
 
-**Compliance over time**
+Compliance over time    
 
 Slice into 7 day bins 
 ```{r}
-ema_study_weeks <- ema_1_study_dates %>% 
+ema_1_study_weeks <- ema_1_study_dates %>% 
   group_by(subid) %>% 
   slice(1:7) %>% 
   mutate(week = 1) %>% 
@@ -342,7 +342,7 @@ ema_study_weeks <- ema_1_study_dates %>%
 
 Get individual compliance scores 
 ```{r}
-ema_1_week_compliance <- ema_study_weeks %>%
+ema_1_week_compliance <- ema_1_study_weeks %>%
   mutate(n = if_else(n > 1, 1, n),
          n_prompts = 1) %>% 
   group_by(subid, week) %>% 
@@ -360,28 +360,160 @@ ema_1_week_compliance %>%
 ```
 
 
-```{r ema_1_week_compliance}
-plot_weekly_compliance_1x <- ema_1_week_compliance %>% 
+#### Calculate compliance for 4x daily EMA
+
+Overall proportion of EMAs completed while on study    
+
+Count EMAs per study day
+```{r}
+# count EMAs per day
+ema_4_count <- ema %>%  
+  count(subid, start_date) %>%
+  mutate(n = if_else(n > 4, 4, as.numeric(n)))
+
+# left join with study dates
+ema_4_study_dates <- study_dates %>% 
+  left_join(ema_4_count, by = c("subid", "study_day" = "start_date")) %>% 
+  mutate(n = if_else(is.na(n), 0, n)) %>% 
+  mutate(n_prompts = 4) %>% 
+  glimpse()
+```
+
+calculate mean compliance
+```{r}
+mean_ema_4 <- ema_4_study_dates %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total)
+```
+
+compliance = `r mean_ema_4$mean`   
+
+avg emas completed daily = `r mean(ema_4_study_dates$n)`
+
+
+
+Compliance over time    
+
+Slice into 7 day bins 
+```{r}
+ema_4_study_weeks <- ema_4_study_dates %>% 
+  group_by(subid) %>% 
+  slice(1:7) %>% 
+  mutate(week = 1) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(8:14) %>% 
+    mutate(week = 2)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(15:21) %>% 
+    mutate(week = 3)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(22:28) %>% 
+    mutate(week = 4)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(29:35) %>% 
+    mutate(week = 5)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(36:42) %>% 
+    mutate(week = 6)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(43:49) %>% 
+    mutate(week = 7)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(50:56) %>% 
+    mutate(week = 8)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(57:63) %>% 
+    mutate(week = 9)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(64:70) %>% 
+    mutate(week = 10)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(71:77) %>% 
+    mutate(week = 11)) %>% 
+  bind_rows(ema_4_study_dates %>% 
+    group_by(subid) %>% 
+    slice(78:84) %>% 
+    mutate(week = 12)) %>% 
+  ungroup()
+```
+
+
+Get individual compliance scores - N EMAs/possible EMAs
+```{r}
+ema_4_week_compliance <- ema_4_study_weeks %>% 
+  group_by(subid, week) %>% 
+  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
+  mutate(compliance = sum_n/sum_prompts) %>% 
+  ungroup() %>% 
+  glimpse()
+```
+
+Summarize total compliance
+```{r}
+ema_4_week_compliance %>% 
   group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance)) %>% 
-  ggplot(aes(x = week, y = mean_compliance)) +
-  geom_point() +
+  summarize(mean_compliance = mean(compliance))
+```
+
+
+
+#### Plot compliance
+
+
+```{r ema_1_week_compliance}
+week_compliance_all <- ema_4_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (4x Daily)") %>% 
+  bind_rows(ema_1_week_compliance %>% 
+              group_by(week) %>% 
+              summarize(mean_compliance = mean(compliance),
+                        n = n(),
+                        sd = sd(compliance)) %>% 
+              mutate(se = sd/sqrt(n),
+                     signal = "EMA (1x Daily)")) 
+  
+plot_weekly_compliance <- week_compliance_all %>%   
+  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)"))) %>% 
+  group_by(week, signal) %>% 
+  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
+  geom_point(size = 2) +
   geom_line() +
+  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
+                width = .3, size = .3) +
   theme_classic() +
+  scale_shape_manual(values = c(19, 1, 17)) +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
   scale_y_continuous(name = "Compliance", 
                      breaks = seq(0, 1, .1), 
                      limits = c(0, 1)) +
-  labs(title = "1X daily EMA compliance over time") +
-  theme(text = element_text(size = 14)) +
-  geom_hline(aes(yintercept = mean(mean_compliance)), linetype = "dashed", size = .3)
+  geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
+               group_by(signal) %>% 
+               summarize(mean_compliance = mean(mean_compliance)),
+             linetype = "dashed", size = .3) +
+  theme(legend.title = element_blank(),
+        text = element_text(size = 14),
+        legend.position = "bottom")
 
-plot_weekly_compliance_1x
+plot_weekly_compliance
 ```
 
 
 Uncomment to save figure  
 ```{r}
-# ggsave(plot = plot_weekly_compliance_1x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = plot_weekly_compliance, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
