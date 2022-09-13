@@ -20,21 +20,22 @@ Packages and Paths
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse)
 
+conflict_prefer("cols", "vroom")
+
 path_data <- "P:/studydata/risk/data_processed/burden"
 ```
 
 
 ### Read in data
 ```{r}
-data <- read_csv(file.path(path_data, "acceptability.csv"), col_types = cols()) %>% 
+data <- vroom(file.path(path_data, "acceptability.csv"), col_types = cols()) %>% 
   select(subid, date, contains("daily_survey")) %>% 
   glimpse()
 ```
 
 
-Pull out last observation for each participant
+Pull out last observation/survey for each participant
 ```{r}
-# pull out most recent survey for each subid
 data_last <- data %>% 
   group_by(subid) %>% 
   arrange(desc(date)) %>% 
@@ -81,7 +82,7 @@ plot_ema_interfere
 Uncomment to save figure  
 *Note: Replace PATH with location to save plot.*
 ```{r}
-# ggsave(plot = plot_ema_interfere, "PATH/acceptability_ema_interfere.png", width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = plot_ema_interfere, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
 
 
@@ -116,7 +117,7 @@ plot_ema_dislike
 Uncomment to save figure  
 *Note: Replace PATH with location to save plot.*
 ```{r}
-# ggsave(plot = plot_ema_dislike, "PATH/acceptability_ema_dislike.png", width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = plot_ema_dislike, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
 
 
@@ -151,7 +152,7 @@ plot_ema_1x
 Uncomment to save figure  
 *Note: Replace PATH with location to save plot.*
 ```{r}
-# ggsave(plot = plot_ema_1x, "PATH/acceptability_ema_1x.png", width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = plot_ema_1x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
 
 
@@ -184,5 +185,5 @@ plot_ema_4x
 Uncomment to save figure  
 *Note: Replace PATH with location to save plot.*
 ```{r}
-# ggsave(plot = plot_ema_4x, "PATH/acceptability_ema_4x.png", width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
+# ggsave(plot = plot_ema_4x, file.choose(), width = 7.5, height = 6, units = "in", device = "png",  dpi = 500)
 ```
