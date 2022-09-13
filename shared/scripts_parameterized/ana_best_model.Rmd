@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1day"
+  window: "1week"
   lead: 0
   version: "v4"
 ---
@@ -357,7 +357,7 @@ config_best_xgb <- metrics_avg %>%
   slice(1) %>% 
   glimpse()
 
-if (nrow(config_best_glmnet) > 0) {
+if (nrow(config_best_xgb) > 0) {
   
   rec_xgb <- build_recipe(d = d, job = config_best_xgb)
   
