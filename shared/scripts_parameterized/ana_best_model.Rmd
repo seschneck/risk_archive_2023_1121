@@ -45,7 +45,6 @@ conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
 conflict_prefer("vi", "vip")
-conflict_prefer("slice", "dplyr")
 
 library(here)
 ```
@@ -171,11 +170,11 @@ d <- d %>%
   
 
 
-if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds"))))) {
+if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds"))))) {
   
   message("loading previously fit model metrics")
-  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
-  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
+  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
   
 } else {
   message("Fitting models to get resampling metrics")
@@ -198,7 +197,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
   
   metrics_best <- fits_best[[1]] 
   metrics_best  %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_best_", window, "_", lead, "_", version, ".rds")))
+    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
   
   preds_best <- fits_best[[2]] %>% 
     select(truth = y,
@@ -209,7 +208,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", window, "_", le
            estimate = if_else(estimate == "no", "no_lapse", "lapse"),
            estimate = factor(estimate, levels = c("no_lapse", "lapse")))
   preds_best %>% 
-    saveRDS(here(path_models, str_c("resample_preds_best_", window, "_", lead, "_", version, ".rds")))
+    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
 }
 
 ```
@@ -312,20 +311,22 @@ config_best_glmnet <- metrics_avg %>%
   slice(1) %>% 
   glimpse()
 
-rec_glmnet <- build_recipe(d = d, job = config_best_glmnet)
-
-fit_best_glmnet <- fit_best_model(config_best_glmnet, rec_glmnet, d)
-
-fit_best_glmnet %>%
-  vi(lambda = config_best_glmnet$hp2) %>% 
-  mutate(Importance = abs(Importance),
-         Variable = fct_reorder(Variable, Importance),
-         Direction = if_else(Sign == "POS", "NEG", "POS")) %>% # flip direction because lapse is second level
-  filter(Importance > .005) %>% 
-  ggplot(aes(x = Importance, y = Variable, fill = Direction)) +
-  geom_col() +
-  scale_x_continuous(expand = c(0, 0)) +
-  labs(y = NULL)
+if (nrow(config_best_glmnet) > 0) {
+  rec_glmnet <- build_recipe(d = d, job = config_best_glmnet)
+  
+  fit_best_glmnet <- fit_best_model(config_best_glmnet, rec_glmnet, d)
+  
+  fit_best_glmnet %>%
+    vi(lambda = config_best_glmnet$hp2) %>% 
+    mutate(Importance = abs(Importance),
+           Variable = fct_reorder(Variable, Importance),
+           Direction = if_else(Sign == "POS", "NEG", "POS")) %>% # flip direction because lapse is second level
+    filter(Importance > .005) %>% 
+    ggplot(aes(x = Importance, y = Variable, fill = Direction)) +
+    geom_col() +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(y = NULL)
+}
 ```
 
 
@@ -338,12 +339,14 @@ config_best_rf <- metrics_avg %>%
   slice(1) %>% 
   glimpse()
 
-rec_rf <- build_recipe(d = d, job = config_best_rf)
-
-fit_best_rf <- fit_best_model(config_best_rf, rec_rf, d)
-
-fit_best_rf %>%
-  vip(num_features = 40, geom = "point") 
+if (nrow(config_best_rf) > 0) {
+  rec_rf <- build_recipe(d = d, job = config_best_rf)
+  
+  fit_best_rf <- fit_best_model(config_best_rf, rec_rf, d)
+  
+  fit_best_rf %>%
+    vip(num_features = 40, geom = "point") 
+}
 ```
 
 xgboost
@@ -354,34 +357,32 @@ config_best_xgb <- metrics_avg %>%
   slice(1) %>% 
   glimpse()
 
-if (nrow(config_best_xgb) == 0) {
-  print("No xgboost algorithm results")
-} else {
- rec_xgb <- build_recipe(d = d, job = config_best_xgb)
-
- fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
-
- fit_best_xgb %>%
+if (nrow(config_best_glmnet) > 0) {
+  
+  rec_xgb <- build_recipe(d = d, job = config_best_xgb)
+  
+  fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
+  
+  fit_best_xgb %>%
    vip(num_features = 100, geom = "point", scale = TRUE) 
- fit_best_xgb %>%
-   vi(scale = FALSE) 
- 
- features <- rec_xgb %>% 
-    prep(training = d, strings_as_factors = FALSE) %>% 
-    bake(new_data = NULL) %>% 
-    select(-y)
-
- 
- feature_names <- names(features)
-
-pfun <- function(object, newdata) predict(object, data = newdata)$predictions
-pfun2 <- function(object, newdata) predict(object, newdata)$.pred_class
-
-fit_best_xgb %>%
-   vip(method = "permute", train = features, target = "y", metric = "auc", reference_class = "yes", num_features = 40, geom = "point", pred_wrapper = pfun, nsims = 20)  
- 
- 
- fit_best_xgb %>%
-   vip(method = "shap", train = features, feature_names = feature_names, num_features = 40, geom = "point", pred_wrapper = pfun2)  
+   
+  #  features <- rec_xgb %>% 
+  #     prep(training = d, strings_as_factors = FALSE) %>% 
+  #     bake(new_data = NULL) %>% 
+  #     select(-y)
+  # 
+  #  
+  #  feature_names <- names(features)
+  # 
+  # pfun <- function(object, newdata) predict(object, data = newdata)$predictions
+  # pfun2 <- function(object, newdata) predict(object, newdata)$.pred_class
+  # 
+  # fit_best_xgb %>%
+  #    vip(method = "permute", train = features, target = "y", metric = "auc", reference_class = "yes", num_features = 40, geom = "point", pred_wrapper = pfun, nsims = 20)  
+  #  
+  #  
+  #  fit_best_xgb %>%
+  #    vip(method = "shap", train = features, feature_names = feature_names, num_features = 40, geom = "point", pred_wrapper = pfun2)  
+  # }
 }
 ```
