@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1week"
+  window: "1day"
   lead: 0
   version: "v4"
 ---
@@ -213,8 +213,8 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
 
 ```
 
-
 ```{r model_metrics}
+# NOTE THAT THESE HAVE EVENT LEVEL BACKWARD STILL.   NEED TO FIX THIS AT SOME POINT
 metrics_best %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
   summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
@@ -226,19 +226,34 @@ Confusion matrix using .5 threshold
 (cm <- preds_best %>% 
   conf_mat(truth, estimate))
 
+rownames(cm$table) <- c("No lapse", "Lapse")
+colnames(cm$table) <- c("No lapse", "Lapse")
 
 cm %>% 
-  autoplot()
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
 
 cm %>% summary(event_level = "second")
+
+# save plot for presentations
+# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 ```{r prob_plot}
 preds_best %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "white", col = "black") +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)")
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 Here is single ROC by concatenating all folds.
@@ -256,8 +271,15 @@ roc_data %>%
   geom_path() +
   geom_abline(lty = 3) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "1 - Specificity (FPR)",
-       y = "Sensitivity (TPR)")
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 Here is precision/recall by concatenating all folds
@@ -296,6 +318,24 @@ cm_opt %>%
   autoplot()
 
 cm_opt %>% summary(event_level = "second")
+```
+
+Confusion matrix and metrics based on high (.90) threshold
+```{r opt_cm}
+
+thresh_hi <- .90
+
+preds_best <- preds_best %>% 
+  mutate(estimate_hi = if_else(prob < thresh_hi, "no_lapse", "lapse"),
+         estimate_hi = factor(estimate_hi, levels = c("no_lapse", "lapse")))
+
+(cm_hi <- preds_best %>% 
+  conf_mat(truth, estimate_hi))
+
+cm_hi %>% 
+  autoplot()
+
+cm_hi %>% summary(event_level = "second")
 ```
 
 ### Feature Importance
@@ -363,8 +403,12 @@ if (nrow(config_best_xgb) > 0) {
   
   fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
   
-  fit_best_xgb %>%
-   vip(num_features = 100, geom = "point", scale = TRUE) 
+  vi_xgb <- fit_best_xgb %>% 
+    vi(method = "model", scale = TRUE)
+  
+  
+  vi_xgb %>%
+   vip(num_features = 100, geom = "point")
    
   #  features <- rec_xgb %>% 
   #     prep(training = d, strings_as_factors = FALSE) %>% 
