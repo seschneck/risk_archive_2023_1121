@@ -217,32 +217,17 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
   
   for (i in 1:num_fits_best_splits) {
     
-    # pull out label num from held out data
-    label_nums <- fits_best[[3]]$splits[[i]] %>% 
-      testing() %>% 
-      select(label_num, y)
-    
     # pull out preds
-    preds <- fits_best[[3]]$.predictions[[i]] %>% 
+    preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
       select(label_num = .row,
              truth = y,
              estimate = .pred_class,
-             prob = .pred_yes)
-    
-    # merge
-    preds_tmp <- label_nums %>% 
-      full_join(preds, by = "label_num")
-    
-    # check that truth = y, then drop y 
-    janitor::tabyl(preds_tmp, y, truth)
-    
-    # clean up factor labels (based on old code)
-    preds_tmp <- preds_tmp %>% 
+             prob = .pred_yes) %>% 
+      # update factor labels based on old code
       mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
              truth = factor(truth, levels = c("no_lapse", "lapse")),
              estimate = if_else(estimate == "no", "no_lapse", "lapse"),
              estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-    
   }
 
   preds_best %>%
