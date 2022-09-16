@@ -12,6 +12,9 @@ vi_final <- vi_xgb %>%
          Variable = str_replace_all(Variable, "p12.dratecount.count.lapse", "lapse.12.count_chng"),
          Variable = str_replace_all(Variable, "p72.rratecount.count.lapse", "lapse.72.count_raw"),
          Variable = str_replace_all(Variable, "p168.rratecount.count.lapse", "lapse.168.count_raw"),
+         Variable = str_replace_all(Variable, "p72.dratecount.count.lapse", "lapse.72.count_chng"),
+         Variable = str_replace_all(Variable, "p12.rratecount.count.lapse", "lapse.12.count_raw"),
+         Variable = str_replace_all(Variable, "p168.rratecount.count.ema", "compliance.168.count_raw"),
          Variable = str_replace_all(Variable, "p0", "0"),
          Variable = str_replace_all(Variable, "p12", "12"),
          Variable = str_replace_all(Variable, "p24", "24"),
@@ -38,7 +41,7 @@ vi_final <- vi_xgb %>%
 
 
 vi_final %>%
-  vip(num_features = 40, geom = "point") +
+  vip(num_features = 25, geom = "col") +
   theme(axis.text = element_text(size = rel(1.50)), 
         axis.title = element_text(size = rel(1.75)))
 
