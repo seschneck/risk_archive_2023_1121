@@ -481,13 +481,12 @@ week_compliance_all <- ema_4_week_compliance %>%
 plot_weekly_compliance <- week_compliance_all %>%   
   mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)"))) %>% 
   group_by(week, signal) %>% 
-  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
+  ggplot(aes(x = week, y = mean_compliance, group = signal, color = signal)) +
   geom_point(size = 2) +
   geom_line() +
   geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
                 width = .3, size = .3) +
-  theme_classic() +
-  scale_shape_manual(values = c(19, 1, 17)) +
+  scale_color_manual(values = c("#1966C7", "#DC9227")) +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
   scale_y_continuous(name = "Compliance", 
@@ -496,7 +495,8 @@ plot_weekly_compliance <- week_compliance_all %>%
   geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
                group_by(signal) %>% 
                summarize(mean_compliance = mean(mean_compliance)),
-             linetype = "dashed", size = .3) +
+             linetype = "dashed", size = .3, color = c("#1966C7", "#DC9227")) +
+  theme_classic() +
   theme(legend.title = element_blank(),
         text = element_text(size = 14),
         legend.position = "bottom")
