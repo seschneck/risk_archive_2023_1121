@@ -228,17 +228,20 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
              truth = factor(truth, levels = c("no_lapse", "lapse")),
              estimate = if_else(estimate == "no", "no_lapse", "lapse"),
              estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+    
+    # join with other splits
+    if (i == 1) {
+      preds_best <- preds_tmp
+    } else {
+      preds_best <- preds_best %>% 
+        rbind(preds_tmp)
+    }
   }
 
   preds_best %>%
     saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
   
 }
-
-
-
-
-
 ```
 
 ```{r model_metrics}

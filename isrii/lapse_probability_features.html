@@ -376,6 +376,8 @@ pre code {
 Environment</a></li>
 <li><a href="#predictions-for-ema-1day-v4" id="toc-predictions-for-ema-1day-v4">Predictions for ema 1day
 v4</a></li>
+<li><a href="#predictions-for-ema-1hour-v4" id="toc-predictions-for-ema-1hour-v4">Predictions for ema 1hour
+v4</a></li>
 </ul>
 </div>
 
@@ -413,9 +415,6 @@ theme_set(theme_classic()) </code></pre>
 path_processed &lt;- str_c(&quot;P:/studydata/risk/data_processed/ema&quot;)
 path_models &lt;- str_c(&quot;P:/studydata/risk/models/ema&quot;)</code></pre>
 <p>Chunk Defaults</p>
-<p>Source training controls</p>
-<pre class="r"><code>source(here(&quot;../lab_support/chtc/static_files/fun_chtc.R&quot;))
-source(here(&quot;../lab_support/print_kbl.R&quot;))</code></pre>
 </div>
 <div id="predictions-for-ema-1day-v4" class="section level3">
 <h3>Predictions for ema 1day v4</h3>
@@ -440,7 +439,11 @@ source(here(&quot;../lab_support/print_kbl.R&quot;))</code></pre>
 ##     &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
 ## 1   0.897 0.741 0.845 0.298 0.981
 ## 2   0.881 0.748 0.835 0.285 0.979</code></pre>
-<pre class="r"><code>algorithm_best &lt;- metrics_avg %&gt;% 
+<pre class="r"><code>config_best &lt;- metrics_avg %&gt;% 
+  arrange(desc(roc_auc)) %&gt;% 
+  slice(1)
+
+algorithm_best &lt;- metrics_avg %&gt;% 
   group_by(algorithm, feature_set, resample) %&gt;% 
   arrange(desc(roc_auc)) %&gt;% 
   slice(1) %&gt;% 
@@ -518,7 +521,167 @@ doesn’t match =(</p>
 <pre style="max-height: 500px;"><code>##    y no_lapse lapse
 ##   no   233428 19644
 ##  yes    19644  1463</code></pre>
+<p>Read in new preds with label numbers</p>
+<pre class="r"><code>preds_best_new &lt;- readRDS(here(path_models, &quot;resample_preds_best_all_1day_0_v4_with_label_num.rds&quot;))</code></pre>
+<p>Check preds_best and preds_best_new match</p>
+<pre class="r"><code>identical(preds_best_new %&gt;% select(-label_num), preds_best)</code></pre>
+<pre style="max-height: 500px;"><code>## [1] TRUE</code></pre>
+<p>merge new preds with data</p>
+<pre class="r"><code>preds_merged &lt;- d %&gt;% 
+  select(label_num, subid, dttm_label, y, label_day, label_hour) %&gt;% 
+  full_join(preds_best_new, by = &quot;label_num&quot;) %&gt;% 
+  glimpse()</code></pre>
+<pre style="max-height: 500px;"><code>## Rows: 274,179
+## Columns: 9
+## $ label_num  &lt;dbl&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, …
+## $ subid      &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ dttm_label &lt;dttm&gt; 2017-03-03 06:00:00, 2017-03-03 07:00:00, 2017-03-03 08:00…
+## $ y          &lt;chr&gt; &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;,…
+## $ label_day  &lt;chr&gt; &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fr…
+## $ label_hour &lt;chr&gt; &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;othe…
+## $ truth      &lt;fct&gt; no_lapse, no_lapse, no_lapse, no_lapse, no_lapse, no_lapse,…
+## $ estimate   &lt;fct&gt; no_lapse, no_lapse, no_lapse, no_lapse, no_lapse, no_lapse,…
+## $ prob       &lt;dbl&gt; 0.1401108, 0.1401108, 0.1401108, 0.1401108, 0.1401108, 0.14…</code></pre>
+<p>Check y = truth</p>
+<pre class="r"><code>preds_merged %&gt;% 
+  janitor::tabyl(y, truth)</code></pre>
+<pre style="max-height: 500px;"><code>##    y no_lapse lapse
+##   no   253072     0
+##  yes        0 21107</code></pre>
 <p>Plot predicted probabilities by day</p>
+<pre class="r"><code>preds_merged %&gt;% 
+  group_by(label_day) %&gt;% 
+  summarize(lapse_prob = mean(prob))</code></pre>
+<pre style="max-height: 500px;"><code>## # A tibble: 7 × 2
+##   label_day lapse_prob
+##   &lt;chr&gt;          &lt;dbl&gt;
+## 1 Fri            0.265
+## 2 Mon            0.261
+## 3 Sat            0.301
+## 4 Sun            0.264
+## 5 Thu            0.259
+## 6 Tue            0.268
+## 7 Wed            0.263</code></pre>
+<p>Double check reference day<br />
+step_dummy used on label_day in recipe<br />
+reference = Friday (first listed day is by default reference)</p>
+<pre class="r"><code>rec &lt;- build_recipe(d = d, job = config_best)
+
+feat_all &lt;-  rec %&gt;% 
+  prep(training = d, strings_as_factors = FALSE) %&gt;% 
+  bake(new_data = NULL)
+
+feat_all %&gt;% 
+  select(starts_with(&quot;label_day&quot;)) %&gt;% 
+  glimpse()</code></pre>
+<pre style="max-height: 500px;"><code>## Rows: 42,214
+## Columns: 6
+## $ label_day_Mon &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ label_day_Sat &lt;dbl&gt; 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ label_day_Sun &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ label_day_Thu &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ label_day_Tue &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ label_day_Wed &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…</code></pre>
+</div>
+<div id="predictions-for-ema-1hour-v4" class="section level3">
+<h3>Predictions for ema 1hour v4</h3>
+<p>Confirm best model is xgboost</p>
+<pre class="r"><code>metrics_avg &lt;- 
+  vroom(here(path_processed, str_c(&quot;metrics_avg_train_1hour_0_v4.csv&quot;)), 
+        col_types = &quot;iccdddcddddddd&quot;,
+        show_col_types = FALSE)</code></pre>
+<p>Looks like only xgboost in metrics file</p>
+<pre class="r"><code>metrics_avg %&gt;% 
+  group_by(algorithm, feature_set, resample) %&gt;% 
+  arrange(desc(roc_auc)) %&gt;% 
+  slice(1) %&gt;% 
+  ungroup %&gt;% 
+  arrange(desc(roc_auc)) </code></pre>
+<pre style="max-height: 500px;"><code>## # A tibble: 2 × 14
+##   n_jobs algorithm feature_set   hp1   hp2   hp3 resample accuracy bal_accuracy
+##    &lt;int&gt; &lt;chr&gt;     &lt;chr&gt;       &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;       &lt;dbl&gt;        &lt;dbl&gt;
+## 1     10 xgboost   all           0.1     1    50 down_1      0.866        0.820
+## 2     10 xgboost   all           0.1     1    50 up_1        0.869        0.818
+##   roc_auc  sens  spec    ppv   npv
+##     &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;
+## 1   0.914 0.774 0.866 0.0225 0.999
+## 2   0.910 0.767 0.869 0.0229 0.999</code></pre>
+<pre class="r"><code>config_best &lt;- metrics_avg %&gt;% 
+  arrange(desc(roc_auc)) %&gt;% 
+  slice(1)
+
+algorithm_best &lt;- metrics_avg %&gt;% 
+  group_by(algorithm, feature_set, resample) %&gt;% 
+  arrange(desc(roc_auc)) %&gt;% 
+  slice(1) %&gt;% 
+  ungroup %&gt;% 
+  arrange(desc(roc_auc)) %&gt;% 
+  slice(1) %&gt;% 
+  pull(algorithm) %&gt;%
+  print</code></pre>
+<pre style="max-height: 500px;"><code>## [1] &quot;xgboost&quot;</code></pre>
+<p>Read in data and predictions for best model</p>
+<pre class="r"><code># set paths
+path_best &lt;- here(&quot;P:/studydata/risk/chtc/ema/train_all_1hour_0_v4_xgboost/input&quot;)
+source(here(path_best, &quot;training_controls.R&quot;))
+
+# read in data
+chunks &lt;- str_split_fixed(data_trn, &quot;\\.&quot;, n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn &lt;- str_c(&quot;data_trn.&quot;, chunks[[2]])
+} else {
+  fn &lt;- str_c(&quot;data_trn.&quot;, chunks[[2]], &quot;.&quot;, chunks[[3]])
+}
+
+if (str_detect(fn, &quot;csv&quot;)) {
+  d &lt;- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d &lt;- readRDS(here(path_best, fn))
+}
+
+d &lt;- d %&gt;% 
+  rename(y = {{y_col_name}})
+  
+
+# read in preds
+preds_best &lt;- readRDS(here(path_models, &quot;resample_preds_best_all_1hour_0_v4.rds&quot;))</code></pre>
+<p>Read in new preds with label numbers</p>
+<pre class="r"><code>preds_best_new &lt;- readRDS(here(path_models, &quot;resample_preds_best_all_1hour_0_v4_with_label_num.rds&quot;))</code></pre>
+<p>Check preds_best and preds_best_new match</p>
+<pre class="r"><code>identical(preds_best_new %&gt;% select(-label_num), preds_best)</code></pre>
+<pre style="max-height: 500px;"><code>## [1] TRUE</code></pre>
+<p>merge new preds with data</p>
+<pre class="r"><code>preds_merged &lt;- d %&gt;% 
+  select(label_num, subid, dttm_label, y, label_day, label_hour) %&gt;% 
+  full_join(preds_best_new, by = &quot;label_num&quot;) %&gt;% 
+  glimpse()</code></pre>
+<pre style="max-height: 500px;"><code>## Rows: 267,287
+## Columns: 9
+## $ label_num  &lt;dbl&gt; 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, …
+## $ subid      &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,…
+## $ dttm_label &lt;dttm&gt; 2017-03-03 06:00:00, 2017-03-03 07:00:00, 2017-03-03 08:00…
+## $ y          &lt;chr&gt; &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;, &quot;no&quot;,…
+## $ label_day  &lt;chr&gt; &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fri&quot;, &quot;Fr…
+## $ label_hour &lt;chr&gt; &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;other&quot;, &quot;othe…
+## $ truth      &lt;fct&gt; no_lapse, no_lapse, no_lapse, no_lapse, no_lapse, no_lapse,…
+## $ estimate   &lt;fct&gt; no_lapse, no_lapse, no_lapse, no_lapse, no_lapse, no_lapse,…
+## $ prob       &lt;dbl&gt; 0.1442544, 0.1442544, 0.1442544, 0.1284292, 0.1284292, 0.12…</code></pre>
+<p>Check y = truth</p>
+<pre class="r"><code>preds_merged %&gt;% 
+  janitor::tabyl(y, truth)</code></pre>
+<pre style="max-height: 500px;"><code>##    y no_lapse lapse
+##   no   266270     0
+##  yes        0  1017</code></pre>
+<p>Predicted probabilities by hour<br />
+Hour can be evening (5-11 pm) or other</p>
+<pre class="r"><code>preds_merged %&gt;% 
+  group_by(label_hour) %&gt;% 
+  summarize(lapse_prob = mean(prob))</code></pre>
+<pre style="max-height: 500px;"><code>## # A tibble: 2 × 2
+##   label_hour lapse_prob
+##   &lt;chr&gt;           &lt;dbl&gt;
+## 1 evening         0.331
+## 2 other           0.184</code></pre>
 </div>
 
 
