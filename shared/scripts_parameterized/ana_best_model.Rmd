@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1hour"
+  window: "1week"
   lead: 0
   version: "v4"
 ---
@@ -319,8 +319,10 @@ Same approach as above for ROC
 preds_best %>%
   pr_auc(prob, truth = truth, event_level = "second")
 
-preds_best %>% 
-  pr_curve(prob, truth = truth, event_level = "second") %>% 
+pr_data <- preds_best %>% 
+  pr_curve(prob, truth = truth, event_level = "second")
+
+pr_data %>% 
   ggplot(aes(x = recall, y = precision)) +
   geom_path() +
   geom_hline(lty = 3, yintercept = mean(preds_best$truth == "lapse")) +
