@@ -27,9 +27,9 @@ plot_theme = theme(
   axis.title = element_text(size = rel(1.75)))
 
 
-# week only
+# day only
 pr_data %>% 
-  filter(model == "1week") %>% 
+  filter(model == "1day") %>% 
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path(size = 1.25) +
 #  geom_hline(lty = 3, yintercept = mean(preds_best$truth == "lapse")) +
