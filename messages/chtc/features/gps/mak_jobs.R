@@ -2,7 +2,7 @@
 
 # EDIT THESE
 study <- "messages"
-window <- "1week"   # remember to edit these in make_features_chtc.R as well
+window <- "1day"   # remember to edit these in make_features_chtc.R as well
 data_type <- "gps"
 lead <- 0
 version <- "v1"
