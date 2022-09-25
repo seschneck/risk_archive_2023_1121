@@ -4,7 +4,7 @@
 # This is version 4 used for EMA but used here in combo with GPS
 
 # Constants: EDIT
-window <- "1week"  # window for calculating labels
+window <- "1day"  # window for calculating labels
 lead <-  0 # feature lead time
 version <- "v4"
 

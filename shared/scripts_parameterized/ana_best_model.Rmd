@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1hour"
+  window: "1week"
   lead: 0
   version: "v4"
 ---
@@ -61,6 +61,7 @@ library(ggplot2)
 library(kableExtra)
 library(vip)
 library(future)
+library(SHAPforxgboost)
 
 theme_set(theme_classic()) 
 ```
@@ -200,43 +201,43 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
     saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
   
   
-  # old code for preds
-  # preds_best <- fits_best[[2]] %>% 
-  #   select(truth = y,
-  #          estimate = .pred_class,
-  #          prob = .pred_yes) %>% 
-  #   mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-  #          truth = factor(truth, levels = c("no_lapse", "lapse")),
-  #          estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-  #          estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+
+  preds_best <- fits_best[[2]] %>%
+    select(truth = y,
+           estimate = .pred_class,
+           prob = .pred_yes) %>%
+    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+           truth = factor(truth, levels = c("no_lapse", "lapse")),
+           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
   
   
   # new code for preds to get label num
   # NOT TESTED ON NESTED YET (OR BOOTSTRAP)
-  num_fits_best_splits <- length(fits_best[[3]]$splits)
-  
-  for (i in 1:num_fits_best_splits) {
-    
-    # pull out preds
-    preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
-      select(label_num = .row,
-             truth = y,
-             estimate = .pred_class,
-             prob = .pred_yes) %>% 
-      # update factor labels based on old code
-      mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-             truth = factor(truth, levels = c("no_lapse", "lapse")),
-             estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-             estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-    
-    # join with other splits
-    if (i == 1) {
-      preds_best <- preds_tmp
-    } else {
-      preds_best <- preds_best %>% 
-        rbind(preds_tmp)
-    }
-  }
+  # num_fits_best_splits <- length(fits_best[[3]]$splits)
+  # 
+  # for (i in 1:num_fits_best_splits) {
+  #   
+  #   # pull out preds
+  #   preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
+  #     select(label_num = .row,
+  #            truth = y,
+  #            estimate = .pred_class,
+  #            prob = .pred_yes) %>% 
+  #     # update factor labels based on old code
+  #     mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+  #            truth = factor(truth, levels = c("no_lapse", "lapse")),
+  #            estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+  #            estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+  #   
+  #   # join with other splits
+  #   if (i == 1) {
+  #     preds_best <- preds_tmp
+  #   } else {
+  #     preds_best <- preds_best %>% 
+  #       rbind(preds_tmp)
+  #   }
+  # }
 
   preds_best %>%
     saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
@@ -319,8 +320,10 @@ Same approach as above for ROC
 preds_best %>%
   pr_auc(prob, truth = truth, event_level = "second")
 
-preds_best %>% 
-  pr_curve(prob, truth = truth, event_level = "second") %>% 
+pr_data <- preds_best %>% 
+  pr_curve(prob, truth = truth, event_level = "second")
+
+pr_data %>% 
   ggplot(aes(x = recall, y = precision)) +
   geom_path() +
   geom_hline(lty = 3, yintercept = mean(preds_best$truth == "lapse")) +
@@ -352,7 +355,7 @@ cm_opt %>% summary(event_level = "second")
 ```
 
 Confusion matrix and metrics based on high (.90) threshold
-```{r opt_cm}
+```{r opt_cm_hi}
 
 thresh_hi <- .90
 
@@ -434,30 +437,39 @@ if (nrow(config_best_xgb) > 0) {
   
   fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
   
+  # Scaled model specific VIP
   vi_xgb <- fit_best_xgb %>% 
     vi(method = "model", scale = TRUE)
-  
   
   vi_xgb %>%
    vip(num_features = 100, geom = "point")
    
-  #  features <- rec_xgb %>% 
-  #     prep(training = d, strings_as_factors = FALSE) %>% 
-  #     bake(new_data = NULL) %>% 
-  #     select(-y)
-  # 
-  #  
-  #  feature_names <- names(features)
-  # 
-  # pfun <- function(object, newdata) predict(object, data = newdata)$predictions
-  # pfun2 <- function(object, newdata) predict(object, newdata)$.pred_class
-  # 
-  # fit_best_xgb %>%
-  #    vip(method = "permute", train = features, target = "y", metric = "auc", reference_class = "yes", num_features = 40, geom = "point", pred_wrapper = pfun, nsims = 20)  
-  #  
-  #  
-  #  fit_best_xgb %>%
-  #    vip(method = "shap", train = features, feature_names = feature_names, num_features = 40, geom = "point", pred_wrapper = pfun2)  
-  # }
+  
+  # SHAP
+  features <- rec_xgb %>% 
+    prep(training = d, strings_as_factors = FALSE) %>%
+    bake(new_data = NULL) %>%
+    select(-y)
+  
+  shap_long <- shap.prep(xgb_model = extract_fit_engine(fit_best_xgb), 
+                         X_train = features %>% as.matrix(),
+                         top_n = 30) # top 30 features
+                         
+  shap_long %>% 
+    group_by(variable) %>% 
+    slice(1) %>% 
+    arrange(desc(mean_value)) %>% 
+    select(variable, mean_shap = mean_value) %>% 
+    print_kbl()
+  
+  shap_long %>% 
+    shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
+  
+# # plot feature values by SHAP for single feature  
+# shap_long %>% 
+#   mutate(variable = as.character(variable)) %>% 
+#   filter(variable == "ema_10.p72.l0.rmax_response") %>% 
+#   ggplot(aes(x = jitter(rfvalue), y = jitter(value))) +
+#   geom_point()
 }
 ```
