@@ -2,11 +2,11 @@ library(here)
 library(stringr)
 
 study <- "messages"
-data_type <- "gps"
+data_type <- "ema"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1week")
+windows <- c("1day")
 lead <- 0   
-version <- "v1"   
+version <- "v4"   
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_combined_features.Rmd"), 
