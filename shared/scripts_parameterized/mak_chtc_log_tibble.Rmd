@@ -7,8 +7,8 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  job_path: "P:/studydata/risk/chtc/meta/train_1day_0_v2_glmnet/"
-  data_type: "meta"
+  study: "meta"
+  data_type: "all"
   window: "1day"
   lead: 0
   version: "v2"
@@ -27,7 +27,7 @@ a csv log tibble with one row per job.
 ### Set Up Environment
 
 ```{r set_params}
-job_path <- params$job_path
+study <- params$study
 data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
@@ -55,6 +55,9 @@ library(vroom)
 source function
 ```{r warning = FALSE, message = FALSE}
 source(here("shared/fun_local.R"))
+
+job_path <- str_c("P:/studydata/risk/chtc/", study, "/train_", data_type, "_", window, 
+                  "_", lead, "_", version, "_", algorithm)
 ```
 
 ### Read in data

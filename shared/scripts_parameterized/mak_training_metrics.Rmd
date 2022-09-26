@@ -264,6 +264,8 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
 
 if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   
+  # FIX: NESTED CURRENTLY WILL OVERWRITE NON-NESTED XGBOOST
+  # add if statement to detect "nested" in algorithm
   (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost"))
 
   # Read in jobs file
@@ -316,8 +318,11 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   }
   
   metrics_raw_batch %>% tabyl(job_num)
+  
+  # FIX: CHANGE n_repeat AND n_fold TO split_num OR NESTED EQUIVALENT
   metrics_raw_batch %>% tabyl(n_repeat)
   metrics_raw_batch %>% tabyl(n_fold)
+  
   metrics_raw_batch %>% tabyl(algorithm)
   metrics_raw_batch %>% tabyl(feature_set)
   metrics_raw_batch %>% tabyl(hp1)
@@ -345,6 +350,8 @@ plan(sequential)
 
 Save raw metrics file
 ```{r}
+# FIX: ADD NESTED TO FILE NAME TO NOT OVERWRITE NON-NESTED METRICS
+
 metrics_raw_all %>% 
   vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
 ```
@@ -353,6 +360,32 @@ metrics_raw_all %>%
 
 
 ```{r}
+## FIX: For nested, group by outer split num first?
+# metrics_avg <- metrics_raw_all %>%
+#   group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+#   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+#                     mean),
+#              n_jobs = n(), .groups = "drop") %>%
+#   relocate(outer_split_num, n_jobs) %>% 
+#   glimpse()
+
+## Then get best model for each outer fold
+# metrics_avg <- metrics_avg %>% 
+#   group_by(outer_split_num) %>% 
+#   arrange(desc(roc_auc)) %>% 
+#   slice(1) %>%
+#   ungroup() %>% 
+#   glimpse()
+
+## Average performances
+# metrics_avg_best <- metrics_avg %>%
+#   group_by(n_jobs, algorithm) %>%  # to retain these columns
+#   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+#                     mean), .groups = "drop") %>%
+#   glimpse()
+
+
+
 metrics_avg <- metrics_raw_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
@@ -371,12 +404,17 @@ metrics_avg %>%
 
 Save average metrics
 ```{r}
+# FIX: ADD NESTED TO FILE NAME TO NOT OVERWRITE NON-NESTED METRICS
+
 metrics_avg %>% 
   vroom_write(here(path_processed, str_c("metrics_avg_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
 ```
 
 
-### View best performing models   
+### View best performing models 
+
+
+FIX: FEATURE SET AND RESAMPLE NOT RETAINED IN NESTED?
 
 Best AUC for algorithms x feature sets
 ```{r}
@@ -391,6 +429,8 @@ metrics_avg %>%
 
 
 ### Plot hyperparameters
+
+FIX: HYPERPARAMETERS NOT RETAIN IN NESTED AVERAGED METRICS
 
 ```{r}
 # update algorithms to actual ones in the tibble

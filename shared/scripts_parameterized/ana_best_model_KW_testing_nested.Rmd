@@ -1,0 +1,460 @@
+---
+title: "Characterize best `r params$data_type` model for `r params$window` and lead = `r params$lead` and `r params$version`"
+author: "John Curtin & Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  study: "ema"
+  data_type: "all"
+  window: "1hour"
+  lead: 0
+  version: "v4"
+---
+
+### Code Status
+
+in development
+
+### Notes
+This is a generic script that reproduces the CV metrics for the best model configuration,
+calculates various performance metrics from that resampling, makes plots,
+and then fits the best config to the final sample to do feature importance.
+
+This script is called by various studies, passing in the data_type, window, lead, and version.
+
+
+### Set Up Environment
+
+```{r}
+study <- params$study
+data_type <- params$data_type
+window <- params$window
+lead <- params$lead 
+version <- params$version
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("slice", "dplyr")
+conflict_prefer("spec", "yardstick")
+conflict_prefer("col_factor", "vroom")
+conflict_prefer("vi", "vip")
+
+library(here)
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(themis)
+library(vroom)
+library(janitor)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+library(future)
+
+theme_set(theme_classic()) 
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", data_type)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Source training controls 
+```{r}
+source(here("../lab_support/chtc/static_files/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+```
+
+```{r}
+(n_core <- parallel::detectCores(logical = FALSE))
+```
+
+
+### Review best performing models   
+
+Open average metrics
+```{r open_metrics}
+metrics_avg <- 
+  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, ".csv")), 
+        col_types = "iccdddcddddddd",
+        show_col_types = FALSE)
+```
+
+Best AUC for algorithms x feature sets
+```{r best_model_info}
+metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  print_kbl()
+
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+algorithm_best <- metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  pull(algorithm) %>%
+  print
+```
+
+
+### Refit resamples for best model locally
+
+Fit or Read metrics for best model configuration
+Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
+```{r resample_best_config}
+
+# create recipe outside of if_else b/c always need it for later use
+path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
+                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
+source(here(path_best, "training_controls.R"))
+
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
+} else {
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+}
+
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(here(path_best, fn))
+}
+
+d <- d %>% 
+  rename(y = {{y_col_name}})
+  
+
+
+if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds"))))) {
+  
+  message("loading previously fit model metrics")
+  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  
+} else {
+  message("Fitting models to get resampling metrics")
+
+  rec <- build_recipe(d = d, job = config_best)
+  
+  #create splits
+  set.seed(102030)
+  splits <- d %>% 
+  make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
+  
+  # resample best model config
+  plan(multisession, workers = n_core)
+  fits_best <- eval_best_model(config_best = config_best, rec = rec, splits = splits)
+  plan(sequential) 
+  
+  
+  metrics_best <- fits_best[[1]] 
+  metrics_best  %>% 
+    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  
+  
+  # old code for preds
+  # preds_best <- fits_best[[2]] %>% 
+  #   select(truth = y,
+  #          estimate = .pred_class,
+  #          prob = .pred_yes) %>% 
+  #   mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+  #          truth = factor(truth, levels = c("no_lapse", "lapse")),
+  #          estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+  #          estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+  
+  
+  # new code for preds to get label num
+  # NOT TESTED ON NESTED YET (OR BOOTSTRAP)
+  num_fits_best_splits <- length(fits_best[[3]]$splits)
+  
+  for (i in 1:num_fits_best_splits) {
+    
+    # pull out preds
+    preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
+      select(label_num = .row,
+             truth = y,
+             estimate = .pred_class,
+             prob = .pred_yes) %>% 
+      # update factor labels based on old code
+      mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+             truth = factor(truth, levels = c("no_lapse", "lapse")),
+             estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+             estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+    
+    # join with other splits
+    if (i == 1) {
+      preds_best <- preds_tmp
+    } else {
+      preds_best <- preds_best %>% 
+        rbind(preds_tmp)
+    }
+  }
+
+  preds_best %>%
+    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  
+}
+```
+
+```{r model_metrics}
+# Metrics should no longer be backwards on event level
+metrics_best %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop") %>% 
+  glimpse()
+```
+
+Confusion matrix using .5 threshold
+```{r default_cm}
+(cm <- preds_best %>% 
+  conf_mat(truth, estimate))
+
+rownames(cm$table) <- c("No lapse", "Lapse")
+colnames(cm$table) <- c("No lapse", "Lapse")
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary(event_level = "second")
+
+# save plot for presentations
+# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+```{r prob_plot}
+preds_best %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+Here is single ROC by concatenating all folds.
+Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
+Could also plot ROC by fold but maybe too confusing?
+```{r roc_info}
+preds_best %>%
+  roc_auc(prob, truth = truth, event_level = "second")
+
+roc_data <- preds_best %>% 
+  roc_curve(prob, truth = truth, event_level = "second")
+  
+roc_data %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+Here is precision/recall by concatenating all folds
+Same approach as above for ROC
+```{r pr_info}
+preds_best %>%
+  pr_auc(prob, truth = truth, event_level = "second")
+
+preds_best %>% 
+  pr_curve(prob, truth = truth, event_level = "second") %>% 
+  ggplot(aes(x = recall, y = precision)) +
+  geom_path() +
+  geom_hline(lty = 3, yintercept = mean(preds_best$truth == "lapse")) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Recall (Sensitivity)",
+       y = "Precision (PPV)")
+```
+
+
+Confusion matrix and metrics based on optimal threshold
+```{r opt_cm}
+(thresh_opt <- roc_data %>% 
+  mutate(j = sensitivity + specificity - 1) %>% 
+  arrange(desc(j)) %>% 
+  slice(1) %>% 
+  pull(.threshold))
+
+preds_best <- preds_best %>% 
+  mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
+         estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
+
+(cm_opt <- preds_best %>% 
+  conf_mat(truth, estimate_opt))
+
+cm_opt %>% 
+  autoplot()
+
+cm_opt %>% summary(event_level = "second")
+```
+
+Confusion matrix and metrics based on high (.90) threshold
+```{r opt_cm}
+
+thresh_hi <- .90
+
+preds_best <- preds_best %>% 
+  mutate(estimate_hi = if_else(prob < thresh_hi, "no_lapse", "lapse"),
+         estimate_hi = factor(estimate_hi, levels = c("no_lapse", "lapse")))
+
+(cm_hi <- preds_best %>% 
+  conf_mat(truth, estimate_hi))
+
+cm_hi %>% 
+  autoplot()
+
+cm_hi %>% summary(event_level = "second")
+```
+
+### Feature Importance
+
+Fit best model configs to full data to view important features
+
+glmnet
+```{r glmnet_imp, fig.height = 7}
+
+config_best_glmnet <- metrics_avg %>% 
+  filter(algorithm == "glmnet") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+if (nrow(config_best_glmnet) > 0) {
+  rec_glmnet <- build_recipe(d = d, job = config_best_glmnet)
+  
+  fit_best_glmnet <- fit_best_model(config_best_glmnet, rec_glmnet, d)
+  
+  fit_best_glmnet %>%
+    vi(lambda = config_best_glmnet$hp2) %>% 
+    mutate(Importance = abs(Importance),
+           Variable = fct_reorder(Variable, Importance),
+           Direction = if_else(Sign == "POS", "NEG", "POS")) %>% # flip direction because lapse is second level
+    filter(Importance > .005) %>% 
+    ggplot(aes(x = Importance, y = Variable, fill = Direction)) +
+    geom_col() +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(y = NULL)
+}
+```
+
+
+random forest
+```{r rf_imp, fig.height = 7}
+
+config_best_rf <- metrics_avg %>% 
+  filter(algorithm == "random_forest") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+if (nrow(config_best_rf) > 0) {
+  rec_rf <- build_recipe(d = d, job = config_best_rf)
+  
+  fit_best_rf <- fit_best_model(config_best_rf, rec_rf, d)
+  
+  fit_best_rf %>%
+    vip(num_features = 40, geom = "point") 
+}
+```
+
+xgboost
+```{r xgb_imp, fig.height = 7}
+config_best_xgb <- metrics_avg %>% 
+  filter(algorithm == "xgboost") %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+if (nrow(config_best_xgb) > 0) {
+  
+  rec_xgb <- build_recipe(d = d, job = config_best_xgb)
+  
+  fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
+  
+  vi_xgb <- fit_best_xgb %>% 
+    vi(method = "model", scale = TRUE)
+  
+  
+  vi_xgb %>%
+   vip(num_features = 100, geom = "point")
+   
+  #  features <- rec_xgb %>% 
+  #     prep(training = d, strings_as_factors = FALSE) %>% 
+  #     bake(new_data = NULL) %>% 
+  #     select(-y)
+  # 
+  #  
+  #  feature_names <- names(features)
+  # 
+  # pfun <- function(object, newdata) predict(object, data = newdata)$predictions
+  # pfun2 <- function(object, newdata) predict(object, newdata)$.pred_class
+  # 
+  # fit_best_xgb %>%
+  #    vip(method = "permute", train = features, target = "y", metric = "auc", reference_class = "yes", num_features = 40, geom = "point", pred_wrapper = pfun, nsims = 20)  
+  #  
+  #  
+  #  fit_best_xgb %>%
+  #    vip(method = "shap", train = features, feature_names = feature_names, num_features = 40, geom = "point", pred_wrapper = pfun2)  
+  # }
+}
+```
