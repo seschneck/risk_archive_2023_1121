@@ -314,11 +314,14 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
     message(length(job_nums), " unique job numbs detected.  Correct!")
   }
   
-  metrics_raw_batch %>% tabyl(job_num)
-  
-  # FIX: CHANGE n_repeat AND n_fold TO split_num OR NESTED EQUIVALENT
-  metrics_raw_batch %>% tabyl(n_repeat)
-  metrics_raw_batch %>% tabyl(n_fold)
+  # Should be 1
+  metrics_raw_batch %>% tabyl(job_num) %>% 
+    pull(n) %>% 
+    max()
+
+  metrics_raw_batch %>% tabyl(split_num)
+  metrics_raw_batch %>% tabyl(outer_split_num)
+  metrics_raw_batch %>% tabyl(inner_split_num)
   
   metrics_raw_batch %>% tabyl(algorithm)
   metrics_raw_batch %>% tabyl(feature_set)
@@ -347,10 +350,8 @@ plan(sequential)
 
 Save raw metrics file
 ```{r}
-# FIX: ADD NESTED TO FILE NAME TO NOT OVERWRITE NON-NESTED METRICS
-
 metrics_raw_all %>% 
-  vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
+  vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")), delim = ",")
 ```
 
 ### Average metrics across folds for model configurations
@@ -399,35 +400,11 @@ metrics_avg %>%
   tabyl(n_jobs)
 ```
 
-Save average metrics
-```{r}
-# FIX: ADD NESTED TO FILE NAME TO NOT OVERWRITE NON-NESTED METRICS
 
-metrics_avg %>% 
-  vroom_write(here(path_processed, str_c("metrics_avg_train_", window, "_", lead, "_", version, ".csv")), delim = ",")
-```
-
-
-### View best performing models 
-
-
-FIX: FEATURE SET AND RESAMPLE NOT RETAINED IN NESTED?
-
-Best AUC for algorithms x feature sets
-```{r}
-metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  print_kbl()
-```
 
 
 ### Plot hyperparameters
 
-FIX: HYPERPARAMETERS NOT RETAIN IN NESTED AVERAGED METRICS
 
 ```{r}
 # update algorithms to actual ones in the tibble
