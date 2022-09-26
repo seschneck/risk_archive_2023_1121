@@ -9,9 +9,10 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  window: "1day"
+  window: "1week"
   lead: 0
   version: "v4"
+  cv: "nested"
   algorithms: "xgboost"   # "all" or name of specific algorithm
 ---
 
@@ -31,6 +32,7 @@ data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
 version <- params$version
+cv <- params$cv
 algorithms <- params$algorithms
 ```
 
@@ -152,8 +154,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "glmnet")) {
 
   # read in all result CSVs
 
-  metrics_raw_batch <- list.files(here(path_input, batch_name, "output", "results"), 
-                                  full.names = TRUE) %>% 
+  metrics_raw_batch <- results_files %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
 
 
@@ -228,8 +229,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
       pull(path)
 
   # read in all result CSVs
-  metrics_raw_batch <- list.files(here(path_input, batch_name, "output", "results"), 
-                                  full.names = TRUE) %>% 
+  metrics_raw_batch <- results_files %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
 
   # Basic counts and checks
@@ -264,9 +264,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
 
 if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   
-  # FIX: NESTED CURRENTLY WILL OVERWRITE NON-NESTED XGBOOST
-  # add if statement to detect "nested" in algorithm
-  (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost"))
+  (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost", "_", cv))
 
   # Read in jobs file
   jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
@@ -305,8 +303,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
 
 
   # read in all result CSVs
-  metrics_raw_batch <- list.files(here(path_input, batch_name, "output", "results"), 
-                                  full.names = TRUE) %>% 
+  metrics_raw_batch <- results_files %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
 
   # Basic counts and checks

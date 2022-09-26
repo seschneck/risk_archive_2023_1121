@@ -7,7 +7,7 @@ data_type <- "all"
 windows <- c("1day")
 lead <- 0
 version <- "v4"
-
+cv <- "nested"
 algorithms <- "xgboost"  # "all" or algorithm name
 
 for (window in windows) {
@@ -15,6 +15,7 @@ for (window in windows) {
                     output_file = str_c("mak_training_metrics_", data_type, "_", 
                                         window, "_", lead, "_", version, ".html"), 
                     output_dir = str_c("P:/studydata/risk/knits/", study),
-                    params = list(window = window, study = study, data_type = data_type, lead = lead, version = version),
+                    params = list(window = window, study = study, data_type = data_type, 
+                                  lead = lead, version = version, cv = cv),
                     envir = new.env())
 }
