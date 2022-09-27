@@ -1,0 +1,260 @@
+---
+title: "Selects and fits best model configuration for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version`"
+author: "John Curtin & Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  study: "ema"
+  data_type: "all"
+  window: "1week"
+  lead: 0
+  version: "v4"
+  cv: "nested"
+---
+
+### Code Status
+
+In (beta) use for glmnet, random forest, and xgboost
+
+### Notes
+This script reads in aggregate CHTC performance metrics, selects the best model configuration, 
+fits the model locally and saves out performance metrics and predictions.
+
+### Set Up Environment
+
+```{r set_params}
+study <- params$study
+data_type <- params$data_type
+window <- params$window
+lead <- params$lead 
+version <- params$version
+cv <- params$cv
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("slice", "dplyr")
+conflict_prefer("spec", "yardstick")
+conflict_prefer("col_factor", "vroom")
+conflict_prefer("vi", "vip")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(vroom)
+library(purrr)
+library(furrr)
+library(janitor)
+library(ggplot2)
+library(kableExtra)
+library(vip)
+
+theme_set(theme_classic()) 
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Source training controls 
+```{r}
+source(here("../lab_support/chtc/static_files/fun_chtc.R"))
+source(here("../lab_support/print_kbl.R"))
+```
+
+Detect n cores
+```{r}
+(n_core <- parallel::detectCores(logical = FALSE))
+```
+
+Read in aggregate CHTC metrics
+```{r}
+metrics_raw <- 
+  vroom(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")), 
+        col_types = "iiiiccdddcdddddddi",
+        show_col_types = FALSE)
+```
+
+
+## Non-nested CV (Kfold and boot)
+
+FIX: WHAT IS BEST WAY TO BRANCH ON CV (NESTED VS KFOLD/BOOT)
+
+Average metrics across folds for each configuration
+```{r open_metrics}
+metrics_avg <- metrics_raw %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     mean),
+              n_jobs = n(), .groups = "drop") %>%
+   relocate(n_jobs)
+```
+
+### Review best performing model configuration 
+
+Best AUC for algorithms x feature sets
+```{r best_model_info}
+metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  print_kbl()
+
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+algorithm_best <- metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  pull(algorithm) %>%
+  print
+```
+
+
+### Refit resamples for best model locally
+
+Fit or Read metrics for best model configuration
+Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
+```{r resample_best_config}
+# create recipe outside of if_else b/c always need it for later use
+path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
+                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best, "_", cv), "input")   
+source(here(path_best, "training_controls.R"))
+
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
+} else {
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+}
+
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(here(path_best, fn))
+}
+
+d <- d %>% 
+  rename(y = {{y_col_name}})
+  
+# build recipe
+rec <- build_recipe(d = d, job = config_best)
+  
+#create splits
+set.seed(102030)
+splits <- d %>% 
+  make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
+  
+# resample best model config
+plan(multisession, workers = n_core)
+fits_best <- eval_best_model(config_best = config_best, rec = rec, splits = splits)
+plan(sequential) 
+  
+  
+metrics_best <- fits_best[[1]] 
+  
+# new code for preds to get label num
+# NOT TESTED ON NESTED YET (OR BOOTSTRAP)
+num_fits_best_splits <- length(fits_best[[3]]$splits)
+  
+for (i in 1:num_fits_best_splits) {
+    
+  # pull out preds
+  preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
+    select(label_num = .row,
+           truth = y,
+           estimate = .pred_class,
+           prob = .pred_yes) %>% 
+    # update factor labels based on old code
+    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+           truth = factor(truth, levels = c("no_lapse", "lapse")),
+           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+    
+    # join with other splits
+    if (i == 1) {
+      preds_best <- preds_tmp
+    } else {
+      preds_best <- preds_best %>% 
+        rbind(preds_tmp)
+    }
+}
+```
+
+
+### Save out best model metrics and predictions
+```{r}
+metrics_best  %>% 
+    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+
+preds_best %>%
+  saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
+```
+
+
+
+
+## Nested CV
+
+Pull out best model configuration for each outer fold
+```{r}
+metrics_avg <- metrics_raw %>%
+  group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+  summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                    mean),
+             n_jobs = n(), .groups = "drop") %>%
+  relocate(outer_split_num, n_jobs) 
+
+metrics_avg <- metrics_avg %>%
+  group_by(outer_split_num) %>%
+  arrange(desc(roc_auc)) %>%
+  slice(1) %>%
+  ungroup() %>%
+  glimpse()
+```
+
+

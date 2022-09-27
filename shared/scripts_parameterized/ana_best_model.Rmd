@@ -12,6 +12,7 @@ params:
   window: "1week"
   lead: 0
   version: "v4"
+  cv: "nested"
 ---
 
 ### Code Status
@@ -34,6 +35,7 @@ data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
 version <- params$version
+cv <- params$cv
 ```
 
 Packages for lab workflow 
@@ -99,154 +101,20 @@ source(here("../lab_support/chtc/static_files/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
 ```
 
+### Read in preds and metrics for best model
+
 ```{r}
-(n_core <- parallel::detectCores(logical = FALSE))
+preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
+                                              "_", cv, ".rds")))
+metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
+                                                "_", cv, ".rds")))
 ```
 
 
-### Review best performing models   
-
-Open average metrics
-```{r open_metrics}
-metrics_avg <- 
-  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, ".csv")), 
-        col_types = "iccdddcddddddd",
-        show_col_types = FALSE)
-```
-
-Best AUC for algorithms x feature sets
-```{r best_model_info}
-metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  print_kbl()
-
-config_best <- metrics_avg %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-
-algorithm_best <- metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  pull(algorithm) %>%
-  print
-```
-
-
-### Refit resamples for best model locally
-
-Fit or Read metrics for best model configuration
-Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
-```{r resample_best_config}
-
-# create recipe outside of if_else b/c always need it for later use
-path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
-                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best), "input")   
-source(here(path_best, "training_controls.R"))
-
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
-
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(here(path_best, fn))
-}
-
-d <- d %>% 
-  rename(y = {{y_col_name}})
-  
-
-
-if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds"))))) {
-  
-  message("loading previously fit model metrics")
-  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-  
-} else {
-  message("Fitting models to get resampling metrics")
-
-  rec <- build_recipe(d = d, job = config_best)
-  
-  #create splits
-  set.seed(102030)
-  splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
-    make_splits(d = d, cv_type = cv_type, group = group)
-  } else { 
-    make_splits(d = d, cv_type = cv_type)
-  }
-  
-  # resample best model config
-  plan(multisession, workers = n_core)
-  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits)
-  plan(sequential) 
-  
-  
-  metrics_best <- fits_best[[1]] 
-  metrics_best  %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-  
-  
-
-  preds_best <- fits_best[[2]] %>%
-    select(truth = y,
-           estimate = .pred_class,
-           prob = .pred_yes) %>%
-    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-           truth = factor(truth, levels = c("no_lapse", "lapse")),
-           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-  
-  
-  # new code for preds to get label num
-  # NOT TESTED ON NESTED YET (OR BOOTSTRAP)
-  # num_fits_best_splits <- length(fits_best[[3]]$splits)
-  # 
-  # for (i in 1:num_fits_best_splits) {
-  #   
-  #   # pull out preds
-  #   preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
-  #     select(label_num = .row,
-  #            truth = y,
-  #            estimate = .pred_class,
-  #            prob = .pred_yes) %>% 
-  #     # update factor labels based on old code
-  #     mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-  #            truth = factor(truth, levels = c("no_lapse", "lapse")),
-  #            estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-  #            estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-  #   
-  #   # join with other splits
-  #   if (i == 1) {
-  #     preds_best <- preds_tmp
-  #   } else {
-  #     preds_best <- preds_best %>% 
-  #       rbind(preds_tmp)
-  #   }
-  # }
-
-  preds_best %>%
-    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-  
-}
-```
+### Model Performance
 
 ```{r model_metrics}
-# NOTE THAT THESE HAVE EVENT LEVEL BACKWARD STILL.   NEED TO FIX THIS AT SOME POINT
+# Metrics should no longer be backwards
 metrics_best %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
   summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 

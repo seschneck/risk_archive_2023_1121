@@ -168,8 +168,9 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "glmnet")) {
   }
 
   metrics_raw_batch %>% tabyl(job_num)
-  metrics_raw_batch %>% tabyl(n_repeat)
-  metrics_raw_batch %>% tabyl(n_fold)
+  metrics_raw_batch %>% tabyl(split_num)
+  metrics_raw_batch %>% tabyl(outer_split_num)
+  metrics_raw_batch %>% tabyl(inner_split_num)
   metrics_raw_batch %>% tabyl(algorithm)
   metrics_raw_batch %>% tabyl(feature_set)
   metrics_raw_batch %>% tabyl(hp1)
@@ -239,8 +240,9 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
   }
   
   metrics_raw_batch %>% tabyl(job_num)
-  metrics_raw_batch %>% tabyl(n_repeat)
-  metrics_raw_batch %>% tabyl(n_fold)
+  metrics_raw_batch %>% tabyl(split_num)
+  metrics_raw_batch %>% tabyl(outer_split_num)
+  metrics_raw_batch %>% tabyl(inner_split_num)
   metrics_raw_batch %>% tabyl(algorithm)
   metrics_raw_batch %>% tabyl(feature_set)
   metrics_raw_batch %>% tabyl(hp1)
