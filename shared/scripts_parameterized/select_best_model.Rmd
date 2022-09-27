@@ -113,44 +113,42 @@ metrics_raw <-
 
 ## Non-nested CV (Kfold and boot)
 
-FIX: WHAT IS BEST WAY TO BRANCH ON CV (NESTED VS KFOLD/BOOT)
-
-Average metrics across folds for each configuration
-```{r open_metrics}
-metrics_avg <- metrics_raw %>% 
-  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                     mean),
-              n_jobs = n(), .groups = "drop") %>%
-   relocate(n_jobs)
-```
-
 ### Review best performing model configuration 
 
-Best AUC for algorithms x feature sets
-```{r best_model_info}
-metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  print_kbl()
+```{r best_model_info_kfold_and_boot}
+if (cv == "kfold" | cv == "boot") {
+  # Average metrics across folds for each configuration
+  metrics_avg <- metrics_raw %>% 
+    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+     summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                       mean),
+                n_jobs = n(), .groups = "drop") %>%
+     relocate(n_jobs)
 
-config_best <- metrics_avg %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
+  # Best AUC for algorithms x feature sets
+  metrics_avg %>% 
+    group_by(algorithm, feature_set, resample) %>% 
+    arrange(desc(roc_auc)) %>% 
+    slice(1) %>% 
+    ungroup %>% 
+    arrange(desc(roc_auc)) %>% 
+    print_kbl()
 
-algorithm_best <- metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  pull(algorithm) %>%
-  print
+  config_best <- metrics_avg %>% 
+    arrange(desc(roc_auc)) %>% 
+    slice(1) %>% 
+    glimpse()
+
+  algorithm_best <- metrics_avg %>% 
+    group_by(algorithm, feature_set, resample) %>% 
+    arrange(desc(roc_auc)) %>% 
+    slice(1) %>% 
+    ungroup %>% 
+    arrange(desc(roc_auc)) %>% 
+    slice(1) %>% 
+    pull(algorithm) %>%
+    print
+}
 ```
 
 
@@ -158,103 +156,110 @@ algorithm_best <- metrics_avg %>%
 
 Fit or Read metrics for best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
-```{r resample_best_config}
-# create recipe outside of if_else b/c always need it for later use
-path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
-                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best, "_", cv), "input")   
-source(here(path_best, "training_controls.R"))
+```{r resample_best_config_kfold_and_boot}
+if (cv == "kfold" | cv == "boot") {
+  path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
+                    str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best, "_", cv), 
+                    "input")   
+  source(here(path_best, "training_controls.R"))
 
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
+  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+  if (length(chunks) == 2) {
+    fn <- str_c("data_trn.", chunks[[2]])
+  } else {
+    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+  }
 
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(here(path_best, fn))
-}
+  # open based on file type
+  if (str_detect(fn, "csv")) {
+    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+  } else {
+    d <- readRDS(here(path_best, fn))
+  }
 
-d <- d %>% 
-  rename(y = {{y_col_name}})
-  
-# build recipe
-rec <- build_recipe(d = d, job = config_best)
-  
-#create splits
-set.seed(102030)
-splits <- d %>% 
-  make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
-  
-# resample best model config
-plan(multisession, workers = n_core)
-fits_best <- eval_best_model(config_best = config_best, rec = rec, splits = splits)
-plan(sequential) 
-  
-  
-metrics_best <- fits_best[[1]] 
-  
-# new code for preds to get label num
-# NOT TESTED ON NESTED YET (OR BOOTSTRAP)
-num_fits_best_splits <- length(fits_best[[3]]$splits)
-  
-for (i in 1:num_fits_best_splits) {
+  d <- d %>% 
+    rename(y = {{y_col_name}})
     
-  # pull out preds
-  preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
-    select(label_num = .row,
-           truth = y,
-           estimate = .pred_class,
-           prob = .pred_yes) %>% 
-    # update factor labels based on old code
-    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-           truth = factor(truth, levels = c("no_lapse", "lapse")),
-           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
+  # build recipe
+  rec <- build_recipe(d = d, job = config_best)
+  
+  #create splits
+  set.seed(102030)
+  splits <- d %>% 
+    make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
+  
+  # resample best model config
+  plan(multisession, workers = n_core)
+  fits_best <- eval_best_model(config_best = config_best, rec = rec, splits = splits)
+  plan(sequential) 
+  
+  # pull out metrics for each fold  
+  metrics_best <- fits_best[[1]] 
+  
+  # pull out predictions with label_num
+  num_fits_best_splits <- length(fits_best[[3]]$splits)
+  
+  for (i in 1:num_fits_best_splits) {
     
-    # join with other splits
-    if (i == 1) {
-      preds_best <- preds_tmp
-    } else {
-      preds_best <- preds_best %>% 
-        rbind(preds_tmp)
-    }
+    # pull out preds
+    preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
+      select(label_num = .row,
+             truth = y,
+             estimate = .pred_class,
+             prob = .pred_pos) %>% 
+      # update factor labels based on old code
+      mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
+             truth = factor(truth, levels = c("no_lapse", "lapse")),
+             estimate = if_else(estimate == "no", "no_lapse", "lapse"),
+             estimate = factor(estimate, levels = c("no_lapse", "lapse")),
+             split_num = i)
+    
+      # join with other splits
+      if (i == 1) {
+        preds_best <- preds_tmp
+      } else {
+        preds_best <- preds_best %>% 
+          rbind(preds_tmp)
+      }
+  }
 }
 ```
-
-
-### Save out best model metrics and predictions
-```{r}
-metrics_best  %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-
-preds_best %>%
-  saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
-```
-
-
 
 
 ## Nested CV
 
 Pull out best model configuration for each outer fold
 ```{r}
-metrics_avg <- metrics_raw %>%
-  group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-  summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                    mean),
-             n_jobs = n(), .groups = "drop") %>%
-  relocate(outer_split_num, n_jobs) 
+if (cv == "nested") {
+  metrics_avg <- metrics_raw %>%
+    group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                      mean),
+               n_jobs = n(), .groups = "drop") %>%
+    relocate(outer_split_num, n_jobs) 
 
-metrics_avg <- metrics_avg %>%
-  group_by(outer_split_num) %>%
-  arrange(desc(roc_auc)) %>%
-  slice(1) %>%
-  ungroup() %>%
-  glimpse()
+  metrics_avg <- metrics_avg %>%
+    group_by(outer_split_num) %>%
+    arrange(desc(roc_auc)) %>%
+    slice(1) %>%
+    ungroup() %>%
+    glimpse()
+}
 ```
 
+### Fit each best configuration locally
 
+
+
+
+
+## Save out best model metrics and predictions
+```{r}
+metrics_best  %>% 
+  saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", 
+                                  cv, ".rds")))
+
+preds_best %>%
+  saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", 
+                                  cv, ".rds")))
+```
