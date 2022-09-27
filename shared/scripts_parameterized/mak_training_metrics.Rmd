@@ -128,10 +128,9 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "glmnet")) {
                       file.info)
   n_err_files <- nrow(err_files)
   
-  results_files <- map_dfr(list.files(here(path_input, batch_name, "output", "results"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_results_files <- nrow(results_files)
+  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
+                                 full.names = TRUE)
+  n_results_files <- length(results_files)
 
   if (!(n_jobs == n_err_files)) {
     stop(n_jobs, " jobs != ", n_err_files, " error files!") 
@@ -205,10 +204,9 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
                       file.info)
   n_err_files <- nrow(err_files)
   
-  results_files <- map_dfr(list.files(here(path_input, batch_name, "output", "results"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_results_files <- nrow(results_files)
+  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
+                                 full.names = TRUE)
+  n_results_files <- length(results_files)
 
   if (!(n_jobs == n_err_files)) {
     stop(n_jobs, " jobs != ", n_err_files, " error files!") 
@@ -277,10 +275,9 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
                       file.info)
   n_err_files <- nrow(err_files)
   
-  results_files <- map_dfr(list.files(here(path_input, batch_name, "output", "results"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_results_files <- nrow(results_files)
+  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
+                                 full.names = TRUE)
+  n_results_files <- length(results_files)
 
 
   if (!(n_jobs == n_err_files)) {
@@ -358,32 +355,6 @@ metrics_raw_all %>%
 
 
 ```{r}
-## FIX: For nested, group by outer split num first?
-# metrics_avg <- metrics_raw_all %>%
-#   group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-#   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-#                     mean),
-#              n_jobs = n(), .groups = "drop") %>%
-#   relocate(outer_split_num, n_jobs) %>% 
-#   glimpse()
-
-## Then get best model for each outer fold
-# metrics_avg <- metrics_avg %>% 
-#   group_by(outer_split_num) %>% 
-#   arrange(desc(roc_auc)) %>% 
-#   slice(1) %>%
-#   ungroup() %>% 
-#   glimpse()
-
-## Average performances
-# metrics_avg_best <- metrics_avg %>%
-#   group_by(n_jobs, algorithm) %>%  # to retain these columns
-#   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-#                     mean), .groups = "drop") %>%
-#   glimpse()
-
-
-
 metrics_avg <- metrics_raw_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
