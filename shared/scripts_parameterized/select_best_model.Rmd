@@ -111,9 +111,9 @@ metrics_raw <-
 ```
 
 
-## Non-nested CV (Kfold and boot)
+### Non-nested CV (Kfold and boot)
 
-### Review best performing model configuration 
+#### Review best performing model configuration 
 
 ```{r best_model_info_kfold_and_boot}
 if (cv == "kfold" | cv == "boot") {
@@ -125,7 +125,8 @@ if (cv == "kfold" | cv == "boot") {
                 n_jobs = n(), .groups = "drop") %>%
      relocate(n_jobs)
 
-  # Best AUC for algorithms x feature sets
+  # Best AUC for algorithms x feature sets X resample
+  # ie best set of hps for algo
   metrics_avg %>% 
     group_by(algorithm, feature_set, resample) %>% 
     arrange(desc(roc_auc)) %>% 
@@ -139,6 +140,7 @@ if (cv == "kfold" | cv == "boot") {
     slice(1) %>% 
     glimpse()
 
+  # CONSIDER IF THIS CAN JUST BE config_best$algorithm
   algorithm_best <- metrics_avg %>% 
     group_by(algorithm, feature_set, resample) %>% 
     arrange(desc(roc_auc)) %>% 
@@ -158,7 +160,7 @@ Fit or Read metrics for best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
 ```{r resample_best_config_kfold_and_boot}
 if (cv == "kfold" | cv == "boot") {
-  path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
+  path_best <- here(path_input, 
                     str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best, "_", cv), 
                     "input")   
   source(here(path_best, "training_controls.R"))
@@ -233,18 +235,44 @@ Pull out best model configuration for each outer fold
 if (cv == "nested") {
   metrics_avg <- metrics_raw %>%
     group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                      mean),
-               n_jobs = n(), .groups = "drop") %>%
-    relocate(outer_split_num, n_jobs) 
-
-  metrics_avg <- metrics_avg %>%
+    # summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+    #                   mean),
+    #            n_jobs = n(), .groups = "drop") %>%
+    summarize(roc_auc_inner = mean(roc_auc),
+               n_jobs_inner = n(), 
+              .groups = "drop") %>%
+    relocate(outer_split_num, n_jobs_inner) %>% 
     group_by(outer_split_num) %>%
-    arrange(desc(roc_auc)) %>%
+    arrange(desc(roc_auc_inner)) %>%
     slice(1) %>%
     ungroup() %>%
     glimpse()
 }
+```
+
+Remake nested splits
+
+```{r}
+
+
+splits <- 
+
+```
+
+
+Loop over outer)splits to fit best config and predict into held-out
+
+loop over each of ten rows in metrics average
+get training_outer and test_outer
+Fit the specific model config from that row in training outer
+predict into test_outer and get all metrics and predictions
+put metrics into metrics_avg on appropriate row
+bind together all predictions (labeling which outer split they can from and also add label_num)
+```{r}
+
+training_outer <-
+test_outer <-
+
 ```
 
 ### Fit each best configuration locally
@@ -255,6 +283,9 @@ if (cv == "nested") {
 
 ## Save out best model metrics and predictions
 ```{r}
+
+metrics_avg %>% 
+  
 metrics_best  %>% 
   saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
