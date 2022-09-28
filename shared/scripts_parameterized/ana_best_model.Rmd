@@ -117,7 +117,7 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
 Open average metrics
 ```{r open_metrics}
 metrics_avg <- 
-  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, ".csv")), 
+  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, "_", cv, ".csv")), 
         col_types = "iccdddcddddddd",
         show_col_types = FALSE)
 ```
@@ -206,7 +206,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
   
   metrics_best <- fits_best[[1]] 
   metrics_best  %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
   
   
 
@@ -248,7 +248,7 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
   # }
 
   preds_best %>%
-    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
   
 }
 ```
