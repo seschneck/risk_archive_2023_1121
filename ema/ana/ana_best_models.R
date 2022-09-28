@@ -12,7 +12,7 @@ version <- "v4"
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/ana_best_model.Rmd"), 
                     output_file = str_c("ana_best_model_", data_type, "_", 
-                                        window, "_", lead, "_", version, ".html"),  
+                                        window, "_", lead, "_", version, "_", cv, ".html"),  
                     output_dir = str_c("P:/studydata/risk/knits/", study),
                     params = list(study = study, 
                                   window = window, 
