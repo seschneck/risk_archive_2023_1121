@@ -102,8 +102,13 @@ source(here("../lab_support/chtc/static_files/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
 ```
 
+### Read in preds and metrics for best model
+
 ```{r}
-(n_core <- parallel::detectCores(logical = FALSE))
+preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
+                                              "_", cv, ".rds")))
+metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
+                                                "_", cv, ".rds")))
 ```
 
 
@@ -248,8 +253,11 @@ if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_",
 }
 ```
 
+### Model Performance
+
+
 ```{r model_metrics}
-# NOTE THAT THESE HAVE EVENT LEVEL BACKWARD STILL.   NEED TO FIX THIS AT SOME POINT
+# Metrics should no longer be backwards
 metrics_best %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
   summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
