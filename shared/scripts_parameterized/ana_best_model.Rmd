@@ -9,7 +9,7 @@ output:
 params:
   study: "ema"
   data_type: "all"
-  cv: "kfold"
+  cv: "nested"
   window: "1week"
   lead: 0
   version: "v4"
@@ -117,10 +117,18 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
 
 ```{r model_metrics}
 # Metrics should no longer be backwards
-metrics_best %>% 
-  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-  summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
-  glimpse()
+if (cv == "kfold" | cv == "boot") {
+  metrics_best %>% 
+    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+    summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
+    glimpse()
+}
+
+if (cv == "nested") {
+  metrics_best %>% 
+    summarise(across(ends_with("_outer"), mean)) %>% 
+    glimpse()
+}
 ```
 
 Confusion matrix using .5 threshold
@@ -248,6 +256,7 @@ Fit best model configs to full data to view important features
 
 glmnet
 ```{r glmnet_imp, fig.height = 7}
+# FIX: NOT SURE HOW TO HANDLE WITH NESTED
 
 config_best_glmnet <- metrics_avg %>% 
   filter(algorithm == "glmnet") %>% 
@@ -276,6 +285,7 @@ if (nrow(config_best_glmnet) > 0) {
 
 random forest
 ```{r rf_imp, fig.height = 7}
+# FIX: NOT SURE HOW TO HANDLE WITH NESTED
 
 config_best_rf <- metrics_avg %>% 
   filter(algorithm == "random_forest") %>% 
@@ -295,6 +305,8 @@ if (nrow(config_best_rf) > 0) {
 
 xgboost
 ```{r xgb_imp, fig.height = 7}
+# FIX: NOT SURE HOW TO HANDLE WITH NESTED
+
 config_best_xgb <- metrics_avg %>% 
   filter(algorithm == "xgboost") %>% 
   arrange(desc(roc_auc)) %>% 

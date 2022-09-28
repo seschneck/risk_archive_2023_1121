@@ -3,9 +3,9 @@ library(stringr)
 
 study <- "ema"
 data_type <- "all"
-cv <- "kfold"
-windows <- c("1hour", "1day", "1week")
-# windows <- c("1week")
+cv <- "nested"
+# windows <- c("1hour", "1day", "1week")
+windows <- c("1week")
 lead <- 0
 version <- "v4"
 

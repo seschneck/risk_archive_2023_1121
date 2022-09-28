@@ -361,13 +361,15 @@ if (cv == "nested") {
     }
     
     # pull out predictions
-    preds_i <- testing_outer %>% select(label_num, truth = y) %>% 
+    preds_i <- testing_outer %>% 
+      select(label_num, truth = y) %>% 
       cbind(predict(model, feat_out) %>% 
               select(estimate = .pred_class)) %>% 
       cbind(predict(model, feat_out, type = "prob") %>% 
               select(prob = .pred_pos)) %>% 
-      # update factor labels based on other code
-      mutate(truth = if_else(truth == "neg", "no_lapse", "lapse"),
+      # update factor labels to be consistent with kfold
+      # FIX: EVENTUALLY TRUTH SHOULD BE CHANGED TO NEG INSTEAD OF NO IN RAW FEATURES FOR CONSISTENCY
+      mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
              truth = factor(truth, levels = c("no_lapse", "lapse")),
              estimate = if_else(estimate == "neg", "no_lapse", "lapse"),
              estimate = factor(estimate, levels = c("no_lapse", "lapse")),
