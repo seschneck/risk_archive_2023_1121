@@ -140,21 +140,13 @@ if (cv == "kfold" | cv == "boot") {
     slice(1) %>% 
     glimpse()
 
-  # CONSIDER IF THIS CAN JUST BE config_best$algorithm
-  algorithm_best <- metrics_avg %>% 
-    group_by(algorithm, feature_set, resample) %>% 
-    arrange(desc(roc_auc)) %>% 
-    slice(1) %>% 
-    ungroup %>% 
-    arrange(desc(roc_auc)) %>% 
-    slice(1) %>% 
-    pull(algorithm) %>%
-    print
+  algorithm_best <- config_best %>% 
+    pull(algorithm)
 }
 ```
 
 
-### Refit resamples for best model locally
+#### Refit resamples for best model locally
 
 Fit or Read metrics for best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
@@ -228,16 +220,14 @@ if (cv == "kfold" | cv == "boot") {
 ```
 
 
-## Nested CV
+### Nested CV
 
+#### Review best model configurations 
 Pull out best model configuration for each outer fold
 ```{r}
 if (cv == "nested") {
   metrics_avg <- metrics_raw %>%
     group_by(outer_split_num, algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-    # summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-    #                   mean),
-    #            n_jobs = n(), .groups = "drop") %>%
     summarize(roc_auc_inner = mean(roc_auc),
                n_jobs_inner = n(), 
               .groups = "drop") %>%
@@ -250,42 +240,192 @@ if (cv == "nested") {
 }
 ```
 
-Remake nested splits
-
-```{r}
-
-
-splits <- 
-
-```
-
-
-Loop over outer)splits to fit best config and predict into held-out
-
+#### Fit each best configuration locally to get held out performance metrics
+Loop over outer splits to fit best config and predict into held-out
 loop over each of ten rows in metrics average
 get training_outer and test_outer
 Fit the specific model config from that row in training outer
 predict into test_outer and get all metrics and predictions
 put metrics into metrics_avg on appropriate row
 bind together all predictions (labeling which outer split they can from and also add label_num)
+
 ```{r}
+if (cv == "nested") {
+ 
+  # FIX: READ IN DATA OUTSIDE LOOP?
+  
+  # loop over outer splits
+  for (i in 1:length(metrics_avg$outer_split_num)) {
+    
+    # slice down to single outer split
+    config_best <- metrics_avg %>%
+      slice(i)
+    
+    # Read in data and training controls for top model configuration
+    path_best <- here(path_input, 
+                      str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", config_best$algorithm, "_", cv), 
+                      "input")   
+    source(here(path_best, "training_controls.R"))
 
-training_outer <-
-test_outer <-
+    chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+    if (length(chunks) == 2) {
+      fn <- str_c("data_trn.", chunks[[2]])
+    } else {
+      fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+    }
 
+    # open based on file type
+    if (str_detect(fn, "csv")) {
+      d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+    } else {
+      d <- readRDS(here(path_best, fn))
+    }
+  
+    d <- d %>% 
+      rename(y = {{y_col_name}})
+    
+    # build recipe
+    rec <- build_recipe(d = d, job = config_best)
+  
+    # create splits
+    # FIX: FIGURE OUT HOW TO CREATE SPLITS OUTSIDE LOOP
+    set.seed(102030)
+    splits <- d %>% 
+      make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
+  
+    # Pull out outer fold training and testing data
+    training_outer <- training(splits$splits[[i]]) 
+    testing_outer <- testing(splits$splits[[i]]) 
+    
+    # make features
+    feat_in <- rec %>% 
+      prep(training = training_outer, strings_as_factors = FALSE) %>% 
+      bake(new_data = NULL)
+  
+    feat_out <- rec %>% 
+      prep(training = training_outer, strings_as_factors = FALSE) %>% 
+      bake(new_data = testing_outer)
+    
+    
+    # Fit model
+    if (config_best$algorithm == "xgboost") {
+      model <- boost_tree(learn_rate = config_best$hp1,
+                          tree_depth = config_best$hp2,
+                          mtry = config_best$hp3,
+                          trees = 100,  # set high but use early stopping
+                          stop_iter = 10) %>% 
+      set_engine("xgboost",
+                 validation = 0.2) %>% 
+      set_mode("classification") %>%
+      fit(y ~ ., data = feat_in)
+    }
+      
+    
+    if (config_best$algorithm == "glmnet") {
+      model <- logistic_reg(penalty = config_best$hp2,
+                            mixture = config_best$hp1) %>%
+      set_engine("glmnet") %>%
+      set_mode("classification") %>%
+      fit(y ~ ., data = feat_in)
+    }
+    
+      
+    if (config_best$algorithm == "random_forest") {
+      model <- rand_forest(mtry = config_best$hp1,
+                         min_n = config_best$hp2,
+                         trees = config_best$hp3) %>%
+      set_engine("ranger",
+                 importance = "none",
+                 respect.unordered.factors = "order",
+                 oob.error = FALSE,
+                 seed = 102030) %>%
+      set_mode("classification") %>%
+      fit(y ~ .,
+          data = feat_in)
+    }
+      
+    
+    # use get_metrics function to get a tibble that shows performance metrics
+    results_i <- get_metrics(model = model, feat_out = feat_out) %>% 
+      pivot_wider(., names_from = "metric",
+                  values_from = "estimate") %>%   
+      relocate(roc_auc_outer = roc_auc,  accuracy_outer = accuracy, bal_accuracy_outer = bal_accuracy,
+             sens_outer = sens, spec_outer = spec, ppv_outer = ppv, npv_outer = npv) %>% 
+      mutate(outer_split_num = i)
+    
+    if (i == 1) {
+      results <- results_i
+    } else {
+      results <- results %>% 
+        rbind(results_i)
+    }
+    
+    # pull out predictions
+    preds_i <- testing_outer %>% select(label_num, truth = y) %>% 
+      cbind(predict(model, feat_out) %>% 
+              select(estimate = .pred_class)) %>% 
+      cbind(predict(model, feat_out, type = "prob") %>% 
+              select(prob = .pred_pos)) %>% 
+      # update factor labels based on other code
+      mutate(truth = if_else(truth == "neg", "no_lapse", "lapse"),
+             truth = factor(truth, levels = c("no_lapse", "lapse")),
+             estimate = if_else(estimate == "neg", "no_lapse", "lapse"),
+             estimate = factor(estimate, levels = c("no_lapse", "lapse")),
+             outer_split_num = i) 
+    
+      # join with other splits
+      if (i == 1) {
+        preds_best <- preds_i
+      } else {
+        preds_best <- preds_best %>%
+          rbind(preds_i)
+      }
+    
+  }
+  
+  # join outer performance metrics with metrics_avg
+  metrics_best <- metrics_avg %>% 
+    full_join(results, by = c("outer_split_num")) 
+}
 ```
 
-### Fit each best configuration locally
-
-
-
-
-
-## Save out best model metrics and predictions
+Check metrics_avg and look at avg performance across all outer folds
 ```{r}
-
-metrics_avg %>% 
+if (cv == "nested") {
+  metrics_avg %>% 
+    glimpse()
   
+  metrics_best %>% 
+    summarise(across(ends_with("_outer"), mean)) %>% 
+    glimpse()
+}
+```
+
+Check preds 
+```{r}
+if (cv == "nested") {
+  preds_best %>% 
+    glimpse()
+  
+  if (nrow(d) == nrow(preds_best)) {
+    message("Number of predictions = Number of rows in data set. Correct!")
+  }
+  
+  # Should be 1
+  preds_best %>% 
+    tabyl(label_num) %>% 
+    pull(n) %>% 
+    max()
+}
+```
+
+
+
+FIX: DO WE WANT TO SELECT BEST MODEL WITH KFOLD USING ALL THE DATA IN THIS SCRIPT?
+
+
+### Save out avg and best model metrics and predictions
+```{r}
 metrics_best  %>% 
   saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
