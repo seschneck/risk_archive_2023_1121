@@ -2,7 +2,7 @@
 
 # Constants
 dist_max <- 50   # only use context if places are within 50 meters
-window <- "1week"  #window for calculating labels
+window <- "1hour"  #window for calculating labels
 lead <-  0 # feature lead time
 version <- "v1"
 
