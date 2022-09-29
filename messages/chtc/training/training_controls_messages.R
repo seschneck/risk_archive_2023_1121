@@ -8,6 +8,7 @@ window <- "1week"
 lead <- 0
 version <- "v1"
 algorithm <- "glmnet"
+cv <- "kfold"
 
 
 # SET GLOBAL PARAMETERS
@@ -20,7 +21,7 @@ group <- "subid"
 remove_nzv <- TRUE
 
 # SET STUDY PATHS
-name_job <- str_c("train_", window, "_", lead, "_", version, "_", algorithm) 
+name_job <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm, "_", cv) 
 path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
 path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
