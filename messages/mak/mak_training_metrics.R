@@ -13,7 +13,7 @@ algorithms <- "xgboost"   # "all" or name of specific algorithm
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
                     output_file = str_c("mak_training_metrics_", data_type, "_", 
-                                        window, "_", lead, "_", version, ".html"), 
+                                        window, "_", lead, "_", version, "_", cv, "_", algorithms, ".html"), 
                     output_dir = str_c("P:/studydata/risk/knits/", study),
                     params = list(study = study,
                                   window = window, 
