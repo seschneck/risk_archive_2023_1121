@@ -7,12 +7,12 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  study: "ema"
+  study: "messages"
   data_type: "all"
-  window: "1week"
+  window: "1day"
   lead: 0
-  version: "v4"
-  cv: "nested"
+  version: "v1"
+  cv: "kfold"
   algorithms: "xgboost"   # "all" or name of specific algorithm
 ---
 
@@ -303,7 +303,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
 
 
   # read in all result CSVs
-  metrics_raw_batch <- results_files %>% 
+  metrics_raw_batch <- rownames(results_files) %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
 
   # Basic counts and checks
