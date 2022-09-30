@@ -3,7 +3,7 @@ library(stringr)
  
 study <- "messages"
 data_type <- "all"
-cv: "kfold"
+cv <- "kfold"
 # windows <- c("1hour", "1day", "1week")
 windows <- c("1day")
 lead <- 0
