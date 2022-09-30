@@ -11,7 +11,7 @@ suppressWarnings(suppressPackageStartupMessages({
   library(lubridate)
   library(vroom)
   library(foreach)
-  #source("fun_features.R")
+  source("fun_features.R")
 }))
 
 # get chtc process num
