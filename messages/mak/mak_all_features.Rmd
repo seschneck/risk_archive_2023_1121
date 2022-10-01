@@ -14,6 +14,8 @@ knit: (function(input, ...) {
       "/Volumes/private/studydata/risk/knits/messages")
     )
   })
+params:
+  window: "1hour"
 ---
 
 ### Code Status
@@ -23,6 +25,13 @@ Complete
 ### Notes
 
 This combines GPS and EMA features into one larger feature file
+
+
+### Setup
+
+```{r}
+window <- params$window
+```
 
 
 Absolute paths
@@ -56,10 +65,10 @@ library(vroom)
 
 ### Process and save ema
 ```{r}
-ema <- vroom(here(path_messages, "features_ema_1week_0_v4.csv.xz"), show_col_types = FALSE) %>% 
+ema <- vroom(here(path_messages, str_c("features_ema_", window, "_0_v4.csv.xz")), show_col_types = FALSE) %>% 
   glimpse()
 
-gps <- vroom(here(path_messages, "features_gps_1week_0_v1.csv.xz"), show_col_types = FALSE) %>% 
+gps <- vroom(here(path_messages, str_c("features_gps_", window, "_0_v1.csv.xz")), show_col_types = FALSE) %>% 
   glimpse()
 ```
 
@@ -75,5 +84,5 @@ if (nrow(all) != nrow(ema)) stop ("number of rows in all does not match individu
 
 ```{r}
 all %>% 
-  vroom_write(here(path_messages, "features_all_1week_0_v1.csv.xz"), delim = ",")
+  vroom_write(here(path_messages, str_c("features_all_", window, "_0_v1.csv.xz")), delim = ",")
 ```
