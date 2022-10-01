@@ -4,10 +4,10 @@
 #EDIT THIS
 study <- "messages"
 data_type <- "all"
-window <- "1week"
+window <- "1hour"
 lead <- 0
 version <- "v1"
-algorithm <- "glmnet"
+algorithm <- "xgboost"
 cv <- "kfold"
 
 

@@ -4,7 +4,7 @@ library(stringr)
 study <- "messages"
 data_type <- "ema"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1day")
+windows <- c("1hour")
 lead <- 0   
 version <- "v4"   
 
