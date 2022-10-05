@@ -219,6 +219,15 @@ if (cv == "kfold" | cv == "boot") {
 }
 ```
 
+#### Fit best final model in all data and save
+
+```{r}
+
+fit_best <- fit_best_model(config_best, rec, d)
+
+# save this model 
+```
+
 
 ### Nested CV
 
@@ -252,7 +261,9 @@ bind together all predictions (labeling which outer split they can from and also
 ```{r}
 if (cv == "nested") {
  
-  # FIX: READ IN DATA OUTSIDE LOOP?
+  # CONSIDER: data_trn is the same across all algorithms.  Perhaps find way to read it in once rather than
+  # in loop repeatedly below.   data_trn lives in folders for all of the specific algorithms that 
+  # were trained
   
   # loop over outer splits
   for (i in 1:length(metrics_avg$outer_split_num)) {
@@ -288,7 +299,6 @@ if (cv == "nested") {
     rec <- build_recipe(d = d, job = config_best)
   
     # create splits
-    # FIX: FIGURE OUT HOW TO CREATE SPLITS OUTSIDE LOOP
     set.seed(102030)
     splits <- d %>% 
       make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
@@ -394,8 +404,8 @@ if (cv == "nested") {
 Check metrics_avg and look at avg performance across all outer folds
 ```{r}
 if (cv == "nested") {
-  metrics_avg %>% 
-    glimpse()
+  metrics_best %>% 
+    print_kbl()
   
   metrics_best %>% 
     summarise(across(ends_with("_outer"), mean)) %>% 
@@ -411,7 +421,7 @@ if (cv == "nested") {
   
   if (nrow(d) == nrow(preds_best)) {
     message("Number of predictions = Number of rows in data set. Correct!")
-  }
+  } else stop("Number of predictions != Number of rows in data set!")
   
   # Should be 1
   preds_best %>% 
@@ -421,10 +431,8 @@ if (cv == "nested") {
 }
 ```
 
-
-
-FIX: DO WE WANT TO SELECT BEST MODEL WITH KFOLD USING ALL THE DATA IN THIS SCRIPT?
-
+NOTE: Best model still needs to be identified and  trained using k-fold on the full data. This will need to be done on CHTC.  In most instances, this will likely
+already have been done in earlier workflow before we switched to nestd.   Otherwise, we will need to train that now and use the kfold version to get best model
 
 ### Save out avg and best model metrics and predictions
 ```{r}
