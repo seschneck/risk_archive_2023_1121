@@ -9,8 +9,9 @@ output:
 params:
   study: "messages"
   data_type: "all"
-  cv: "kfold"
-  window: "1day"
+  cv: "nested"
+  window: "1week"
+
   lead: 0
   version: "v1"
 ---
@@ -74,14 +75,14 @@ Absolute paths
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_input <- str_c("P:/studydata/risk/chtc/", data_type)
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
           path_processed <- str_c("P:/studydata/risk/data_processed/", study)
           path_models <- str_c("P:/studydata/risk/models/", study)},
 
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", data_type)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)
           path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
         )
 ```
@@ -103,156 +104,47 @@ source(here("../lab_support/print_kbl.R"))
 ```
 
 
-### Review best performing models   
+### Read in preds and metrics for best model
 
-Open average metrics
-```{r open_metrics}
-metrics_avg <- 
-  vroom(here(path_processed, str_c("metrics_avg_train_", window,"_", lead, "_", version, "_", cv, ".csv")), 
-        col_types = "iccdddcddddddd",
-        show_col_types = FALSE)
+```{r}
+preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
+                                              "_", cv, ".rds")))
+metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
+                                                "_", cv, ".rds")))
 ```
 
-Best AUC for algorithms x feature sets
-```{r best_model_info}
-metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  print_kbl()
+### Read in best model fit (chosen with kfold)
+```{r}
+# Add check that file exists
+if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))) {
+  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))
 
-config_best <- metrics_avg %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-
-algorithm_best <- metrics_avg %>% 
-  group_by(algorithm, feature_set, resample) %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  ungroup %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  pull(algorithm) %>%
-  print
-```
-
-
-### Refit resamples for best model locally
-
-Fit or Read metrics for best model configuration
-Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
-```{r resample_best_config}
-
-# create recipe outside of if_else b/c always need it for later use
-path_best <- here(str_c("P:/studydata/risk/chtc/", study), 
-                str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm_best, "_", cv), "input")   
-source(here(path_best, "training_controls.R"))
-
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
 } else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
-
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(here(path_best, fn))
-}
-
-d <- d %>% 
-  rename(y = {{y_col_name}})
-  
-
-
-if (file.exists((here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds"))))) {
-  
-  message("loading previously fit model metrics")
-  preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
-  metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
-  
-} else {
-  message("Fitting models to get resampling metrics")
-
-  rec <- build_recipe(d = d, job = config_best)
-  
-  #create splits
-  set.seed(102030)
-  splits <- if (str_split(str_remove(cv_type, "_x"), "_")[[1]][1] == "group") {
-    make_splits(d = d, cv_type = cv_type, group = group)
-  } else { 
-    make_splits(d = d, cv_type = cv_type)
-  }
-  
-  # resample best model config
-  (n_core <- parallel::detectCores(logical = FALSE))
-  plan(multisession, workers = n_core)
-  fits_best <- eval_best_model(best_model = config_best, rec = rec, folds = splits)
-  plan(sequential) 
-  
-  
-  metrics_best <- fits_best[[1]] 
-  metrics_best  %>% 
-    saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
-  
-  
-
-  preds_best <- fits_best[[2]] %>%
-    select(truth = y,
-           estimate = .pred_class,
-           prob = .pred_yes) %>%
-    mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-           truth = factor(truth, levels = c("no_lapse", "lapse")),
-           estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-           estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-  
-  
-  # new code for preds to get label num
-  # NOT TESTED ON NESTED YET (OR BOOTSTRAP)
-  # num_fits_best_splits <- length(fits_best[[3]]$splits)
-  # 
-  # for (i in 1:num_fits_best_splits) {
-  #   
-  #   # pull out preds
-  #   preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
-  #     select(label_num = .row,
-  #            truth = y,
-  #            estimate = .pred_class,
-  #            prob = .pred_yes) %>% 
-  #     # update factor labels based on old code
-  #     mutate(truth = if_else(truth == "no", "no_lapse", "lapse"),
-  #            truth = factor(truth, levels = c("no_lapse", "lapse")),
-  #            estimate = if_else(estimate == "no", "no_lapse", "lapse"),
-  #            estimate = factor(estimate, levels = c("no_lapse", "lapse")))
-  #   
-  #   # join with other splits
-  #   if (i == 1) {
-  #     preds_best <- preds_tmp
-  #   } else {
-  #     preds_best <- preds_best %>% 
-  #       rbind(preds_tmp)
-  #   }
-  # }
-
-  preds_best %>%
-    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".rds")))
-  
+  "STOP: Need to first select best model with kfold and save out model fit."
 }
 ```
+
+
 
 ### Model Performance
 
 
 ```{r model_metrics}
-metrics_best %>% 
-  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-  summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
-  glimpse()
+if (cv == "kfold" | cv == "boot") {
+  config_best <- metrics_best %>% 
+    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+    summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
+    glimpse()
+
+}
+
+
+if (cv == "nested") {
+  metrics_best %>% 
+    summarise(across(ends_with("_outer"), mean)) %>% 
+    glimpse()
+}
+
 ```
 
 Confusion matrix using .5 threshold
@@ -376,23 +268,12 @@ cm_hi %>% summary(event_level = "second")
 
 ### Feature Importance
 
-Fit best model configs to full data to view important features
+View Feature Importance Indices for best model fit (selected in select_best_model.Rmd)
 
 glmnet
 ```{r glmnet_imp, fig.height = 7}
-
-config_best_glmnet <- metrics_avg %>% 
-  filter(algorithm == "glmnet") %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-
-if (nrow(config_best_glmnet) > 0) {
-  rec_glmnet <- build_recipe(d = d, job = config_best_glmnet)
-  
-  fit_best_glmnet <- fit_best_model(config_best_glmnet, rec_glmnet, d)
-  
-  fit_best_glmnet %>%
+if (model_fit_best$spec$engine == "glmnet") {
+  model_fit_best %>%
     vi(lambda = config_best_glmnet$hp2) %>% 
     mutate(Importance = abs(Importance),
            Variable = fct_reorder(Variable, Importance),
@@ -408,39 +289,18 @@ if (nrow(config_best_glmnet) > 0) {
 
 random forest
 ```{r rf_imp, fig.height = 7}
-
-config_best_rf <- metrics_avg %>% 
-  filter(algorithm == "random_forest") %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-
-if (nrow(config_best_rf) > 0) {
-  rec_rf <- build_recipe(d = d, job = config_best_rf)
-  
-  fit_best_rf <- fit_best_model(config_best_rf, rec_rf, d)
-  
-  fit_best_rf %>%
+if (model_fit_best$spec$engine == "ranger") {
+  model_fit_best %>%
     vip(num_features = 40, geom = "point") 
 }
 ```
 
 xgboost
 ```{r xgb_imp, fig.height = 7}
-config_best_xgb <- metrics_avg %>% 
-  filter(algorithm == "xgboost") %>% 
-  arrange(desc(roc_auc)) %>% 
-  slice(1) %>% 
-  glimpse()
-
-if (nrow(config_best_xgb) > 0) {
-  
-  rec_xgb <- build_recipe(d = d, job = config_best_xgb)
-  
-  fit_best_xgb <- fit_best_model(config_best_xgb, rec_xgb, d)
+if (model_fit_best$spec$engine == "xgboost") {
   
   # Scaled model specific VIP
-  vi_xgb <- fit_best_xgb %>% 
+  vi_xgb <- model_fit_best %>% 
     vi(method = "model", scale = TRUE)
   
   vi_xgb %>%
@@ -448,12 +308,51 @@ if (nrow(config_best_xgb) > 0) {
    
   
   # SHAP
+  # need to first read training controls and data to build recipe
+  # FIX: Discuss with John if this is where we want to do this
+  path_best <- here(path_input, 
+                    str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost_", cv), 
+                    "input/")
+  source(here(path_best, "training_controls.R"))
+  
+  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+  if (length(chunks) == 2) {
+    fn <- str_c("data_trn.", chunks[[2]])
+  } else {
+    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+  }
+
+  # open based on file type
+  if (str_detect(fn, "csv")) {
+    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+  } else {
+    d <- readRDS(here(path_best, fn))
+  }
+
+  d <- d %>% 
+    rename(y = {{y_col_name}})
+    
+  # build recipe
+  # need to read in kfold metrics best to get best model config if this is for a nested cv type
+  if (cv == "nested") {
+    metrics_best_kfold <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", 
+                                                          window, "_", lead, "_", version, "_kfold.rds")))
+    
+    config_best <- metrics_best_kfold %>% 
+      group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+      summarise(across(accuracy:roc_auc, ~mean(.x)))
+  }
+  
+  
+  
+  rec_xgb <- build_recipe(d = d, job = config_best)
+  
   features <- rec_xgb %>% 
     prep(training = d, strings_as_factors = FALSE) %>%
     bake(new_data = NULL) %>%
     select(-y)
   
-  shap_long <- shap.prep(xgb_model = extract_fit_engine(fit_best_xgb), 
+  shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
                          X_train = features %>% as.matrix(),
                          top_n = 30) # top 30 features
    
