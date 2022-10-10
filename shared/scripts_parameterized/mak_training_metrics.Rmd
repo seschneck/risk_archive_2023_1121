@@ -304,6 +304,25 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   # read in all result CSVs
   metrics_raw_batch <- rownames(results_files) %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
+  
+  # Update variable names if old version (n_repeat & n_fold vs. split_num)
+  if(any(str_detect(names(metrics_raw_batch), "n_fold"))) {
+    metrics_raw_batch <- metrics_raw_batch %>% 
+      mutate(split_num = case_when(n_repeat == 1 & n_fold == 1 ~ 1,
+                                   n_repeat == 1 & n_fold == 2 ~ 2,
+                                   n_repeat == 1 & n_fold == 3 ~ 3,
+                                   n_repeat == 1 & n_fold == 4 ~ 4,
+                                   n_repeat == 1 & n_fold == 5 ~ 5,
+                                   n_repeat == 1 & n_fold == 6 ~ 6,
+                                   n_repeat == 1 & n_fold == 7 ~ 7,
+                                   n_repeat == 1 & n_fold == 8 ~ 8,
+                                   n_repeat == 1 & n_fold == 9 ~ 9,
+                                   n_repeat == 1 & n_fold == 10 ~ 10),
+             outer_split_num = NA,
+             inner_split_num = NA) %>%
+      select(-c(n_repeat, n_fold)) %>%
+      relocate(job_num, split_num, outer_split_num, inner_split_num)
+  }
 
   # Basic counts and checks
   job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
@@ -345,7 +364,6 @@ back to sequential
 ```{r}
 plan(sequential)
 ```
-
 
 Save raw metrics file
 ```{r}
