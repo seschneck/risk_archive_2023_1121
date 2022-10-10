@@ -9,7 +9,7 @@ output:
 params:
   study: "messages"
   data_type: "all"
-  window: "1day"
+  window: "1hour"
   lead: 0
   version: "v1"
   cv: "kfold"
@@ -302,7 +302,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
 
 
   # read in all result CSVs
-  metrics_raw_batch <- rownames(results_files) %>% 
+  metrics_raw_batch <- results_files %>% 
     future_map_dfr(read_csv, col_types = readr::cols())
   
   # Update variable names if old version (n_repeat & n_fold vs. split_num)
