@@ -7,12 +7,13 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  study: "ema"
+  study: "messages"
   data_type: "all"
   cv: "nested"
   window: "1week"
+
   lead: 0
-  version: "v4"
+  version: "v1"
 ---
 
 ### Code Status
@@ -102,6 +103,7 @@ source(here("../lab_support/chtc/static_files/fun_chtc.R"))
 source(here("../lab_support/print_kbl.R"))
 ```
 
+
 ### Read in preds and metrics for best model
 
 ```{r}
@@ -116,6 +118,7 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
 # Add check that file exists
 if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))) {
   model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+
 } else {
   "STOP: Need to first select best model with kfold and save out model fit."
 }
@@ -127,19 +130,21 @@ if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", windo
 
 
 ```{r model_metrics}
-# Metrics should no longer be backwards
 if (cv == "kfold" | cv == "boot") {
   config_best <- metrics_best %>% 
     group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
     summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
     glimpse()
+
 }
+
 
 if (cv == "nested") {
   metrics_best %>% 
     summarise(across(ends_with("_outer"), mean)) %>% 
     glimpse()
 }
+
 ```
 
 Confusion matrix using .5 threshold

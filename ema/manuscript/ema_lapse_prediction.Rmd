@@ -1,0 +1,359 @@
+---
+title             : "The title"
+shorttitle        : "Title"
+
+author: 
+  - name          : "First Author"
+    affiliation   : "1"
+    corresponding : yes    # Define only one corresponding author
+    address       : "Postal address"
+    email         : "my@email.com"
+  - name          : "Ernst-August Doelle"
+    affiliation   : "1,2"
+
+affiliation:
+  - id            : "1"
+    institution   : "Wilhelm-Wundt-University"
+  - id            : "2"
+    institution   : "Konstanz Business School"
+
+author_note: |
+  Add complete departmental affiliations for each author here. Each new line herein must be indented, like this line.
+
+  Enter author note here.
+
+abstract: |
+  This document is intended to demonstrate some of the code used by papaja to create **pdf** documents styled in APA format for manuscript submission. It is not intended to be relevant to other document formats.
+  
+keywords          : "keywords"
+wordcount         : "X"
+
+bibliography      : ["references.bib"]
+
+
+floatsintext      : yes
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+lineno            : no
+mask              : no
+
+documentclass     : "apa6"
+classoption       : "man"
+output            : papaja::apa6_pdf
+
+header-includes:
+  - \raggedbottom
+  - \usepackage{float}
+  - \usepackage{subcaption}
+  - \usepackage{rotating}
+  - \DeclareDelayedFloatFlavor{sidewaysfigure}{figure}
+---
+
+```{r load_packages, include = FALSE}
+
+library(tidyverse)
+library(kableExtra)
+library("papaja")
+library("ggplot2")
+```
+
+
+
+# Section Heading (Methods, Results)
+
+Some text is here.
+
+## Sub-heading 1
+
+Some text is here.
+
+### Sub-heading 2
+
+Some text is here.
+
+#### Sub-heading 3
+
+Some text is here.
+
+##### Sub-heading 4
+
+Some text is here.
+
+\newpage
+
+# Adding references & citations
+
+Create a folder in zotero with your cites within a folder named *paper_* . Note that papers can live in multiple collections without duplication, that only happens when you re-add from the web. 
+
+You must have Better BibTex installed in your zotero instance on your desktop. You'll cite a specific item using the Better BibTeX citation key. 
+
+Zotero can export (and keep up to date) this folder to a .bib file including all citation info and key. The name of this .bib is then specified in the YAML front matter.
+
+IMPORTANT: Do not export the Abstract to .bib. This often (especially for items added from the web) contains uncontrolled html or ascii characters which will cause knitr to throw an error.
+
+
+The markdown citation format is: [@aczelConsensusbasedTransparencyChecklist2019; @adlerPredictingEarlyWarning2020]
+
+The best way to add these is have zotero or the .bib file open, and just copy & paste the citation keys as needed. I wouldn't recommend trying to use the visual editor. 
+
+
+The exact format of citations & references (numbering vs naming, how many authors are displayed, etc) can be controlled by a .csl file. The specification to use it is in the YAML above. On the line after the bibliography declaration, enter: *csl: journal-of-medical-internet-research.csl*
+
+CSL files for various journals can be found in the [zotero citation library](https://www.zotero.org/styles)
+
+
+\newpage
+
+## Table examples
+
+
+**This is the location marker for the second table.** It specifies placement, and also table width through column width specification. NB; the placement is specified in the apa_table() call, NOT the chunk option
+
+```{r, "table2"}  
+
+iris %>%
+  head(4) %>%
+  select(Species, Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) %>%
+  apa_table(placement = "!h",
+              caption = "Demo of table made wider",
+              col_spanners = list("Sepal"= c(2,3),
+                                  "Petal"= c(4,5)),
+              align = c("m{4cm}", rep("m{1cm}", 4)))
+```
+
+
+### Table alignment with kable
+
+In `kable`, tables are center-aligned by default. If you do not want to center a table, you pass in the kable argument centering = FALSE. Unfortunately, this does not work with `apa_tables()` even though you are supposed to be able to pass in kable parameters. 
+```{r, "table4", fig.align = "left", fig.pos = "h"}  
+
+iris %>%
+  head(4) %>%
+  select(Species, Length = Sepal.Length) %>%
+  apa_table(placement = "h",
+              caption = "apa_table() that should not be centered",
+              note = "kable parameter centering = FALSE",
+            align = c("m{4cm}"),
+            centering = FALSE) 
+```
+
+```{r, "table5", fig.align = "left"}  
+iris %>%
+  head(4) %>%
+  select(Species, Length = Sepal.Length) %>%
+  knitr::kable("latex",
+              caption = "kable() that should not be centered",
+              centering = FALSE) %>%
+  kable_styling(latex_options = "HOLD_position")
+
+```
+
+
+\newpage
+
+## Figure examples
+
+One figure should be exactly here and both parameters are specified:
+```{r,  fig.cap = "Both output size and position specified", fig.pos = "h", out.width="25%"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+
+The difference between `h` and `h!` doesn't always seem to be respected. Here is the same figure again, but now I've used `H` instead of just `h`. This forces the remainder of the page to be blank if the item doesn't actually fit here and needs to be pushed to the next page.
+
+If it didn't fit here, LaTeX would move it to the next page, but wouldn't display more text until AFTER the figure. 
+```{r,  fig.cap = "Using fig.pos = H", fig.pos = "H", out.width="25%"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+
+And again, with !ht. This specification DOES allow the next lines of text displaying in between this line and the figure float on the next page. 
+
+```{r,  fig.cap = "Using fig.pos = !ht near the bottom of a page. Confusing, because the text referencing this figure appears several lines of text back on the previous page!", fig.pos = "!ht", out.width="50%"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+
+This is a bunch of text below the !ht float to demo that.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Phasellus placerat placerat turpis vitae luctus. Cras posuere ante magna, sed ultricies ligula placerat vitae. Vivamus rutrum neque lobortis eros tincidunt sagittis. Fusce in efficitur dolor. Donec dapibus velit neque, eget tempus tellus commodo non. Nunc pharetra volutpat urna, ac blandit velit. Duis porta lorem non convallis mollis.
+
+
+### Conditionals to control figure display
+
+You can use the following code to parse your YAML front matter and display alternative sizes of a figure depending whether you want figures in text or at the end of the manuscript:
+```
+out.width = dplyr::if_else(rmarkdown:::parse_yaml_front_matter(
+   readLines(knitr::current_input()))$floatsintext, "50%", "100%")
+```
+
+This can also be applied to other option parameters, see example below where I have conditionally specified output size and also orientation with `\usepackage{rotating}`
+
+\newpage
+
+###  Add multi-part figures with markdown. 
+
+Figures with multiple sub-figures and sub-captions can be reproduced in markdown alone as follows:
+
+Include latex package `\subcaption` in your header, and use `fig.show = hold` and `fig.subcap` as shown below. 
+
+```{r, fig.env = dplyr::if_else(rmarkdown:::parse_yaml_front_matter(readLines(knitr::current_input()))$floatsintext, "figure", "sidewaysfigure"), fig.pos = "h", out.width=dplyr::if_else(rmarkdown:::parse_yaml_front_matter(readLines(knitr::current_input()))$floatsintext, "25%", "50%"), fig.show='hold', fig.cap="This figure is larger and displayed sideways if it is not floated. See figures (a) and (b)", fig.subcap = c("Left caption.", "Right caption.")}
+
+knitr::include_graphics("gr-test-1.png")
+knitr::include_graphics("gr-test-2.png")
+```
+
+\newpage
+
+# References
+
+The references appear where the div below is places. Note that `floatsintext = no` will place figures & tables *after* the references. 
+
+<div id="refs"></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+\newpage
+
+# Formatting Notes
+
+
+Figures and tables do not behave exactly the same in papaja and aren't controlled with identical code, but are highly related as both are based on LaTeX rules.
+
+## A note on LaTeX
+
+Papaja outputs a pdf document, and as such is inexorably linked with LaTeX, which underlies pdf output in knitr/rmarkdown. 
+
+
+"R Markdown is certainly not the best possible document format for authoring or typesetting documents. Simplicity is both its advantage and disadvantage. LaTeX is much more powerful than Markdown in terms of typesetting at the price of more commands to be typed. If typesetting is of much higher priority to you and you are comfortable with using all kinds of LaTeX commands and environments, you can just use pure LaTeX code instead of Markdown to write the whole document.... If you choose Markdown for its simplicity, you should not expect too much power from it, even with powerful tools like pandoc. Bottom line: Markdown is not LaTeX. It was designed for HTML instead of LaTeX." - **[Yihui on LaTeX](https://bookdown.org/yihui/rmarkdown-cookbook/LaTeX-hardcore.html)**
+
+The document format for a markdown LaTeX document, would be .Rnw. In the future this repo will be extended to test .Rnw with papaja.
+
+## Placement parameters in papaja
+LaTeX creates a "float" which is a container, separate from the text container, which holds the figure or table. Floats have size 
+requirements with respect to the size of a page. That's why often the option you specify won't seem to be respected - the float created by LaTeX won't fit in a space that appears adequate.
+
+### YAML paramenters explained
+
+- `\floatsintext`: required to allow tables and figures to float in text. Older code may also refer to figsintext, the two are interchangeable but floats is more accurate since this parameter affects both figures and tables.
+- `\raggedbottom`: By default, LaTeX arranges paragraphs and section headings so that they fill the page without excess white space at the bottom; this can cause too much space between sections. Raggedbottom forces all sections up and allows variable white space at the bottom of the page.
+- `\usepackage{float}`: h doesn't really mean "here", it means "here if it fits". The float package offer H as an alternative specifier that really means "here" (and starts a new page first if necessary).  
+- `\usepackage{subcaption}`: Allows figures with individually captioned sub-parts.
+- `\usepackage{rotating}` and `\DeclareDelayedFloatFlavor{sidewaysfigure}{figure}`: together they can allow a single figure to be displayed landscape
+
+### Float options explained  
+Placement of floats can be controlled by the following options in the apa_tables() placement parameter, and/or in the chunk options containing the figure/table (except as noted below). Default placement is: tbp. There is an excellent comment/article on LaTeX floats **[here](https://tex.stackexchange.com/questions/39017/how-to-influence-the-position-of-float-environments-like-figure-and-table-in-lat)**
+
+- `h`: Place the float here, i.e., **approximately** at the same point it occurs in the source text.
+- `t`: Position at the top of the page.
+- `b`: Position at the bottom of the page.
+- `p`: Put on a special page for floats only.
+    - **Note**: this does NOT put every float on its OWN page. If two floats are small, they will appear on the same page, even if out of order. It's insane.
+- `!`: Override internal parameters LaTeX uses for determining “good” float positions.
+    - If you specify a float parameter that cannot be respected, LaTex will simply alter the bargain for you:  
+      *Warning: LaTeX Warning: '!h' float specifier changed to '`!ht`'.* (which then uses the t parameter instead of !h)
+
+- `H`: Place the float at **precisely** the location in the LaTeX code. 
+    - This requires the float package (`\usepackage{float}`).
+    - Do not attempt to use ! with this (see below)
+    - It cannot be used in apa_tables(), only in LaTeX commands and chunk options
+- `!H`: **prevent** floating within the document. 
+    - This will break most LaTex documents, Yihui says don't do it unless you really understand LaTeX
+
+
+### Float size parameters
+
+From **[here](https://tex.stackexchange.com/questions/39017/how-to-influence-the-position-of-float-environments-like-figure-and-table-in-lat)**
+
+The space that separates floats within an area, as well as between float areas and text areas, is defined through the following parameters (all of which are rubber lengths, i.e., can contain some stretch or shrink components). Their defaults depend on the document font size and change when class options like 11pt or 12pt are used. We only show the 10pt defaults:
+
+`\floatsep` (default 12pt plus 2pt minus 2pt) the separation between floats in top or bottom areas  
+`\dblfloatsep` (default 12pt plus 2pt minus 2pt) the separation between double-column floats on two column pages  
+`\textfloatsep` (default 20pt plus 2pt minus 4pt) the separation between top or bottom area and the text area  
+`\dbltextfloatsep` (default 20pt plus 2pt minus 4pt) the analog of `\textfloatsep` for two-column floats  
+
+For inline floats (that have been placed "here") the separation to the surrounding text is controlled by `\intextsep` (default 12pt plus 2pt minus 2pt)
+
+You can get the currently set values with `\showthe\textfloatsep` and then change them with `\setlength`:
+
+`\setlength{\textfloatsep}{10pt plus 1.0pt minus 2.0pt}`
+
+
+The following table & figure examples show other ways to specify them, but show how somtimes they don't always end up where you might want them. They are included for clarity if you don't understand why a table or figure is not behaving properly.
+
+
+### Table placement with papaja using apa_tables
+
+
+`apa_tables()` is built on **[kable](https://bookdown.org/yihui/rmarkdown-cookbook/kable.html)**. Ostensibly, you should be able to pass in optional kable paramenters in the ellipses of this function.
+
+To use LaTeX code **inside** a table you have to set the parameter `escape = FALSE`.
+
+If you would like to add mathematical symbols in any part of the table use $ (not $$, which is used in-text) to denote the beginning and end of the mathematical expression.
+
+Tables are printed at the width of their contents by default. **There is no width override parameter with apa_tables.** 
+
+**This is the location marker for the first table with default width.** NB; we have not specified a float position, so instead of displaying here, it displays above, at the top of the this page (default behavior). 
+
+```{r, "table1"}  
+
+iris %>%
+  head(4) %>%
+  select(Species, Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) %>%
+  apa_table(caption = "Demo of default table width. ",
+              note = "This should not be at the top of the page but we didn't specify placement",
+              col_spanners = list("Sepal"= c(2,3),
+                                  "Petal"= c(4,5)))
+```
+
+This demos how confusing it can be when a table floats to a location other than exactly where you specified it.
+
+Table width can be somewhat controlled by adding column width specifications using the `align` parameter, which fixes the column width. This has the side effect of also wrapping text within a fixed-width column; useful for columns containing long survey questions etc.
+
+### Figure placement options
+
+Figures in papaja are handled using the general markdown LaTeX rules found **[here](https://bookdown.org/yihui/rmarkdown-cookbook/LaTeX-output.html).**
+ See also **[this rmarkdown page](https://bookdown.org/yihui/rmarkdown-cookbook/figure-placement.html)** for more details.
+
+Figure placement depends heavily on figure size, as LaTeX will not respect placement if the figure size won't allow it to fit there.
+
+Placement specifications in chunk options will *not* be respected if you do not also specify at least one other option: 
+
+"The chunk option `fig.pos` is only used when knitr thinks it has to write out a LaTeX figure environment instead of pure Markdown, and it writes LaTeX only when a figure caption (`fig.cap`) is specified, and at least one of these options has been specified: `fig.align`, `out.width`, `out.extra`. If you want to force knitr to write LaTeX code for figures and use fig.pos, you may set the chunk option out.extra = ''." - **[Yihui on Stack Overflow](https://stackoverflow.com/a/43245550)**
+
+One figure should be exactly here but only the output size is specified. Since it fits here, it displays here anyway:
+```{r,  fig.cap = "Only output size specified", out.width="25%"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+
+Here's the same figure but the width is too large for it to display right under this text, so it goes to the next page:
+
+```{r,  fig.cap = "Only output size specified", out.width="100%"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+
+
+One figure should be exactly here but only the output position is specified. Since the figure is too big to fit here and there's no output width, it goes to the next page too:
+
+```{r, fig.cap = "Only output position specified", fig.pos = "h"}
+par(mar=c(0, 0, 0, 0))
+plot(cars)
+```
+^^^
+Note this figure didn't display its caption, because we did not include `out.width`, so it's not even recognized as a figure environment.
+
+See this for side by side figs in pure LaTeX; **[see this post](https://stackoverflow.com/questions/61546003/knitr-rmarkdown-figures-side-by-side-with-a-single-caption/61547801) **
+

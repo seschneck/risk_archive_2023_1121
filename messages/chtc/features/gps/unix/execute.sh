@@ -13,4 +13,4 @@ export RHOME=$(pwd)/R
 export R_LIBS=$PWD/packages
 
 #run R script, passing in args
-Rscript mak_features_chtc.R $1 $2
+Rscript mak_gps_features_chtc.R $1 $2
