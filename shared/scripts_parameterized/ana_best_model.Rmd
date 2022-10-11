@@ -117,7 +117,7 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
 ### Model Performance
 
 Look at performance within folds
-```{r model_metrics}
+```{r}
   metrics_best %>% 
     print_kbl()
 ```
@@ -126,7 +126,7 @@ Look at performance within folds
 if (cv == "kfold" | cv == "boot") {
   config_best <- metrics_best %>% 
     group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-    summarise(across(accuracy:roc_auc, ~mean(.x))) %>% 
+    summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop") %>% 
     glimpse()
 
 }
@@ -314,7 +314,8 @@ if (have_model && model_fit_best$spec$engine == "xgboost") {
     vi(method = "model", scale = TRUE)
   
   vi_xgb %>%
-   vip(num_features = 100, geom = "point")
+   vip(num_features = 100, geom = "point") %>% 
+    print()
    
   
   # SHAP
@@ -351,7 +352,7 @@ if (have_model && model_fit_best$spec$engine == "xgboost") {
                                     window, "_", lead, "_", version,
                                     "_kfold", ".rds"))) %>% 
     group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-    summarise(across(accuracy:roc_auc, ~mean(.x)))
+    summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
   rec_xgb <- build_recipe(d = d, job = config_best)
   
   features <- rec_xgb %>% 
@@ -364,7 +365,7 @@ if (have_model && model_fit_best$spec$engine == "xgboost") {
                          top_n = 30) # top 30 features
    
   # just mean SHAP                      
-  shap_long %>% 
+  plot_mean_shap <- shap_long %>% 
     group_by(variable) %>% 
     slice(1) %>% 
     arrange(desc(mean_value)) %>% 
@@ -372,7 +373,9 @@ if (have_model && model_fit_best$spec$engine == "xgboost") {
     mutate(variable = fct_rev(variable)) %>% 
     ggplot(aes(x=variable, y=mean_shap)) + 
       geom_col() +
-      coord_flip()
+      coord_flip() 
+  
+  print(plot_mean_shap)
   
   # full SHAP plot
   shap_long %>% 

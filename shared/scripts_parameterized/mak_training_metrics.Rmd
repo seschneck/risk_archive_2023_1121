@@ -122,18 +122,18 @@ if (algorithms == "all") {
 
 Loop over batch_names to read in files and perform checks
 ```{r}
-for (i in batch_names) {
+for (batch_name in batch_names) {
   # read in jobs
-  jobs <- vroom(here(path_input, i, "input", "jobs.csv"), show_col_types = FALSE)
+  jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
   n_jobs <- nrow(jobs)
   
   # Check counts of error and results
-  err_files <- map_dfr(list.files(here(path_input, i, "output", "error"), 
+  err_files <- map_dfr(list.files(here(path_input, batch_name, "output", "error"), 
                                  full.names = TRUE), 
                       file.info)
   n_err_files <- nrow(err_files)
   
-  results_files <- list.files(here(path_input, i, "output", "results"), 
+  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
                                  full.names = TRUE)
   n_results_files <- length(results_files)
 
@@ -174,8 +174,8 @@ for (i in batch_names) {
                                    n_repeat == 1 & n_fold == 8 ~ 8,
                                    n_repeat == 1 & n_fold == 9 ~ 9,
                                    n_repeat == 1 & n_fold == 10 ~ 10),
-             outer_split_num = as.numeric(NA),
-             inner_split_num = as.numeric(NA)) %>%
+             outer_split_num = NA_integer_,
+             inner_split_num = NA_integer_) %>%
       select(-c(n_repeat, n_fold)) %>%
       relocate(job_num, split_num, outer_split_num, inner_split_num)
   }
@@ -193,7 +193,7 @@ for (i in batch_names) {
     pull(n) %>% 
     max() 
   if (max_job_num > 1) {
-    warning("Job numbers are not unique") 
+    stop("Job numbers are not unique") 
   } else {
     message(max_job_num, " job for each job number. Correct!")
   }
