@@ -109,175 +109,31 @@ Set up object for results
 metrics_raw_all <- NULL
 ```
 
-#### Batch 1: GLMNET
-
-```{r glmnet}
-
-if (str_detect(algorithms, "all") || str_detect(algorithms, "glmnet")) {
-  (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_glmnet"))
-
-
-  # Read in jobs file
-  jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
-  (n_jobs <- nrow(jobs))
-
-
-  # Check counts of error and results
-  err_files <- map_dfr(list.files(here(path_input, batch_name, "output", "error"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_err_files <- nrow(err_files)
-  
-  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
-                                 full.names = TRUE)
-  n_results_files <- length(results_files)
-
-  if (!(n_jobs == n_err_files)) {
-    stop(n_jobs, " jobs != ", n_err_files, " error files!") 
-  } else {
-    message(n_err_files, " error files detected.  Correct!")
-  }
-  
-  if (!(n_jobs == n_results_files)) {
-    stop(n_jobs, " jobs != ", n_results_files, " feature files!")
-  } else {
-    message(n_results_files, " results files detected.  Correct!")
-  }
-
-  # Display path/filename of non-zero error files
-  err_files %>%
-      filter(size > 0) %>%
-      rownames_to_column("path") %>%
-      pull(path)
-
-
-  # read in all result CSVs
-
-  metrics_raw_batch <- results_files %>% 
-    future_map_dfr(read_csv, col_types = readr::cols())
-
-
-  # Basic counts and checks
-
-
-  job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
-  if (!(n_jobs == length(job_nums))) {
-    stop(n_jobs, " jobs != ", length(job_nums), "  job_nums in metrics!") 
-  } else {
-    message(length(job_nums), " unique job numbs detected.  Correct!")
-  }
-
-  metrics_raw_batch %>% tabyl(job_num)
-  metrics_raw_batch %>% tabyl(split_num)
-  metrics_raw_batch %>% tabyl(outer_split_num)
-  metrics_raw_batch %>% tabyl(inner_split_num)
-  metrics_raw_batch %>% tabyl(algorithm)
-  metrics_raw_batch %>% tabyl(feature_set)
-  metrics_raw_batch %>% tabyl(hp1)
-  metrics_raw_batch %>% tabyl(hp2)
-  metrics_raw_batch %>% tabyl(hp3)
-  metrics_raw_batch %>% tabyl(resample)
-  metrics_raw_batch %>% tabyl(n_feats)
-
-
-  # Add batch 1 to all metrics
-  metrics_raw_all <- metrics_raw_all %>% 
-    bind_rows(metrics_raw_batch)
-
+Get batch_names
+```{r}
+if (algorithms == "all") {
+  batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE) %>% 
+    str_subset(., pattern = str_c("train_", data_type, "_", window, "_", lead, "_", version))
+} else {
+  batch_names <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithms, "_", cv)
 }
 ```
 
-#### Batch 2: Random Forest
 
-```{r random_forest}
-if (str_detect(algorithms, "all") || str_detect(algorithms, "random_forest")) {
+Loop over batch_names to read in files and perform checks
+```{r}
+for (i in batch_names) {
+  # read in jobs
+  jobs <- vroom(here(path_input, i, "input", "jobs.csv"), show_col_types = FALSE)
+  n_jobs <- nrow(jobs)
   
-  (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_random_forest"))
-
-  # Read in jobs file
-  jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
-  
-  (n_jobs <- nrow(jobs))
-
-  # Check counts of error, out, and results
-  err_files <- map_dfr(list.files(here(path_input, batch_name, "output", "error"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_err_files <- nrow(err_files)
-  
-  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
-                                 full.names = TRUE)
-  n_results_files <- length(results_files)
-
-  if (!(n_jobs == n_err_files)) {
-    stop(n_jobs, " jobs != ", n_err_files, " error files!") 
-  } else {
-    message(n_err_files, " error files detected.  Correct!")
-  }
-  
-  if (!(n_jobs == n_results_files)) {
-    stop(n_jobs, " jobs != ", n_results_files, " feature files!")
-  } else {
-    message(n_results_files, " results files detected.  Correct!")
-  }
-
-  # Display path/filename of non-zero error files
-  err_files %>%
-      filter(size > 0) %>%
-      rownames_to_column("path") %>%
-      pull(path)
-
-  # read in all result CSVs
-  metrics_raw_batch <- results_files %>% 
-    future_map_dfr(read_csv, col_types = readr::cols())
-
-  # Basic counts and checks
-  job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
-  if (!(n_jobs == length(job_nums))) {
-    stop(n_jobs, " jobs != ", length(job_nums), "  job_nums in metrics!") 
-  } else {
-    message(length(job_nums), " unique job numbs detected.  Correct!")
-  }
-  
-  metrics_raw_batch %>% tabyl(job_num)
-  metrics_raw_batch %>% tabyl(split_num)
-  metrics_raw_batch %>% tabyl(outer_split_num)
-  metrics_raw_batch %>% tabyl(inner_split_num)
-  metrics_raw_batch %>% tabyl(algorithm)
-  metrics_raw_batch %>% tabyl(feature_set)
-  metrics_raw_batch %>% tabyl(hp1)
-  metrics_raw_batch %>% tabyl(hp2)
-  metrics_raw_batch %>% tabyl(hp3)
-  metrics_raw_batch %>% tabyl(resample)
-  metrics_raw_batch %>% tabyl(n_feats)
-
-
-  # Add batch 2 to all metrics
-  metrics_raw_all <- metrics_raw_all %>% 
-    bind_rows(metrics_raw_batch)
-}
-```
-
-#### Batch 3: XGBoost
-
-```{r xgboost}
-
-if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
-  
-  (batch_name <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost", "_", cv))
-
-  # Read in jobs file
-  jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
-  
-  (n_jobs <- nrow(jobs))
-
   # Check counts of error and results
-  err_files <- map_dfr(list.files(here(path_input, batch_name, "output", "error"), 
+  err_files <- map_dfr(list.files(here(path_input, i, "output", "error"), 
                                  full.names = TRUE), 
                       file.info)
   n_err_files <- nrow(err_files)
   
-  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
+  results_files <- list.files(here(path_input, i, "output", "results"), 
                                  full.names = TRUE)
   n_results_files <- length(results_files)
 
@@ -293,7 +149,7 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   } else {
     message(n_results_files, " results files detected.  Correct!")
   }
-
+  
   # Display path/filename of non-zero error files
   err_files %>%
       filter(size > 0) %>%
@@ -318,12 +174,12 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
                                    n_repeat == 1 & n_fold == 8 ~ 8,
                                    n_repeat == 1 & n_fold == 9 ~ 9,
                                    n_repeat == 1 & n_fold == 10 ~ 10),
-             outer_split_num = NA,
-             inner_split_num = NA) %>%
+             outer_split_num = as.numeric(NA),
+             inner_split_num = as.numeric(NA)) %>%
       select(-c(n_repeat, n_fold)) %>%
       relocate(job_num, split_num, outer_split_num, inner_split_num)
   }
-
+  
   # Basic counts and checks
   job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
   if (!(n_jobs == length(job_nums))) {
@@ -335,26 +191,26 @@ if (str_detect(algorithms, "all") || str_detect(algorithms, "xgboost")) {
   # Should be 1
   metrics_raw_batch %>% tabyl(job_num) %>% 
     pull(n) %>% 
-    max()
+    max() %>% 
+    print()
 
-  metrics_raw_batch %>% tabyl(split_num)
-  metrics_raw_batch %>% tabyl(outer_split_num)
-  metrics_raw_batch %>% tabyl(inner_split_num)
-  
-  metrics_raw_batch %>% tabyl(algorithm)
-  metrics_raw_batch %>% tabyl(feature_set)
-  metrics_raw_batch %>% tabyl(hp1)
-  metrics_raw_batch %>% tabyl(hp2)
-  metrics_raw_batch %>% tabyl(hp3)
-  metrics_raw_batch %>% tabyl(resample)
-  metrics_raw_batch %>% tabyl(n_feats)
+  metrics_raw_batch %>% tabyl(split_num) %>% print()
+  metrics_raw_batch %>% tabyl(outer_split_num) %>% print()
+  metrics_raw_batch %>% tabyl(inner_split_num) %>% print()
+
+  metrics_raw_batch %>% tabyl(algorithm) %>% print()
+  metrics_raw_batch %>% tabyl(feature_set) %>% print()
+  metrics_raw_batch %>% tabyl(hp1) %>% print()
+  metrics_raw_batch %>% tabyl(hp2) %>% print()
+  metrics_raw_batch %>% tabyl(hp3) %>% print()
+  metrics_raw_batch %>% tabyl(resample) %>% print()
+  metrics_raw_batch %>% tabyl(n_feats) %>% print()
 
   # Add batch 3 to all metrics
   metrics_raw_all <- metrics_raw_all %>% 
     bind_rows(metrics_raw_batch)
 }
 ```
-
 
 
 ### Wrap up processing of raw metrics
@@ -366,6 +222,8 @@ plan(sequential)
 ```
 
 Save raw metrics file
+
+FIX: include data_type in file name?
 ```{r}
 metrics_raw_all %>% 
   vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")), delim = ",")
