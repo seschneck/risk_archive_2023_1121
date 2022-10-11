@@ -134,8 +134,10 @@ if (cv == "kfold" | cv == "boot") {
     ungroup %>% 
     arrange(desc(roc_auc)) %>% 
     print_kbl()
+}
 
-  config_best <- metrics_avg %>% 
+if (cv == "kfold" | cv == "boot") {
+ config_best <- metrics_avg %>% 
     arrange(desc(roc_auc)) %>% 
     slice(1) %>% 
     glimpse()
@@ -371,8 +373,9 @@ if (cv == "nested") {
     results_i <- get_metrics(model = model, feat_out = feat_out) %>% 
       pivot_wider(., names_from = "metric",
                   values_from = "estimate") %>%   
-      relocate(roc_auc_outer = roc_auc,  accuracy_outer = accuracy, bal_accuracy_outer = bal_accuracy,
-             sens_outer = sens, spec_outer = spec, ppv_outer = ppv, npv_outer = npv) %>% 
+      relocate(roc_auc_outer = roc_auc,  accuracy_outer = accuracy, 
+               bal_accuracy_outer = bal_accuracy, sens_outer = sens, 
+               spec_outer = spec, ppv_outer = ppv, npv_outer = npv) %>%  
       mutate(outer_split_num = i)
     
     if (i == 1) {
@@ -418,33 +421,39 @@ Check metrics_avg and look at avg performance across all outer folds
 if (cv == "nested") {
   metrics_best %>% 
     print_kbl()
-  
+}
+
+if (cv == "nested") {
   metrics_best %>% 
     summarise(across(ends_with("_outer"), mean)) %>% 
     glimpse()
 }
 ```
 
-Check preds 
-```{r}
-if (cv == "nested") {
-  preds_best %>% 
-    glimpse()
-  
-  if (nrow(d) == nrow(preds_best)) {
-    message("Number of predictions = Number of rows in data set. Correct!")
-  } else stop("Number of predictions != Number of rows in data set!")
-  
-  # Should be 1
-  preds_best %>% 
-    tabyl(label_num) %>% 
-    pull(n) %>% 
-    max()
-}
-```
 
 NOTE: Best model still needs to be identified and  trained using k-fold on the full data. This will need to be done on CHTC.  In most instances, this will likely
 already have been done in earlier workflow before we switched to nestd.   Otherwise, we will need to train that now and use the kfold version to get best model
+
+
+### Check preds 
+```{r}
+if (nrow(d) == nrow(preds_best)) {
+    message("Number of predictions = Number of rows in data set. Correct!")
+} else stop("Number of predictions != Number of rows in data set!")
+  
+preds_best %>% 
+  glimpse()
+
+# Check only one prediction per label num - Should be 1
+ preds_per_label <- preds_best %>% 
+    tabyl(label_num) %>% 
+    pull(n) %>% 
+    max()
+ 
+ if (preds_per_label > 1) {
+   stop("More than one prediction per label number")
+ } else message(preds_per_label, " prediction per label num. Correct!")
+```
 
 ### Save out avg and best model metrics and predictions
 ```{r}
