@@ -225,11 +225,9 @@ plan(sequential)
 ```
 
 Save raw metrics file
-
-FIX: include data_type in file name?
 ```{r}
 metrics_raw_all %>% 
-  vroom_write(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")), delim = ",")
+  vroom_write(here(path_processed, str_c("metrics_raw_train_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".csv")), delim = ",")
 ```
 
 ### Average metrics across folds for model configurations

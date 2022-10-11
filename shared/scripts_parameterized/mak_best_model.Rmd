@@ -7,11 +7,11 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  study: "ema"
+  study: "messages"
   data_type: "all"
-  window: "1week"
+  window: "1hour"
   lead: 0
-  version: "v4"
+  version: "v1"
   cv: "kfold"
 ---
 
@@ -104,29 +104,8 @@ Detect n cores
 
 Read in aggregate CHTC metrics
 ```{r}
-# FIX: Need to change job parameters in metrics_raw_train to work with this new workflow
-# Needs split_num, outer_split_num, and inner_split_num
-# Temporarily fix this for 1x10 kfold with this code (will need to resave files after discussing with JC)
-# metrics_raw <- 
-#   vroom(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")),
-#         show_col_types = FALSE) %>% 
-#   mutate(split_num = case_when(n_repeat == 1 & n_fold == 1 ~ 1,
-#                                n_repeat == 1 & n_fold == 2 ~ 2,
-#                                n_repeat == 1 & n_fold == 3 ~ 3,
-#                                n_repeat == 1 & n_fold == 4 ~ 4,
-#                                n_repeat == 1 & n_fold == 5 ~ 5,
-#                                n_repeat == 1 & n_fold == 6 ~ 6,
-#                                n_repeat == 1 & n_fold == 7 ~ 7,
-#                                n_repeat == 1 & n_fold == 8 ~ 8,
-#                                n_repeat == 1 & n_fold == 9 ~ 9,
-#                                n_repeat == 1 & n_fold == 10 ~ 10),
-#          outer_split_num = NA,
-#          inner_split_num = NA) %>% 
-#   select(-c(n_repeat, n_fold)) %>% 
-#   relocate(job_num, split_num, outer_split_num, inner_split_num)
-
 metrics_raw <- 
-  vroom(here(path_processed, str_c("metrics_raw_train_", window, "_", lead, "_", version, "_", cv, ".csv")), 
+  vroom(here(path_processed, str_c("metrics_raw_train_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".csv")), 
         col_types = "iiiiccdddcdddddddi",
         show_col_types = FALSE)
 ```
@@ -201,13 +180,15 @@ if (cv == "kfold" | cv == "boot") {
   # create splits
   set.seed(102030)
   
-  # FIX: Old versions of training controls need to be updated to work with make_splits
-  # Temp code to convert old training controls into new parameters to work
-  # cv_resample_type <- cv
-  # cv_resample <- "1_x_10"
-  # cv_outer_resample <- NA
-  # cv_inner_resample <- NA
-  # cv_group <- "subid"
+  # Old versions of training controls need variables to be updated to work with make_splits
+  # Assumes old training controls are grouped kfold since nested has only been done with updated workflow
+  if (!exists("cv_resample_type")) {
+    cv_resample_type <- cv
+    cv_group <- group
+    cv_resample <- str_split(cv_type, "kfold_")[[1]][2]
+    cv_outer_resample <- NA
+    cv_inner_resample <- NA
+  }
   
   splits <- d %>% 
     make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
