@@ -188,16 +188,19 @@ for (i in batch_names) {
     message(length(job_nums), " unique job numbs detected.  Correct!")
   }
   
-  # Should be 1
-  metrics_raw_batch %>% tabyl(job_num) %>% 
+  # Check each job_num is unique
+  max_job_num <- metrics_raw_batch %>% tabyl(job_num) %>% 
     pull(n) %>% 
-    max() %>% 
-    print()
+    max() 
+  if (max_job_num > 1) {
+    warning("Job numbers are not unique") 
+  } else {
+    message(max_job_num, " job for each job number. Correct!")
+  }
 
   metrics_raw_batch %>% tabyl(split_num) %>% print()
   metrics_raw_batch %>% tabyl(outer_split_num) %>% print()
   metrics_raw_batch %>% tabyl(inner_split_num) %>% print()
-
   metrics_raw_batch %>% tabyl(algorithm) %>% print()
   metrics_raw_batch %>% tabyl(feature_set) %>% print()
   metrics_raw_batch %>% tabyl(hp1) %>% print()

@@ -5,9 +5,10 @@ study <- "messages"
 data_type <- "all"
 cv <- "kfold"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1day")
+windows <- c("1hour")
 lead <- 0
 version <- "v1"
+algorithms <- "xgboost"
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
@@ -19,6 +20,7 @@ for (window in windows) {
                                   data_type = data_type, 
                                   lead = lead, 
                                   version = version,
-                                  cv = cv),
+                                  cv = cv,
+                                  algorithms = algorithms),
                     envir = new.env())
 }
