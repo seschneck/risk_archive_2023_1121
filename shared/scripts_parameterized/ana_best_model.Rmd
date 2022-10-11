@@ -9,8 +9,8 @@ output:
 params:
   study: "messages"
   data_type: "all"
-  cv: "nested"
-  window: "1week"
+  cv: "kfold"
+  window: "1hour"
 
   lead: 0
   version: "v1"
@@ -113,21 +113,14 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
                                                 "_", cv, ".rds")))
 ```
 
-### Read in best model fit (chosen with kfold)
-```{r}
-# Add check that file exists
-if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))) {
-  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-
-} else {
-  "STOP: Need to first select best model with kfold and save out model fit."
-}
-```
-
-
 
 ### Model Performance
 
+Look at performance within folds
+```{r model_metrics}
+  metrics_best %>% 
+    print_kbl()
+```
 
 ```{r model_metrics}
 if (cv == "kfold" | cv == "boot") {
@@ -268,11 +261,24 @@ cm_hi %>% summary(event_level = "second")
 
 ### Feature Importance
 
+#### Read in best model fit (chosen with kfold)
+```{r}
+# Add check that file exists
+if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))) {
+  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))
+  have_model <- TRUE
+
+} else {
+  warning("Feature importance skipped for nested: Need to first select best model with kfold and save out model fit.")
+  have_model <- FALSE
+}
+```
+
 View Feature Importance Indices for best model fit (selected in select_best_model.Rmd)
 
-glmnet
+#### glmnet
 ```{r glmnet_imp, fig.height = 7}
-if (model_fit_best$spec$engine == "glmnet") {
+if (have_model && model_fit_best$spec$engine == "glmnet") {
   model_fit_best %>%
     vi(lambda = config_best_glmnet$hp2) %>% 
     mutate(Importance = abs(Importance),
@@ -287,17 +293,21 @@ if (model_fit_best$spec$engine == "glmnet") {
 ```
 
 
-random forest
+#### random forest
 ```{r rf_imp, fig.height = 7}
-if (model_fit_best$spec$engine == "ranger") {
-  model_fit_best %>%
-    vip(num_features = 40, geom = "point") 
+if (have_model && model_fit_best$spec$engine == "ranger") {
+
+  vi_ranger <- model_fit_best %>% 
+    vi(method = "model", scale = TRUE)
+  
+  vi_ranger %>%
+   vip(num_features = 100, geom = "point")
 }
 ```
 
-xgboost
+#### xgboost
 ```{r xgb_imp, fig.height = 7}
-if (model_fit_best$spec$engine == "xgboost") {
+if (have_model && model_fit_best$spec$engine == "xgboost") {
   
   # Scaled model specific VIP
   vi_xgb <- model_fit_best %>% 
@@ -309,7 +319,7 @@ if (model_fit_best$spec$engine == "xgboost") {
   
   # SHAP
   # need to first read training controls and data to build recipe
-  # FIX: Discuss with John if this is where we want to do this
+  
   path_best <- here(path_input, 
                     str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost_", cv), 
                     "input/")
@@ -333,18 +343,15 @@ if (model_fit_best$spec$engine == "xgboost") {
     rename(y = {{y_col_name}})
     
   # build recipe
-  # need to read in kfold metrics best to get best model config if this is for a nested cv type
-  if (cv == "nested") {
-    metrics_best_kfold <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", 
-                                                          window, "_", lead, "_", version, "_kfold.rds")))
-    
-    config_best <- metrics_best_kfold %>% 
-      group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-      summarise(across(accuracy:roc_auc, ~mean(.x)))
-  }
-  
-  
-  
+  # need to get the config for the final model selected by kfold.  We really only need
+  #this for nested because we already have it if we started with kfold but opening 
+  # again just for clearer setting cv = kfold
+  config_best <- readRDS(here(path_models, 
+                              str_c("resample_metrics_best_", data_type, "_", 
+                                    window, "_", lead, "_", version,
+                                    "_kfold", ".rds"))) %>% 
+    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+    summarise(across(accuracy:roc_auc, ~mean(.x)))
   rec_xgb <- build_recipe(d = d, job = config_best)
   
   features <- rec_xgb %>% 
