@@ -6,19 +6,19 @@ We recruited participants in early recovery (1-8 weeks of abstinence) from alcoh
 
 1.  were 18 years of age or older,
 2.  were able to write and read in English,
-3.  had at least moderate alcohol use disorder (\>= 4 DSM-5 symptoms<!--^[We measured DSM-5 symptoms with a self-report survey administered to participants during the in-person screening visit.]-->),
+3.  had at least moderate alcohol use disorder (\>= 4 DSM-5 symptoms^[We measured DSM-5 symptoms with a self-report survey administered to participants during the in-person screening visit.]),
 4.  were abstinent from alcohol for at least 1 week but no longer than 2 months,
 5.  were willing to use a single smartphone (their personal phone or one provided by us) while enrolled in the study.
 
-We also excluded participants if they exhibited severe symptoms of psychosis or paranoia<!--^[Psychosis and paranoia were defined as scores greater than 2.2 or 2.8, respectively, on the psychosis or paranoia scales of the on the Symptom Checklist – 90 (SCL-90) [@derogatisSCL90OutpatientPsychiatric1973].]-->. 
+We also excluded participants if they exhibited severe symptoms of psychosis or paranoia^[Psychosis and paranoia were defined as scores greater than 2.2 or 2.8, respectively, on the psychosis or paranoia scales of the on the Symptom Checklist – 90 (SCL-90) [@derogatisSCL90OutpatientPsychiatric1973].]. 
 
-One hundred ninety-two participants were eligible for enrollment. Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Fifteen participants discontinued prior to the first monthly follow-up visit. The remaining 154 participants provided study measures for one (N = 14), two (N = 7) or three (N = 133) months. 
+One hundred ninety-two participants were eligible for enrollment. Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Fifteen participants discontinued prior to the first monthly follow-up visit. 
 
 We excluded data from one participant who appeared to not have a goal of abstinence during their participation (i.e., they had lapses every day on study except for one day and reported they were uncertain if their goal was abstinence on the daily EMA and monthly follow-up surveys). We also excluded data from two participants who showed evidence of careless responding (e.g., completing 2-4 EMAs within an hour and providing different responses) and unusually low compliance (e.g., only 5 EMAs completed over one month) rendering their lapse labels unusable. 
 
-Our final sample consisted of 151 participants. Participants were mostly white (87%), roughly half were male (51%) and the mean age was 41 years (SD = 12). 
+Our final sample consisted of 151 participants. Participants provided study measures for one (N = 14), two (N = 6) or three (N = 131) months. Participants were mostly white (87%), roughly half were male (51%) and the mean age was 41 years (SD = 12). 
 
-```Consider reporting other information like: Participants were on study for an average of 85 days out of the possible 90 days. All participants provided at least one month of data. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 symptom criteria for alcohol use disorder. Generally, scores of 2-3 are considered mild, 4-5 are considered moderate, and 6+ considered severe alcohol use disorder.```
+```Consider reporting other information like: Participants were on study for an average of 85 days out of the possible 90 days. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 symptom criteria for alcohol use disorder. Generally, scores of 2-3 are considered mild, 4-5 are considered moderate, and 6+ considered severe alcohol use disorder.```
 
 ```Discuss if we want any demographic/AUD history/mental health tables or flowchart of participant retention.```
 
@@ -41,7 +41,7 @@ The first and last EMAs of the day were scheduled within one hour of participant
 Lapses were derived from the first item of each EMA ("Have you drank any alcohol that you have not yet reported?"). If participants answered yes to this question they were prompted to enter the hour and date of the first unreported drink and the hour and date of their last drink. Following this information, participants were asked whether their goal was still to remain abstinent in the future. At each monthly follow-up visit an Alcohol Timeline Followback was administered by study staff to identify unreported lapses and resolve conflicting (e.g., lapse end time predating lapse start time) or incomplete (e.g., no lapse end time) reports. 
 
 ### Individual Differences
-At the screening visit we collected self-report information about demographics, mental health, and drug and alcohol use history.
+At the screening visit we collected self-report information about demographics, mental health, and drug and alcohol use history. <!--How much info do we want to include about these measures?-->
 
 ## Data Analytic Strategy
 ### Labels
