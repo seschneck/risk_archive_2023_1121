@@ -4,11 +4,11 @@ library(stringr)
 study <- "ema"
 data_type <- "all"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1week")
+windows <- c("1hour", "1day", "1week")
 lead <- 0
 version <- "v4"
-cv <- "nested"
-algorithms <- "xgboost"  # "all" or algorithm name
+cv <- "kfold"
+algorithms <- "all"  # "all" or algorithm name
 
 for (window in windows) {
   rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
