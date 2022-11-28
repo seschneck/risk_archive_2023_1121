@@ -1,0 +1,248 @@
+---
+title: "Cover Letter: Response to Reviewers"
+shorttitle        : "Cover Letter"
+
+author: 
+  - name          : "Kendra Wyant"
+    affiliation   : "1"
+  - name          : "Hannah Moshontz"
+    affiliation   : "1"
+  - name          : "Stephanie B. Ward"
+    affiliation   : "1"
+  - name          : "Gaylen E. Fronk"
+    affiliation   : "1"
+  - name          : "John J. Curtin"
+    affiliation   : "1"
+    corresponding : yes 
+    address       : "1202 West Johnson St, Madison, WI 53706"
+    email         : "jjcurtin@wisc.edu"
+
+affiliation:
+  - id            : "1"
+    institution   : "Department of Psychology, University of Wisconsin - Madison"
+
+floatsintext      : yes
+figurelist        : yes
+tablelist         : no
+footnotelist      : yes
+linenumbers       : no
+mask              : no
+draft             : no
+
+documentclass     : "apa6"
+classoption       : "man"
+output            : papaja::apa6_pdf
+header-includes:
+  - \raggedbottom
+  - \usepackage{booktabs}
+  - \definecolor{lightred}{RGB}{255,222,222}
+  - \definecolor{lightblue}{RGB}{219,248,255}
+  - \usepackage[justification=raggedright]{caption}
+  - \usepackage{colortbl}
+
+
+  
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/manuscripts/burden", 
+      "/Volumes/private/studydata/risk/manuscripts/burden")
+    )
+  })
+bibliography: burden.bib
+csl: journal-of-medical-internet-research.csl
+---
+
+```{r setup, include = FALSE}
+library(here)
+library(papaja)
+library(knitr)
+library(tidyverse)
+library(kableExtra)
+library(janitor)
+library(corx)
+library(patchwork)
+library(ggtext)
+library(vroom)
+library(lubridate)
+
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '')
+```
+
+```{r absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_burden <- "P:/studydata/risk/data_processed/burden"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+        # IOS paths
+        Darwin = {
+          path_burden <- "/Volumes/private/studydata/risk/data_processed/burden"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"}
+       )
+```
+
+```{r relative paths and source}
+path_ana <- "burden/ana_scripts"
+
+source(here(path_ana, "fun_burden.R"))
+```
+
+Dear Dr. Ruis,
+
+We are pleased to submit a revised version of our manuscript "Acceptability of personal sensing among people with alcohol use disorder: Observational study" (Manuscript No. JMU 41833) for your review at JMIR mHealth and uHealth. We thank the reviewers and you for the thoughtful commentary. We believe that these suggestions have greately improved our manuscript. We have included detailed repsonses to each of the reviewers' concerns beginning on the following page.
+
+[required cover letter info for JMU?]
+
+If we can provide any additional information that can be of assistance, please do not hesitate to ask. Thank you in advance for your consideration.
+
+Sincerely,
+
+Kendra Wyant, Hannah Moshontz, Stephanie Ward, Gaylen Fronk, & John Curtin
+
+---
+
+**Response to Reviewers**
+
+Below, we delineate the reviewers’ and action editor’s questions, concerns, and requests regarding our original submission, and we detail the ways in which we have addressed each item. All comments have been copied verbatim to avoid misinterpretation. For brevity, we have removed comments regarding the strengths of the manuscript, but we appreciated these complimentary remarks.
+
+**Action Editor's Comments:**
+
+*AE1.1:* Please address the formatting issues identified in the checklist above.
+
+*AE1.1.1:* Please add subheadings under Introduction/Methods/Results/Discussion (if you use WinWord, apply the style "Heading 2" to IMRD headings, and the styles "Heading 3" to subsequent subheadings). Do not use italics or bold keywords or sentences in paragraphs in lieu of subheadings/sub-subheadings.
+*AE1.1.2:* Shorten the paper. Some of the material/tables/formulas can be moved to a Multimedia Appendix.
+*AE1.1.3:* For all results for which you provide a relative result (percentage), you should also provide the absolute number, e.g. "132 out of 264 participants (50%) said that...". If n is less than 100, do not use decimal points in your percentages. Otherwise, do not use more than one decimal place.
+
+*AE1.2:* Please include relevant IRB approval numbers.
+
+*AE1.3:* Consider reformatting Fig 1. in to a more traditional CONSORT diagram: https://www.consort-statement.org/consort-statement/flow-diagram
+
+*AE1.4:* The qualitative data presented in the Discussion really belongs in the Results section.
+
+*AE1.5:* The paper is quite lengthy and I'm not convinced all material, especially the lengthy content in the introduction, is required.
+
+**Reviewer #1 (B) Comments:**
+
+*R1.1:* A systematic methodology and rationale for selecting the specific personal sensing types explored was not presented.
+
+*R1.2:* Prior work applying personal sensing to intoxication in general and AUD specifically with clear motivation for each of the sensing methods selected could be improved.
+
+*R1.3:* In Table 3, the number of subjects who discontinued prior to completing enrolment whose reasons are unknown seems quite large. Feels like a lot of information is lost there
+
+*R1.4:* It would have been great to rank user acceptance to various personal sensing streams
+
+*R1.5:* It would have been great to compare or propose comparing in future, the response of subjects with AUD with those without AUD. User willingness for subjects under treatment may differ from those not under treatment.
+
+*R1.6:* Paper has several typos that should be checked and fixed including: - One a day would be great -> Once a day would be great
+
+*R1.7:* The paper uncovered some interesting findings. However, the reasons behind some user responses and preferences were not clear. A strong qualitative study or follow-on focus group might have provided more answers. The paper does contain some qualitative research in the form of free form user responses but that falls short.
+
+*R1.8:* The lack of racial or ethnic information of participants substantially influences the significance of study's findings as racial and ethnic differences are likely to be great and provide additional insights.
+
+**Reviewer #2 (E) Comments:**
+
+*R2.1:* The biggest flaw regarding acceptability is the inability for formal measures of compliance on the more sensitive data collection measures (location, logs, text message content). Considering all participants opted-in to provide data...this is how one would know if they were quietly opting out (by turning the sensor collection off).
+
+*R2.2:* The 50/50 split on sex is concerning. A 50/50 fit would imply the recruitment mechanism made this split. Thus how did you exactly assess choice at consent and enrollment when you probably had screeners built in to ensure the sex split was 50/50?
+
+*R2.3:* The inclusion of data in the discussion is a problem to me and the discussion section reads more like a qualitative review than a discussion. Also, there is no limitation section. I think the discussion should greatly be reduced to be comment solely on the data presented in the paper.
+
+*R2.4:* How much were participants paid for opting in--exactly. How much for each opt-in and where they only asked once to opt-in to tracking or could they add a feature on at any time?
+
+**Reviewer #3 (K) Comments:**
+
+*R3.1:* Would authors explain more about why certain sensing methods were compensated while others were not? In particular, the passive sensing methods require little effort were the ones more likely to be compensated. If anything, this provides greater support for their conclusions, still the question is why reimbursement there and not for other data?
+
+*R3.2:* The questions about the willingness to wear devices ends with the phrase, "check-in for one year if it helped with my recovery." Would the authors comment on the possible effect of that on participant responses? Alcohol use disorder is a relapsing disorder with few guarantees in treatment. How would people respond if the question were phrased, "i would be willing to check in for one year to TEST it helped with my recovery."? My point is, the way the question is phrased may be affecting the answer, particularly in this early stage of testing.
+
+*R3.3:* There is a relevant paper that might be worth including on the longevity of tracker use: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6952057/#:~:text=Based%20on%20these%20results%20from,have%20accounted%20for%20the%20NE.
+How would the authors respond to this letter?
+
+*R3.4:* Can the authors comment on their use of "undecided" versus neutral as an anchor on the scale? They define it as 'neutral' but it is not necessarily clear that is so. For some questions, such terms could have different response sets.
+
+*R3.5:* How were the alcohol use disorder questions and diagnosis collected? was there a standard survey? There appear to be footnotes perhaps explaining this? but I did not find them.
+
+*R3.6:* Is there a count of how many disabled locations or deleted texts/phone calls occurred? This is important bc as someone might near a bar, a warning text could be sent. however, if people can disable their location, then the method is nugatory
+
+*R3.7:* The compensation for participants should be in the methods section esp as it has bearing here.
+
+*R3.8:* Reference for this: This is notable given that individuals with alcohol use disorder may have been expected to present with more barriers to smartphone ownership than that of the general population.
+
+*R3.9:* Providing cellphones for those who did not have one should also go in the methods
+
+*R3.10:* Suggest that authors switch to word 'adhere' instead of 'comply' as that is the more accepted term for many reasons.
+
+**Reviewer #4 (O) Comments:**
+
+General comments (**JOHN**: I am leaving these general comments in because there are some criticisms here - not sure if we need to address these broader points or just the specific ones below)
+=============
+This paper reports on an interesting experiment using several different methods of mobile sensing. The. Participants were recruited as a part of a bigger project and reimbursed for using mobile sensing. One main finding of the study is that individuals interested in personal sensing can sustain their commitment to providing personally sensed data over time with limited drop-off, in a research setting.
+
+Other conclusion presented is less clearly supported by the methods and results presented. Some of the methods of the study should be better explained. The sample reached and framing of the offer to use sensing is important to be able to interpret the results. The results are also limited by technical and data problems in several of the sensing methods, and by the questions used to asses acceptability. The qualitative statements from users are interesting, but are not covered in methods or results.
+
+*R4.1:* The abstract should include more information about method relevant to the current aim.
+
+*R4.2:* The title of the larger project suggests that sensors would be used to prevent relapse. Is there a risk that participants have been motivated by clinical benefit even if that was not the intention?
+
+*R4.3:* The different methods are presented as opt-in, but it is important to know in detail how this was presented. Were the participants free to choose want they wanted and interested in or were they more or less expected to agree and more had to opt-out of certain methods?
+
+*R4.4:* Background provide a good overview of the use of mobile sensors in psychiatry. But it is sometimes unclear when the statements refer to alcohol or substance use and what is more general in mental health.
+
+*R4.5:* The authors write regarding EMA that “compliance concerns may be limited to applications with patients with substance use disorders rather than all psychiatric disorders more generally”. This is confusing when the study is about substance use.
+
+*R4.6:* What previous research have been made on the different sensing methods for alcohol use disorder? (Bae 2018, Stevenson 2020, Scott 2020…)
+
+*R4.7:* The data as it is presented should not be presented as “transparent window into the feasibility”.
+
+*R4.8:* Thank you for making documentation available via OSF. Could be improved by adding participant information about the project and recruitment messages.
+
+*R4.9:* What was the aim of the parent project. Will/are the results from the parent study available?
+
+*R4.10:* What was the reason for the sobriety requirement? Many people with AUD prefer a moderation goal. Would not the sensors work just as well with moderate consumption?
+
+*R4.11:* It is hard to understand the reason for using geolocation and cellular communication logs without reading the OSF material, and even after that it is somewhat unclear. It probably connects to the aim or the parent study, but should be made clear in methods here.
+
+*R4.12:* Did the participants receive any additional information on the purpose of each method connected to their alcohol use?
+
+*R4.13:* There are no references to the acceptability questions having been previously used or tested in research. The fact that the answers were significantly higher than neutral is interpreted as the method being acceptable. But without any other comparison it is impossible to know what explains this result. It is common in evaluations that participants give over average grade for many different reasons like social desirability or lack of willingness to give feedback.
+
+*R4.14:* All of the questions are framed in a lack of negative way rather than from a negative to a positive experience of the different methods.
+
+*R4.15:* How was the content of text messages analyzed?
+
+*R4.16:* Most of the result section show detailed information about the results on the acceptability questions. On most of the questions and sensing methods the users mean ratings are similar. Could this be an indication on problems with the questions and/or sampling rather than that the methods really are acceptable for people with AUD?
+
+*R4.17:* In table 2, does Types of Treatment refer to recent treatment or lifetime?
+
+*R4.18:* In table 3 Not wanting to stay sober, cancelling no/show and unknown are clearly the main reasons for discontinuing. This is interpreted as not being about acceptability. Can you really know and say that?
+
+*R4.19:* Have this high sampling density been used in substance use before? Would it be used clinically and if so for what reasons?
+
+*R4.20:* It is not clinically reasonable to remind people with 2-3 months abstinence about their alcohol use problems 4 times a day. This could have side effects on emotional state or drinking. Have you considered this?
+
+*R4.21:* There is a lack of data on cravings, alcohol use and on qualitative data from users in the result section.
+
+*R4.22:* How was lapses/relapses among the participants handled?
+
+*R4.23:* There are several indications that the individuals in this sample are different from other individuals with alcohol use disorder in regard to their perception of mobile sensing. The large proportion of people agreeing to participate in research probably depend a lot on where and with what message the participants were recruited and what information they got about the project. This should be described in much more detail for others to be able to get the same results and to be able to judge what, if anything, the high proportion of people agreeing say about personal sensing.
+
+*R4.24:* The authors write: “Participants concerned about sharing passively sensed private information such as their moment-by-moment location or cellular communications would likely have had these concerns from the beginning such that they would not have consented, enrolled, and then opted-in to provide these sensitive data.” This is probably true, not only for passively sensed private information, but for participation in the study as a whole. Those less likely to accept mobile sensing would not have consented, enrolled, and then opted-in.
+
+*R4.25:* The qualitative data in the form of statements from paticipants on their experience is interesting. How where they collected and analyzed? Why are they not presented as results?
+
+*R4.26:* The study demonstrate that active sensing methods are feasible for this type of research setting but not for clinical applications.
+
+*R4.27:* The overall aim of the use of these kind of sensors in treatment should be made more clear. Why should this information be gathered about people with alcohol use disorder? Is it for feedback, self-control and self-knowledge, for external control/pressure to stay abstinent and/or for other purposes?
+
+*R4.28:* Who made repeated attempts to reschedule before discontinuing, researchers or participants?
+
+*R4.29:* The authors argue that reimbursing participant is common in many studies and even in clinical settings. Even if this is true it is a big limitation than should be clear from the abstract. The way the sample was recruited and informed about the project should be more clearly discussed under benefits.
+
+*R4.30:* The section on how trust is important is interesting. How might participants trust in researchers affect the results?
+
+*R4.31:* How were the themes presented in the discussion chosen?
+
+*R4.32:* Its contradictory to state that the sensing was acceptable “without explicit clinical benefits to the participants” and at the same time that they can be “used for clinical applications”. The study does not appear to be designed to test clinical application, but recruited a population that seem clinical, with ongoing substance use among many participants.
