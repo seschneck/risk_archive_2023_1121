@@ -1,0 +1,45 @@
+---
+output:
+  pdf_document:
+    includes:
+      in_header: header.tex 
+    template: nih_latex_template.tex
+    fig_caption: yes
+    keep_tex: no
+    number_sections: no
+    latex_engine: xelatex
+    citation_package: default
+  word_document: 
+    reference_docx: nih_word_template.docx
+csl: national-library-of-medicine-grant-proposals.csl
+geometry: margin=.5in
+mainfont: Arial
+fontsize: 11pt
+bibliography: paper_ema.bib
+---
+
+```{r, setup, echo = FALSE, include=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(flextable)
+library(officer)
+```
+
+# This is a Level 1 header
+
+This is a template for preparing an NIH grant document.  It can be knit to word or pdf.  You can delete the R-code chunk if there is no R code to execute
+
+## Header Level 2
+
+This heading forces normal text to the next line.
+
+### Header Level 3.  
+
+This is a run-in or linked heading style where this text should follow on the same line as the H3. You will need to manually add a period after the H3 header but the spacing after that is automatic.
+
+Here is more text.
+
+### Header Level 3, number 2 which is an even longer header like a full sentence to test the indent. 
+
+This is a run-in or linked heading style where this text should follow on the same line as the H3. You will need to manually add a period after the H3 header but the spacing after that is automatic.
+
