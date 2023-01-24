@@ -6,8 +6,8 @@ study <- "ema"
 data_type <- "all"   # but still need to change more (e.g., feature set) to switch data_type
 window <- "1hour"
 lead <- 0
-version <- "v4"
-algorithm <- "xgboost"
+version <- "v5"
+algorithm <- "glmnet"
 
 
 # SET GLOBAL PARAMETERS
@@ -17,10 +17,24 @@ resample <- c("up_1", "down_1")
 y_col_name <- "lapse" # outcome variable - will be changed to y in recipe for consistency across studies 
 cv_type <- "group_kfold_1_x_10" # cv type - can be boot, group_kfold, or kfold
 group <- "subid" # grouping variable for grouped k-fold - remove if not using group_kfold
+y_level_pos <- "yes" # character string of the outcome variable's positive level (e.g., "yes", "abstinent")
+y_level_neg <- "no" # character string of the outcome variable's negative level (e.g., "no", "smoking")
+
 remove_nzv <- TRUE # using as variable instead of in recipe to be able to calculate features before removing nzv
 
+cv_resample_type <- "kfold" # can be boot, kfold, or nested
+cv_resample = "1_x_10" # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
+cv_inner_resample <- NULL # can also be a single number for bootstrapping (i.e., 100)
+cv_outer_resample <- NULL # outer resample will always be kfold
+cv_group <- "subid" # set to NULL if not grouping
+
+cv_name <- if_else(cv_resample_type == "nested",
+                   str_c(cv_resample_type, "_", cv_inner_resample, "_",
+                         cv_outer_resample),
+                   str_c(cv_resample_type, "_", cv_resample))
+
 # SET STUDY PATHS
-name_job <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithm) # the name of the job to set folder names
+name_job <- str_c("train_", version, "_", algorithm, "_", cv_name) # the name of the job to set folder names
 path_jobs <- str_c("P:/studydata/risk/chtc/", study) # location of where you want your jobs to be setup
 path_data <- str_c("P:/studydata/risk/data_processed/", study) # location of data set
 
@@ -79,7 +93,10 @@ build_recipe <- function(d, job) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     step_rm(subid, dttm_label, label_num) %>% 
-    step_string2factor(y, levels = c("yes", "no")) %>%  # event level will be first level in factor
+    # MUST CHANGE DICHOTMOUS OUTCOME TO POS/NEG VALUES
+    step_mutate(y = if_else(y == !!y_level_pos, "pos", "neg")) %>% 
+    step_string2factor(y, levels = c("pos", "neg")) %>% # positive case should be first
+    step_relevel(y, ref_level = "pos") %>% # confirming positive case is set as first level
     step_string2factor(all_nominal()) %>% 
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric()) %>% 
