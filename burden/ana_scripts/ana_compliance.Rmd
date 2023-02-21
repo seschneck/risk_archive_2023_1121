@@ -419,6 +419,18 @@ mean_ema_1 <- ema_1_study_dates %>%
 mean compliance for one daily survey is `r mean_ema_1$mean`
 
 ```{r}
+ema_1_study_dates %>% 
+  group_by(subid) %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean_1ema = n_total/prompt_total) %>% 
+  ungroup %>% 
+  summarize(mean_1ema_overall = mean(mean_1ema),
+            med_1ema = median(mean_1ema))
+```
+
+
+
+```{r}
 ema_1_perfect_compliance <- ema_1_study_dates %>% 
   group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
