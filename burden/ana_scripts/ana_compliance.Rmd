@@ -223,8 +223,11 @@ audio_study_dates <- study_dates %>%
 calculate mean compliance
 ```{r}
 mean_audio <- audio_study_dates %>% 
+  group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
+  mutate(mean = n_total/prompt_total) %>% 
+  ungroup() %>% 
+  summarize(mean = mean(mean))
 ```
 
 
@@ -409,24 +412,17 @@ ema_1_study_dates <- study_dates %>%
 ```
 
 
-calculate mean compliance
+calculate unweighted mean compliance
 ```{r}
 mean_ema_1 <- ema_1_study_dates %>% 
-  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
-```
-
-mean compliance for one daily survey is `r mean_ema_1$mean`
-
-```{r}
-ema_1_study_dates %>% 
   group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
   mutate(mean_1ema = n_total/prompt_total) %>% 
   ungroup %>% 
-  summarize(mean_1ema_overall = mean(mean_1ema),
-            med_1ema = median(mean_1ema))
+  summarize(mean = mean(mean_1ema))
 ```
+
+mean compliance for one daily survey is `r mean_ema_1$mean`
 
 
 
@@ -459,16 +455,22 @@ ema_study_dates <- study_dates %>%
   mutate(n_prompts = 4)
 ```
 
-calculate mean compliance
+calculate unweighted mean compliance
 ```{r}
 mean_ema_4 <- ema_study_dates %>% 
+  group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
+  mutate(compliance = n_total/prompt_total,
+         mean_n_emas = n_total/(prompt_total/4)) %>% 
+  ungroup() %>% 
+  summarize(compliance = mean(compliance),
+         mean_n_emas = mean(mean_n_emas))
+
 ```
 
-compliance = `r mean_ema_4$mean`   
+compliance = `r mean_ema_4$compliance`   
 
-avg emas = `r mean(ema_study_dates$n)`
+avg emas = `r mean_ema_4$mean_n_emas`  
 
 
 
