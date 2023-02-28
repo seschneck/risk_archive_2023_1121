@@ -944,7 +944,8 @@ footnote_table_4a <- "$P$ < .05"
 corrplot_int <- data_last %>% 
   select(`Audio Check-in` = audio_checkin_interfere,
          `EMA` = daily_survey_interfere,
-         `Sleep Quality` = sleep_interfere) %>%
+         `Sleep Quality` = sleep_interfere) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
@@ -986,7 +987,8 @@ corrplot_dis <- data_last %>%
          `Sleep Quality` = sleep_dislike,
          `Geolocation` = location_dislike,
          `Cellular Communication Logs` = all_logs_dislike,
-         `Text Message Content` = sms_content_dislike) %>% 
+         `Text Message Content` = sms_content_dislike) %>%
+  cor(use = "pairwise.complete.obs") %>% 
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
@@ -1034,6 +1036,7 @@ corrplot_will <- data_last %>%
          `Geolocation` = location_1year,
          `Cellular Communication Logs` = all_logs_1year,
          `Text Message Content` = sms_content_1year) %>% 
+  cor(use = "pairwise.complete.obs") %>% 
   corx(triangle = "lower",
        stars = c(0.05),
        method = "pearson",
