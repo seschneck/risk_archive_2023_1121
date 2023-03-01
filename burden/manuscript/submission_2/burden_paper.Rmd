@@ -934,6 +934,9 @@ Figure 6 shows the distribution of participant responses to the self-reported ac
 
 We also assessed the effect of active effort on willingness ratings (Figure 7). We conducted a paired samples t-test of the average willingness to use for 1 year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams ($M$ = `r round(mean(data_willingness$Passive), 1)`, $SD$ = `r round(sd(data_willingness$Passive), 1)`) relative to active data streams ($M$ = `r round(mean(data_willingness$Active), 1)`, $SD$ = `r round(sd(data_willingness$Active), 1)`), $t(153)$ = `r round(broom::tidy(summary(model_willingness))$statistic, 2)`, $P$ = `r round(broom::tidy(summary(model_willingness))$p.value, 2)`, $d$ = `r round((mean(data_willingness$Passive) - mean(data_willingness$Active)) / sd(data_willingness$willingness_diff), 2)`. 
 
+### Participant Feedback 
+<!--Need to add description of free-response comments in methods if we keep this in results-->
+Table 7 presents 5 themes that emerged in participants' free-response feedback about each personal sensing data stream: acceptability, sustainability, benefits, trust, and usability. Sample comments are provided for each theme. For a full list of participant comments for each personal sensing data stream, see Tables S3 -- S7 in Multimedia Appendix 3.
 
 ```{r}
 footnote_table_4 <- "Initial columns indicate bivariate correlations among data streams. Final columns represent the number of participants ($N$), mean and standard deviation ($M$, $SD$), t-statistic ($t$) and Cohen’s d Effect size ($d$) for the one sample t-tests against 0 (undecided).  Higher values represent higher acceptability.  Active methods are displayed in red."
@@ -1072,6 +1075,21 @@ corrplot_will %>%
 
 \newpage
 
+```{r table-7}
+comments <- read.csv(here(path_burden, "sample_comments.csv")) %>% 
+  rename(`Sample Comments` = Sample.Comment)
+
+comments %>% 
+  kbl(booktabs = TRUE,
+      caption = "Sample Participant Comments",
+      linesep = "",
+      longtable = TRUE) %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  column_spec(2, width = "32em") 
+```
+
+\newpage
+
 
 # Discussion
 
@@ -1086,29 +1104,13 @@ These consent, enrollment, and opt-in numbers could be considered upper- and low
 
 Participants' explicit self-report of their perceptions about the acceptability of these personal sensing methods were also generally consistent with their behavior.  Specifically, on average, participants rated all of the sensing methods more favorable than the neutral mid-point ("undecided") of the rating scales for all 3 dimensions we evaluated - interference, dislike, and willingness to use for 1 year.  These self-report data combined with our behavioral measures to suggest that all of these sensing methods can be considered for use with the majority of individuals with alcohol use disorder.  
 
-Despite the aggregate positive perceptions of the full sample, non-trivial percentages of participants did report individual ratings that were more negative than the neutral mid-point across sensing methods and specific self-report items. For example, 17.5% of participants (27/154) agreed or strongly agreed that the audio check-ins interfered with their daily activities.  Approximately 25% of participants agreed or strongly agreed that they disliked both the audio check-ins (42/154; 27.3%) and providing access to the content of their text messages (33/154; 21.4%).  And approximately 20% of participants disagreed or strongly disagreed that they would be willing to use our sensing methods for audio check-ins (25/154; 16.2%), EMA (35/154; 22.7%), and text message content (23/154; 14.9%) for 1 year to help their recovery.  This suggests that there is still need to improve each of these sensing methods to make them more acceptable to a larger percentage of individuals.  The free response evaluations of each method (Tables S3 -- S7 in Multimedia Appendix 3) provide a starting point to address participant concerns.  That said, our participants did generally opt-in and adhere to our sensing methods despite reporting these concerns.  Therefore, it is not clear yet at what threshold these concerns will translate to barriers for use or adherence to these methods.  
+Despite the aggregate positive perceptions of the full sample, non-trivial percentages of participants did report individual ratings that were more negative than the neutral mid-point across sensing methods and specific self-report items. For example, 17.5% of participants (27/154) agreed or strongly agreed that the audio check-ins interfered with their daily activities.  Approximately 25% of participants agreed or strongly agreed that they disliked both the audio check-ins (42/154; 27.3%) and providing access to the content of their text messages (33/154; 21.4%).  And approximately 20% of participants disagreed or strongly disagreed that they would be willing to use our sensing methods for audio check-ins (25/154; 16.2%), EMA (35/154; 22.7%), and text message content (23/154; 14.9%) for 1 year to help their recovery.  This suggests that there is still need to improve each of these sensing methods to make them more acceptable to a larger percentage of individuals.  The free response evaluations of each method provide a starting point to address participant concerns.  That said, our participants did generally opt-in and adhere to our sensing methods despite reporting these concerns.  Therefore, it is not clear yet at what threshold these concerns will translate to barriers for use or adherence to these methods.  
 
 ## 2.  Individuals can sustain the use of personal sensing for relatively long periods
 
 Most enrolled participants were also able to sustain their commitment to provide these sensed data streams over time.  More than 91% (154/169) provided at least 1 month of sensed data and a large majority (133/169; 78.7%) provided data for all 3 months. As with enrollment statistics, these numbers also likely underestimate participants' ability to sustain personal sensing because many of the participants who discontinued or did not complete the study reported reasons to stop their participation that were unrelated to personal sensing (e.g., family crisis, relapse, moved out of state).  However, some participants ($N$ = 4) did explicitly report reasons that appeared related to personal sensing (e.g., study demands too burdensome).  Additionally, others who stopped participating may have been influenced by their experiences with personal sensing without formally reporting those concerns.  
 
-Participants who enrolled but then discontinued because of the personal sensing methods may have been influenced more by issues related to the burden associated with active sensing rather than more general issues related to data sensitivity/privacy.  Participants concerned about sharing passively sensed private information such as their moment-by-moment location or cellular communications would likely have had these concerns from the beginning such that they would not have consented, enrolled, and then opted-in to provide these sensitive data.  However, the burden associated with active sensing (e.g., 4x daily EMA, daily audio check-ins) may not have been clear to them until they tried to sustain those methods over time. 
-
-In our sample of participants, we saw evidence that many of our participants hardly thought about the passively sensed data streams. For example:  
-
-> "I forgot I was being tracked so it was not a big deal to me."
-
-> "I went about my days as i normally would and never thought about it."
-
-> "I forgot this was even happening most of the time. It did not interfere with my life."
-
-On the other hand, some participants reported more discontent with the actively sensed data streams as time progressed.
-
-> "I didnt mind the surveys but after the second month i felt like they became repetitive and I didn't feel like I got much utility from them."
-
-> "Became overwhelming over time."
-
-> "I did well with my recovery on my own and the surveys were more of a burden at the end."
+Participants who enrolled but then discontinued because of the personal sensing methods may have been influenced more by issues related to the burden associated with active sensing rather than more general issues related to data sensitivity/privacy.  Participants concerned about sharing passively sensed private information such as their moment-by-moment location or cellular communications would likely have had these concerns from the beginning such that they would not have consented, enrolled, and then opted-in to provide these sensitive data.  However, the burden associated with active sensing (e.g., 4x daily EMA, daily audio check-ins) may not have been clear to them until they tried to sustain those methods over time. In our sample of participants, we saw evidence that many of our participants hardly thought about the passively sensed data streams. On the other hand, some participants reported more discontent with the actively sensed data streams as time progressed.
 
 Existing research assessing acceptability of sensing methods has been limited by short durations of monitoring, with very few studies extending beyond 6 weeks [@kleimanUsingWearablePhysiological2019; @ben-zeevMobileBehavioralSensing2016; @raughDigitalPhenotypingAdherence2021]. Additionally, adherence has been shown in some studies to decrease after only a few weeks [@wrzusEcologicalMomentaryAssessment2022; @yangFeasibilityAcceptabilitySmartphoneBased2015; @onoWhatAffectsCompletion2019]. The present study demonstrates that individuals can sustain their commitment to providing personally sensed data over time with limited drop-off. These findings suggest personal sensing methods may be viable in clinical settings, where consistent, sustained monitoring would be necessary. Given this promise, future research should expand to longer durations to assess self-reported and behavioral acceptability beyond 3 months. Our group is exploring this directly by employing personal sensing monitoring with individuals with opioid use disorder for a full year [@moshontzProspectivePredictionLapses2021]. Methods that permit long-term monitoring are particularly important for clinical applications for individuals with substance use disorders, who require lifelong care that can adapt as their risk for relapse and corresponding recovery needs fluctuate over time.
 
@@ -1116,24 +1118,8 @@ Existing research assessing acceptability of sensing methods has been limited by
 
 ## 3. Some types of active personal sensing methods are generally acceptable and sustainable
 	
-Assessment burden may be expected to play a role in both the acceptability of active sensing methods and participant adherence to the associated procedures.  Nonetheless, participants displayed relatively high adherence to the 4x daily EMA (on average 79.8% of EMAs completed).  This is notable because our study duration of 3 months was substantially longer than typical studies using EMA, which often last only 2 -- 4 weeks [@jonesComplianceEcologicalMomentary2019; @wrzusEcologicalMomentaryAssessment2022].  This increases confidence in the feasibility of this active sensing method for research and clinical applications that require longer monitoring periods.  Of course, this level of adherence may be contingent on the measurement parameters used in our study (4x daily survey of 7 -- 10 items).  In fact, even higher adherence may have been observed if measurement was limited to 1 EMA per day given that on average participants completed at least 1 of the 4 EMAs on 94.1% of study days. Participants were also significantly more likely to report a willingness to use a 1X daily EMA compared to 4X daily EMA for 1 year. However, we must interpret these findings cautiously. Participant self-reports to a 1X daily EMA method are not based on experience since they were expected to adhere to the 4X daily EMA. 
+Assessment burden may be expected to play a role in both the acceptability of active sensing methods and participant adherence to the associated procedures.  Nonetheless, participants displayed relatively high adherence to the 4x daily EMA (on average 79.8% of EMAs completed).  This is notable because our study duration of 3 months was substantially longer than typical studies using EMA, which often last only 2 -- 4 weeks [@jonesComplianceEcologicalMomentary2019; @wrzusEcologicalMomentaryAssessment2022].  This increases confidence in the feasibility of this active sensing method for research and clinical applications that require longer monitoring periods.  Of course, this level of adherence may be contingent on the measurement parameters used in our study (4x daily survey of 7 -- 10 items).  In fact, even higher adherence may have been observed if measurement was limited to 1 EMA per day given that on average participants completed at least 1 of the 4 EMAs on 94.1% of study days. Participants were also significantly more likely to report a willingness to use a 1X daily EMA compared to 4X daily EMA for 1 year. However, we must interpret these findings cautiously. Participant self-reports to a 1X daily EMA method are not based on experience since they were expected to adhere to the 4X daily EMA. From free-response comments, we see evidence that many of our participants had no issues with the 4X daily EMA and some even enjoyed the frequent prompts. Still, other participants suggested less frequent prompts would be more practical. 
 
-From free-response comments, we see evidence that many of our participants had no issues with the 4X daily EMA and some even enjoyed the frequent prompts. For example:
-
-> "They were quick and easy to complete."
-
-> "I had no issues for the daily surveys. I felt that it kept me in check and reminder to not drink. I would not change it."
-
-> "I liked the structure that it added to my day. For other activities,a being deliberate about setting aside time for things has helped me maintain changes to my life for the better. The surveys were no exception."
-
-Still, other participants suggested less frequent prompts would be more practical. For example:
-
-> "I felt it was an annoyance, another thing i had to do on top of everything else when it was so frequent. I found one per day is tolerable by days end not a set time. I am just too scattered with how my brain works."
-
-> "One daily would be great."
-
-> "Great tool for self check in. Not necessary to do four per day."
-	
 There was some evidence that participants found passive sensing methods to be more acceptable than active sensing methods overall.  Specifically, mean ratings for willingness to use for 1 year were significantly higher for passive vs. active sensing methods.  However, the magnitude of this effect was small, and mean willingness was significantly greater than the neutral mid-point for both active and passive methods.  In addition, there was no difference in mean dislike ratings for active vs. passive methods.  Thus, differences between acceptability of active and passive methods were small, inconsistent, and unlikely to be clinically meaningful. These comparisons between active and passive methods increase our confidence somewhat that the selective use of active measures, when necessary, may be acceptable to participants for relatively long periods.  Of course, from this study we cannot speculate strongly beyond 3 months.
 
 Some sensing methods (e.g., EMA, audio check-ins) will always require active input from users but other methods may become more passive with further technological advances.  For example, our sensing of sleep quality in this study made use of an early version of the Beddit sleep monitor that required participants to actively log when they entered and exited their bed during each period of sleep.   However, later versions of the Beddit detect periods of sleep automatically. Similarly, we discontinued sensing of physiology with the Empatica E4 in an early phase of our study because participants had to manually connect the wristband each night to a tablet to upload their data.  This proved too burdensome and complex for most participants.  However, the current version of the Empatica E4 claims to have improved automatic bluetooth streaming of the data to the cloud, which if robust, would greatly reduce the burden associated with physiology sensing.
@@ -1145,23 +1131,9 @@ The acceptability of active sensing methods holds great clinical utility. Active
 
 We included a second and more novel daily active sensing method in this study, audio check-ins.  These audio check-ins have high potential as a rich source of information about participants' daily experiences.  Natural language processing of transcripts of their check-ins can provide a novel window into their thoughts [@tausczikPsychologicalMeaningWords2010; @tackmanDepressionNegativeEmotionality2019; @jacobucciUseTextbasedResponses2021; @lowNaturalLanguageProcessing2020]. These audio check-ins provided participants the opportunity to share more openly and candidly (i.e., without close-ended questions) their thoughts, feelings, and progress towards recovery without being limited to researcher-selected prompts. Analyses of the acoustic characteristics of their check-ins may yield independent measures of their affective state [@beloualiAcousticLanguageAnalysis2021; @faurholt-jepsenVoiceAnalysisObjective2016], including the potential for measuring affect outside of a participant's conscious awareness. 
 
-Unfortunately, overall participant adherence to the daily audio check-ins was relatively low (on average 54.3% of audio check-ins completed) and 1.9% of the sample (3/154) did not complete any check-ins throughout their entire study period. Participants' free-response evaluations of this method highlighted some concerns that could be addressed in the future to increase adherence (e.g., timing of the check-ins, technical issues with recording and sending check-ins, use of the same prompt for all check-ins).  However, privacy issues related to recording the audio check-in were also reported by many participants.  As examples of this concern, participants reported:     
+Unfortunately, overall participant adherence to the daily audio check-ins was relatively low (on average 54.3% of audio check-ins completed) and 1.9% of the sample (3/154) did not complete any check-ins throughout their entire study period. Participants' free-response evaluations of this method highlighted some concerns that could be addressed in the future to increase adherence (e.g., timing of the check-ins, technical issues with recording and sending check-ins, use of the same prompt for all check-ins).  However, privacy issues related to recording the audio check-in were also reported by many participants.  
 
-> "It takes time out of your day where you have to completely switch locations just so you can do it in private. I don't like that people could hear me and the topic wherever and whenever so I stopped using it."
-
-> "I also have to keep privacy in mind since it's not something I'd like to complete within earshot of others."
-
-> "The only negative part about the daily check in was my mom, who I live and work with, listening in while I was talking. I would have to find a time when she was preoccupied or away from me to talk freely."
-
-These privacy concerns represent an inherent challenge to using this method as implemented, but accommodations could be made to gather some if not all of the same information. For example, using less frequent prompting with wider time completion windows (i.e., a weekly audio check-in) may increase individuals' ability to find a private moment. Additionally, allowing individuals to type their response as an alternative completion method could assuage concerns. This alternative would prevent acoustic analysis, but it would still permit natural language processing of open-ended responses. These accommodations could encourage greater adherence among those who completed few or no audio check-ins as well as individuals who missed check-ins sporadically due to privacy concerns.
-
-Finding ways to assuage privacy concerns and accommodate individual preferences may be useful as many other participants valued and believed they benefited from recording these daily audio check-ins.  For example:
-
-> "I loved this part! It was like journaling kind of where i would discover things that were hidden in my subconscious. I have a recording app on my phone and i will continue doing the voice check in as a form of checking in with myself."
-
-> "This was my favorite part of the study. It helped me to set a good intention towards my recovery."
-
-> "I liked the daily check in. It gave me a way to vent without being judged."
+These privacy concerns represent an inherent challenge to using this method as implemented, but accommodations could be made to gather some if not all of the same information. For example, using less frequent prompting with wider time completion windows (i.e., a weekly audio check-in) may increase individuals' ability to find a private moment. Additionally, allowing individuals to type their response as an alternative completion method could assuage concerns. This alternative would prevent acoustic analysis, but it would still permit natural language processing of open-ended responses. These accommodations could encourage greater adherence among those who completed few or no audio check-ins as well as individuals who missed check-ins sporadically due to privacy concerns. Finding ways to assuage privacy concerns and accommodate individual preferences may be useful as many other participants valued and believed they benefited from recording these daily audio check-ins. 
 
 Consistent with this somewhat polarized evaluation of the audio check-ins, a more nuanced consideration of distribution for adherence across participants suggested it was somewhat bi-modal.  Participants tended to either adhere well or very poorly with this method.	
 	
@@ -1175,15 +1147,7 @@ Monetary incentives are commonly used in research to provide a more favorable co
 
 Monetary incentives to increase the acceptability of personal sensing do not need to be limited to research settings.  Incentives can also be used as part of treatment or continuing care in clinical settings.  For example, the use of monetary incentives or equivalents (e.g., prizes) as part of a contingency management program is well established to support abstinence from alcohol or other drugs [@prendergastContingencyManagementTreatment2006; @ginleyLongtermEfficacyContingency2021].  If personal sensing proved useful for the treatment or ongoing support of patients' recovery, similar incentives could be established to encourage patients to provide these sensed data.  
 
-Incentives may be less necessary in clinical settings when more direct clinical benefits from personal sensing are available.  For example, research has suggested that privacy concerns associated with personal sensing may be reduced if participants perceive that they will benefit from the sensed data [@atienzaConsumerAttitudesPerceptions2015; @klasnjaExploringPrivacyConcerns2009; @bessenyeiComfortabilityPassiveCollection2021]. There was some evidence for this perspective in the free response comments from our participants as well.  For example: 
-
-
-> "I felt all right having my location tracked. If it were used in a way to keep me from relapsing my feeling about it would be even more positive."
-
-> "I'm a somewhat typical introverted, slightly paranoid, grump, so the idea of being tracked is automatically negative. That being said, if it's something that helps people that can be a really good thing."
-
-> "It seems this was more to aid with the study research than to help with my recovery. If i could see a way it would be prioritized to help me, i would be more willing to have them tracked longer."
-
+Incentives may be less necessary in clinical settings when more direct clinical benefits from personal sensing are available.  For example, research has suggested that privacy concerns associated with personal sensing may be reduced if participants perceive that they will benefit from the sensed data [@atienzaConsumerAttitudesPerceptions2015; @klasnjaExploringPrivacyConcerns2009; @bessenyeiComfortabilityPassiveCollection2021]. There was some evidence for this perspective in the free response comments from our participants as well.  
 
 Given this, the acceptability of personal sensing may be higher than observed in our study if the sensing system was implemented as part of their treatment or continuing care during their recovery.  Digital therapeutics are particularly well-positioned to use sensed data to select, personalize, or time the delivery of interventions and other supports to improve clinical outcomes. Future research should evaluate the acceptability of personal sensing in contexts where its use directly benefits those providing the sensed data.  In these contexts, benefits can also be explicitly measured.  It may even be possible to manipulate the benefits from personal sensing across participants to evaluate their contribution to acceptability more rigorously.
 
@@ -1192,22 +1156,7 @@ Given this, the acceptability of personal sensing may be higher than observed in
 
 Trust is also likely to affect the overall acceptability of personal sensing data, which are inherently private and sensitive in nature.  Acceptability may depend on who employs personal sensing and who has access to the raw and processed data [@atienzaConsumerAttitudesPerceptions2015; @riegerPsychiatryOutpatientsWillingness2019; @rendinaPrivacyTrustData2018; @nicholasRoleDataType2019; @prasadExposingPrivacyConcerns2011].  The available evidence suggests that people are more comfortable sharing private, sensitive information with researchers and their doctor and less comfortable sharing information with family members, electronic health record databases, and third party apps and websites [@rendinaPrivacyTrustData2018; @nicholasRoleDataType2019; @prasadExposingPrivacyConcerns2011].
 
-We saw evidence of the role of trust in the free response comments from our participants. For example:
-
-> "I trusted the study group to not use my personal information for any other use."
-
-> "I don't mind turning this info over and I trust the people running the study."
-
- 
-The research setting may come with relatively greater trust because of the high level of transparency regarding risks and protections associated with obtaining informed consent.  Some protections may only be feasible for research as well.  For example, NIH funded research that collects identifiable, sensitive information is automatically issued a Certificate of Confidentiality that prohibits disclosing this information to anyone not connected to the research except when the participant consents or in a few other limited situations. Certificates of Confidentiality can also be requested for similar research not funded by NIH.  
-
-Our participants appeared to recognize and appreciate these protective measures. For example:
-
-> "I don't mind this at all either, as long as I know this information is protected and anonymous."
-
-> "Didn't bother me since its protected."
-
-> "Just in general this feels intrusive but as part of the study it is fine!"
+The research setting may come with relatively greater trust because of the high level of transparency regarding risks and protections associated with obtaining informed consent.  Some protections may only be feasible for research as well.  For example, NIH funded research that collects identifiable, sensitive information is automatically issued a Certificate of Confidentiality that prohibits disclosing this information to anyone not connected to the research except when the participant consents or in a few other limited situations. Certificates of Confidentiality can also be requested for similar research not funded by NIH. We saw evidence of the role of trust in the free response comments from our participants. Our participants appeared to recognize and appreciate the protective measures taken to secure their data. 
  
 Implementations of personal sensing for treatment inside and outside of clinical care settings [@aggarwalAdvancingArtificialIntelligence2020] will need to carefully consider how to establish similar, high levels of trust.  Clinical applications of personal sensing may sit at an intersection of sharing data with doctors (with which individuals tend to be comfortable) and with electronic health record databases and apps (with which individuals tend to be less comfortable) [@nicholasRoleDataType2019; @prasadExposingPrivacyConcerns2011]. For example, it may be necessary to protect against the subpoena of sensitive information in civil and criminal proceedings.  Patients will also likely need to be assured that sensed data used for their clinical care will not also be shared with their health insurance provider with associated risks related to higher insurance premiums or dropped coverage. These issues of data access and unauthorized secondary use of otherwise private information are often cited concerns regarding personal sensing [@ackermanPrivacyIssuesHumanComputer2008; @atienzaConsumerAttitudesPerceptions2015].
 	
@@ -1230,13 +1179,7 @@ Both research and clinical applications of sensing systems require some guarante
 
 During this same data collection period, there was also churn in the software that we used for sensing geolocation.  We used the Moves app at the start of the study, but needed to switch to use FollowMee when Facebook acquired the company that developed Moves and discontinued its support.  However, this software churn was less disruptive because both apps relied on smartphone sensors to acquire the raw geolocation data stream.  This suggests yet another reason to prefer systems that make use of generic smartphone sensors rather than propriety hardware. 
 
-High rates of churn can also affect the perceived acceptability of the software. For example, it could be inconvenient to have to adapt to frequent changing of app platforms. Additionally, software may be left unmonitored for periods of time leaving new bugs unresolved. We saw in our own sample of participants how frustrating technological issues were. For example:
-
-> "I experienced issues with this [audio check-in] from the very beginning and discontinued early on. I was unable to get the message beyond 8-10 seconds with close to 6 attempts each day. Was not worth the time or stress for me."
-
-> "My bigger problem with the tracker app. Was more the fact that my battery power was getting depleted so rapidly, sometimes within 2 hours post-full charge. I found myself charging my phone at least 5  times a day. And at times, this became very stressful."
-
-> "There were problems with the sleep monitor in that I was not able to activate the monitor when I was going to sleep." 
+High rates of churn can also affect the perceived acceptability of the software. For example, it could be inconvenient to have to adapt to frequent changing of app platforms. Additionally, software may be left unmonitored for periods of time leaving new bugs unresolved. We saw in our own sample of participants how frustrating technological issues were.
 
 	
 ## Limitations and Future Directions
