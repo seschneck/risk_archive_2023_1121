@@ -295,6 +295,8 @@ Tell us your general thoughts, whether positive or negative, about your experien
 
 <!-- Frame as a way of assessing acceptability or keep vague as just feedback on experiences with each measure? -->
 
+<!-- Mention in data analytic strategy section?-->
+
 ## Data Analytic Strategy
 
 We conducted all analyses in R version 4.1.1 [@rcoreteamLanguageEnvironmentStatistical2021] using RStudio [@rstudioteamRStudioIntegratedDevelopment2020] and the tidyverse ecosystem of packages [@wickhamWelcomeTidyverse2019]. 
@@ -945,7 +947,6 @@ Figure 6 shows the distribution of participant responses to the self-reported ac
 We also assessed the effect of active effort on willingness ratings (Figure 7). We conducted a paired samples t-test of the average willingness to use for 1 year for active (audio check-in, EMA) vs. passive (geolocation, cellular communication logs, text message content) signals. Participants reported higher acceptability with respect to willingness for passive data streams ($M$ = `r round(mean(data_willingness$Passive), 1)`, $SD$ = `r round(sd(data_willingness$Passive), 1)`) relative to active data streams ($M$ = `r round(mean(data_willingness$Active), 1)`, $SD$ = `r round(sd(data_willingness$Active), 1)`), $t(153)$ = `r round(broom::tidy(summary(model_willingness))$statistic, 2)`, $P$ = `r round(broom::tidy(summary(model_willingness))$p.value, 2)`, $d$ = `r round((mean(data_willingness$Passive) - mean(data_willingness$Active)) / sd(data_willingness$willingness_diff), 2)`. 
 
 ### Participant Feedback 
-<!--Need to add description of free-response comments in methods if we keep this in results-->
 Table 7 presents 5 themes that emerged in participants' free-response feedback about each personal sensing data stream: acceptability, sustainability, benefits, trust, and usability. Sample comments are provided for each theme. For a full list of participant comments for each personal sensing data stream, see Tables S3 -- S7 in Multimedia Appendix 3.
 
 ```{r}
