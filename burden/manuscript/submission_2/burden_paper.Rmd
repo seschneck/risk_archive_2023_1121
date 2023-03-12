@@ -1091,13 +1091,20 @@ corrplot_will %>%
 comments <- read.csv(here(path_burden, "sample_comments.csv")) %>% 
   rename(`Sample Comments` = Sample.Comment)
 
+pos_row_nums <- which(comments$valence == "pos")
+neg_row_nums <- which(comments$valence == "neg")
+
 comments %>% 
+  select(-valence) %>% 
   kbl(booktabs = TRUE,
       caption = "Sample Participant Comments",
       linesep = "",
       longtable = TRUE) %>% 
   kable_styling(font_size = 10, latex_options = c("HOLD_position")) %>% 
-  column_spec(2, width = "40em") 
+  column_spec(2, width = "40em") %>% 
+  row_spec(pos_row_nums, color = "#057600") %>% 
+  row_spec(neg_row_nums, color = "#B6050D") %>% 
+  column_spec(1, bold = TRUE, color = "black")
 ```
 
 \newpage
@@ -1110,7 +1117,7 @@ This study evaluated the acceptability of active and passive personal sensing me
 
 ## 1. Individuals with alcohol use disorder will generally accept the use of personal sensing methods 
 
-Based on our sample, it appears individuals with alcohol use disorder are indeed willing to provide these sensitive, personally sensed raw data streams based on their behavioral choices regarding consent, enrollment, and opt-in for data collection in this study.  All but 1 of the individuals (191/192; 99.5%) who were eligible to participate consented to the personal sensing procedures.  Most of these individuals also returned 1 week later to formally enroll in the study and begin to provide these data (169/191; 88%).  Furthermore, all (169/169; 100%) of the participants who enrolled in the study explicitly opted-in to provide the 3 arguably most sensitive passive data streams - geolocation, cellular communication logs, and text message content. <!--JOHN: we need to discuss this statement. It looks like 154/154 of our sample opted in to geolocation, but of the 169 enrolled 2 people did not provide any GPS information with no information as to why. We also could not get cellular communication logs/text message content unless people showed up to followup 1.--> 
+Based on our sample, it appears individuals with alcohol use disorder are indeed willing to provide these sensitive, personally sensed raw data streams based on their behavioral choices regarding consent, enrollment, and opt-in for data collection in this study.  All but 1 of the individuals (191/192; 99.5%) who were eligible to participate consented to the personal sensing procedures.  Most of these individuals also returned 1 week later to formally enroll in the study and begin to provide these data (169/191; 88%).  Furthermore, all (169/169; 100%) of the participants who enrolled in the study explicitly opted-in to provide the 3 arguably most sensitive passive data streams - geolocation, cellular communication logs, and text message content. 
 
 These consent, enrollment, and opt-in numbers could be considered upper- and lower-bound estimates of the percentage of individuals who are willing to provide these raw data streams in a research setting.  The very high percentage for consent may overestimate willingness because some of these individuals may have reconsidered their initial decision on further reflection such that they did not return for the next study visit to enroll formally.  However, the still quite high enrollment percentage may underestimate willingness to provide these data because some attrition was expected between consent and enrollment visits due to the instability associated with the early stages of recovery from alcohol use disorder.  In fact, table 3 indicates that almost half of the participants who consented but did not enroll may have done so for reasons other than their willingness to provide these raw data streams (e.g., health concerns, no transportation to lab, made repeated attempts to reschedule before discontinuing).
 
@@ -1200,8 +1207,6 @@ Limitations:
 RB.3: In Table 3, the number of subjects who discontinued prior to completing enrolment whose reasons are unknown seems quite large. Feels like a lot of information is lost there
 
 RB.5: It would have been great to compare or propose comparing in future, the response of subjects with AUD with those without AUD. User willingness for subjects under treatment may differ from those not under treatment.
-
-RB.7: The paper uncovered some interesting findings. However, the reasons behind some user responses and preferences were not clear. A strong qualitative study or follow-on focus group might have provided more answers. The paper does contain some qualitative research in the form of free form user responses but that falls short.
 
 RE.1: The biggest flaw regarding acceptability is the inability for formal measures of compliance on the more sensitive data collection measures (location, logs, text message content). Considering all participants opted-in to provide data...this is how one would know if they were quietly opting out (by turning the sensor collection off).
 
