@@ -1010,20 +1010,30 @@ comments_sleep <- vroom(file.path(path_data, "comments_sleep.csv"), col_types = 
 comments_survey <- vroom(file.path(path_data, "comments_survey.csv"), col_types = vroom::cols())
 ```
 
+```{r}
+footnote_comment <- "Green text indicates positive comments about sensing method. Red text indicates negative comments and black text indicates neutral or mixed comments."
+```
+
+
 #### Audio Check-in
 ```{r}
-comments_audio %>% 
+comments_audio <- comments_audio %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_audio_pos <- which(comments_audio$Positive != "" & comments_audio$Negative == "")
+comments_audio_neg <- which(comments_audio$Positive == "" & comments_audio$Negative != "")
+
+comments_audio %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S3: Participant Free Response Comments about Audio Check-in ($N$ = 154)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  column_spec(1, width = "45em") %>% 
+  row_spec(comments_audio_pos, color = "#057600") %>% 
+  row_spec(comments_audio_neg, color = "#B6050D") 
 ```
 
 \newpage
@@ -1033,18 +1043,23 @@ comments_audio %>%
 
 
 ```{r}
-comments_location %>% 
+comments_location <- comments_location %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_location_pos <- which(comments_location$Positive != "" & comments_location$Negative == "")
+comments_location_neg <- which(comments_location$Positive == "" & comments_location$Negative != "")
+
+comments_location %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S4: Participant Free Response Comments about Geolocation ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
-  kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  kable_styling(latex_options = c("HOLD_position"))%>% 
+  row_spec(comments_location_pos, color = "#057600") %>% 
+  row_spec(comments_location_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```
 
 \newpage
@@ -1052,18 +1067,23 @@ comments_location %>%
 
 #### Cellular Communications and Text Message Logs
 ```{r}
-comments_phone %>% 
+comments_phone <- comments_phone %>% 
   unite("Positive", `positive/informative`:`positive/uninformative`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE)
+
+comments_phone_pos <- which(comments_phone$Positive != "" & comments_phone$Negative == "")
+comments_phone_neg <- which(comments_phone$Positive == "" & comments_phone$Negative != "")
+
+comments_phone %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S5: Participant Free Response Comments about Cellular Communication Logs and Text Message Content ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_phone_pos, color = "#057600") %>% 
+  row_spec(comments_phone_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```
 
 \newpage
@@ -1071,18 +1091,23 @@ comments_phone %>%
 
 #### Sleep Quality
 ```{r}
-comments_sleep %>% 
+comments_sleep <- comments_sleep %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_sleep_pos <- which(comments_sleep$Positive != "" & comments_sleep$Negative == "")
+comments_sleep_neg <- which(comments_sleep$Positive == "" & comments_sleep$Negative != "")
+
+comments_sleep %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S6: Participant Free Response Comments about Sleep Quality ($N$ = 78)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_sleep_pos, color = "#057600") %>% 
+  row_spec(comments_sleep_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em")
 ```
 
 \newpage
@@ -1090,16 +1115,21 @@ comments_sleep %>%
 
 #### EMA
 ```{r}
-comments_survey %>% 
+comments_survey <- comments_survey %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_survey_pos <- which(comments_survey$Positive != "" & comments_survey$Negative == "")
+comments_survey_neg <- which(comments_survey$Positive == "" & comments_survey$Negative != "")
+
+comments_survey %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S7: Participant Free Response Comments about 4X Daily EMA ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_sleep_pos, color = "#057600") %>% 
+  row_spec(comments_sleep_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```
