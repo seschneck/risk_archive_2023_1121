@@ -80,6 +80,10 @@ ema_l <- vroom(file.path(path_shared, "ema_later.csv"), col_types = vroom::cols(
 audio <- vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
   mutate(subid = as.numeric(subid))
 
+# notes on discontinued participants
+notes_incomplete <- read_csv(file.path(path_data, "notes_discontinue.csv"), col_types = cols()) %>% 
+  filter(screen != "cancelled" & screen != "no show")
+
 ```
 
 ```{r}
@@ -993,6 +997,89 @@ screen_combined_long %>%
   row_spec(row = 0, align = "c", italic = TRUE) 
 ```
 
+\newpage
+
+### Reasons given for participant discontinuation
+
+We provide a more granular breakdown of reasons for participant discontinuation in Table S3 below.
+
+```{r table-3-code}
+notes_incomplete <- notes_incomplete %>%
+  filter(screen != "no consent") %>%
+  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
+                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "rescheduled" ~ "Participant rescheduled multiple times before cancelling/no showing",
+                                  characterize == "treatment" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "compliance" ~ "Noncompliance with providing data",
+                                  characterize == "lapse" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "cell_service" ~ "Cell service shut off",
+                                  characterize == "move" ~ "Moved out of state",
+                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
+                                  characterize == "Unreachable" ~ "Unknown",
+                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
+                                  characterize == "inappropriate behavior" ~ "Staff concerns",
+                                  characterize == "mental health" ~ "Mental health concerns",
+                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe alcohol use disorder",
+                                  characterize == "phone" ~ "Ineligible phone",
+                                  is.na(characterize) ~ "Unknown",
+                                  TRUE ~ characterize))
+```
+
+
+
+```{r table-3-code-2}
+a <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(intake != "complete" | is.na(intake)) %>% 
+  filter(intake != "ineligible" | is.na(intake)) %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+b <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "no") %>% 
+  filter(intake == "complete") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+c <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "yes") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+footnote_table_3 <- "Bolded rows depict explicit acceptability-related discontinuation." 
+```
+
+
+```{r table-3}
+a %>% 
+  bind_rows(b, c) %>% 
+  kbl(booktabs = TRUE,
+      col.names = c("", "n", "%"), 
+      caption = "Table S3: Characterization of Discontinued Participants",
+      align = c("l", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>%
+  row_spec(row = 0, align = "c", italic = TRUE) %>%
+  row_spec(row = 3, bold = TRUE) %>% 
+  row_spec(row = 8, bold = TRUE) %>% 
+  row_spec(row = 10, bold = TRUE) %>% 
+  row_spec(row = 15, bold = TRUE) %>% 
+  row_spec(row = 17, bold = TRUE) %>% 
+  row_spec(row = 19, bold = TRUE) %>% 
+  pack_rows("Eligible and consented participants discontinued prior to completing enrollment", 1, 6, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued prior to first month follow-up", 7, 13, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued after the first month follow-up", 14, 22, bold = FALSE, escape = FALSE) %>% 
+  footnote(general=footnote_table_3, threeparttable = TRUE, escape = FALSE)
+```
 
 
 \newpage

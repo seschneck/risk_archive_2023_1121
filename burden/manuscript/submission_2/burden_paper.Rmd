@@ -141,12 +141,6 @@ screen <- screen %>%
   filter(subid %in% sample_fu1$subid)
 ```
 
-```{r disc data}
-# read in notes on incomplete participants
-notes_incomplete <- read_csv(file.path(path_burden, "notes_discontinue.csv"), col_types = cols()) %>% 
-  filter(screen != "cancelled" & screen != "no show")
-```
-
 ```{r ema and audio data}
 ema_m <- vroom(file.path(path_shared, "ema_morning.csv"), col_types = vroom::cols()) %>% 
   mutate(start_date = with_tz(start_date, tzone = "America/Chicago"),
@@ -804,7 +798,7 @@ auh %>%
 
 Figure 1 shows participant attrition/discontinuation at each phase of the study. Of the 192 eligible participants at screening, only 1 did not consent after hearing the details of the study. Enrollment occurred during a second visit 1 week later. A total of 169 participants completed enrollment.
 
-Study phases where we lost eligible participants are highlighted in red in Figure 1. In addition, we coarsely tabulated participants stated reasons for discontinuation as due to acceptability, other reasons, or unknown in this figure. Eleven of the 192 eligible participants (5.7%) were lost due to acceptability-relevant causes (e.g., no longer interested, non-adherence to sensing methods, or citing study demands as too burdensome). Other reasons for discontinuation not related to the acceptability of the signals include circumstances such as moving or no longer wishing to abstain from alcohol. It should be noted that 31 of the 192 participants (16.1%) were lost to follow-up such that we had no information about their reasons for discontinuation. We provide more granular tabulation of these reasons for discontinuation in Table 3. 
+Study phases where we lost eligible participants are highlighted in red in Figure 1. In addition, we coarsely tabulated participants stated reasons for discontinuation as due to acceptability, other reasons, or unknown in this figure. Eleven of the 192 eligible participants (5.7%) were lost due to acceptability-relevant causes (e.g., no longer interested, non-adherence to sensing methods, or citing study demands as too burdensome). Other reasons for discontinuation not related to the acceptability of the signals include circumstances such as moving or no longer wishing to abstain from alcohol. It should be noted that 31 of the 192 participants (16.1%) were lost to follow-up such that we had no information about their reasons for discontinuation. We provide more granular tabulation of these reasons for discontinuation in Table S3 in Multimedia Appendix 3. 
 
 ### Opt-In and Adherence
 
@@ -812,89 +806,6 @@ All participants who completed through follow-up 1 (154/154; 100%) opted-in to p
 
 Daily adherence rates were relatively high for EMA such that on 94.1% of study days participants completed at least 1 of the 4 EMAs. On average, participants completed 3.2 EMAs every day. The overall adherence rate for all requested EMAs was 79.8%. Participants' completion rate for the audio check-in was 54.3% (Figure S4 in Multimedia Appendix 3 contains more information on this distribution). That is, of their total days on study, participants completed an audio check-in on approximately half of them. Figure 2 shows mean weekly adherence to each of these methods for each week on study. In Multimedia Appendix 3 we also report adherence for participants who completed the 3-month study compared to those who dropped out prior to completion (Figure S3 in Multimedia Appendix 3).
 
-
-
-\newpage
-
-```{r table-3-code}
-notes_incomplete <- notes_incomplete %>%
-  filter(screen != "no consent") %>%
-  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
-                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
-                                  characterize == "rescheduled" ~ "Participant rescheduled multiple times before cancelling/no showing",
-                                  characterize == "treatment" ~ "No longer sober or no longer wishes to abstain from alcohol",
-                                  characterize == "compliance" ~ "Noncompliance with providing data",
-                                  characterize == "lapse" ~ "No longer sober or no longer wishes to abstain from alcohol",
-                                  characterize == "cell_service" ~ "Cell service shut off",
-                                  characterize == "move" ~ "Moved out of state",
-                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
-                                  characterize == "Unreachable" ~ "Unknown",
-                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
-                                  characterize == "inappropriate behavior" ~ "Staff concerns",
-                                  characterize == "mental health" ~ "Mental health concerns",
-                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe alcohol use disorder",
-                                  characterize == "phone" ~ "Ineligible phone",
-                                  is.na(characterize) ~ "Unknown",
-                                  TRUE ~ characterize))
-```
-
-
-
-```{r table-3-code-2}
-a <- notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(intake != "complete" | is.na(intake)) %>% 
-  filter(intake != "ineligible" | is.na(intake)) %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)*100) %>% 
-  adorn_totals("row") 
-
-b <- notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(completed_1month == "no") %>% 
-  filter(intake == "complete") %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)*100) %>% 
-  adorn_totals("row") 
-
-c <- notes_incomplete %>% 
-  filter(screen != "ineligible") %>% 
-  filter(completed_1month == "yes") %>% 
-  group_by(characterize) %>% 
-  summarise(n = n()) %>% 
-  mutate(percent = n/sum(n)*100) %>% 
-  adorn_totals("row") 
-
-footnote_table_3 <- "Bolded rows depict explicit acceptability-related discontinuation." 
-```
-
-
-```{r table-3}
-a %>% 
-  bind_rows(b, c) %>% 
-  kbl(booktabs = TRUE,
-      col.names = c("", "n", "%"), 
-      caption = "Characterization of Discontinued Participants",
-      align = c("l", "c", "c"),
-      digits = 1,
-      longtable = TRUE) %>% 
-  kable_styling(latex_options = c("HOLD_position")) %>%
-  row_spec(row = 0, align = "c", italic = TRUE) %>%
-  row_spec(row = 3, bold = TRUE) %>% 
-  row_spec(row = 8, bold = TRUE) %>% 
-  row_spec(row = 10, bold = TRUE) %>% 
-  row_spec(row = 15, bold = TRUE) %>% 
-  row_spec(row = 17, bold = TRUE) %>% 
-  row_spec(row = 19, bold = TRUE) %>% 
-  pack_rows("Eligible and consented participants discontinued prior to completing enrollment", 1, 6, bold = FALSE, escape = FALSE) %>% 
-  pack_rows("Enrolled participants discontinued prior to first month follow-up", 7, 13, bold = FALSE, escape = FALSE) %>% 
-  pack_rows("Enrolled participants discontinued after the first month follow-up", 14, 22, bold = FALSE, escape = FALSE) %>% 
-  footnote(general=footnote_table_3, threeparttable = TRUE, escape = FALSE)
-```
-
-\newpage
 
 ## Self-reported Acceptability
 
@@ -1253,14 +1164,7 @@ While our results suggest clinical samples of people with alcohol use disorder m
 As described earlier in our discussion, the research setting comes with built-in protections for the participant. Although clinical settings may also come with protections (e.g., HIPPA compliance, FDA-approved digital therapeutics) it is possible these affect trust differently. 
 
 <!--benefits may differ-->
-
-
 <!--RO.2 - acknowledge participants may have been motivated by clinical benefit-->
-
-
-
-
-
 
 
 
