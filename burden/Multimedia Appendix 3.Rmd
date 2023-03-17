@@ -80,6 +80,10 @@ ema_l <- vroom(file.path(path_shared, "ema_later.csv"), col_types = vroom::cols(
 audio <- vroom(file.path(path_shared, "audio.csv"), col_types = vroom::cols()) %>% 
   mutate(subid = as.numeric(subid))
 
+# notes on discontinued participants
+notes_incomplete <- read_csv(file.path(path_data, "notes_discontinue.csv"), col_types = cols()) %>% 
+  filter(screen != "cancelled" & screen != "no show")
+
 ```
 
 ```{r}
@@ -297,17 +301,17 @@ time_plot %>%
 \newpage
 
 
-### Compliance over time
+### Adherence over time
 
-In the manuscript we report compliance over time on study (i.e., week) for our whole sample ($N$ = 154). It is possible that compliance averages are lower for participants who drop out of the study ($N$ = 21) compared to those who complete the full 3 months of the study ($N$ = 133). We tested this by running independent samples t-tests on mean compliance scores for the two groups.  
+In the manuscript we report adherence over time on study (i.e., week) for our whole sample ($N$ = 154). It is possible that adherence averages are lower for participants who drop out of the study ($N$ = 21) compared to those who complete the full 3 months of the study ($N$ = 133). We tested this by running independent samples t-tests on mean adherence scores for the two groups.  
 
-A t-test revealed that participants who did not complete the study on average had significantly lower compliance for the 4x daily EMA ($M$ = .66, $SD$ = .19) compared to participants who completed the study ($M$ = .82, $SD$ = .14), $t$(152) = -4.6, $P$ < .001. Additionally, participants who did not complete the study on average had significantly lower compliance for a 1x daily EMA ($M$ = .86, $SD$ = .14) compared to participants who completed the study ($M$ = .95, $SD$ = .09), $t$(152) = -4.4, $P$ < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower compliance for the daily audio check-in ($M$ = .36, $SD$ = .23) compared to participants who completed the study ($M$ = .58, $SD$ = .29), $t$(152) = -3.2, $P$ < .01.  
+A t-test revealed that participants who did not complete the study on average had significantly lower adherence for the 4x daily EMA ($M$ = .66, $SD$ = .19) compared to participants who completed the study ($M$ = .82, $SD$ = .14), $t$(152) = -4.6, $P$ < .001. Additionally, participants who did not complete the study on average had significantly lower adherence for a 1x daily EMA ($M$ = .86, $SD$ = .14) compared to participants who completed the study ($M$ = .95, $SD$ = .09), $t$(152) = -4.4, $P$ < .001. Finally, a third t-test revealed that participants who did not complete the study on average had significantly lower adherence for the daily audio check-in ($M$ = .36, $SD$ = .23) compared to participants who completed the study ($M$ = .58, $SD$ = .29), $t$(152) = -3.2, $P$ < .01.  
 
 
-Below we plot the total compliance with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3). 
+Below we plot the total adherence with EMA (4 prompts per day), EMA (1 prompt per day), and the daily audio check-in over time for participants who completed the study (Figure S3). 
 
 ```{r}
-fig_caption_s3 <- "Figure S3: 1X Daily EMA, 4x Daily EMA, and Audio Check-in Compliance over Time for Participants who Completed the Study. Average compliance by week for participants who completed the full 3-month study ($N$ = 133). Dashed line represents overall mean compliance."
+fig_caption_s3 <- "Figure S3: 1X Daily EMA, 4x Daily EMA, and Audio Check-in Adherence over Time for Participants who Completed the Study. Average adherence by week for participants who completed the full 3-month study ($N$ = 133). Dashed line represents overall mean adherence."
 ```
 
 ```{r figure-s3, fig.width = 7, fig.cap = fig_caption_s3, out.extra = "", fig.pos="h"}
@@ -508,7 +512,7 @@ week_compliance_all %>%
   theme_classic() +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Compliance", 
+  scale_y_continuous(name = "Adherence", 
                      breaks = seq(0, 1, .1), 
                      limits = c(0, 1)) +
   scale_shape_manual(values = c(19, 1, 17)) +
@@ -576,12 +580,12 @@ week_compliance_all %>%
 \newpage
 
 
-### Audio compliance distribution
+### Audio adherence distribution
 
 Participants tended to either comply well or very poorly with the audio check-in. This appears to be consistent with subjective evaluations (i.e., free-response comments) of acceptability (Figure S4).
 
 ```{r}
-fig_caption_s4 <- "Figure S4: Audio Compliance by Participant. $N$ = 154. Solid red line represents mean compliance."
+fig_caption_s4 <- "Figure S4: Audio Adherence by Participant. $N$ = 154. Solid red line represents mean adherence."
 ```
 
 ```{r figure-s4, fig.width = 7, fig.cap = fig_caption_s4, out.extra = "", fig.pos="h"}
@@ -993,6 +997,89 @@ screen_combined_long %>%
   row_spec(row = 0, align = "c", italic = TRUE) 
 ```
 
+\newpage
+
+### Reasons given for participant discontinuation
+
+We provide a more granular breakdown of reasons for participant discontinuation in Table S3 below.
+
+```{r table-3-code}
+notes_incomplete <- notes_incomplete %>%
+  filter(screen != "no consent") %>%
+  mutate(characterize = case_when(characterize == "no_transportation" ~ "No longer has transportation",
+                                  characterize == "not_sober" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "rescheduled" ~ "Participant rescheduled multiple times before cancelling/no showing",
+                                  characterize == "treatment" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "compliance" ~ "Noncompliance with providing data",
+                                  characterize == "lapse" ~ "No longer sober or no longer wishes to abstain from alcohol",
+                                  characterize == "cell_service" ~ "Cell service shut off",
+                                  characterize == "move" ~ "Moved out of state",
+                                  characterize == "study_demands" ~ "Cited study demands as too burdensome",
+                                  characterize == "Unreachable" ~ "Unknown",
+                                  characterize == "Unspecified concerns from staff" ~ "Staff concerns",
+                                  characterize == "inappropriate behavior" ~ "Staff concerns",
+                                  characterize == "mental health" ~ "Mental health concerns",
+                                  characterize == "no aud" ~ "Does not meet criteria for moderate or severe alcohol use disorder",
+                                  characterize == "phone" ~ "Ineligible phone",
+                                  is.na(characterize) ~ "Unknown",
+                                  TRUE ~ characterize))
+```
+
+
+
+```{r table-3-code-2}
+a <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(intake != "complete" | is.na(intake)) %>% 
+  filter(intake != "ineligible" | is.na(intake)) %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+b <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "no") %>% 
+  filter(intake == "complete") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+c <- notes_incomplete %>% 
+  filter(screen != "ineligible") %>% 
+  filter(completed_1month == "yes") %>% 
+  group_by(characterize) %>% 
+  summarise(n = n()) %>% 
+  mutate(percent = n/sum(n)*100) %>% 
+  adorn_totals("row") 
+
+footnote_table_3 <- "Bolded rows depict explicit acceptability-related discontinuation, but no discontinuation can be definitively established as unrelated to acceptability." 
+```
+
+
+```{r table-3}
+a %>% 
+  bind_rows(b, c) %>% 
+  kbl(booktabs = TRUE,
+      col.names = c("", "n", "%"), 
+      caption = "Table S3: Characterization of Discontinued Participants",
+      align = c("l", "c", "c"),
+      digits = 1,
+      longtable = TRUE) %>% 
+  kable_styling(latex_options = c("HOLD_position")) %>%
+  row_spec(row = 0, align = "c", italic = TRUE) %>%
+  row_spec(row = 3, bold = TRUE) %>% 
+  row_spec(row = 8, bold = TRUE) %>% 
+  row_spec(row = 10, bold = TRUE) %>% 
+  row_spec(row = 15, bold = TRUE) %>% 
+  row_spec(row = 17, bold = TRUE) %>% 
+  row_spec(row = 19, bold = TRUE) %>% 
+  pack_rows("Eligible and consented participants discontinued prior to completing enrollment", 1, 6, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued prior to first month follow-up", 7, 13, bold = FALSE, escape = FALSE) %>% 
+  pack_rows("Enrolled participants discontinued after the first month follow-up", 14, 22, bold = FALSE, escape = FALSE) %>% 
+  footnote(general=footnote_table_3, threeparttable = TRUE, escape = FALSE)
+```
 
 
 \newpage
@@ -1010,20 +1097,30 @@ comments_sleep <- vroom(file.path(path_data, "comments_sleep.csv"), col_types = 
 comments_survey <- vroom(file.path(path_data, "comments_survey.csv"), col_types = vroom::cols())
 ```
 
+```{r}
+footnote_comment <- "Green text indicates positive comments about sensing method. Red text indicates negative comments and black text indicates neutral or mixed comments."
+```
+
+
 #### Audio Check-in
 ```{r}
-comments_audio %>% 
+comments_audio <- comments_audio %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_audio_pos <- which(comments_audio$Positive != "" & comments_audio$Negative == "")
+comments_audio_neg <- which(comments_audio$Positive == "" & comments_audio$Negative != "")
+
+comments_audio %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S3: Participant Free Response Comments about Audio Check-in ($N$ = 154)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  column_spec(1, width = "45em") %>% 
+  row_spec(comments_audio_pos, color = "#057600") %>% 
+  row_spec(comments_audio_neg, color = "#B6050D") 
 ```
 
 \newpage
@@ -1033,18 +1130,23 @@ comments_audio %>%
 
 
 ```{r}
-comments_location %>% 
+comments_location <- comments_location %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_location_pos <- which(comments_location$Positive != "" & comments_location$Negative == "")
+comments_location_neg <- which(comments_location$Positive == "" & comments_location$Negative != "")
+
+comments_location %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S4: Participant Free Response Comments about Geolocation ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
-  kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  kable_styling(latex_options = c("HOLD_position"))%>% 
+  row_spec(comments_location_pos, color = "#057600") %>% 
+  row_spec(comments_location_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```
 
 \newpage
@@ -1052,18 +1154,23 @@ comments_location %>%
 
 #### Cellular Communications and Text Message Logs
 ```{r}
-comments_phone %>% 
+comments_phone <- comments_phone %>% 
   unite("Positive", `positive/informative`:`positive/uninformative`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `negative/informative`:`negative/uninformative`, sep = ";", na.rm = TRUE)
+
+comments_phone_pos <- which(comments_phone$Positive != "" & comments_phone$Negative == "")
+comments_phone_neg <- which(comments_phone$Positive == "" & comments_phone$Negative != "")
+
+comments_phone %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S5: Participant Free Response Comments about Cellular Communication Logs and Text Message Content ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_phone_pos, color = "#057600") %>% 
+  row_spec(comments_phone_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```
 
 \newpage
@@ -1071,18 +1178,23 @@ comments_phone %>%
 
 #### Sleep Quality
 ```{r}
-comments_sleep %>% 
+comments_sleep <- comments_sleep %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_sleep_pos <- which(comments_sleep$Positive != "" & comments_sleep$Negative == "")
+comments_sleep_neg <- which(comments_sleep$Positive == "" & comments_sleep$Negative != "")
+
+comments_sleep %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S6: Participant Free Response Comments about Sleep Quality ($N$ = 78)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_sleep_pos, color = "#057600") %>% 
+  row_spec(comments_sleep_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em")
 ```
 
 \newpage
@@ -1090,16 +1202,21 @@ comments_sleep %>%
 
 #### EMA
 ```{r}
-comments_survey %>% 
+comments_survey <- comments_survey %>% 
   unite("Positive", `+ inform`:`+ uninform`, sep = ";", na.rm = TRUE) %>% 
-  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) %>% 
-  select(Text = text, Positive, Negative) %>% 
+  unite("Negative", `- inform`:`- uninform`, sep = ";", na.rm = TRUE) 
+
+comments_survey_pos <- which(comments_survey$Positive != "" & comments_survey$Negative == "")
+comments_survey_neg <- which(comments_survey$Positive == "" & comments_survey$Negative != "")
+
+comments_survey %>% 
+  select(Comment = text) %>% 
   kbl(booktabs = TRUE,
       caption = "Table S7: Participant Free Response Comments about 4X Daily EMA ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
-  column_spec(1, width = "15em") %>% 
-  column_spec(2, width = "15em") %>% 
-  column_spec(3, width = "15em")
+  row_spec(comments_survey_pos, color = "#057600") %>% 
+  row_spec(comments_survey_neg, color = "#B6050D") %>% 
+  column_spec(1, width = "45em") 
 ```

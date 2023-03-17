@@ -36,15 +36,6 @@ Inputs:
 
 ### Setup
 
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
-```
-
 Paths 
 ```{r}
 path_shared <- "P:/studydata/risk/data_processed/shared"
@@ -232,13 +223,19 @@ audio_study_dates <- study_dates %>%
 calculate mean compliance
 ```{r}
 mean_audio <- audio_study_dates %>% 
+  group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
+  mutate(mean = n_total/prompt_total) %>% 
+  ungroup() %>% 
+  summarize(mean = mean(mean))
 ```
 
 
 
 On average participants (N = 154) completed `r round(mean_audio$mean, 2)` audio checkins each day they were on study. That is their overall compliance for a once daily audio check-in was `r round(mean_audio$mean, 2)*100`%.    
+
+
+
 
 Hist of overall compliance by subid
 ```{r}
@@ -415,14 +412,29 @@ ema_1_study_dates <- study_dates %>%
 ```
 
 
-calculate mean compliance
+calculate unweighted mean compliance
 ```{r}
 mean_ema_1 <- ema_1_study_dates %>% 
+  group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
+  mutate(mean_1ema = n_total/prompt_total) %>% 
+  ungroup %>% 
+  summarize(mean = mean(mean_1ema))
 ```
 
 mean compliance for one daily survey is `r mean_ema_1$mean`
+
+
+
+```{r}
+ema_1_perfect_compliance <- ema_1_study_dates %>% 
+  group_by(subid) %>% 
+  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
+  mutate(mean = n_total/prompt_total) %>% 
+  filter(mean == 1)
+```
+
+`r nrow(ema_1_perfect_compliance)` participants (`r nrow(ema_1_perfect_compliance)/154`%) completed an EMA every day on study.
 
 
 
@@ -443,16 +455,22 @@ ema_study_dates <- study_dates %>%
   mutate(n_prompts = 4)
 ```
 
-calculate mean compliance
+calculate unweighted mean compliance
 ```{r}
 mean_ema_4 <- ema_study_dates %>% 
+  group_by(subid) %>% 
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
+  mutate(compliance = n_total/prompt_total,
+         mean_n_emas = n_total/(prompt_total/4)) %>% 
+  ungroup() %>% 
+  summarize(compliance = mean(compliance),
+         mean_n_emas = mean(mean_n_emas))
+
 ```
 
-compliance = `r mean_ema_4$mean`   
+compliance = `r mean_ema_4$compliance`   
 
-avg emas = `r mean(ema_study_dates$n)`
+avg emas = `r mean_ema_4$mean_n_emas`  
 
 
 
