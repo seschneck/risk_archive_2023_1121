@@ -18,7 +18,7 @@ We excluded data from one participant who appeared to not have a goal of abstine
 
 Our final sample consisted of 151 participants. Participants provided study measures for one (N = 14), two (N = 6) or three (N = 131) months. Participants were mostly white (87%), roughly half were male (51%), and the mean age was 41 years (SD = 12). 
 
-<!--Discuss if we want any demographic/AUD history/mental health tables or flowchart of participant retention.-->
+<!--KW: Discuss if we want any demographic/AUD history/mental health tables or flowchart of participant retention.-->
 <!--GEF: see my comment above, i think the flowchart would be helpful! demographic/AUD history/other participant characteristic tables probably most relevant in results -->
 
 ## Procedure
@@ -39,7 +39,7 @@ The first and last EMAs of the day were scheduled within one hour of participant
 At the screening visit we collected self-report information about demographics, mental health, and drug and alcohol use history. These measures are used to describe our sample. Only age, sex, race, education, and marital status are used as features for our analyses. <!--Refer to OSF for full list of measures--> <!--GEF: if you're using them to describe the sample, do they need to be listed/mentioned here? -->
 
 ## Data Analytic Strategy
-Data preprocessing and modeling were done in RStudio, using the tidyverse and tidymodels ecosystems. <!--Add version numbers and references-->
+Data preprocessing and modeling were done in RStudio, using the tidyverse and tidymodels ecosystems. <!--KW: Will add version numbers and references-->
 
 ### Lapse Labels
 We created rolling lapse windows that varied in width (i.e., 1 hour, 24 hours, and 168 hours). Each window shifted hour by hour for prediction.
@@ -71,16 +71,16 @@ Each candidate algorithm was tuned for its associated hyperparameters <!--(i.e.,
 We trained all possible model configurations (i.e., <!--combination of -->algorithm, hyperparameter values, and resampling method) using 10-fold cross validation. <!--GEF suggest adding a 1-2 sentence description here--> Cross-validation folds were grouped by participant ID (i.e., participants in the held-in data set were not also in the held-out data set). 
 
 **4. pre-processing**  
-Generic (e.g., handling of missing data and zero-variance variables) and algorithmic-specific (e.g., dummy coding and normalization) pre-processing steps were estimated using held in data and applied to held out data<!--possibly reference supplement here-->.
+Generic (e.g., handling of missing data and zero-variance variables) and algorithmic-specific (e.g., dummy coding and normalization) pre-processing steps were estimated using held in data and applied to held out data<!--KW: possibly reference supplemental recipe code here-->.
 
 **5. selection** <!--GEF: if this subsection gets labeled, consider calling it performance metric?--> 
 The best model configuration was selected <!--GEF: using cross-validation--> based on the primary performance metric of interest, area under the receiver operating characteristic curve (AUC ROC).
 
 **6. evaluation**  
-We evaluated performance of our best model configuration by averaging the AUC ROC across the 10 held out folds. In addition to our primary performance metric, we report the average sensitivity, specificity, balanced accuracy, and positive predictive value (PPV) from all held out folds<!--cite source for these metrics - tidymodels reference or IAML-->. We also provide the ROC and Precision-Recall (PR) curves. 
+We evaluated performance of our best model configuration by averaging the AUC ROC across the 10 held out folds. In addition to our primary performance metric, we report the average sensitivity, specificity, balanced accuracy, and positive predictive value (PPV) from all held out folds<!--KW: will cite source for these metrics - tidymodels reference or IAML-->. We also provide the ROC and Precision-Recall (PR) curves. 
 
 **7. interpretability**  
-We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i.e., across participants) index of feature importance.<!--Not sure best spot for this section yet-->
+We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i.e., across participants) index of feature importance.<!--KW: Not sure best spot for this section yet-->
 
 
 
