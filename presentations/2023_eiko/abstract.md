@@ -1,7 +1,9 @@
 Smart Digital Therapeutics for Alcohol Use Disorder: Algorithms for Prediction and Adaptive Intervention
 
 
-Context: Personal sensing may enhance the engagement and effectiveness of digital therapeutics for substance use disorders.  In particular, moment-by-moment sensing of relapse risk can be used to both engage the patient and to adapt and time the delivery of messaging, interventions and support from the digital therapeutic.  We present results from a study designed to develop and evaluate a machine learning model to predict lapses back to alcohol use among patients in recovery from alcohol use disorder.
+Context: Personal sensing may enhance the engagement and effectiveness of digital therapeutics for substance use disorders.  In particular, moment-by-moment sensing of relapse risk can be used to both engage the patient and to adapt and time the delivery of messaging, interventions and support from the digital therapeutic.  
+
+We present results from a study designed to develop and evaluate a machine learning model to predict lapses back to alcohol use among patients in recovery from alcohol use disorder.  Following this, we discuss plans to use this model to provide daily, algorithm-guided recommendations to personalize and adapt digital therapeutic use for patients with AUD.
 
 Methods: We enrolled 151 patients in early (1-8 weeks) recovery from moderate to severe alcohol use disorder and followed them for 90 days.  We collected daily ecological momentary assessments, GPS, and cellular communications (phone and text message logs, text message content) using active and passive personal sensing methods on their smartphones.  We used features from these raw signals to train and evaluate machine learning models that provided hour-by-hour predictions of lapse probability in increasingly temporally precise prediction windows (i.e., probability of lapse in the next week, the next day, and the next hour).  
 
