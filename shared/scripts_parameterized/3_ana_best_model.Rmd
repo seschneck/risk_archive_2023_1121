@@ -46,7 +46,7 @@ conflict_prefer("select", "dplyr")
 conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
-conflict_prefer("vi", "vip")
+conflicts_prefer(ggplot2::`%+%`)
 
 library(here)
 ```
@@ -60,15 +60,15 @@ library(themis)
 library(vroom)
 library(janitor)
 library(ggplot2)
-# library(kableExtra)
-library(future)
-# library(SHAPforxgboost)
 library(forcats)
 
 theme_set(theme_classic()) 
 
 #Detect n cores
+library(future)
+library("future.callr")
 (n_core <- parallel::detectCores(logical = FALSE))
+
 ```
 
 Absolute paths
@@ -243,23 +243,23 @@ pr_data %>%
 
 Confusion matrix and metrics based on optimal threshold
 ```{r opt_cm}
-(thresh_opt <- roc_data %>% 
-  mutate(j = sensitivity + specificity - 1) %>% 
-  arrange(desc(j)) %>% 
-  slice(1) %>% 
-  pull(.threshold))
-
-preds_best <- preds_best %>% 
-  mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
-         estimate_opt = factor(estimate_opt, levels = c("no_lapse", "lapse")))
-
-(cm_opt <- preds_best %>% 
-  conf_mat(truth, estimate_opt))
-
-cm_opt %>% 
-  autoplot()
-
-cm_opt %>% summary(event_level = "second")
+# (thresh_opt <- roc_data %>% 
+#   mutate(j = sensitivity + specificity - 1) %>% 
+#   arrange(desc(j)) %>% 
+#   slice(1) %>% 
+#   pull(.threshold))
+# 
+# preds_best <- preds_best %>% 
+#   mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
+#          estimate_opt = factor(estimate_opt, levels = c("lapse", "no_lapse")))
+# 
+# (cm_opt <- preds_best %>% 
+#   conf_mat(truth, estimate_opt))
+# 
+# cm_opt %>% 
+#   autoplot()
+# 
+# cm_opt %>% summary()
 ```
 
 Confusion matrix and metrics based on high (.90) threshold
@@ -268,8 +268,8 @@ Confusion matrix and metrics based on high (.90) threshold
 thresh_hi <- .90
 
 preds_best <- preds_best %>% 
-  mutate(estimate_hi = if_else(prob < thresh_hi, "no_lapse", "lapse"),
-         estimate_hi = factor(estimate_hi, levels = c("no_lapse", "lapse")))
+  mutate(estimate_hi = if_else(prob > thresh_hi, "lapse", "no_lapse"),
+         estimate_hi = factor(estimate_hi, levels = c("lapse", "no_lapse")))
 
 (cm_hi <- preds_best %>% 
   conf_mat(truth, estimate_hi))
@@ -298,10 +298,9 @@ if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_",
 
 get data
 ```{r}
-
 path_best <- here(path_input, 
-                  str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost_", cv), 
-                  "input/")
+                  str_c("train_", data_type, "_", window, "_", lead, "_", 
+                        version, "_xgboost_", cv), "input")
 source(here(path_best, "training_controls.R"))
 
 chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
@@ -331,22 +330,22 @@ config_best <- readRDS(here(path_models,
                                   "_kfold", ".rds"))) %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
   summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
-rec_xgb <- build_recipe(d = d, job = config_best)
 
-features <- rec_xgb %>% 
+rec <- build_recipe(d = d, job = config_best)
+
+features <- rec %>% 
   prep(training = d, strings_as_factors = FALSE) %>%
   bake(new_data = NULL)
 
 x <- features %>% select(-y)  # x features
-y <- features %>% select(y) %>% 
-  mutate(y = if_else(y == "yes", "lapse", "no_lapse"))
+y <- features %>% select(y)
 ```
 
 iml predictor function
 ```{r}
 predict_wrapper <- function(model, newdata) {
   predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
-    dplyr::select(lapse = .pred_lapse, no_lapse = .pred_no_lapse)
+    dplyr::select(yes = .pred_yes, no = .pred_no)
 }
 
 # make iml predictor function
@@ -357,35 +356,33 @@ predictor <- iml::Predictor$new(model = model_fit_best,
 ```
 
 ```{r}
-
-plan(multisession, workers = n_core)
+plan("callr", workers = n_core - 1)
 imp_permute <- iml::FeatureImp$new(predictor, loss = "ce")
-plan(sequential) 
+plan(sequential)
 ```
-
 
 ```{r}
 
-  shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
-                         X_train = features %>% as.matrix(),
-                         top_n = 30) # top 30 features
-   
-  # just mean SHAP                      
-  plot_mean_shap <- shap_long %>% 
-    group_by(variable) %>% 
-    slice(1) %>% 
-    arrange(desc(mean_value)) %>% 
-    select(variable, mean_shap = mean_value) %>% 
-    mutate(variable = fct_rev(variable)) %>% 
-    ggplot(aes(x=variable, y=mean_shap)) + 
-      geom_col() +
-      coord_flip() 
-  
-  print(plot_mean_shap)
-  
-  # full SHAP plot
-  shap_long %>% 
-    shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
+shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
+                     X_train = features %>% as.matrix(),
+                     top_n = 30) # top 30 features
+ 
+# just mean SHAP                      
+plot_mean_shap <- shap_long %>% 
+  group_by(variable) %>% 
+  slice(1) %>% 
+  arrange(desc(mean_value)) %>% 
+  select(variable, mean_shap = mean_value) %>% 
+  mutate(variable = fct_rev(variable)) %>% 
+  ggplot(aes(x=variable, y=mean_shap)) + 
+    geom_col() +
+    coord_flip() 
+
+print(plot_mean_shap)
+
+# full SHAP plot
+shap_long %>% 
+  shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
   
 # # plot feature values by SHAP for single feature  
 # shap_long %>% 
