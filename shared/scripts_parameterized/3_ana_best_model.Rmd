@@ -359,6 +359,11 @@ predictor <- iml::Predictor$new(model = model_fit_best,
 plan("callr", workers = n_core - 1)
 imp_permute <- iml::FeatureImp$new(predictor, loss = "ce")
 plan(sequential)
+
+imp_permute  %>% 
+  saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+                                  window, "_", lead, "_", version, 
+                                  ".rds")))
 ```
 
 ```{r}
