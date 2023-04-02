@@ -60,12 +60,15 @@ library(themis)
 library(vroom)
 library(janitor)
 library(ggplot2)
-library(kableExtra)
+# library(kableExtra)
 library(future)
-library(SHAPforxgboost)
+# library(SHAPforxgboost)
 library(forcats)
 
 theme_set(theme_classic()) 
+
+#Detect n cores
+(n_core <- parallel::detectCores(logical = FALSE))
 ```
 
 Absolute paths
@@ -152,12 +155,13 @@ cm %>%
   theme(axis.text = element_text(size = rel(1.50)), 
         axis.title = element_text(size = rel(1.75)))
 
-cm %>% summary(event_level = "second")
+cm %>% summary()
 
 # save plot for presentations
 # ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
+Histograms with free Y
 ```{r prob_plot}
 preds_best %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
@@ -173,6 +177,24 @@ preds_best %>%
 # save plot for presentations
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
+
+Histograms with fixed Y
+```{r prob_plot}
+preds_best %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2) +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
 
 Here is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
@@ -260,105 +282,90 @@ cm_hi %>% summary(event_level = "second")
 
 ### Feature Importance
 
-#### Read in best model fit (chosen with kfold)
+Read in best model fit (chosen with kfold)
 ```{r}
 # Add check that file exists
-if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))) {
-  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", data_type, "_", window, "_", lead, "_", version, ".rds")))
-  have_model <- TRUE
+if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 
+                                        window, "_", lead, "_", version, ".rds")))) {
+  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", 
+                                                    data_type, "_", window, "_", 
+                                                    lead, "_", version, ".rds")))
+  } else {
+  stop("Feature importance skipped for nested: Need to first select best model with kfold and save out model fit.")
+}
+```
 
+
+get data
+```{r}
+
+path_best <- here(path_input, 
+                  str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost_", cv), 
+                  "input/")
+source(here(path_best, "training_controls.R"))
+
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
 } else {
-  warning("Feature importance skipped for nested: Need to first select best model with kfold and save out model fit.")
-  have_model <- FALSE
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
 }
-```
 
-View Feature Importance Indices for best model fit (selected in select_best_model.Rmd)
-
-#### glmnet
-```{r glmnet_imp, fig.height = 7}
-if (have_model && model_fit_best$spec$engine == "glmnet") {
-  model_fit_best %>%
-    vi(lambda = config_best_glmnet$hp2) %>% 
-    mutate(Importance = abs(Importance),
-           Variable = fct_reorder(Variable, Importance),
-           Direction = if_else(Sign == "POS", "NEG", "POS")) %>% # flip direction because lapse is second level
-    filter(Importance > .005) %>% 
-    ggplot(aes(x = Importance, y = Variable, fill = Direction)) +
-    geom_col() +
-    scale_x_continuous(expand = c(0, 0)) +
-    labs(y = NULL)
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(here(path_best, fn))
 }
-```
 
-
-#### random forest
-```{r rf_imp, fig.height = 7}
-if (have_model && model_fit_best$spec$engine == "ranger") {
-
-  vi_ranger <- model_fit_best %>% 
-    vi(method = "model", scale = TRUE)
-  
-  vi_ranger %>%
-   vip(num_features = 100, geom = "point")
-}
-```
-
-#### xgboost
-```{r xgb_imp, fig.height = 7}
-if (have_model && model_fit_best$spec$engine == "xgboost") {
-  
-  # Scaled model specific VIP
-  vi_xgb <- model_fit_best %>% 
-    vi(method = "model", scale = TRUE)
-  
-  vi_xgb %>%
-   vip(num_features = 100, geom = "point") %>% 
-    print()
-   
-  
-  # SHAP
-  # need to first read training controls and data to build recipe
-  
-  path_best <- here(path_input, 
-                    str_c("train_", data_type, "_", window, "_", lead, "_", version, "_xgboost_", cv), 
-                    "input/")
-  source(here(path_best, "training_controls.R"))
-  
-  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-  if (length(chunks) == 2) {
-    fn <- str_c("data_trn.", chunks[[2]])
-  } else {
-    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-  }
-
-  # open based on file type
-  if (str_detect(fn, "csv")) {
-    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-  } else {
-    d <- readRDS(here(path_best, fn))
-  }
-
-  d <- d %>% 
-    rename(y = {{y_col_name}})
+d <- d %>% 
+  rename(y = {{y_col_name}})
     
-  # build recipe
-  # need to get the config for the final model selected by kfold.  We really only need
-  #this for nested because we already have it if we started with kfold but opening 
-  # again just for clearer setting cv = kfold
-  config_best <- readRDS(here(path_models, 
-                              str_c("resample_metrics_best_", data_type, "_", 
-                                    window, "_", lead, "_", version,
-                                    "_kfold", ".rds"))) %>% 
-    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-    summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
-  rec_xgb <- build_recipe(d = d, job = config_best)
-  
-  features <- rec_xgb %>% 
-    prep(training = d, strings_as_factors = FALSE) %>%
-    bake(new_data = NULL) %>%
-    select(-y)
-  
+# build recipe
+# need to get the config for the final model selected by kfold.  We really only need
+#this for nested because we already have it if we started with kfold but opening 
+# again just for clearer setting cv = kfold
+config_best <- readRDS(here(path_models, 
+                            str_c("resample_metrics_best_", data_type, "_", 
+                                  window, "_", lead, "_", version,
+                                  "_kfold", ".rds"))) %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
+rec_xgb <- build_recipe(d = d, job = config_best)
+
+features <- rec_xgb %>% 
+  prep(training = d, strings_as_factors = FALSE) %>%
+  bake(new_data = NULL)
+
+x <- features %>% select(-y)  # x features
+y <- features %>% select(y) %>% 
+  mutate(y = if_else(y == "yes", "lapse", "no_lapse"))
+```
+
+iml predictor function
+```{r}
+predict_wrapper <- function(model, newdata) {
+  predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
+    dplyr::select(lapse = .pred_lapse, no_lapse = .pred_no_lapse)
+}
+
+# make iml predictor function
+predictor <- iml::Predictor$new(model = model_fit_best, 
+                           data = x, 
+                           y = y,
+                           predict.fun = predict_wrapper)  
+```
+
+```{r}
+
+plan(multisession, workers = n_core)
+imp_permute <- iml::FeatureImp$new(predictor, loss = "ce")
+plan(sequential) 
+```
+
+
+```{r}
+
   shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
                          X_train = features %>% as.matrix(),
                          top_n = 30) # top 30 features
