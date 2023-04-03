@@ -63,12 +63,6 @@ library(ggplot2)
 library(forcats)
 
 theme_set(theme_classic()) 
-
-#Detect n cores
-library(future)
-library("future.callr")
-(n_core <- parallel::detectCores(logical = FALSE))
-
 ```
 
 Absolute paths
@@ -162,7 +156,7 @@ cm %>% summary()
 ```
 
 Histograms with free Y
-```{r prob_plot}
+```{r prob_plot_free}
 preds_best %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -179,7 +173,7 @@ preds_best %>%
 ```
 
 Histograms with fixed Y
-```{r prob_plot}
+```{r prob_plot_fixed}
 preds_best %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -277,7 +271,7 @@ preds_best <- preds_best %>%
 cm_hi %>% 
   autoplot()
 
-cm_hi %>% summary(event_level = "second")
+cm_hi %>% summary()
 ```
 
 ### Feature Importance
@@ -355,10 +349,10 @@ predictor <- iml::Predictor$new(model = model_fit_best,
                            predict.fun = predict_wrapper)  
 ```
 
+#### Permutatio Feature Importance
 ```{r}
-plan("callr", workers = n_core - 1)
-imp_permute <- iml::FeatureImp$new(predictor, loss = "ce")
-plan(sequential)
+imp_permute <- iml::FeatureImp$new(predictor, loss = Metrics::auc,
+                                   compare = "difference")
 
 imp_permute  %>% 
   saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
@@ -367,27 +361,68 @@ imp_permute  %>%
 ```
 
 ```{r}
+imp_permute$results %>%   
+  arrange(abs(importance)) %>% 
+  slice_tail(n = 20) %>% 
+  mutate(feature = factor(feature),
+         feature = forcats::fct_inorder(feature)) %>% 
+  ggplot(mapping = aes(x = feature, y = importance)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = feature, y = importance, xend = feature), yend = 0, colour = "grey50")  +
+  ylab("Variable Importance") +
+  coord_flip()
+```
 
-shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
-                     X_train = features %>% as.matrix(),
-                     top_n = 30) # top 30 features
- 
-# just mean SHAP                      
-plot_mean_shap <- shap_long %>% 
-  group_by(variable) %>% 
-  slice(1) %>% 
-  arrange(desc(mean_value)) %>% 
-  select(variable, mean_shap = mean_value) %>% 
-  mutate(variable = fct_rev(variable)) %>% 
-  ggplot(aes(x=variable, y=mean_shap)) + 
-    geom_col() +
-    coord_flip() 
+CONSIDER PERMUTATION ON GROUPS OF FEATURES
 
-print(plot_mean_shap)
 
-# full SHAP plot
-shap_long %>% 
-  shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
+#### Shapley Value Feature Importance
+
+```{r global_shapley_function}
+
+get_shapley_values <- function(df1, predictor){
+  Shapley$new(predictor, x.interest = df1)$results %>%
+    separate_wider_delim(feature.value, delim = "=",
+                         names = c("tmp", "feature_value")) %>%
+    mutate(feature_value = as.numeric(feature_value)) %>%
+    select(feature, feature_value, phi)
+}
+```
+  
+```{r global_shapley}
+x1 <- slice(x,1)
+local_shaps <- x1 %>%
+  dplyr::mutate(id = row_number()) %>%
+  nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
+  dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
+  dplyr::select(-dfs) %>%
+  unnest(shapleys) 
+
+local_shaps %>% head
+```
+
+```{r}
+
+# shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
+#                      X_train = features %>% as.matrix(),
+#                      top_n = 30) # top 30 features
+#  
+# # just mean SHAP                      
+# plot_mean_shap <- shap_long %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>% 
+#   arrange(desc(mean_value)) %>% 
+#   select(variable, mean_shap = mean_value) %>% 
+#   mutate(variable = fct_rev(variable)) %>% 
+#   ggplot(aes(x=variable, y=mean_shap)) + 
+#     geom_col() +
+#     coord_flip() 
+# 
+# print(plot_mean_shap)
+# 
+# # full SHAP plot
+# shap_long %>% 
+#   shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
   
 # # plot feature values by SHAP for single feature  
 # shap_long %>% 
