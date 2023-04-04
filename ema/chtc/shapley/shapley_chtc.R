@@ -7,17 +7,12 @@ suppressWarnings(suppressPackageStartupMessages({
 source("fun_chtc.R")
 source("training_controls.R")
 
-
 args <- commandArgs(trailingOnly = TRUE) 
 job_num <- args[1] # zero-indexed
 
 
 
 # Get model and data
-
-(job*100) + 1    - (job+1)*100
-
-
 model_fit <- readRDS("best_model_fit_all_1week_0_v4.rds")
 x <- read_csv("x.csv.xz") %>% 
   slice(((job_num * 100) + 1):((job_num + 1) * 100))
@@ -27,6 +22,7 @@ y <- read_csv("y.csv.xz") %>%
   slice(((job_num * 100) + 1):((job_num + 1) * 100)) %>% 
   pull(y)
 
+#set up for shapley values
 predict_wrapper <- function(model, newdata) {
   predict(model, newdata, type = "prob") %>%
     dplyr::select(yes = .pred_yes, no = .pred_no)
@@ -44,6 +40,8 @@ get_shapley_values <- function(df1, predictor){
     mutate(feature_value = as.numeric(feature_value)) %>%
     select(feature, feature_value, phi)
 }
+
+# main loop and save
 tictoc::tic()
 x %>%
   dplyr::mutate(id = row_number()) %>%
