@@ -99,6 +99,10 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.
 
 # CHTC support functions
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+
+# ML functions
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
+
 ```
 
 
@@ -332,24 +336,36 @@ features <- rec %>%
   bake(new_data = NULL)
 
 x <- features %>% select(-y)  # x features
-y <- features %>% select(y)
+y <- features %>% pull(y)
 ```
 
-iml predictor function
+make  predictor function that returns lapse (yes) probabilities
 ```{r}
-predict_wrapper <- function(model, newdata) {
-  predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
-    dplyr::select(yes = .pred_yes, no = .pred_no)
-}
 
-# make iml predictor function
-predictor <- iml::Predictor$new(model = model_fit_best, 
-                           data = x, 
-                           y = y,
-                           predict.fun = predict_wrapper)  
+predictor <- function(model, x){
+  predict(model, x, type = "prob") %>% 
+    pull(.pred_yes)
+}
 ```
 
-#### Permutatio Feature Importance
+#### Permutation Feature Importance
+
+
+```{r}
+set.seed(12345)
+vip_lapse <- get_vip(model = model_fit_best, x = x, y = y,
+                     var_string = ".lapse",
+                     fun_pred = predictor, 
+                     fun_metric = yardstick::roc_auc_vec)
+vip_ema_2 <- get_vip(model = model_fit_best, x = x, y = y,
+                     var_string = "ema_2",
+                     fun_pred = predictor, 
+                     fun_metric = yardstick::roc_auc_vec,
+                     n_reps = 2)
+
+```
+
+
 ```{r}
 imp_permute <- iml::FeatureImp$new(predictor, loss = Metrics::auc,
                                    compare = "difference")
