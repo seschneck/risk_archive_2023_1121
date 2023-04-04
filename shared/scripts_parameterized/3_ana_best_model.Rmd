@@ -353,7 +353,6 @@ if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_",
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   
-  
   message("Loadind previously computed Permutation Variable Importance")
   imp_perm  <- readRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
@@ -409,41 +408,39 @@ imp_perm %>%
 #### Shapley Value Feature Importance
 # make iml predictor function
 ```{r}
-predict_wrapper <- function(model, newdata) {
-  predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
-    dplyr::select(yes = .pred_yes, no = .pred_no)
-  
-}
-
-iml_predictor <- iml::Predictor$new(model = model_fit_best, 
-                           data = x, 
-                           y = y,
-                           predict.fun = predict_wrapper)  
+# predict_wrapper <- function(model, newdata) {
+#   predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
+#     dplyr::select(yes = .pred_yes, no = .pred_no)
+#   
+# }
+# 
+# iml_predictor <- iml::Predictor$new(model = model_fit_best, 
+#                            data = x, 
+#                            y = y,
+#                            predict.fun = predict_wrapper)  
 ```
 
 ```{r global_shapley_function}
 
-get_shapley_values <- function(df1, predictor){
-  iml::Shapley$new(iml_predictor, x.interest = df1)$results %>%
-    separate_wider_delim(feature.value, delim = "=",
-                         names = c("tmp", "feature_value")) %>%
-    mutate(feature_value = as.numeric(feature_value)) %>%
-    select(feature, feature_value, phi)
-}
+# get_shapley_values <- function(df1, predictor){
+#   iml::Shapley$new(iml_predictor, x.interest = df1)$results %>%
+#     separate_wider_delim(feature.value, delim = "=",
+#                          names = c("tmp", "feature_value")) %>%
+#     mutate(feature_value = as.numeric(feature_value)) %>%
+#     select(feature, feature_value, phi)
+# }
 ```
   
 ```{r global_shapley}
-tictoc::tic()
-x1 <- slice(x, 1:2)
-local_shaps <- x1 %>%
-  dplyr::mutate(id = row_number()) %>%
-  nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
-  dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
-  dplyr::select(-dfs) %>%
-  unnest(shapleys) 
-tictoc::toc()
-
-local_shaps %>% head
+# x1 <- slice(x, 1:2)
+# local_shaps <- x1 %>%
+#   dplyr::mutate(id = row_number()) %>%
+#   nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
+#   dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
+#   dplyr::select(-dfs) %>%
+#   unnest(shapleys) 
+# 
+# local_shaps %>% head
 ```
   
   
