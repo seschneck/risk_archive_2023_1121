@@ -199,10 +199,10 @@ Could consider reporting this AUC though likely average of resample AUCs is more
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
 preds_best %>%
-  roc_auc(prob, truth = truth, event_level = "second")
+  roc_auc(prob, truth = truth)
 
 roc_data <- preds_best %>% 
-  roc_curve(prob, truth = truth, event_level = "second")
+  roc_curve(prob, truth = truth)
   
 roc_data %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
@@ -224,10 +224,10 @@ Here is precision/recall by concatenating all folds
 Same approach as above for ROC
 ```{r pr_info}
 preds_best %>%
-  pr_auc(prob, truth = truth, event_level = "second")
+  pr_auc(prob, truth = truth)
 
 pr_data <- preds_best %>% 
-  pr_curve(prob, truth = truth, event_level = "second")
+  pr_curve(prob, truth = truth)
 
 pr_data %>% 
   ggplot(aes(x = recall, y = precision)) +
@@ -319,9 +319,6 @@ d <- d %>%
   rename(y = {{y_col_name}})
     
 # build recipe
-# need to get the config for the final model selected by kfold.  We really only need
-#this for nested because we already have it if we started with kfold but opening 
-# again just for clearer setting cv = kfold
 config_best <- readRDS(here(path_models, 
                             str_c("resample_metrics_best_", data_type, "_", 
                                   window, "_", lead, "_", version,
@@ -333,7 +330,7 @@ rec <- build_recipe(d = d, job = config_best)
 
 features <- rec %>% 
   prep(training = d, strings_as_factors = FALSE) %>%
-  bake(new_data = NULL)
+  bake(new_data = d) #  get test data (no resampling) by setting new_data = d
 
 x <- features %>% select(-y)  # x features
 y <- features %>% pull(y)
@@ -352,23 +349,35 @@ predictor <- function(model, x){
 
 
 ```{r}
-var_strings <- c(".lapse", str_c("ema_", 2:10), "count.ema", "day", "age", 
-                 "hour", "sex", "educ", "marital", "race")
-
-set.seed(12345)
-imp_perm <- var_strings %>% 
-  map(\(var_string) get_vip(model = model_fit_best, 
-                            x = x, y = y,
-                            var_string = var_string,
-                            fun_pred = predictor, 
-                            fun_metric = yardstick::roc_auc_vec,
-                            n_reps = 20)) %>% 
-  list_rbind()
-
-imp_perm  %>% 
-  saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_", 
+                                  window, "_", lead, "_", version, 
+                                  ".rds")))){
+  
+  
+  message("Loadind previously computed Permutation Variable Importance")
+  imp_perm  <- readRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))
+} else {
+  message("Calculating Permutation Variable Importance")
+  var_strings <- c(".lapse", str_c("ema_", 2:10), "count.ema", "day", "age", 
+                   "hour", "sex", "educ", "marital", "race")
+  
+  set.seed(12345)
+  imp_perm <- var_strings %>% 
+    map(\(var_string) get_vip(model = model_fit_best, 
+                              x = x, y = y,
+                              var_string = var_string,
+                              fun_pred = predictor, 
+                              fun_metric = yardstick::roc_auc_vec,
+                              n_reps = 20)) %>% 
+    list_rbind()
+  
+  imp_perm  %>% 
+    saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+                                    window, "_", lead, "_", version, 
+                                    ".rds")))
+}
 ```
 
 
@@ -390,20 +399,32 @@ imp_perm %>%
          feature = forcats::fct_inorder(feature)) %>% 
   ggplot(mapping = aes(x = feature, y = importance)) +
   geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = feature, y = importance, xend = feature), yend = 0, colour = "grey50")  +
+  geom_segment(aes(x = feature, y = importance, xend = feature), 
+               yend = 0, colour = "grey50")  +
   ylab("Variable Importance (AUC difference") +
   coord_flip()
 ```
 
-CONSIDER PERMUTATION ON GROUPS OF FEATURES
-
 
 #### Shapley Value Feature Importance
+# make iml predictor function
+```{r}
+predict_wrapper <- function(model, newdata) {
+  predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
+    dplyr::select(yes = .pred_yes, no = .pred_no)
+  
+}
+
+iml_predictor <- iml::Predictor$new(model = model_fit_best, 
+                           data = x, 
+                           y = y,
+                           predict.fun = predict_wrapper)  
+```
 
 ```{r global_shapley_function}
 
 get_shapley_values <- function(df1, predictor){
-  Shapley$new(predictor, x.interest = df1)$results %>%
+  iml::Shapley$new(iml_predictor, x.interest = df1)$results %>%
     separate_wider_delim(feature.value, delim = "=",
                          names = c("tmp", "feature_value")) %>%
     mutate(feature_value = as.numeric(feature_value)) %>%
@@ -412,17 +433,20 @@ get_shapley_values <- function(df1, predictor){
 ```
   
 ```{r global_shapley}
-x1 <- slice(x,1)
+tictoc::tic()
+x1 <- slice(x, 1:2)
 local_shaps <- x1 %>%
   dplyr::mutate(id = row_number()) %>%
   nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
   dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
   dplyr::select(-dfs) %>%
   unnest(shapleys) 
+tictoc::toc()
 
 local_shaps %>% head
 ```
-
+  
+  
 ```{r}
 
 # shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
