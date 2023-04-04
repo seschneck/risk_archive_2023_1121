@@ -352,40 +352,46 @@ predictor <- function(model, x){
 
 
 ```{r}
+var_strings <- c(".lapse", str_c("ema_", 2:10), "count.ema", "day", "age", 
+                 "hour", "sex", "educ", "marital", "race")
+
 set.seed(12345)
-vip_lapse <- get_vip(model = model_fit_best, x = x, y = y,
-                     var_string = ".lapse",
-                     fun_pred = predictor, 
-                     fun_metric = yardstick::roc_auc_vec)
-vip_ema_2 <- get_vip(model = model_fit_best, x = x, y = y,
-                     var_string = "ema_2",
-                     fun_pred = predictor, 
-                     fun_metric = yardstick::roc_auc_vec,
-                     n_reps = 2)
+imp_perm <- var_strings %>% 
+  map(\(var_string) get_vip(model = model_fit_best, 
+                            x = x, y = y,
+                            var_string = var_string,
+                            fun_pred = predictor, 
+                            fun_metric = yardstick::roc_auc_vec,
+                            n_reps = 20)) %>% 
+  list_rbind()
 
-```
-
-
-```{r}
-imp_permute <- iml::FeatureImp$new(predictor, loss = Metrics::auc,
-                                   compare = "difference")
-
-imp_permute  %>% 
+imp_perm  %>% 
   saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))
 ```
 
+
 ```{r}
-imp_permute$results %>%   
+# imp_permute <- iml::FeatureImp$new(predictor, loss = Metrics::auc,
+#                                    compare = "difference")
+# 
+# imp_permute  %>% 
+#   saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+#                                   window, "_", lead, "_", version, 
+#                                   ".rds")))
+```
+
+```{r}
+imp_perm %>%   
+  mutate(importance = metric_median) %>% 
   arrange(abs(importance)) %>% 
-  slice_tail(n = 20) %>% 
-  mutate(feature = factor(feature),
+  mutate(feature = factor(var_string),
          feature = forcats::fct_inorder(feature)) %>% 
   ggplot(mapping = aes(x = feature, y = importance)) +
   geom_point(size = 2, color = "red") +
   geom_segment(aes(x = feature, y = importance, xend = feature), yend = 0, colour = "grey50")  +
-  ylab("Variable Importance") +
+  ylab("Variable Importance (AUC difference") +
   coord_flip()
 ```
 
