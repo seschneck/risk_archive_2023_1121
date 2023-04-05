@@ -117,8 +117,9 @@ metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_t
 ```
 
 
-### Model Performance
+### Model Performance Metrics
 
+#### 10x10 resamples
 Look at performance within folds
 ```{r}
   metrics_best %>% 
@@ -126,17 +127,9 @@ Look at performance within folds
 ```
 
 ```{r model_metrics}
-if (cv == "kfold" | cv == "boot") {
-  config_best <- metrics_best %>% 
-    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
-    summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
-}
-
-
-if (cv == "nested") {
-  metrics_best %>% 
-    summarise(across(ends_with("_outer"), mean)) 
-}
+config_best <- metrics_best %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarise(across(accuracy:roc_auc, ~mean(.x)), .groups = "drop")
 
 config_best %>% glimpse
 ```
@@ -160,6 +153,8 @@ cm %>% summary()
 # ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
+
+### Probability Histograms
 Histograms with free Y
 ```{r prob_plot_free}
 preds_best %>% 
@@ -194,10 +189,11 @@ preds_best %>%
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
-
+### ROC curve
 Here is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
+How about bayesian posterior for AUC instead?
 ```{r roc_info}
 preds_best %>%
   roc_auc(prob, truth = truth)
@@ -221,6 +217,7 @@ roc_data %>%
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
+### PR Curve
 Here is precision/recall by concatenating all folds
 Same approach as above for ROC
 ```{r pr_info}
@@ -239,45 +236,6 @@ pr_data %>%
        y = "Precision (PPV)")
 ```
 
-
-Confusion matrix and metrics based on optimal threshold
-```{r opt_cm}
-# (thresh_opt <- roc_data %>% 
-#   mutate(j = sensitivity + specificity - 1) %>% 
-#   arrange(desc(j)) %>% 
-#   slice(1) %>% 
-#   pull(.threshold))
-# 
-# preds_best <- preds_best %>% 
-#   mutate(estimate_opt = if_else(prob < thresh_opt, "no_lapse", "lapse"),
-#          estimate_opt = factor(estimate_opt, levels = c("lapse", "no_lapse")))
-# 
-# (cm_opt <- preds_best %>% 
-#   conf_mat(truth, estimate_opt))
-# 
-# cm_opt %>% 
-#   autoplot()
-# 
-# cm_opt %>% summary()
-```
-
-Confusion matrix and metrics based on high (.90) threshold
-```{r opt_cm_hi}
-
-thresh_hi <- .90
-
-preds_best <- preds_best %>% 
-  mutate(estimate_hi = if_else(prob > thresh_hi, "lapse", "no_lapse"),
-         estimate_hi = factor(estimate_hi, levels = c("lapse", "no_lapse")))
-
-(cm_hi <- preds_best %>% 
-  conf_mat(truth, estimate_hi))
-
-cm_hi %>% 
-  autoplot()
-
-cm_hi %>% summary()
-```
 
 ### Feature Importance
 
@@ -328,12 +286,12 @@ config_best <- readRDS(here(path_models,
 
 rec <- build_recipe(d = d, job = config_best)
 
-features <- rec %>% 
+features_test <- rec %>% 
   prep(training = d, strings_as_factors = FALSE) %>%
   bake(new_data = d) #  get test data (no resampling) by setting new_data = d
 
-x <- features %>% select(-y)  # x features
-y <- features %>% pull(y)
+x <- features_test %>% select(-y)  # x features
+y <- features_test %>% pull(y)
 ```
 
 make  predictor function that returns lapse (yes) probabilities
