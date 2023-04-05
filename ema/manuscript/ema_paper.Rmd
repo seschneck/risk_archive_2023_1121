@@ -113,6 +113,22 @@ switch (Sys.info()[['sysname']],
 # Results
 
 
+<!-- Demographics table-->
+
+<!-- Single AUC figure by model-->  
+
+<!-- Supplemental:  AUC figures (100 folds separate by model)-->
+
+<!-- Supplemental: Paneled histograms separate by model--> 
+
+<!-- Single Posteriors for AUC by model with rope-->
+
+<!-- Table of auc, sen, spec, ppv, npv, accuracy, balanced accuracy by model-->
+
+<!-- PR curve by model-->
+
+<!-- SHAP Importance figures separate by model  or same fig?-->
+
 # Discussion
 
 
@@ -150,241 +166,4 @@ include_graphics(here("burden/manuscript/submission_2/figs/fig_disposition.jpg")
 ```
 
 \newpage
-
-```{r}
-fig_caption_2 <- "Adherence over Time for EMA (1x daily), EMA (4x daily), and Audio Check-in.\\linebreak Notes:  Mean adherence for each week on study. Mean standard error is depicted by the solid error bars. Overall mean adherence is depicted by the dashed line. $N$ = 154."
-```
-
-```{r figure-2, fig.height = 3.5, fig.cap = fig_caption_2, out.extra = "", fig.pos="h"}
-# function to map over
-get_study_days <- function(the_subid, dates) {
-  start_study <- dates %>% filter(subid == the_subid) %>% pull(start_study)
-  end_study <- dates %>% filter(subid == the_subid) %>% pull(end_study)
-  study_days <- tibble(subid = the_subid, study_day = seq(start_study, end_study - days(1), by = "day")) 
-  return(study_days)
-}
-
-subids <- sample_fu1$subid
-dates <- sample_fu1 %>% 
-  select(subid, start_study, end_study)
-
-study_dates <- subids %>% 
-  map_dfr(~get_study_days(.x, dates))
-
-ema <- ema_m %>% 
-  select(subid, start_date) %>% 
-  full_join(ema_l %>% select(subid, start_date), by = c("subid", "start_date")) %>% 
-  mutate(start_date = date(start_date),
-         subid = as.numeric(subid)) %>% 
-  filter(subid %in% sample_fu1$subid)
-
-ema_count <- ema %>%  
-  count(subid, start_date) %>%
-  mutate(n = if_else(n > 4, 4, as.numeric(n)))
-
-ema_study_dates <- study_dates %>% 
-  left_join(ema_count, by = c("subid", "study_day" = "start_date")) %>% 
-  mutate(n = if_else(is.na(n), 0, n)) %>% 
-  mutate(n_prompts = 4)
-
-ema_study_weeks <- ema_study_dates %>% 
-  group_by(subid) %>% 
-  slice(1:7) %>% 
-  mutate(week = 1) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(8:14) %>% 
-    mutate(week = 2)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(15:21) %>% 
-    mutate(week = 3)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(22:28) %>% 
-    mutate(week = 4)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(29:35) %>% 
-    mutate(week = 5)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(36:42) %>% 
-    mutate(week = 6)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(43:49) %>% 
-    mutate(week = 7)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(50:56) %>% 
-    mutate(week = 8)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(57:63) %>% 
-    mutate(week = 9)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(64:70) %>% 
-    mutate(week = 10)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(71:77) %>% 
-    mutate(week = 11)) %>% 
-  bind_rows(ema_study_dates %>% 
-    group_by(subid) %>% 
-    slice(78:84) %>% 
-    mutate(week = 12)) %>% 
-  ungroup()
-
-ema_1_week_compliance <- ema_study_weeks %>%
-  mutate(n = if_else(n > 1, 1, n),
-         n_prompts = 1) %>% 
-  group_by(subid, week) %>% 
-  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
-  mutate(compliance = sum_n/sum_prompts) %>% 
-  ungroup()
-
-ema_4_week_compliance <- ema_study_weeks %>% 
-  group_by(subid, week) %>% 
-  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
-  mutate(compliance = sum_n/sum_prompts) %>% 
-  ungroup()
-
-
-audio <- audio %>% 
-  filter(subid %in% sample_fu1$subid)
-
-audio_count <- audio %>%  
-  count(subid, date) %>%
-  mutate(n = if_else(n > 1, 1, as.numeric(n)))
-
-audio_study_dates <- study_dates %>% 
-  left_join(audio_count, by = c("subid", "study_day" = "date")) %>% 
-  mutate(n = if_else(is.na(n), 0, n)) %>% 
-  mutate(n_prompts = 1)
-
-mean_audio <- audio_study_dates %>% 
-  summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
-  mutate(mean = n_total/prompt_total)
-
-audio_study_weeks <- audio_study_dates %>% 
-  group_by(subid) %>% 
-  slice(1:7) %>% 
-  mutate(week = 1) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(8:14) %>% 
-    mutate(week = 2)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(15:21) %>% 
-    mutate(week = 3)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(22:28) %>% 
-    mutate(week = 4)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(29:35) %>% 
-    mutate(week = 5)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(36:42) %>% 
-    mutate(week = 6)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(43:49) %>% 
-    mutate(week = 7)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(50:56) %>% 
-    mutate(week = 8)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(57:63) %>% 
-    mutate(week = 9)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(64:70) %>% 
-    mutate(week = 10)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(71:77) %>% 
-    mutate(week = 11)) %>% 
-  bind_rows(audio_study_dates %>% 
-    group_by(subid) %>% 
-    slice(78:84) %>% 
-    mutate(week = 12)) %>% 
-  ungroup()
-
-audio_week_compliance <- audio_study_weeks %>% 
-  group_by(subid, week) %>% 
-  summarize(sum_n = sum(n), sum_prompts = sum(n_prompts), .groups = "rowwise") %>% 
-  mutate(compliance = sum_n/sum_prompts) %>% 
-  ungroup()
-
-
-week_compliance_all <- audio_week_compliance %>% 
-  group_by(week) %>% 
-  summarize(mean_compliance = mean(compliance),
-            n = n(),
-            sd = sd(compliance)) %>% 
-  mutate(se = sd/sqrt(n),
-         signal = "Audio Check-in") %>% 
-  bind_rows(ema_4_week_compliance %>% 
-              group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance),
-                        n = n(),
-                        sd = sd(compliance)) %>% 
-              mutate(se = sd/sqrt(n),
-                     signal = "EMA (4x Daily)")) %>% 
-  bind_rows(ema_1_week_compliance %>% 
-              group_by(week) %>% 
-              summarize(mean_compliance = mean(compliance),
-                        n = n(),
-                        sd = sd(compliance)) %>% 
-              mutate(se = sd/sqrt(n),
-                     signal = "EMA (1x Daily)"))
-
-week_compliance_all %>% 
-  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
-  group_by(week, signal) %>% 
-  ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
-  geom_point(size = 2) +
-  geom_line() +
-  geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
-                width = .3, size = .3) +
-  theme_classic() +
-  scale_x_continuous(name = "Week", 
-                     breaks = seq(1, 12, 1)) +
-  scale_y_continuous(name = "Adherence", 
-                     breaks = seq(0, 1, .1), 
-                     limits = c(0, 1)) +
-  scale_shape_manual(values = c(19, 1, 17)) +
-  geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
-               group_by(signal) %>% 
-               summarize(mean_compliance = mean(mean_compliance)),
-             linetype = "dashed", size = .3) +
-  theme(legend.title = element_blank(),
-        legend.text = element_markdown(),
-        legend.position = "bottom",
-        plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1.25),
-        text = element_text(),
-        plot.title = element_markdown(),
-        plot.subtitle = element_markdown(size = 12, lineheight = 1.25)) 
-```
-
-
-\newpage
-
-```{r}
-fig_caption_1 <- "caption text"
-
-```
-
-
-```{r figure-1, fig.height = 3.5, fig.cap = fig_caption_1, out.extra = "", fig.pos="h"}
-
-```
 
