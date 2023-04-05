@@ -4,7 +4,7 @@ author: "John J Curtin"
 institute: "University of Wisconsin-Madison"
 
 title-slide-attributes:
-  data-background-image: ai_society_images\smartphone_know_you.png
+  data-background-image: ai_society_images/smartphone_know_you.png
   data-background-size: 35%
   data-background-repeat: no
   data-background-position: left 10% bottom 10%
@@ -12,42 +12,15 @@ title-slide-attributes:
 format: 
   revealjs:
     scrollable: true
-
-    logo: john_arc_logo.png
     css: arc.css
 ---
 
-<!--     width: 2000-->
-<!--     height: 1300-->
+## Mental Healthcare Needs are High and Unmet  {.smaller}
 
-<!-- JOHN this blank page will disappear once the comments are removed -->
-
-<!-- SUSAN once css is set move to lab support and source via url from github like r2-->
-
-<!-- CSS ISSUE-->
-<!-- make all text bold-->
-<!-- more space between main bullet points-->
-<!-- bullets: large open box, smaller closed box-->
-<!-- Smaller font size for slide titles.  What is the font size for text?-->
-<!-- Color title green-->
-<!-- underline title or use separator?-->
-<!-- smaller margins-->
-<!-- logo in bottom right-->
-
-<!-- OTHER FORMATTING ISSUES-->
-<!-- how to make select words a different color?-->
-<!-- How to control size and position of an image loaded from disk-->
-<!-- center slide text?-->
-
-## Mental Healthcare Needs are High and Unmet {.smaller}
-::: {.incremental}
 - In 2019, [52 million]{style="color: red;"} Americans had an active mental illness
   - More than half did not receive any [treatment]{style="color: red;"}
 
 
-- 20 million adults had an active substance use disorder
-  - 9 out of 10 did not receive any treatment
-:::
 
 ::: {.notes}
 We have a mental health crisis in the U.S. and it is a crisis of unmet high need because our delivery of mental healthcare is deeply flawed. In 2019, more than half of the 52 million Americans with an active mental illness did not receive any treatment. More than half!
@@ -58,19 +31,35 @@ And for the 20 million adults suffering with a substance use disorder, it was wo
 :::
 
 
-## Mental Healthcare Needs are High and Unmet {.smaller}
 
-<!--need to make the first two sets of points gray on this slide to highlight the third point-->
-::: {.nonincremental}
-:::{.list-gray}
-- In 2019, [52 million]{style="color: red;"} Americans had an active mental illness
-  - More than half did not receive any [treatment]{style="color: red;"}
+## Mental Healthcare Needs are High and Unmet  {.smaller}
+
+- [In 2019, 52 million Americans had an active mental illness]{style="color: grey;"}
+  - [More than half did not receive any treatment]{style="color: grey;"}
+
 
 - [20 million]{style="color: red;"} adults had an active substance use disorder
   - 9 out of 10 did not receive any treatment
-:::  
-- Large treatment disparities exist by race, ethnicity, geography, and income
+
+
+::: {.notes}
+
+
+And for the 20 million adults suffering with a substance use disorder, it was worse still; 9 out of 10 without any treatment
 :::
+
+
+
+## Mental Healthcare Needs are High and Unmet  {.smaller}
+
+- [In 2019, 52 million Americans had an active mental illness]{style="color: grey;"}
+  - [More than half did not receive any treatment]{style="color: grey;"}
+
+- [20 million adults had an active substance use disorder]{style="color: grey;"}
+  - [9 out of 10 did not receive any treatment]{style="color: grey;"}
+
+- Large treatment disparities exist by race, ethnicity, geography, and income
+
 
 
 ::: {.notes}
@@ -81,24 +70,22 @@ And similar mental healthcare disparities exist for people living in rural commu
 
 ## Mental Healthcare Needs are High and Unmet {.smaller}
 
-::: {.nonincremental}
-:::{.list-gray}
-- In 2019, [52 million]{style="color: red;"} Americans had an active mental illness
-  - More than half did not receive any [treatment]{style="color: red;"}
+- [In 2019, 52 million Americans had an active mental illness]{style="color: grey;"}
+  - [More than half did not receive any treatment]{style="color: grey;"}
 
+- [20 million adults had an active substance use disorder]{style="color: grey;"}
+  - [9 out of 10 did not receive any treatment]{style="color: grey;"}
 
-- [20 million]{style="color: red;"} adults had an active substance use disorder
-  - 9 out of 10 did not receive any treatment
   
-- Large treatment disparities exist by race, ethnicity, geography, and income
+- [Large treatment disparities exist by race, ethnicity, geography, and income]{style="color: grey;"}
 
-:::
+
 - Failure to treat is not surprising given many treatment barriers:
   - Access
   - Availability
   - Affordability
   - Acceptability
-:::  
+
 
 ::: {.notes}
 Our failure to treat is, unfortunately, not surprising.  There are many well known barriers to receiving traditional mental healthcare.
@@ -212,8 +199,8 @@ The next wave of digital therapeutics, lets call them smart digital therapeutics
 
 
 ::: {.column width="40%"}
-![risk1_pis.png](ai_society_images\risk1_pis.png){.absolute top="20%" right="0%" width="400px" height="auto"}\    
-![niaaa_logo.png](ai_society_images\niaaa_logo.png){.absolute top="45%" right="0%" width="400px" height="auto"}\    
+![risk1_pis.png](ai_society_images\risk1_pis.png)\    
+![niaaa_logo.png](ai_society_images\niaaa_logo.png)\    
 
 :::
 
@@ -266,7 +253,7 @@ We are in the early stages of model building at this point and I will focus toda
 
 :::
 
-## 4x Daily Ecological Momentary Assessments 
+## 4x Daily Ecological Momentary Assessments {.medium}
 
 
 :::: {.columns}
@@ -353,7 +340,7 @@ And of course, all of the models would only use data collected prior to 4 pm tod
 
 :::
 
-## Machine Learning Methods
+## Machine Learning Methods {.medium}
 
 - Statistical Algorithms
   - ElasticNet GLM (e.g., LASSO, ridge regression)
@@ -375,6 +362,93 @@ And, of course, these performance metrics are calculated for new observations an
 
 :::
 
+## 1 Week: Probabilities for No Lapse and Lapse
+
+:::: {.columns}
+
+::: {.column width="60%"}
+
+- Model predicts [probability]{style="color: red;"} of lapse in next week for “[new]{style="color: red;"}” observations in test set
+
+- Can panel predictions for GROUND TRUTH lapse and no lapse observations
+
+- Want high probabilities to be high for true lapses and low for true no lapses
+:::
+
+
+::: {.column width="40%"}
+
+```{r}
+#| fig-height: 6
+#| fig-width: 6
+
+library(tidyverse)
+library(tidymodels)
+library(themis)
+library(vroom)
+library(janitor)
+library(ggplot2)
+library(forcats)
+library(here)
+
+params <- tibble(study = "ema",
+  data_type = "all",
+  cv = "kfold",
+  window = "1week",
+  lead = 0,
+  version = "v4",)
+  
+  
+  
+study <- params$study
+data_type <- params$data_type
+cv <- params$cv
+window <- params$window
+lead <- params$lead 
+version <- params$version
+
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
+        )
+
+preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
+                                              "_", cv, ".rds")))
+
+preds_best %>%
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>%
+  ggplot(data = ., aes(x = prob)) +
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)),
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75))) +
+  theme_classic() +
+  theme(axis.title.x = element_text(size = 12),
+        strip.text.x = element_text(size = 20))   
+
+
+```
+
+
+:::
+::::
+
+::: {.notes}
+:::
+
 
 ## 1 Week: Probabilities for No Lapse and Lapse
 
@@ -391,7 +465,7 @@ And, of course, these performance metrics are calculated for new observations an
 
 
 ::: {.column width="40%"}
-![1_week_lapse_no_lapse.png](ai_society_images\1_week_lapse_no_lapse.png){.absolute top="15%" right="0%" width="500px" height="auto"}\ 
+![1_week_lapse_no_lapse.png](ai_society_images\1_week_lapse_no_lapse.png)\ 
 :::
 ::::
 ::: {.notes}
@@ -418,7 +492,7 @@ REDO THESE FIGS WITH SEPARATE Y SCALE!
 
 ::: {.column width="60%"}
 
-- [ Model predicts [probability]{style="color: red;"} of lapse in next week for “[new]{style="color: red;"}” observations in test set]{style="color: gray;"}
+- [ Model predicts probability of lapse in next week for “new” observations in test set]{style="color: gray;"}
 
 - [Can panel predictions for GROUND TRUTH lapse and no lapse observations]{style="color: gray;"}
 
@@ -430,7 +504,7 @@ REDO THESE FIGS WITH SEPARATE Y SCALE!
 
 
 ::: {.column width="40%"}
-![1_week_lapse_no_lapse_threshold.png](ai_society_images\1_week_lapse_no_lapse_threshold.png){.absolute top="15%" right="0%" width="500px" height="auto"}\ 
+![1_week_lapse_no_lapse_threshold.png](ai_society_images\1_week_lapse_no_lapse_threshold.png)\ 
 :::
 
 ::::
@@ -444,7 +518,7 @@ But for now, I will use .5 such that the model will predict “lapse” for all 
 
 ## Performance Metrics by Lapse Window Width
 
-![metrics_1_week.png](ai_society_images\metrics_1_week.png){width=80%}\
+![metrics_1_week.png](ai_society_images\metrics_1_week.png){width=85%}\
 
 <!--Quarto is currently ignoring kableExtra bootstrap styling, should replace this by a table once fixed-->
 
@@ -482,11 +556,12 @@ Area under the ROC curve (AUC)
 :::
 :::
 :::
+
 :::
 
 
 ::: {.column width="50%"}
-![roc_1_week.png](ai_society_images\roc_1_week.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![roc_1_week.png](ai_society_images\roc_1_week.png)\ 
 :::
 
 ::::
@@ -529,7 +604,7 @@ expected future drinking (item 10)
 
 
 ::: {.column width="50%"}
-![features_1_week.png](ai_society_images\features_1_week.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![features_1_week.png](ai_society_images\features_1_week.png)\ 
 :::
 
 
@@ -594,7 +669,7 @@ But we were also eager to see how well we could do if we required a higher level
 
 
 ::: {.column width="50%"}
-![roc_1_day.png](ai_society_images\roc_1_day.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![roc_1_day.png](ai_society_images\roc_1_day.png)\ 
 :::
 ::::
 
@@ -613,7 +688,7 @@ The day level model performed as well as, if not better, than the week level mod
 
 ## Performance Metrics by Lapse Window Width
 
-![metrics_1_day.png](ai_society_images\metrics_1_day.png){width=80%}\
+![metrics_1_day.png](ai_society_images\metrics_1_day.png){width=85%}\
 
 
 
@@ -641,7 +716,7 @@ And consistent with this higher AUC, the day level model also had slightly bette
 
 
 ::: {.column width="50%"}
-![features_1_day.png](ai_society_images\features_1_day.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![features_1_day.png](ai_society_images\features_1_day.png)\ 
 :::
 
 
@@ -705,7 +780,7 @@ Given our success with this day level model, we next developed a model with the 
 
 
 ::: {.column width="50%"}
-![roc_1_hour.png](ai_society_images\roc_1_hour.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![roc_1_hour.png](ai_society_images\roc_1_hour.png)\ 
 :::
 ::::
 
@@ -721,7 +796,7 @@ And it turns out that we can do somewhat better still with hour level prediction
 
 ## Performance Metrics by Lapse Window Width
 
-![metrics_1_hour.png.png](ai_society_images\metrics_1_hour.png.png){width=80%}\
+![metrics_1_hour.png](ai_society_images\metrics_1_hour.png){width=85%}\
 
 
 
@@ -753,7 +828,7 @@ And again, consistent with that AUC, the sensitivity, specificity, and balanced 
 
 
 ::: {.column width="50%"}
-![features_1_hour.png](ai_society_images\features_1_hour.png){.absolute top="0%" right="0%" width="50%" height="auto"}\ 
+![features_1_hour.png](ai_society_images\features_1_hour.png)\ 
 :::
 
 
@@ -770,7 +845,7 @@ But now we can also use the hour of the lapse window as a feature too.  And agai
 
 ## Positive Predictive Value (PPV)
 
-![metrics_ppv.png](ai_society_images\metrics_ppv.png){width=80%}\
+![metrics_ppv.png](ai_society_images\metrics_ppv.png){width=85%}\
 
 
 ::: {.notes}
@@ -787,7 +862,7 @@ PPV looks at the percentage of positive predictions from the model that are actu
 
 ## Positive Predictive Value (PPV)
 
-![metrics_lapse_frequency.png](ai_society_images\metrics_lapse_frequency.png){width=80%}\
+![metrics_lapse_frequency.png](ai_society_images\metrics_lapse_frequency.png){width=85%}\
 
 
 ::: {.notes}
@@ -802,7 +877,7 @@ And this is what we see in our data.
 
 ## Positive Predictive Value (PPV)
 
-![metrics_lapse_frequency_PPV.png](ai_society_images\metrics_lapse_frequency_PPV.png){width=80%}\
+![metrics_lapse_frequency_PPV.png](ai_society_images\metrics_lapse_frequency_PPV.png){width=85%}\
 
 
 ::: {.notes}
@@ -871,7 +946,7 @@ And this is what we will need to do if we want to recommend more costly treatmen
 :::
 
 ::: {.column width="50%"}
-![recall_curves_graph.png](ai_society_images\recall_curves_graph.png){.absolute top="10%" right="1%" width="45%" height="auto"}\ 
+![recall_curves_graph.png](ai_society_images\recall_curves_graph.png)\ 
 :::
 
 ::::
@@ -959,30 +1034,31 @@ We believe we can improve the predictive strength of these geolocation and commu
 ![smartphone_context.png](ai_society_images\smartphone_context.png){.absolute top="15%" left="33%" width="33%" height="auto"}\ 
 
 ::: {.notes}
+
+
 For example, consider the implications of this brief text message thread between a hypothetical patient and their drinking buddy for what you might predict for the probability that they might lapse back to drinking in the coming hours.   
 
 ... And how would your prediction change if this wasn’t their drinking buddy but instead, their mom who was a big supporter of their recovery.
 
 This interpersonal context matters!!!
 
-
-
 :::
 
 ## Context is Critical
+
+JOHN this page is blank in the original PPT but the notes are unique to this page.
+
 
 ::: {.notes}
 We can gather this contextual information quickly by asking a few key questions about the people and places we interact with frequently over the first couple of months that we record these signals.  And we can identify these frequent contacts and locations directly from these signals.
 
 In our current projects, we target people and places that we interact with at least twice a month or more for more detailed follow-up to gather context.    And it turns out that this really isn’t that burdensome.   Most of us are creatures of habit and if we set a threshold for 2x monthly interactions, we typically only have 10-30 people and places that meet this threshold.   And it’s the same people and places each month so we can build this context up when the person first starts to use the system and after that it only needs to be updated occasionally when we go somewhere new or make a new friend.
 
-
-
 :::
 
 ## Contextualized Geolocation
 
-![context_gps.png](ai_society_images\context_gps.png){.absolute top="10%" left="2%" width="75%" height="auto"}\ 
+![context_gps.png](ai_society_images\context_gps.png){width="75%"}\ 
 
 ::: {.notes}
 
@@ -990,7 +1066,7 @@ In our current projects, we target people and places that we interact with at le
 
 ## Contextualized Communications
 
-![context_cell.png](ai_society_images\context_cell.png){.absolute top="10%" left="2%" width="75%" height="auto"}\ 
+![context_cell.png](ai_society_images\context_cell.png){width="75%"}\ 
 
 ::: {.notes}
 
@@ -1009,7 +1085,7 @@ In our current projects, we target people and places that we interact with at le
 
 :::
 ::: {.column width="50%"}
-![ai_picture29.png](ai_society_images\ai_picture29.png){.absolute top="8%" right="1%" width="37%" height="auto"}\ 
+![feature_gps.png](ai_society_images\feature_gps.png)\ 
 :::
 ::::
 
@@ -1071,21 +1147,22 @@ Machine learning models must be trained on diverse samples of patients or their 
 
 :::
 
-## Active Project: Lapse in patients with Opioid Use Disorder
+## Active Project: Lapse in patients with Opioid Use Disorder 
 
+::: {.medium}
 - Recruiting 400 - 500 patients in recovery from Opioid Use Disorder (~ 300 so far)
 - National sample (size; diversity: demographics, location)
 - More variation in stage of recover (1 – 6 months at start)
 - 12 months of monitoring
 - Closer to real implementation methods
-
+:::
 :::: {.columns}
 
 ::: {.column width="60%"}
-![ai_picture30.png](ai_society_images\ai_picture30.png){.absolute bottom="0%" left="2%" width="60%" height="auto"}\ 
+![risk2_pis.png](ai_society_images\risk2_pis.png)\ 
 :::
 ::: {.column width="40%"}
-![nida_logo.png](ai_society_images\nida_logo.png){.absolute bottom="10%" right="2%" width="auto" height="auto"}\ 
+![nida_logo.png](ai_society_images\nida_logo.png)\ 
 :::
 ::::
 ::: {.notes}
@@ -1123,14 +1200,14 @@ We are also sensitive to the fact that these recommendations from the machine le
 
 ## Relapse Prevention Model
 
-![ai_picture31.png](ai_society_images\ai_picture31.png){.absolute bottom="0%" left="15%" width="70%" height="auto"}\ 
+![relapse_prevention_flowchart.png](ai_society_images\relapse_prevention_flowchart.png){.absolute bottom="0%" left="10%" width="73%" height="auto"}\ 
 
 
 ::: {.notes}
 
 :::
 
-## Optimization/Evaluation of an Algorithm Guided Smart DTx
+## Optimization/Evaluation of an Algorithm Guided Smart DTx {.medium}
 
 - Lapse probabilities updated daily based on EMA and Geolocation features
 - Use lapse probability and locally important features to select  optimal DTx modules – guided by Rela
@@ -1148,7 +1225,7 @@ We are also sensitive to the fact that these recommendations from the machine le
 
 ## CRediTs
 
-![ai_picture35.png](ai_society_images\ai_picture35.png){.absolute bottom="0%" left="5%" width="92%" height="auto"}\ 
+![credits.png](ai_society_images\credits.png){.absolute bottom="0%" left="5%" width="92%" height="auto"}\ 
 
 
 ::: {.notes}
@@ -1163,7 +1240,7 @@ We are also sensitive to the fact that these recommendations from the machine le
 
 ## Feasibility and Acceptability of EMA
 
-![ai_picture32.png](ai_society_images\ai_picture32.png){.absolute bottom="0%" left="25%" width="50%" height="auto"}\ 
+![ema_compliance.png](ai_society_images\ema_compliance.png){.absolute bottom="0%" left="25%" width="50%" height="auto"}\ 
 
 
 ::: {.notes}
@@ -1172,15 +1249,24 @@ We are also sensitive to the fact that these recommendations from the machine le
 
 ## Feasibility and Acceptability of EMA
 
-::: {layout-nrow=2}
-![ai_picture33a.png](ai_society_images\ai_picture33a.png){width="50%" height="auto"}\ 
+:::: {.columns}
 
-![ai_picture33c.png](ai_society_images\ai_picture33c.png){width="50%" height="auto"}\ 
+::: {.column}
+![ema_interfere.png](ai_society_images\ema_interfere.png){width="50%" height="auto"}\ 
 
-![ai_picture33b.png](ai_society_images\ai_picture33b.png){width="50%" height="auto"}\ 
-
-![ai_picture33d.png](ai_society_images\ai_picture33d.png){width="50%" height="auto"}\ 
+![ema_dislike.png](ai_society_images\ema_dislike.png){width="50%" height="auto"}\ 
 :::
+
+::: {.column}
+
+![ema_4x_year.png](ai_society_images\ema_4x_year.png){width="50%" height="auto"}\ 
+
+![ema_1x_year.png](ai_society_images\ema_1x_year.png){width="50%" height="auto"}\ 
+:::
+
+::::
+
+
 
 ::: {.notes}
 
@@ -1200,7 +1286,7 @@ Balanced accuracy = .82
 
 :::
 ::: {.column width="60%"}
-![ai_picture34a.png](ai_society_images\ai_picture34a.png){.absolute right="12%" top="10%"  width="45%" height="auto"}\
+![confusion_1_week.png](ai_society_images\confusion_1_week.png){width=75%}\
 :::
 ::::
 
@@ -1231,7 +1317,7 @@ Balanced accuracy = .83
 
 :::
 ::: {.column width="60%"}
-![ai_picture34b.png](ai_society_images\ai_picture34b.png){.absolute right="12%" top="10%"  width="45%" height="auto"}\
+![confusion_1_day.png](ai_society_images\confusion_1_day.png){width=75%}\
 :::
 ::::
 
@@ -1260,7 +1346,7 @@ Balanced accuracy = .86
 
 :::
 ::: {.column width="60%"}
-![ai_picture34c.png](ai_society_images\ai_picture34c.png){.absolute right="12%" top="10%"  width="45%" height="auto"}\
+![confusion_1_hour.png](ai_society_images\confusion_1_hour.png){width=75%}\
 :::
 ::::
 
