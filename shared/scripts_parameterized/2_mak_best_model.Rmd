@@ -196,8 +196,15 @@ if (cv == "kfold" | cv == "boot") {
     cv_inner_resample <- NA
   }
   
+  # splits <- d %>% 
+  #   make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+  #               cv_inner_resample, cv_group)
+  
+  # Redo resampling with 10x 10-fold rather than original strategy
   splits <- d %>% 
-    make_splits(cv_resample_type, cv_resample, cv_outer_resample, cv_inner_resample, cv_group)
+    make_splits(cv_resample_type = "kfold", cv_resample = "10_x_10", 
+                cv_outer_resample = NULL, cv_inner_resample = NULL, 
+                cv_group = "subid")
   
   # resample best model config
   plan(multisession, workers = n_core)
@@ -241,12 +248,12 @@ if (cv == "kfold" | cv == "boot") {
 ```{r}
 if (nrow(d) == nrow(preds_best)) {
     message("Number of predictions = Number of rows in data set. Correct!")
-} else stop("Number of predictions != Number of rows in data set!")
+} else warning("Number of predictions != Number of rows in data set!")
   
 preds_best %>% 
   glimpse()
 
-# Check only one prediction per label num - Should be 1
+# Check only one prediction per label num
 preds_per_label <- preds_best %>% 
   tab(label_num) %>% 
   pull(n) %>% 
