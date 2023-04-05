@@ -281,7 +281,7 @@ cm_hi %>% summary()
 ### Feature Importance
 
 Read in best model fit (chosen with kfold)
-```{r}
+```{r load_best_model}
 # Add check that file exists
 if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 
                                         window, "_", lead, "_", version, ".rds")))) {
@@ -292,7 +292,6 @@ if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_",
   stop("Feature importance skipped for nested: Need to first select best model with kfold and save out model fit.")
 }
 ```
-
 
 get data
 ```{r get_data}
