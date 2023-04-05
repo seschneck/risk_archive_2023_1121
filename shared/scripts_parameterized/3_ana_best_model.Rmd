@@ -295,7 +295,7 @@ if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_",
 
 
 get data
-```{r}
+```{r get_data}
 path_best <- here(path_input, 
                   str_c("train_", data_type, "_", window, "_", lead, "_", 
                         version, "_xgboost_", cv), "input")
@@ -348,7 +348,7 @@ predictor <- function(model, x){
 #### Permutation Feature Importance
 
 
-```{r}
+```{r imp_permute}
 if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
