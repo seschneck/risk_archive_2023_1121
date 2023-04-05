@@ -61,6 +61,7 @@ library(vroom)
 library(janitor)
 library(ggplot2)
 library(forcats)
+library(SHAPforxgboost)
 
 theme_set(theme_classic()) 
 ```
@@ -444,33 +445,121 @@ imp_perm %>%
   
   
 ```{r}
-
-# shap_long <- shap.prep(xgb_model = extract_fit_engine(model_fit_best), 
-#                      X_train = features %>% as.matrix(),
-#                      top_n = 30) # top 30 features
-#  
-# # just mean SHAP                      
-# plot_mean_shap <- shap_long %>% 
-#   group_by(variable) %>% 
-#   slice(1) %>% 
-#   arrange(desc(mean_value)) %>% 
-#   select(variable, mean_shap = mean_value) %>% 
-#   mutate(variable = fct_rev(variable)) %>% 
-#   ggplot(aes(x=variable, y=mean_shap)) + 
-#     geom_col() +
-#     coord_flip() 
-# 
-# print(plot_mean_shap)
-# 
-# # full SHAP plot
-# shap_long %>% 
-#   shap.plot.summary(dilute = 3)  # 1/3 of observations for shap values
+if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+                                  window, "_", lead, "_", version, 
+                                  ".rds")))){
   
-# # plot feature values by SHAP for single feature  
-# shap_long %>% 
-#   mutate(variable = as.character(variable)) %>% 
-#   filter(variable == "ema_10.p72.l0.rmax_response") %>% 
-#   ggplot(aes(x = jitter(rfvalue), y = jitter(value))) +
-#   geom_point()
-#}
+  #gsub(",", ", ", .x)
+  # `variable = fct_relabel(variable, ~str_replace(variable, ".l0", ""))`
+#   convert_income <- function(x) {
+#   regex <- "^(?:Lt |)[$]([0-9]+).*$"
+#   is_range <- grepl(regex, x)
+#   num_income <- as.numeric(gsub(regex, "\\1", x[is_range]))
+#   num_income <- trunc(num_income / 5000) * 5000
+#   x[is_range] <- paste0("Gt $", num_income)
+#   x
+# }
+#   
+  # rincome2 <- fct_relabel(gss_cat$rincome, convert_income)
+  
+  message("Loading previously calculated raw SHAPS")
+  shap_raw <- readRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+                                              window, "_", lead, "_", version, 
+                                              ".rds")))
+} else {
+  message("Calculating raw SHAPS")
+  
+shap_raw <- shap.prep(xgb_model = extract_fit_engine(model_fit_best),
+                     X_train = x %>% as.matrix())
+
+shap_raw %>% saveRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+                                              window, "_", lead, "_", version, 
+                                              ".rds")))
+
+}
+
+if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_", 
+                                  window, "_", lead, "_", version, 
+                                  ".rds")))){
+  message("Loading previously calculated grouped SHAPs")
+  shap_grouped <- readRDS(here(path_models, str_c("imp_shap_grouped_",
+                                                       data_type, "_", 
+                                                       window, "_", lead, "_",
+                                                       version, ".rds")))
+} else {
+  
+  message("Calculating grouped SHAPs")
+  
+  shap_grouped <- shap_raw %>% 
+    mutate(group = if_else(str_detect(variable, ".lapse"), "past use", variable),
+           group = if_else(str_detect(group, "ema_2"), "craving", group),
+           group = if_else(str_detect(group, "ema_3"), "past risky situation", group),
+           group = if_else(str_detect(group, "ema_4"), "past stressful event", group),
+           group = if_else(str_detect(group, "ema_5"), "past pleasant event", group),
+           group = if_else(str_detect(group, "ema_6"), "valence", group),
+           group = if_else(str_detect(group, "ema_7"), "arousal", group),
+           group = if_else(str_detect(group, "ema_8"), "future risky situation", group),
+           group = if_else(str_detect(group, "ema_9"), "future stressful event", group),
+           group = if_else(str_detect(group, "ema_10"), "future efficacy", group),
+           group = if_else(str_detect(group, "count.ema"), "missing surveys", group),
+           group = if_else(str_detect(group, "day"), "lapse day", group),
+           group = if_else(str_detect(group, "hour"), "lapse hour", group),
+           group = if_else(str_detect(group, "age"), "age", group),
+           group = if_else(str_detect(group, "sex"), "sex", group),
+           group = if_else(str_detect(group, "marital"), "marital", group),
+           group = if_else(str_detect(group, "race"), "race", group),
+           group = if_else(str_detect(group, "educ"), "educ", group)) %>%
+    mutate(group = factor(group)) %>% 
+    group_by(ID, group) %>% 
+    summarize(shap = sum(value))
+  
+  shap_grouped %>% saveRDS(here(path_models, str_c("imp_shap_grouped_",
+                                                         data_type, "_", 
+                                                         window, "_", lead, "_",
+                                                         version, ".rds")))
+}
+```
+
+Global importance Shap plot for raw features
+```{r}
+shap_raw %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   # mean for each variable is same for all rows for that variable
+  ungroup() %>% 
+  arrange(mean_value) %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean SHAP value") +
+  coord_flip()
+```
+
+Global importance Shap plot for grouped features
+```{r}
+shap_grouped %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value) %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean SHAP value") +
+  coord_flip()
+  
+
+# shaps <- shap.values(xgb_model = extract_fit_engine(model_fit_best),
+#                      X_train = x %>% as.matrix())
+
+ 
+# shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
+#                         top_n = 20, dilute = 10)
+  
+
 ```
