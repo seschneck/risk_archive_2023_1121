@@ -550,7 +550,7 @@ shap_grouped %>%
   geom_point(size = 2, color = "red") +
   geom_segment(aes(x = group, y = mean_value, xend = group), 
                yend = 0, colour = "grey50")  +
-  ylab("Mean SHAP value") +
+  ylab("Mean |SHAP| value") +
   coord_flip()
   
 
@@ -560,6 +560,4 @@ shap_grouped %>%
  
 # shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
 #                         top_n = 20, dilute = 10)
-  
-
 ```
