@@ -452,13 +452,34 @@ pr_all <- pr_week %>%
 
 get shaps
 ```{r load_shaps}
-shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds"))
-shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds"))
-shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds"))
+shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
 
-shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds"))
-shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
-shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds"))
+shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
 ```
 
 <!-- Consort Diagram: I think the powerpoint version looks a bit nicer so we can discuss if we want to keep this.-->
@@ -483,10 +504,10 @@ consort_plot(data = disposition,
 
 <!-- Single AUC figure by model-->  
 ```{r}
-fig_caption_auc <- "Receiver operating characterititic curves for models by prediction window."
+fig_caption_auc <- "Receiver Operating Characteristics curves for models."
 ```
 
-```{r fig.cap = fig_caption_auc, out.extra = "", fig.pos="h", warning = FALSE}
+```{r fig.cap = fig_caption_auc, out.extra = "", fig.pos="h"}
 
 roc_all %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
@@ -501,16 +522,18 @@ roc_all %>%
         axis.title = element_text(size = rel(1.75)))
 ```
 
-<!-- Supplemental:  AUC figures (100 folds separate by model)-->
-
-<!-- Supplemental: Paneled histograms separate by model--> 
 
 <!-- Single Posteriors for AUC by model with rope-->
 
 <!-- Table of auc, sen, spec, ppv, npv, accuracy, balanced accuracy by model-->
 
 <!-- PR curve by model-->
+
 ```{r}
+fig_caption_pr <- "Precision-Recall Curves for models."
+```
+
+```{r fig.cap = fig_caption_pr, out.extra = "", fig.pos="h"}
 pr_all %>% 
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
@@ -521,12 +544,12 @@ pr_all %>%
 
 <!-- SHAP Importance figures separate by model  or same fig?-->
 
-
 ```{r}
-shap_grouped %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value) %>% 
+fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1week, out.extra = "", fig.pos="h"}
+shap_grouped_week %>% 
   mutate(group = factor(group),
          group = forcats::fct_inorder(group)) %>% 
   ggplot(mapping = aes(x = group, y = mean_value)) +
@@ -534,11 +557,155 @@ shap_grouped %>%
   geom_segment(aes(x = group, y = mean_value, xend = group), 
                yend = 0, colour = "grey50")  +
   ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+```{r}
+fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1day, out.extra = "", fig.pos="h"}
+shap_grouped_day %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+```{r}
+fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1day, out.extra = "", fig.pos="h"}
+shap_grouped_hour %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
   coord_flip()
 ```
 
 
 ## Supplemental Figures
+
+<!-- Supplemental:  AUC figures (100 folds separate by model)-->
+
+<!-- Supplemental: Paneled histograms separate by model--> 
+```{r}
+fig_caption_hist_1week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1week Model."
+```
+
+```{r fig.cap = fig_caption_hist_1week, out.extra = "", fig.pos="h"}
+preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+```{r}
+fig_caption_hist_1day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1day Model."
+```
+
+```{r fig.cap = fig_caption_hist_1day, out.extra = "", fig.pos="h"}
+preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+```{r}
+fig_caption_hist_1hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1hour Model."
+```
+
+```{r fig.cap = fig_caption_hist_1hour, out.extra = "", fig.pos="h"}
+preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+<!-- Supplemental: SHAP Values for Raw Features--> 
+```{r}
+fig_caption_shapraw_1week <- "Variable Importance (SHAP Values) for 1week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1week, out.extra = "", fig.pos="h"}
+shap_raw_week %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+```{r}
+fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1hour, out.extra = "", fig.pos="h"}
+shap_raw_day %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+```{r}
+fig_caption_shapraw_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1hour, out.extra = "", fig.pos="h"}
+shap_raw_hour %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
 
 
 # Discussion
