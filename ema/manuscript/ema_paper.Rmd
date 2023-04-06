@@ -7,9 +7,7 @@ author:
     affiliation   : "1"
   - name          : "A2"
     affiliation   : "1"
-  - name          : "A3"
-    affiliation   : "1"
-  - name          : "A4"
+  - name          : "Gaylen E. Fronk"
     affiliation   : "1"
   - name          : "John J. Curtin"
     affiliation   : "1"
@@ -102,11 +100,82 @@ switch (Sys.info()[['sysname']],
 ```
 
 ```{r}
+# Table data
 disposition <- read_csv(here(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
 screen <- read_csv(here(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 ```
 
+```{r load_preds}
+# Predictions data
+preds_week<- readRDS(here(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(here(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(here(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+pr_week <- preds_week %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+pr_day <- preds_day %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+pr_hour <- preds_hour%>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+pr_all <- pr_week %>% 
+  bind_rows(pr_day) %>% 
+  bind_rows(pr_hour)
+```
+
+```{r load_shaps}
+# SHAPS data
+shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+
+shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+```
 
 # Introduction
 
@@ -411,78 +480,8 @@ auh %>%
 
 ## Figures
 
-Get predictions
-```{r load_preds}
-preds_week<- readRDS(here(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(here(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(here(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
-roc_week <- preds_week %>% 
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1week")
-
-roc_day <- preds_day %>% 
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1day")
-
-roc_hour <- preds_hour%>% 
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1hour")
-
-roc_all <- roc_week %>% 
-  bind_rows(roc_day) %>% 
-  bind_rows(roc_hour)
-
-pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1week")
-
-pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1day")
-
-pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1hour")
-
-pr_all <- pr_week %>% 
-  bind_rows(pr_day) %>% 
-  bind_rows(pr_hour)
-```
-
-get shaps
-```{r load_shaps}
-shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-
-shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
-shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
-shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
-```
-
-<!-- Consort Diagram: I think the powerpoint version looks a bit nicer so we can discuss if we want to keep this.-->
+<!-- Consort Diagram: I think the powerpoint version looks a bit nicer than this.-->
 ```{r fig.width=10, fig.height=8}
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
@@ -522,13 +521,26 @@ roc_all %>%
         axis.title = element_text(size = rel(1.75)))
 ```
 
-
 <!-- Single Posteriors for AUC by model with rope-->
+
+
+
+
+
+
+
+
 
 <!-- Table of auc, sen, spec, ppv, npv, accuracy, balanced accuracy by model-->
 
-<!-- PR curve by model-->
 
+
+
+
+
+
+
+<!-- PR curve by model-->
 ```{r}
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
@@ -543,7 +555,6 @@ pr_all %>%
 ```
 
 <!-- SHAP Importance figures separate by model  or same fig?-->
-
 ```{r}
 fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
@@ -599,6 +610,11 @@ shap_grouped_hour %>%
 ## Supplemental Figures
 
 <!-- Supplemental:  AUC figures (100 folds separate by model)-->
+
+
+
+
+
 
 <!-- Supplemental: Paneled histograms separate by model--> 
 ```{r}
