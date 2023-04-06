@@ -305,8 +305,7 @@ predictor <- function(model, x){
 
 #### Permutation Feature Importance
 
-
-```{r imp_permute}
+```{r calc_perm}
 if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
@@ -348,7 +347,7 @@ if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_",
 #                                   ".rds")))
 ```
 
-```{r}
+```{r perm_plot}
 imp_perm %>%   
   mutate(importance = metric_median) %>% 
   arrange(abs(importance)) %>% 
@@ -405,7 +404,7 @@ imp_perm %>%
 ```
   
   
-```{r}
+```{r calc_shaps}
 if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
@@ -484,7 +483,7 @@ if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_",
 ```
 
 Global importance Shap plot for raw features
-```{r}
+```{r shap_raw_plot}
 shap_raw %>% 
   group_by(variable) %>% 
   slice(1) %>%   # mean for each variable is same for all rows for that variable
@@ -505,7 +504,7 @@ shap_raw %>%
 ```
 
 Global importance Shap plot for grouped features
-```{r}
+```{r shap_grouped_plot}
 shap_grouped %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
