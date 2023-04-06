@@ -119,36 +119,36 @@ metrics_raw <-
 
 #### Review best performing model configuration 
 
-```{r best_model_info_kfold_and_boot}
-if (cv == "kfold" | cv == "boot") {
-  # Average metrics across folds for each configuration
-  metrics_avg <- metrics_raw %>% 
-    group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>%
-     summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                       mean),
-                n_jobs = n(), .groups = "drop") %>%
-     relocate(n_jobs)
+```{r best_model_info_kfold}
 
-  # Best AUC for algorithms x feature sets X resample
-  # ie best set of hps for algo
-  metrics_avg %>% 
-    group_by(algorithm, feature_set, resample) %>% 
-    arrange(desc(roc_auc)) %>% 
-    slice(1) %>% 
-    ungroup %>% 
-    arrange(desc(roc_auc)) %>% 
-    print_kbl()
-}
+# Average metrics across folds for each configuration
+metrics_avg <- metrics_raw %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>%
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     mean),
+              n_jobs = n(), .groups = "drop") %>%
+   relocate(n_jobs)
 
-if (cv == "kfold" | cv == "boot") {
- config_best <- metrics_avg %>% 
-    arrange(desc(roc_auc)) %>% 
-    slice(1) %>% 
-    glimpse()
+# Best AUC for algorithms x feature sets X resample
+# ie best set of hps for algo
+metrics_avg %>% 
+  group_by(algorithm, feature_set, resample) %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  ungroup %>% 
+  arrange(desc(roc_auc)) %>% 
+  print_kbl()
 
-  algorithm_best <- config_best %>% 
-    pull(algorithm)
-}
+
+
+config_best <- metrics_avg %>% 
+  arrange(desc(roc_auc)) %>% 
+  slice(1) %>% 
+  glimpse()
+
+algorithm_best <- config_best %>% 
+  pull(algorithm)
+
 ```
 
 
@@ -156,100 +156,95 @@ if (cv == "kfold" | cv == "boot") {
 
 Fit or Read metrics for best model configuration
 Replicates resampling metrics for best configuration using characteristics specified in study's training controls  
-```{r resample_best_config_kfold_and_boot}
-if (cv == "kfold" | cv == "boot") {
-  path_best <- here(path_input, 
-                    str_c("train_", data_type, "_", window, "_", lead, "_", 
-                          version, "_", algorithm_best, "_", cv), "input")   
-  source(here(path_best, "training_controls.R"))
+```{r resample_best_config_kfold}
 
-  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-  if (length(chunks) == 2) {
-    fn <- str_c("data_trn.", chunks[[2]])
+path_best <- here(path_input, 
+                  str_c("train_", data_type, "_", window, "_", lead, "_", 
+                        version, "_", algorithm_best, "_", cv), "input")   
+source(here(path_best, "training_controls.R"))
+
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
+} else {
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+}
+
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(here(path_best, fn))
+}
+
+d <- d %>% 
+  rename(y = {{y_col_name}})
+  
+# build recipe
+rec <- build_recipe(d = d, job = config_best)
+
+# create splits
+set.seed(102030)
+
+# Old versions of training controls need variables to be updated to work with make_splits
+# Assumes old training controls are grouped kfold since nested has only been done with updated workflow
+if (!exists("cv_resample_type")) {
+  cv_resample_type <- cv
+  cv_group <- group
+  cv_resample <- str_split(cv_type, "kfold_")[[1]][2]
+  cv_outer_resample <- NA
+  cv_inner_resample <- NA
+}
+
+# splits <- d %>% 
+#   make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+#               cv_inner_resample, cv_group)
+
+# Redo resampling with 10x 10-fold rather than original strategy
+splits <- d %>% 
+  make_splits(cv_resample_type = "kfold", cv_resample = "10_x_10", 
+              cv_outer_resample = NULL, cv_inner_resample = NULL, 
+              cv_group = "subid")
+
+# resample best model config
+plan(multisession, workers = n_core)
+fits_best <- eval_best_model(config_best = config_best, rec = rec, 
+                             splits = splits, ml_mode = ml_mode)
+plan(sequential) 
+
+# pull out metrics for each fold  
+metrics_best <- fits_best[[1]] 
+
+# pull out predictions with label_num
+num_fits_best_splits <- length(fits_best[[3]]$splits)
+
+for (i in 1:num_fits_best_splits) {
+  
+  # pull out preds
+  preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
+    select(label_num = .row,
+           truth = y,
+           estimate = .pred_class,
+           prob = .pred_yes) %>% 
+    # update factor labels back to lapse/no_lapse
+    mutate(truth = if_else(truth == "yes", "lapse", "no_lapse"),
+           truth = factor(truth, levels = c("lapse", "no_lapse")),
+           estimate = if_else(estimate == "yes", "lapse", "no_lapse"),
+           estimate = factor(estimate, levels = c("lapse", "no_lapse")),
+           split_num = i)
+  
+  # join with other splits
+  if (i == 1) {
+    preds_best <- preds_tmp
   } else {
-    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-  }
-
-  # open based on file type
-  if (str_detect(fn, "csv")) {
-    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
-  } else {
-    d <- readRDS(here(path_best, fn))
-  }
-
-  d <- d %>% 
-    rename(y = {{y_col_name}})
-    
-  # build recipe
-  rec <- build_recipe(d = d, job = config_best)
-  
-  # create splits
-  set.seed(102030)
-  
-  # Old versions of training controls need variables to be updated to work with make_splits
-  # Assumes old training controls are grouped kfold since nested has only been done with updated workflow
-  if (!exists("cv_resample_type")) {
-    cv_resample_type <- cv
-    cv_group <- group
-    cv_resample <- str_split(cv_type, "kfold_")[[1]][2]
-    cv_outer_resample <- NA
-    cv_inner_resample <- NA
-  }
-  
-  # splits <- d %>% 
-  #   make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
-  #               cv_inner_resample, cv_group)
-  
-  # Redo resampling with 10x 10-fold rather than original strategy
-  splits <- d %>% 
-    make_splits(cv_resample_type = "kfold", cv_resample = "10_x_10", 
-                cv_outer_resample = NULL, cv_inner_resample = NULL, 
-                cv_group = "subid")
-  
-  # resample best model config
-  plan(multisession, workers = n_core)
-  fits_best <- eval_best_model(config_best = config_best, rec = rec, 
-                               splits = splits, ml_mode = ml_mode)
-  plan(sequential) 
-  
-  # pull out metrics for each fold  
-  metrics_best <- fits_best[[1]] 
-  
-  # pull out predictions with label_num
-  num_fits_best_splits <- length(fits_best[[3]]$splits)
-  
-  for (i in 1:num_fits_best_splits) {
-    
-    # pull out preds
-    preds_tmp <- fits_best[[3]]$.predictions[[i]] %>% 
-      select(label_num = .row,
-             truth = y,
-             estimate = .pred_class,
-             prob = .pred_yes) %>% 
-      # update factor labels back to lapse/no_lapse
-      mutate(truth = if_else(truth == "yes", "lapse", "no_lapse"),
-             truth = factor(truth, levels = c("lapse", "no_lapse")),
-             estimate = if_else(estimate == "yes", "lapse", "no_lapse"),
-             estimate = factor(estimate, levels = c("lapse", "no_lapse")),
-             split_num = i)
-    
-    # join with other splits
-    if (i == 1) {
-      preds_best <- preds_tmp
-    } else {
-      preds_best <- preds_best %>% 
-        rbind(preds_tmp)
-    }
+    preds_best <- preds_best %>% 
+      rbind(preds_tmp)
   }
 }
 ```
 
 ####  Check preds 
 ```{r}
-if (nrow(d) == nrow(preds_best)) {
-    message("Number of predictions = Number of rows in data set. Correct!")
-} else warning("Number of predictions != Number of rows in data set!")
-  
 preds_best %>% 
   glimpse()
 
@@ -259,9 +254,6 @@ preds_per_label <- preds_best %>%
   pull(n) %>% 
   max()
  
- if (preds_per_label > 1) {
-   stop("More than one prediction per label number")
- } else message(preds_per_label, " prediction per label num. Correct!")
 ```
 
 #### Fit best final model in all data
