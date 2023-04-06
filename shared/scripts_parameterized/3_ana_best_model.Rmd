@@ -17,12 +17,10 @@ params:
 
 ### Code Status
 
-in development
+In use with iterative improvement
 
 ### Notes
-This is a generic script that reproduces the CV metrics for the best model configuration,
-calculates various performance metrics from that resampling, makes plots,
-and then fits the best config to the final sample to do feature importance.
+This is a generic script that reproduces the CV metrics for the best model configuration, calculates various performance metrics from that resampling, makes plots, and then fits the best config to the final sample to do feature importance.
 
 This script is called by various studies, passing in the data_type, window, lead, and version.
 
@@ -94,7 +92,7 @@ options(tibble.print_max = Inf)
 
 
 Source training controls 
-```{r}
+```{r source}
 # EDA
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
 
@@ -109,7 +107,7 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R
 
 ### Read in preds and metrics for best model
 
-```{r}
+```{r load_preds_metrics}
 preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
                                               "_", cv, ".rds")))
 metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
@@ -193,7 +191,7 @@ preds_best %>%
 Here is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
-How about bayesian posterior for AUC instead?
+How about Bayesian posterior for AUC instead?
 ```{r roc_info}
 preds_best %>%
   roc_auc(prob, truth = truth)
@@ -234,6 +232,9 @@ pr_data %>%
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Recall (Sensitivity)",
        y = "Precision (PPV)")
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 
@@ -296,7 +297,6 @@ y <- features_test %>% pull(y)
 
 make  predictor function that returns lapse (yes) probabilities
 ```{r}
-
 predictor <- function(model, x){
   predict(model, x, type = "prob") %>% 
     pull(.pred_yes)
@@ -360,6 +360,9 @@ imp_perm %>%
                yend = 0, colour = "grey50")  +
   ylab("Variable Importance (AUC difference") +
   coord_flip()
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 
@@ -456,8 +459,10 @@ if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_",
            group = if_else(str_detect(group, "ema_5"), "past pleasant event", group),
            group = if_else(str_detect(group, "ema_6"), "valence", group),
            group = if_else(str_detect(group, "ema_7"), "arousal", group),
-           group = if_else(str_detect(group, "ema_8"), "future risky situation", group),
-           group = if_else(str_detect(group, "ema_9"), "future stressful event", group),
+           group = if_else(str_detect(group, "ema_8"), "future risky situation",
+                           group),
+           group = if_else(str_detect(group, "ema_9"), "future stressful event",
+                           group),
            group = if_else(str_detect(group, "ema_10"), "future efficacy", group),
            group = if_else(str_detect(group, "count.ema"), "missing surveys", group),
            group = if_else(str_detect(group, "day"), "lapse day", group),
@@ -494,6 +499,9 @@ shap_raw %>%
                yend = 0, colour = "grey50")  +
   ylab("Mean SHAP value") +
   coord_flip()
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 Global importance Shap plot for grouped features
@@ -510,7 +518,9 @@ shap_grouped %>%
                yend = 0, colour = "grey50")  +
   ylab("Mean |SHAP| value") +
   coord_flip()
-  
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 
 # shaps <- shap.values(xgb_model = extract_fit_engine(model_fit_best),
 #                      X_train = x %>% as.matrix())
