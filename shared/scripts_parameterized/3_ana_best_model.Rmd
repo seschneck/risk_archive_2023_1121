@@ -137,9 +137,6 @@ Confusion matrix using .5 threshold
 (cm <- preds_best %>% 
   conf_mat(truth, estimate))
 
-rownames(cm$table) <- c("No lapse", "Lapse")
-colnames(cm$table) <- c("No lapse", "Lapse")
-
 cm %>% 
   autoplot() +
   theme(axis.text = element_text(size = rel(1.50)), 
@@ -242,15 +239,10 @@ pr_data %>%
 
 Read in best model fit (chosen with kfold)
 ```{r load_best_model}
-# Add check that file exists
-if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 
-                                        window, "_", lead, "_", version, ".rds")))) {
-  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", 
+model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", 
                                                     data_type, "_", window, "_", 
                                                     lead, "_", version, ".rds")))
-  } else {
-  stop("Feature importance skipped.  No best model detected")
-}
+
 ```
 
 get data
@@ -310,7 +302,7 @@ if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_",
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   
-  message("Loadind previously computed Permutation Variable Importance")
+  message("Loading previously computed Permutation Variable Importance")
   imp_perm  <- readRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))
@@ -409,19 +401,6 @@ if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_",
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   
-  #gsub(",", ", ", .x)
-  # `variable = fct_relabel(variable, ~str_replace(variable, ".l0", ""))`
-#   convert_income <- function(x) {
-#   regex <- "^(?:Lt |)[$]([0-9]+).*$"
-#   is_range <- grepl(regex, x)
-#   num_income <- as.numeric(gsub(regex, "\\1", x[is_range]))
-#   num_income <- trunc(num_income / 5000) * 5000
-#   x[is_range] <- paste0("Gt $", num_income)
-#   x
-# }
-#   
-  # rincome2 <- fct_relabel(gss_cat$rincome, convert_income)
-  
   message("Loading previously calculated raw SHAPS")
   shap_raw <- readRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                               window, "_", lead, "_", version, 
@@ -432,10 +411,61 @@ if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_",
 shap_raw <- shap.prep(xgb_model = extract_fit_engine(model_fit_best),
                      X_train = x %>% as.matrix())
 
+clean_feature_names <- function(feat_name){
+  new_name <- gsub(".l0", "", feat_name)
+  new_name <- gsub("rratecount.count", "raw_count", new_name)
+  new_name <- gsub("dratecount.count", "diff_count", new_name)
+  new_name <- gsub("drecent_response", "diff_recent", new_name)
+  new_name <- gsub("rrecent_response", "raw_recent", new_name)
+  new_name <- gsub("dmin_response", "diff_min", new_name)
+  new_name <- gsub("rmin_response", "raw_min", new_name)
+  new_name <- gsub("dmax_response", "diff_max", new_name)
+  new_name <- gsub("rmax_response", "raw_max", new_name)
+  new_name <- gsub("dmedian_response", "diff_median", new_name)
+  new_name <- gsub("rmedian_response", "raw_median", new_name)
+  new_name <- gsub("label_", "", new_name)
+  new_name <- gsub("demo_", "", new_name)
+  new_name <- gsub("High.school.or.less", "high.school", new_name)
+  new_name <- gsub("Some.college", "some.college", new_name)
+  new_name <- gsub("Mon", "mon", new_name)
+  new_name <- gsub("Tue", "tue", new_name)
+  new_name <- gsub("Wed", "wed", new_name)
+  new_name <- gsub("Thu", "thu", new_name)
+  new_name <- gsub("Fri", "fri", new_name)
+  new_name <- gsub("Sat", "sat", new_name)
+  new_name <- gsub("Sun", "sun", new_name)
+  new_name <- gsub("Never.Married", "never.married", new_name)
+  new_name <- gsub("Never.Other", "never.other", new_name)
+  new_name <- gsub("White.Caucasian", "caucasian", new_name)
+  new_name <- gsub("Male", "male", new_name)
+  new_name <- gsub("p12.raw_count.lapse", "lapse.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.lapse", "lapse.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.lapse", "lapse.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.lapse", "lapse.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.lapse", "lapse.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.lapse", "lapse.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.lapse", "lapse.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.lapse", "lapse.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.lapse", "lapse.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.lapse", "lapse.p168.diff_count", new_name)
+  new_name <- gsub("p12.raw_count.ema", "missing.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.ema", "missing.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.ema", "missing.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.ema", "missing.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.ema", "missing.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.ema", "missing.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.ema", "missing.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.ema", "missing.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.ema", "missing.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.ema", "missing.p168.diff_count", new_name)
+  return(new_name) 
+}
+shap_raw <- shap_raw %>% 
+  mutate(variable = fct_relabel(variable, clean_feature_names))
+
 shap_raw %>% saveRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                               window, "_", lead, "_", version, 
                                               ".rds")))
-
 }
 
 if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_", 
