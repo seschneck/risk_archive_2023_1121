@@ -118,25 +118,6 @@ screen <- read_csv(here(path_data_shared, "screen.csv"), col_types = vroom::cols
 
 # Results
 
-<!-- Consort Diagram: I think the powerpoint version looks a bit nicer so we can discuss if we want to keep this.-->
-```{r fig.width=10, fig.height=8}
-consort_plot(data = disposition,
-             orders = c(eligible = "Eligible Sample",
-                        consented_reason = "Not Consented",
-                        consented = "Consented",
-                        enrolled_reason = "Not Enrolled",
-                        enrolled = "Enrolled",
-                        completed_followup_reason = "Discontinued",
-                        completed_followup = "Completed through Followup 1",
-                        analysis_reason = "Excluded",
-                        analysis = "Final Analysis"),
-             side_box = c("consented_reason", 
-                          "enrolled_reason", 
-                          "completed_followup_reason",
-                          "analysis_reason"),
-             cex = .9)
-```
-
 
 
 <!-- Demographics table-->
@@ -428,9 +409,10 @@ auh %>%
 
 
 
+## Figures
 
 Get predictions
-```{r}
+```{r load_preds}
 preds_week<- readRDS(here(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
 preds_day<- readRDS(here(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(here(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
@@ -468,6 +450,35 @@ pr_all <- pr_week %>%
   bind_rows(pr_hour)
 ```
 
+get shaps
+```{r load_shaps}
+shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds"))
+shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds"))
+shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds"))
+
+shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds"))
+shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds"))
+```
+
+<!-- Consort Diagram: I think the powerpoint version looks a bit nicer so we can discuss if we want to keep this.-->
+```{r fig.width=10, fig.height=8}
+consort_plot(data = disposition,
+             orders = c(eligible = "Eligible Sample",
+                        consented_reason = "Not Consented",
+                        consented = "Consented",
+                        enrolled_reason = "Not Enrolled",
+                        enrolled = "Enrolled",
+                        completed_followup_reason = "Discontinued",
+                        completed_followup = "Completed through Followup 1",
+                        analysis_reason = "Excluded",
+                        analysis = "Final Analysis"),
+             side_box = c("consented_reason", 
+                          "enrolled_reason", 
+                          "completed_followup_reason",
+                          "analysis_reason"),
+             cex = .9)
+```
 
 
 <!-- Single AUC figure by model-->  
@@ -509,6 +520,26 @@ pr_all %>%
 ```
 
 <!-- SHAP Importance figures separate by model  or same fig?-->
+
+
+```{r}
+shap_grouped %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value) %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  coord_flip()
+```
+
+
+## Supplemental Figures
+
 
 # Discussion
 
