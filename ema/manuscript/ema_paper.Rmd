@@ -64,18 +64,24 @@ csl: national-library-of-medicine-grant-proposals.csl
 ---
 
 ```{r setup, include = FALSE}
-library(here)
+# library(file.path)
 library(papaja)
-library(knitr)
-library(tidyverse)
-library(yardstick)
+# library(knitr)
+library(yardstick) # for roc_curve
 library(kableExtra)
 library(janitor)
 library(corx)
 library(patchwork)
 library(ggtext)
 library(consort)
+library(tidyverse)
+library(tidymodels)
+library(tidyposterior)
+```
 
+```{r}
+# settings
+theme_set(theme_classic()) 
 knitr::opts_chunk$set(echo = FALSE)
 options(knitr.kable.NA = '')
 ```
@@ -101,16 +107,20 @@ switch (Sys.info()[['sysname']],
 
 ```{r}
 # Table data
-disposition <- read_csv(here(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
-screen <- read_csv(here(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 ```
 
 ```{r load_preds}
 # Predictions data
-preds_week<- readRDS(here(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(here(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(here(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+
+pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
+pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
+pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
 
 roc_week <- preds_week %>% 
   roc_curve(prob, truth = truth) %>% 
@@ -147,31 +157,31 @@ pr_all <- pr_week %>%
 
 ```{r load_shaps}
 # SHAPS data
-shap_raw_week <- readRDS(here(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
   group_by(variable) %>% 
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
-shap_raw_day <- readRDS(here(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
   group_by(variable) %>% 
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
-shap_raw_hour <- readRDS(here(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
   group_by(variable) %>% 
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
 
-shap_grouped_week <- readRDS(here(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_day <- readRDS(here(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_hour <- readRDS(here(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -278,7 +288,6 @@ dem %>%
 ```
 
 <!-- Alcohol Use History table-->
-
 ```{r}
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
@@ -509,6 +518,7 @@ fig_caption_auc <- "Receiver Operating Characteristics curves for models."
 ```{r fig.cap = fig_caption_auc, out.extra = "", fig.pos="h"}
 
 roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
   geom_path() +
   geom_abline(lty = 3) +
@@ -522,9 +532,42 @@ roc_all %>%
 ```
 
 <!-- Single Posteriors for AUC by model with rope-->
+```{r}
+fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95% credibal intervals for each model.  Verical line represents mean of the posteerior distribution."
+```
 
 
+```{r fig.cap = fig_caption_pp, out.extra = "", fig.pos="h"}
+pp_tidy_week <- pp_week %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1week")
+pp_tidy_day <- pp_day %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1day")
+pp_tidy_hour <- pp_hour %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1hour")
 
+ci <- pp_tidy_week %>% summary() %>% mutate(model = "1week", y = 3000) %>% 
+  bind_rows(pp_tidy_day %>% summary() %>% mutate(model = "1day", y = 3000)) %>% 
+  bind_rows(pp_tidy_hour %>% summary() %>% mutate(model = "1hour", y = 3000)) %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour")))
+
+pp_tidy_week %>% 
+  bind_rows(pp_tidy_day) %>% 
+  bind_rows(pp_tidy_hour) %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4) +
+  geom_segment(mapping = aes(y = y+500, yend = y-500, x = mean, xend = mean, 
+                           color = model), 
+               data = ci) + 
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+                data = ci) +
+  facet_wrap(~model, ncol = 1) +
+  ylab("Posterior Probability Density") +
+  xlab("Area Under ROC Curve")
+```
 
 
 
@@ -757,7 +800,7 @@ fig_caption_1 <- "Flowchart of participant retention over the course of the 3-mo
 ```
 
 ```{r figure-1, fig.cap = fig_caption_1, out.extra = "", fig.pos="h", warning = FALSE}
-include_graphics(here("burden/manuscript/submission_2/figs/fig_disposition.jpg"), dpi = 150)
+include_graphics(file.path("burden/manuscript/submission_2/figs/fig_disposition.jpg"), dpi = 150)
 ```
 
 \newpage
