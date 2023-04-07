@@ -66,7 +66,7 @@ csl: national-library-of-medicine-grant-proposals.csl
 ```{r setup, include = FALSE}
 # library(file.path)
 library(papaja)
-# library(knitr)
+library(knitr)
 library(yardstick) # for roc_curve
 library(kableExtra)
 library(janitor)
@@ -82,7 +82,7 @@ library(tidyposterior)
 ```{r}
 # settings
 theme_set(theme_classic()) 
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache=TRUE)
 options(knitr.kable.NA = '')
 ```
 
@@ -270,12 +270,13 @@ dem <- screen %>%
 
 # display and format table
 dem %>% 
-  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+  kbl(longtable = TRUE,
+      booktabs = TRUE,
+      col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
       digits = 1,
       align = c("l", "c", "c", "c", "c"),
       caption = "<b>Table 1<br><br>Demographics</b>",
-      table.attr = "style='width:60%;'",
-      escape = FALSE) %>% 
+      table.attr = "style='width:60%;'") %>% 
   row_spec(row = 0, align = "c") %>% 
   kable_classic(html_font = "Times New Roman", position = "left") %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
@@ -470,12 +471,13 @@ auh <- screen %>%
 
 # display and format table
 auh %>%
-  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+  kbl(longtable = TRUE,
+      booktabs = TRUE,
+      col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
       digits = 1,
       align = c("l", "c", "c", "c", "c"),
       caption = "<b>Table 2<br><br>Alcohol Related Information</b>",
-      table.attr = "style='width:70%;'",
-      escape = FALSE) %>% 
+      table.attr = "style='width:70%;'") %>% 
   row_spec(row = 0, align = "c") %>% 
   kable_classic(html_font = "Times New Roman", position = "left") %>% 
   pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>% 
@@ -734,7 +736,7 @@ shap_raw_week %>%
 fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig.cap = fig_caption_shapraw_1hour, out.extra = "", fig.pos="h"}
+```{r fig.cap = fig_caption_shapraw_1day, out.extra = "", fig.pos="h"}
 shap_raw_day %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
@@ -800,7 +802,7 @@ fig_caption_1 <- "Flowchart of participant retention over the course of the 3-mo
 ```
 
 ```{r figure-1, fig.cap = fig_caption_1, out.extra = "", fig.pos="h", warning = FALSE}
-include_graphics(file.path("burden/manuscript/submission_2/figs/fig_disposition.jpg"), dpi = 150)
+# include_graphics(file.path("burden/manuscript/submission_2/figs/fig_disposition.jpg"), dpi = 150)
 ```
 
 \newpage
