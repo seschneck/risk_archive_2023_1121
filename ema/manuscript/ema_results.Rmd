@@ -15,3 +15,766 @@ knit: (function(input, ...) {
   })
 ---
 
+```{r u9-setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+
+```{r setup, include = FALSE}
+# library(file.path)
+library(papaja)
+# library(knitr)
+library(yardstick) # for roc_curve
+library(kableExtra)
+library(janitor)
+library(corx)
+library(patchwork)
+library(ggtext)
+library(consort)
+library(tidyverse)
+library(tidymodels)
+library(tidyposterior)
+```
+
+```{r, include = FALSE}
+# settings
+theme_set(theme_classic()) 
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.kable.NA = '')
+```
+
+```{r absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_models <- "P:/studydata/risk/models/ema"
+          path_data_shared <- "P:/studydata/risk/data_processed/shared"
+          path_data_ema <- "P:/studydata/risk/data_processed/ema"},
+        # IOS paths
+        Darwin = {
+          path_models <- "/Volumes/private/studydata/risk/models/ema"
+          path_data_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_data_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+       )
+```
+
+
+```{r}
+# Table data
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
+```
+
+```{r load_preds}
+# Predictions data
+preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+
+pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
+pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
+pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
+
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+pr_week <- preds_week %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+pr_day <- preds_day %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+pr_hour <- preds_hour%>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+pr_all <- pr_week %>% 
+  bind_rows(pr_day) %>% 
+  bind_rows(pr_hour)
+```
+
+```{r load_shaps}
+# SHAPS data
+shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   
+  ungroup() %>% 
+  arrange(mean_value)
+
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+```
+
+# Results
+
+## Tables
+
+### Demographic Table
+<!-- Demographics table-->
+```{r}
+dem <- screen %>% 
+  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  select(var = dem_2) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_3) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_4) %>% 
+  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_5) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_6, dem_6_1) %>% 
+  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
+                         dem_6_1 == "Part-time" ~ "Employed part-time",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Employed full-time", "Employed part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  summarise(mean = as.character(round(mean(dem_7, na.rm = TRUE), 0)),
+            SD = as.character(round(sd(dem_7, na.rm = TRUE), 0))) %>% 
+  mutate(var = "Income",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  select(var = dem_8) %>% 
+  mutate(var = case_when(var == "Never Married" ~ "Never married",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+# display and format table
+dem %>% 
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 1<br><br>Demographics</b>",
+      table.attr = "style='width:60%;'",
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>% 
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>% 
+  pack_rows("Education", 11, 16, bold = FALSE) %>% 
+  pack_rows("Employment", 17, 25, bold = FALSE) %>% 
+  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
+### Alcohol Use History Table
+<!-- Alcohol Use History table-->
+```{r}
+auh <- screen %>% 
+  summarise(mean = mean(auh_1, na.rm = TRUE),
+            SD = sd(auh_1, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_2, na.rm = TRUE),
+            SD = sd(auh_2, na.rm = TRUE)) %>% 
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_3, na.rm = TRUE),
+            SD = sd(auh_3, na.rm = TRUE)) %>% 
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_4, na.rm = TRUE),
+            SD = sd(auh_4, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_5, na.rm = TRUE),
+            SD = sd(auh_5, na.rm = TRUE)) %>% 
+  mutate(var = "Number of Quit Attempts",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_1) %>%
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ mos.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_2) %>%
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 mos.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_3) %>%
+  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_4) %>%
+  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_5) %>%
+  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_6) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_7) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_7) %>% 
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  rowwise() %>% 
+  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
+  ungroup() %>% 
+  summarise(mean = mean(dsm5_total),
+            SD = sd(dsm5_total)) %>% 
+  mutate(var = "AUD DSM-5 Symptom Count*",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_1) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_2) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_3) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Cocaine (coke, crack, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_4) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_5) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_6) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_7) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_1_8) %>%
+  filter(var == "Yes") %>% 
+  mutate(var = case_when(var == "Yes" ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) 
+
+# display and format table
+auh %>%
+  kbl(col.names = c("", "<i>n</i>", "%", "<i>M</i>", "<i>SD</i>"),
+      digits = 1,
+      align = c("l", "c", "c", "c", "c"),
+      caption = "<b>Table 2<br><br>Alcohol Related Information</b>",
+      table.attr = "style='width:70%;'",
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>% 
+  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>% 
+  pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>% 
+  pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>% 
+  footnote("N = 151")
+```
+
+### Performance Metrics by Model Table
+<!--Table of performance metrics by model-->
+
+```{r}
+metrics_week <- preds_week %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(week = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics_day <- preds_day %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(day = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics_hour <- preds_hour %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(hour = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics <- metrics_week %>% 
+  full_join(metrics_day, by = "metric") %>% 
+  full_join(metrics_hour, by = "metric") %>% 
+  filter(metric %in% c("accuracy", "sens", "spec", "ppv", "npv"))
+
+auc <- tibble(metric = "auc", 
+              week = preds_week %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3), 
+              day = preds_day %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3),
+              hour = preds_week %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3))
+
+metrics <- metrics %>% 
+  bind_rows(auc)
+
+metrics <- metrics[c(6,1,2,3,4,5),]
+
+metrics %>%
+  kbl(col.names = c("metric", "week", "day", "hour"),
+      digits =3,
+      align = c("l", "c", "c", "c"),
+      caption = "<b>Table 3<br><br>Performance Metrics by Model</b>",
+      table.attr = "style='width:70%;'",
+      escape = FALSE) %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+  footnote("auc = area under receiver operating characteristic curve; sens = sensitivity; spec = specificity; ppv = positive predictive value; npv = negative predictive value")
+
+```
+
+
+## Figures
+
+### Consort Diagram
+<!-- Consort Diagram: I think the powerpoint version looks a bit nicer than this.-->
+```{r fig.width=10, fig.height=8}
+consort_plot(data = disposition,
+             orders = c(eligible = "Eligible Sample",
+                        consented_reason = "Not Consented",
+                        consented = "Consented",
+                        enrolled_reason = "Not Enrolled",
+                        enrolled = "Enrolled",
+                        completed_followup_reason = "Discontinued",
+                        completed_followup = "Completed through Followup 1",
+                        analysis_reason = "Excluded",
+                        analysis = "Final Analysis"),
+             side_box = c("consented_reason", 
+                          "enrolled_reason", 
+                          "completed_followup_reason",
+                          "analysis_reason"),
+             cex = .9)
+```
+
+
+### ROC Curve by Model
+<!-- Single AUC figure by model-->  
+```{r}
+fig_caption_auc <- "Receiver Operating Characteristics curves for models."
+```
+
+```{r fig.cap = fig_caption_auc, out.extra = "", fig.pos="h"}
+
+roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+```
+
+
+### Posterior Distributions for AUC by Model
+<!-- Single Posteriors for AUC by model with rope-->
+```{r}
+fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95% credibal intervals for each model.  Verical line represents mean of the posteerior distribution."
+```
+
+
+```{r fig.cap = fig_caption_pp, out.extra = "", fig.pos="h"}
+pp_tidy_week <- pp_week %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1week")
+pp_tidy_day <- pp_day %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1day")
+pp_tidy_hour <- pp_hour %>% 
+  tidy(seed = 123) %>% 
+  mutate(model = "1hour")
+
+ci <- pp_tidy_week %>% summary() %>% mutate(model = "1week", y = 3000) %>% 
+  bind_rows(pp_tidy_day %>% summary() %>% mutate(model = "1day", y = 3000)) %>% 
+  bind_rows(pp_tidy_hour %>% summary() %>% mutate(model = "1hour", y = 3000)) %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour")))
+
+pp_tidy_week %>% 
+  bind_rows(pp_tidy_day) %>% 
+  bind_rows(pp_tidy_hour) %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4) +
+  geom_segment(mapping = aes(y = y+500, yend = y-500, x = mean, xend = mean, 
+                           color = model), 
+               data = ci) + 
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+                data = ci) +
+  facet_wrap(~model, ncol = 1) +
+  ylab("Posterior Probability Density") +
+  xlab("Area Under ROC Curve")
+```
+
+
+### PR Curve by Model
+
+<!-- PR curve by model-->
+```{r}
+fig_caption_pr <- "Precision-Recall Curves for models."
+```
+
+```{r fig.cap = fig_caption_pr, out.extra = "", fig.pos="h"}
+pr_all %>% 
+  ggplot(aes(x = recall, y = precision, color = model)) +
+  geom_path() +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)")
+```
+
+### SHAP for Grouped Features for 1week Model
+<!-- SHAP Importance figures separate by model  or same fig?-->
+```{r}
+fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1week, out.extra = "", fig.pos="h"}
+shap_grouped_week %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+### SHAP for Grouped Features for 1day Model
+```{r}
+fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1day, out.extra = "", fig.pos="h"}
+shap_grouped_day %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+### SHAP for Grouped Features for 1hour Model
+
+```{r}
+fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_1day, out.extra = "", fig.pos="h"}
+shap_grouped_hour %>% 
+  mutate(group = factor(group),
+         group = forcats::fct_inorder(group)) %>% 
+  ggplot(mapping = aes(x = group, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = group, y = mean_value, xend = group), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+
+
+## Supplemental Figures
+
+### ROC curves for all folds
+
+
+### Histogram of all fold AUCs
+
+### Paneled Histograms for Predicted Probability for 1week model
+
+<!-- Supplemental: Paneled histograms separate by model--> 
+```{r}
+fig_caption_hist_1week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1week Model."
+```
+
+```{r fig.cap = fig_caption_hist_1week, out.extra = "", fig.pos="h"}
+preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+
+### Paneled Histograms for Predicted Probability for 1day model
+
+```{r}
+fig_caption_hist_1day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1day Model."
+```
+
+```{r fig.cap = fig_caption_hist_1day, out.extra = "", fig.pos="h"}
+preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+
+### Paneled Histograms for Predicted Probability for 1hour model
+```{r}
+fig_caption_hist_1hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1hour Model."
+```
+
+```{r fig.cap = fig_caption_hist_1hour, out.extra = "", fig.pos="h"}
+preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+### SHAP for Raw Features for 1week Model
+<!-- Supplemental: SHAP Values for Raw Features--> 
+```{r}
+fig_caption_shapraw_1week <- "Variable Importance (SHAP Values) for 1week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1week, out.extra = "", fig.pos="h"}
+shap_raw_week %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+### SHAP for Raw Features for 1day Model
+
+```{r}
+fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1day, out.extra = "", fig.pos="h"}
+shap_raw_day %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+### SHAP for Raw Features for 1hour Model
+
+```{r}
+fig_caption_shapraw_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+```
+
+```{r fig.cap = fig_caption_shapraw_1hour, out.extra = "", fig.pos="h"}
+shap_raw_hour %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
