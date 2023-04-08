@@ -58,17 +58,20 @@ switch (Sys.info()[['sysname']],
        )
 ```
 
-```{r load_preds}
+```{r load_model_data}
+# AUCs for 10x10 folds data
+auc_folds_week<- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds"))
+auc_folds_day<- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_kfold.rds"))
+auc_folds_hour<- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) 
+
 # Predictions data
 preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
 preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
-pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
-pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
-pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
 
-roc_week <- preds_week %>% 
+roc_week <- preds_week %>%
+  nest(.by = split_num)
   roc_curve(prob, truth = truth) %>% 
   mutate(model = "1week")
 
@@ -88,21 +91,7 @@ pr_week <- preds_week %>%
   pr_curve(prob, truth = truth) %>% 
   mutate(model = "1week")
 
-pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1day")
-
-pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1hour")
-
-pr_all <- pr_week %>% 
-  bind_rows(pr_day) %>% 
-  bind_rows(pr_hour)
-```
-
-```{r load_shaps}
-# SHAPS data
+#raw SHAPs
 shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
   group_by(variable) %>% 
   slice(1) %>%   
@@ -118,19 +107,6 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
-
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
-shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
 ```
 
 <!-- Supplemental:  AUC figures (100 folds separate by model)-->
@@ -145,19 +121,29 @@ shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_
 <!-- Supplemental:  Histogram of all fold AUCs-->
 
 
+```{r caption_auc_folds}
+fig_caption_auc_folds <- "Area under ROC Curve across Folds by Model.  The area under the receiver operating characteristic curve for each model (week, day, and hour) was evaluated using 10 repeats of 10-fold cross-validation.  This histogram displays the AUC observed for these models in the 100 held-out folds."
+```
 
+```{r fig_auc_folds, fig.cap = fig_caption_hist_1week, fig.height=7 }
+auc_folds_week %>% mutate(model = "week") %>% 
+  bind_rows(auc_folds_day %>% mutate(model = "day")) %>% 
+  bind_rows(auc_folds_hour %>% mutate(model = "hour")) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc, fill = model), color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1) +
+  xlab("Area Under ROC Curve (per fold")
 
-
-
-
+```
 
 
 <!-- Supplemental: Paneled histograms separate by model--> 
-```{r}
+```{r caption_predictions_week}
 fig_caption_hist_1week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1week Model."
 ```
 
-```{r fig.cap = fig_caption_hist_1week, fig.height=7}
+```{r fig_predictions_week, fig.cap = fig_caption_hist_1week, fig.height=7}
 preds_week %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -170,11 +156,11 @@ preds_week %>%
         strip.text = element_text(size = rel(1.75)))
 ```
 
-```{r}
+```{r caption_predictions_day}
 fig_caption_hist_1day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1day Model."
 ```
 
-```{r fig.cap = fig_caption_hist_1day, fig.height=7}
+```{r fig_predictions_day, fig.cap = fig_caption_hist_1day, fig.height=7}
 preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -187,11 +173,11 @@ preds_day %>%
         strip.text = element_text(size = rel(1.75)))
 ```
 
-```{r}
+```{r caption_predictions_hour}
 fig_caption_hist_1hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1hour Model."
 ```
 
-```{r fig.cap = fig_caption_hist_1hour, fig.height=7}
+```{r fig_predictions_hour, fig.cap = fig_caption_hist_1hour, fig.height=7}
 preds_hour %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -206,11 +192,11 @@ preds_hour %>%
 
 
 <!-- Supplemental: SHAP Values for Raw Features--> 
-```{r}
+```{r caption_shap_week}
 fig_caption_shapraw_1week <- "Variable Importance (SHAP Values) for 1week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig.cap = fig_caption_shapraw_1week, fig.height=7}
+```{r fig_shap_week, fig.cap = fig_caption_shapraw_1week, fig.height=7}
 shap_raw_week %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
@@ -224,11 +210,11 @@ shap_raw_week %>%
   coord_flip()
 ```
 
-```{r}
+```{r caption_shap_day}
 fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig.cap = fig_caption_shapraw_1day, fig.height=7}
+```{r fig_shap_day, fig.cap = fig_caption_shapraw_1day, fig.height=7}
 shap_raw_day %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
@@ -242,11 +228,11 @@ shap_raw_day %>%
   coord_flip()
 ```
 
-```{r}
+```{r caption_shap_hour}
 fig_caption_shapraw_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig.cap = fig_caption_shapraw_1hour, fig.height=7}
+```{r fig_shap_hour, fig.cap = fig_caption_shapraw_1hour, fig.height=7}
 shap_raw_hour %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
