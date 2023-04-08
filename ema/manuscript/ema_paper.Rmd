@@ -15,6 +15,7 @@ header-includes:
 csl: "../../../../lab_support/rmd_templates/csl/national-library-of-medicine-grant-proposals.csl"
 geometry: margin=.5in
 fontsize: 11pt
+bibliography: paper_ema.bib
 ---
 
 ```{r, knitr_settings, include = FALSE}
@@ -236,9 +237,6 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 <!--Move to results: Across participants there were a total of 1029 unique lapses. There was variation in the frequency of lapses, ranging from 0-75 lapses per participant (M = 6.8, SD = 12.0). Only 56% of participants (N = 84) reported a lapse. However, this was expected since our participants all had a goal of abstinence from alcohol.-->
 
 <!--Citation for ROC cutoffs - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
-
-
-## Tables
 
 
 <!-- Demographics table-->
@@ -589,14 +587,13 @@ metrics %>%
 
 \newpage
 
-## Figures
 
+<!-- Consort Diagram-->
+<!--: KW: I think the powerpoint version looks a bit nicer than this.-->
 ```{r}
 fig_caption_consort <- "Figure X. Consort Diagram"
 ```
 
-
-<!-- Consort Diagram: I think the powerpoint version looks a bit nicer than this.-->
 ```{r fig.cap=fig_caption_consort, fig.height=6.5}
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
@@ -614,9 +611,6 @@ consort_plot(data = disposition,
                           "analysis_reason"),
              cex = .9)
 ```
-
-
-
 
 
 <!-- Single AUC figure by model-->  
@@ -641,12 +635,10 @@ roc_all %>%
 ```
 
 
-
 <!-- Single Posteriors for AUC by model with rope-->
 ```{r}
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
-
 
 ```{r fig.cap = fig_caption_pp, fig.height=7}
 pp_tidy_week <- pp_week %>% 
@@ -681,7 +673,6 @@ pp_tidy_week %>%
 ```
 
 
-
 <!-- PR curve by model-->
 ```{r}
 fig_caption_pr <- "Precision-Recall Curves for models."
@@ -695,7 +686,6 @@ pr_all %>%
   labs(x = "Sensitivity (Recall)",
        y = "Positive Predictive Value (Precision)")
 ```
-
 
 
 <!-- SHAP Importance figures separate by model-->
@@ -716,8 +706,6 @@ shap_grouped_week %>%
   coord_flip()
 ```
 
-
-
 ```{r}
 fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
@@ -735,8 +723,6 @@ shap_grouped_day %>%
   coord_flip()
 ```
 
-
-
 ```{r}
 fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
@@ -748,146 +734,6 @@ shap_grouped_hour %>%
   ggplot(mapping = aes(x = group, y = mean_value)) +
   geom_point(size = 2, color = "red") +
   geom_segment(aes(x = group, y = mean_value, xend = group), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-
-
-## Supplemental Figures
-
-<!-- Supplemental:  AUC figures (100 folds separate by model)-->
-
-
-
-
-
-
-
-
-<!-- Supplemental:  Histogram of all fold AUCs-->
-
-
-
-
-
-
-
-
-
-<!-- Supplemental: Paneled histograms separate by model--> 
-```{r}
-fig_caption_hist_1week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1week Model."
-```
-
-```{r fig.cap = fig_caption_hist_1week, fig.height=7}
-preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-```
-
-
-
-```{r}
-fig_caption_hist_1day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1day Model."
-```
-
-```{r fig.cap = fig_caption_hist_1day, fig.height=7}
-preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-```
-
-
-
-```{r}
-fig_caption_hist_1hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1hour Model."
-```
-
-```{r fig.cap = fig_caption_hist_1hour, fig.height=7}
-preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-```
-
-
-
-<!-- Supplemental: SHAP Values for Raw Features--> 
-```{r}
-fig_caption_shapraw_1week <- "Variable Importance (SHAP Values) for 1week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig.cap = fig_caption_shapraw_1week, fig.height=7}
-shap_raw_week %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-
-
-```{r}
-fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig.cap = fig_caption_shapraw_1day, fig.height=7}
-shap_raw_day %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-
-
-```{r}
-fig_caption_shapraw_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig.cap = fig_caption_shapraw_1hour, fig.height=7}
-shap_raw_hour %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
                yend = 0, colour = "grey50")  +
   ylab("Mean |SHAP| value") +
   xlab("") +
