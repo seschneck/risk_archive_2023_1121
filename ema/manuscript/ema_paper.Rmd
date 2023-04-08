@@ -594,7 +594,7 @@ metrics %>%
 fig_caption_consort <- "Figure X. Consort Diagram"
 ```
 
-```{r fig.cap=fig_caption_consort, fig.height=6.5}
+```{r fig_consort, fig.cap=fig_caption_consort, fig.height=6.5}
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
                         consented_reason = "Not Consented",
@@ -618,7 +618,7 @@ consort_plot(data = disposition,
 fig_caption_auc <- "Receiver Operating Characteritic Curves by Model  "
 ```
 
-```{r fig.cap = fig_caption_auc, fig.height=7}
+```{r fig_auc, fig.cap = fig_caption_auc, fig.height=7}
 
 roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
@@ -640,7 +640,7 @@ roc_all %>%
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
 
-```{r fig.cap = fig_caption_pp, fig.height=7}
+```{r fig_pp, fig.cap = fig_caption_pp, fig.height=7}
 pp_tidy_week <- pp_week %>% 
   tidy(seed = 123) %>% 
   mutate(model = "1week")
