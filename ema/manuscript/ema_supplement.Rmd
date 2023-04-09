@@ -151,7 +151,7 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
 fig_caption_roc_folds_week <- "ROC Curves across Folds for Week Model."
 ```
 
-```{r fig_roc_folds_week, fig.cap = caption_roc_folds_week}
+```{r fig_roc_folds_week, fig.cap = fig_caption_roc_folds_week}
 fig_roc_week <- roc_week_full %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
   geom_abline(lty = 3) +
@@ -181,7 +181,7 @@ fig_roc_week +
 fig_caption_roc_folds_day <- "ROC Curves across Folds for Day Model."
 ```
 
-```{r fig_roc_folds_day, fig.cap = caption_roc_folds_day}
+```{r fig_roc_folds_day, fig.cap = fig_caption_roc_folds_day}
 fig_roc_day <- roc_day_full %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
   geom_abline(lty = 3) +
@@ -212,7 +212,7 @@ fig_roc_day +
 fig_caption_roc_folds_hour <- "ROC Curves across Folds for Hour Model."
 ```
 
-```{r fig_roc_folds_hour, fig.cap = caption_roc_folds_hour}
+```{r fig_roc_folds_hour, fig.cap = fig_caption_roc_folds_hour}
 fig_roc_hour <- roc_hour_full %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
   geom_abline(lty = 3) +
@@ -320,7 +320,7 @@ preds_hour %>%
 fig_caption_pr_folds_week <- "Precision-Recall Curves across Folds for Week Model."
 ```
 
-```{r fig_pr_folds_week, fig.cap = caption_pr_folds_week}
+```{r fig_pr_folds_week, fig.cap = fig_caption_pr_folds_week}
 fig_pr_week <- pr_week_full %>% 
   ggplot(aes(x = recall, y = precision)) + 
   geom_abline(lty = 3) +
@@ -349,7 +349,7 @@ fig_pr_week +
 fig_caption_pr_folds_day <- "pr Curves across Folds for Day Model."
 ```
 
-```{r fig_pr_folds_day, fig.cap = caption_pr_folds_day}
+```{r fig_pr_folds_day, fig.cap = fig_caption_pr_folds_day}
 fig_pr_day <- pr_day_full %>% 
   ggplot(aes(x = recall, y = precision)) + 
   geom_abline(lty = 3) +
@@ -380,7 +380,7 @@ fig_pr_day +
 fig_caption_pr_folds_hour <- "pr Curves across Folds for Hour Model."
 ```
 
-```{r fig_pr_folds_hour, fig.cap = caption_pr_folds_hour}
+```{r fig_pr_folds_hour, fig.cap = fig_caption_pr_folds_hour}
 fig_pr_hour <- pr_hour_full %>% 
   ggplot(aes(x = recall, y = precision)) + 
   geom_abline(lty = 3) +
@@ -404,11 +404,6 @@ fig_pr_hour +
                mapping = aes(x = recall, y = precision),
                color = "black", size = 1)
 ```
-
-
-
-
-
 
 <!-- Supplemental: SHAP Values for Raw Features--> 
 ```{r caption_shap_week}
