@@ -615,10 +615,10 @@ consort_plot(data = disposition,
 
 <!-- Single AUC figure by model-->  
 ```{r}
-fig_caption_auc <- "Receiver Operating Characteritic Curves by Model  "
+fig_caption_roc <- "Receiver Operating Characteritic Curves by Model  "
 ```
 
-```{r fig_auc, fig.cap = fig_caption_auc, fig.height=7}
+```{r fig_roc, fig.cap = fig_caption_auc, fig.height=7}
 
 roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
@@ -674,11 +674,11 @@ pp_tidy_week %>%
 
 
 <!-- PR curve by model-->
-```{r}
+```{r caption_pr}
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
 
-```{r fig.cap = fig_caption_pr, fig.height=7}
+```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
