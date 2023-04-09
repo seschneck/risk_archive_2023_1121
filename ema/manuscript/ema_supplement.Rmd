@@ -247,7 +247,7 @@ fig_roc_hour +
 fig_caption_auc_folds <- "Area under ROC Curve across Folds by Model.  The area under the receiver operating characteristic curve for each model (week, day, and hour) was evaluated using 10 repeats of 10-fold cross-validation.  This histogram displays the AUC observed for these models in the 100 held-out folds."
 ```
 
-```{r fig_auc_folds, fig.cap = fig_caption_hist_1week, fig.height=7 }
+```{r fig_auc_folds, fig.cap = fig_caption_auc_folds, fig.height=7 }
 auc_folds_week %>% mutate(model = "week") %>% 
   bind_rows(auc_folds_day %>% mutate(model = "day")) %>% 
   bind_rows(auc_folds_hour %>% mutate(model = "hour")) %>% 
@@ -262,10 +262,10 @@ auc_folds_week %>% mutate(model = "week") %>%
 
 <!-- Supplemental: Paneled histograms separate by model--> 
 ```{r caption_predictions_week}
-fig_caption_hist_1week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1week Model."
+fig_caption_hist_week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for week Model."
 ```
 
-```{r fig_predictions_week, fig.cap = fig_caption_hist_1week, fig.height=7}
+```{r fig_predictions_week, fig.cap = fig_caption_hist_week, fig.height=7}
 preds_week %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -279,10 +279,10 @@ preds_week %>%
 ```
 
 ```{r caption_predictions_day}
-fig_caption_hist_1day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1day Model."
+fig_caption_hist_day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for day Model."
 ```
 
-```{r fig_predictions_day, fig.cap = fig_caption_hist_1day, fig.height=7}
+```{r fig_predictions_day, fig.cap = fig_caption_hist_day, fig.height=7}
 preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -296,10 +296,10 @@ preds_day %>%
 ```
 
 ```{r caption_predictions_hour}
-fig_caption_hist_1hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for 1hour Model."
+fig_caption_hist_hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for hour Model."
 ```
 
-```{r fig_predictions_hour, fig.cap = fig_caption_hist_1hour, fig.height=7}
+```{r fig_predictions_hour, fig.cap = fig_caption_hist_hour, fig.height=7}
 preds_hour %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
@@ -407,10 +407,10 @@ fig_pr_hour +
 
 <!-- Supplemental: SHAP Values for Raw Features--> 
 ```{r caption_shap_week}
-fig_caption_shapraw_1week <- "Variable Importance (SHAP Values) for 1week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+fig_caption_shapraw_week <- "Variable Importance (SHAP Values) for week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig_shap_week, fig.cap = fig_caption_shapraw_1week, fig.height=7}
+```{r fig_shap_week, fig.cap = fig_caption_shapraw_week, fig.height=7}
 shap_raw_week %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
@@ -425,10 +425,10 @@ shap_raw_week %>%
 ```
 
 ```{r caption_shap_day}
-fig_caption_shapraw_1day <- "Variable Importance (SHAP Values) for 1day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+fig_caption_shapraw_day <- "Variable Importance (SHAP Values) for day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig_shap_day, fig.cap = fig_caption_shapraw_1day, fig.height=7}
+```{r fig_shap_day, fig.cap = fig_caption_shapraw_day, fig.height=7}
 shap_raw_day %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
@@ -443,10 +443,10 @@ shap_raw_day %>%
 ```
 
 ```{r caption_shap_hour}
-fig_caption_shapraw_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
+fig_caption_shapraw_hour <- "Variable Importance (SHAP Values) for hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
 ```
 
-```{r fig_shap_hour, fig.cap = fig_caption_shapraw_1hour, fig.height=7}
+```{r fig_shap_hour, fig.cap = fig_caption_shapraw_hour, fig.height=7}
 shap_raw_hour %>% 
   slice_tail(n = 50) %>%
   mutate(variable = factor(variable),
