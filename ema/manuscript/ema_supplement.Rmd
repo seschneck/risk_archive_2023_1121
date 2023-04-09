@@ -29,7 +29,7 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
 ```{r setup, include = FALSE}
 library(papaja)
 library(knitr)
-library(yardstick) # for roc_curve
+library(yardstick) # for roc_curve and pr_curve
 library(kableExtra)
 library(janitor)
 library(corx)
@@ -69,27 +69,63 @@ preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_
 preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
+# roc overall
+roc_week_full <- preds_week %>% 
+  roc_curve(prob, truth = truth)
 
+roc_day_full <- preds_day %>% 
+  roc_curve(prob, truth = truth)
+
+roc_hour_full <- preds_hour%>% 
+  roc_curve(prob, truth = truth)
+
+# rocs per fold
 roc_week <- preds_week %>%
-  nest(.by = split_num)
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1week")
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "week")
 
-roc_day <- preds_day %>% 
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1day")
+roc_day <- preds_day %>%
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "day")
 
-roc_hour <- preds_hour%>% 
-  roc_curve(prob, truth = truth) %>% 
-  mutate(model = "1hour")
+roc_hour <- preds_hour %>%
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "week")
 
-roc_all <- roc_week %>% 
-  bind_rows(roc_day) %>% 
-  bind_rows(roc_hour)
+# pr overall
+pr_week_full <- preds_week %>% 
+  pr_curve(prob, truth = truth)
 
-pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
-  mutate(model = "1week")
+pr_day_full <- preds_day %>% 
+  pr_curve(prob, truth = truth)
+
+pr_hour_full <- preds_hour%>% 
+  pr_curve(prob, truth = truth)
+
+# prs per fold
+pr_week <- preds_week %>%
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "week")
+
+pr_day <- preds_day %>%
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "day")
+
+pr_hour <- preds_hour %>%
+  nest(.by = split_num, .key = "preds") %>% 
+  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
+                                             truth = truth))) %>% 
+  mutate(model = "week")
 
 #raw SHAPs
 shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
@@ -109,11 +145,97 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
   arrange(mean_value)
 ```
 
-<!-- Supplemental:  AUC figures (100 folds separate by model)-->
+<!-- Supplemental:  ROC figures (100 folds separate by model)-->
+
+```{r caption_roc_folds_week}
+fig_caption_roc_folds_week <- "ROC Curves across Folds for Week Model."
+```
+
+```{r fig_roc_folds_week, fig.cap = caption_roc_folds_week}
+fig_roc_week <- roc_week_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(roc_week)) {
+  fig_roc_week <- fig_roc_week +
+     geom_path(data = roc_week$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "gray")
+}
+
+fig_roc_week +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "black", size = 1)
+  
+```
+
+```{r caption_roc_folds_day}
+fig_caption_roc_folds_day <- "ROC Curves across Folds for Day Model."
+```
+
+```{r fig_roc_folds_day, fig.cap = caption_roc_folds_day}
+fig_roc_day <- roc_day_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(roc_day)) {
+  fig_roc_day <- fig_roc_day +
+     geom_path(data = roc_day$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "gray")
+}
+
+fig_roc_day +
+     geom_path(data = roc_day_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "black", size = 1)
+  
+```
 
 
+```{r caption_roc_folds_hour}
+fig_caption_roc_folds_hour <- "ROC Curves across Folds for Hour Model."
+```
 
+```{r fig_roc_folds_hour, fig.cap = caption_roc_folds_hour}
+fig_roc_hour <- roc_hour_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(roc_hour)) {
+  fig_roc_hour <- fig_roc_hour +
+     geom_path(data = roc_hour$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "gray")
+}
 
+fig_roc_hour +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "black", size = 1)
+```
 
 
 
@@ -189,6 +311,103 @@ preds_hour %>%
         axis.title.x = element_text(size = rel(1.25)),
         strip.text = element_text(size = rel(1.75)))
 ```
+
+
+
+<!-- Supplemental:  PR figures (100 folds separate by model)-->
+
+```{r caption_pr_folds_week}
+fig_caption_pr_folds_week <- "Precision-Recall Curves across Folds for Week Model."
+```
+
+```{r fig_pr_folds_week, fig.cap = caption_pr_folds_week}
+fig_pr_week <- pr_week_full %>% 
+  ggplot(aes(x = recall, y = precision)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(pr_week)) {
+  fig_pr_week <- fig_pr_week +
+     geom_path(data = pr_week$pr[[i]],
+               mapping = aes(x = recall, y = precision),
+               color = "gray")
+}
+
+fig_pr_week +
+     geom_path(data = pr_week_full,
+               mapping = aes(x = recall, y = precision),
+               color = "black", size = 1)
+```
+
+```{r caption_pr_folds_day}
+fig_caption_pr_folds_day <- "pr Curves across Folds for Day Model."
+```
+
+```{r fig_pr_folds_day, fig.cap = caption_pr_folds_day}
+fig_pr_day <- pr_day_full %>% 
+  ggplot(aes(x = recall, y = precision)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(pr_day)) {
+  fig_pr_day <- fig_pr_day +
+     geom_path(data = pr_day$pr[[i]],
+               mapping = aes(x = recall, y = precision),
+               color = "gray")
+}
+
+fig_pr_day +
+     geom_path(data = pr_day_full,
+               mapping = aes(x = recall, y = precision),
+               color = "black", size = 1)
+  
+```
+
+
+```{r caption_pr_folds_hour}
+fig_caption_pr_folds_hour <- "pr Curves across Folds for Hour Model."
+```
+
+```{r fig_pr_folds_hour, fig.cap = caption_pr_folds_hour}
+fig_pr_hour <- pr_hour_full %>% 
+  ggplot(aes(x = recall, y = precision)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))  
+  
+for (i in 1:nrow(pr_hour)) {
+  fig_pr_hour <- fig_pr_hour +
+     geom_path(data = pr_hour$pr[[i]],
+               mapping = aes(x = recall, y = precision),
+               color = "gray")
+}
+
+fig_pr_hour +
+     geom_path(data = pr_hour_full,
+               mapping = aes(x = recall, y = precision),
+               color = "black", size = 1)
+```
+
+
+
+
 
 
 <!-- Supplemental: SHAP Values for Raw Features--> 
