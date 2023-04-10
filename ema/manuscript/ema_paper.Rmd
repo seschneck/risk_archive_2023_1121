@@ -240,7 +240,7 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 
 <!-- Demographics table-->
-```{r}
+```{r table_demo}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
             SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
@@ -331,7 +331,7 @@ dem %>%
 \newpage
 
 <!-- Alcohol Use History table-->
-```{r}
+```{r table_auh}
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
             SD = sd(auh_1, na.rm = TRUE)) %>% 
@@ -531,7 +531,7 @@ auh %>%
 
 \newpage
 
-```{r}
+```{r table_metrics}
 metrics_week <- preds_week %>%   
   conf_mat(truth, estimate) %>% 
   summary() %>% 
@@ -566,7 +566,7 @@ auc <- tibble(metric = "auc",
                 pull(.estimate) %>% round(3), 
               day = preds_day %>% roc_auc(prob, truth = truth) %>%  
                 pull(.estimate) %>% round(3),
-              hour = preds_week %>% roc_auc(prob, truth = truth) %>%  
+              hour = preds_hour %>% roc_auc(prob, truth = truth) %>%  
                 pull(.estimate) %>% round(3))
 
 metrics <- metrics %>% 
