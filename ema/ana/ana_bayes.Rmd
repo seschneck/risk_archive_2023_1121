@@ -1,0 +1,107 @@
+---
+title: "Posterior probabilities"
+author: "John Curtin"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+---
+
+### Code Status
+
+In use with iterative improvement
+
+### Notes
+
+### Set Up Environment
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("slice", "dplyr")
+conflict_prefer("spec", "yardstick")
+conflicts_prefer(ggplot2::`%+%`)
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyposterior)
+library(tidyverse)
+library(tidymodels)
+
+theme_set(theme_classic()) 
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/ema")
+          path_processed <- str_c("P:/studydata/risk/data_processed/ema")
+          path_models <- str_c("P:/studydata/risk/models/ema")},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/ema")
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
+          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+Source training controls 
+```{r source}
+# EDA
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+```
+
+
+### Read in preds and metrics for best model
+
+```{r load_preds_metrics}
+
+auc_week <- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds")) %>% 
+  select(id, id2, roc_auc)
+
+auc_day <- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_kfold.rds")) %>% 
+  select(id, id2, roc_auc)
+
+auc_hour <- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) %>% 
+  select(id, id2, roc_auc)
+```
+
+### Week model
+```{r}
+set.seed(12345)
+pp <- auc_week %>% 
+  perf_mod(formula = statistic ~ 1 + (1 | id2/id),
+         iter = 6000, chains = 4,  
+         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+         family = gaussian, 
+         adapt_delta = .99999)  
+
+
+
+```
+
+```{r}
+# get shinystan package
+# launch_shinystan(pp$stan)
+pp$stan
+
+rstanarm::prior_summary(pp$stan)
+```
+
