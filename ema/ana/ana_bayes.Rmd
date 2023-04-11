@@ -192,6 +192,7 @@ pp_tidy %>%
 model contrast posteriors
 
 ```{r model_contrast_posteriors}
+ci <- pp %>%
   contrast_models(list("hour","hour", "day"), 
                 list("week", "day", "week")) %>% 
   summary(size = .01) %>% 
@@ -224,7 +225,9 @@ pp %>%
                              color = contrast), data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
                              color = contrast), data = ci) +
-  facet_wrap(~contrast, ncol = 1)
+  facet_wrap(~contrast, ncol = 1) +
+  ylab("Posterior Probability") +
+  xlab("Model Contrast for AUC")
 ```
 
 
