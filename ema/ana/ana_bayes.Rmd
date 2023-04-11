@@ -91,9 +91,9 @@ auc_hour <- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4
   select(id, id2, roc_auc)
 
 auc <- auc_week %>% 
-  rename(auc_week = roc_auc) %>% 
-  mutate(auc_day = auc_day$roc_auc,
-         auc_hour = auc_hour$roc_auc) %>% 
+  rename(week = roc_auc) %>% 
+  mutate(day = auc_day$roc_auc,
+         hour = auc_hour$roc_auc) %>% 
   glimpse
 ```
 
@@ -114,7 +114,7 @@ auc_hour %>%
 ### All models
 
 ```{r}
-pp_all <- auc %>% 
+pp <- auc %>% 
   perf_mod(formula = statistic ~ model + (1 | id2/id),
          # prior_intercept = rstanarm::student_t(autoscale = TRUE),
          # prior = rstanarm::student_t(autoscale = TRUE),
@@ -127,35 +127,57 @@ pp_all <- auc %>%
 ```
 
 ```{r}
-rstanarm::prior_summary(pp_all$stan)
+rstanarm::prior_summary(pp$stan)
 ```
 
 ```{r}
-summary(pp_all$stan)
+summary(pp$stan)
 ```
 
 ```{r}
-# shinystan::launch_shinystan(pp_all$stan)
+# shinystan::launch_shinystan(pp$stan)
 ```
 
 ```{r}
-pp_all %>%  saveRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+pp %>%  saveRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
 ```
+
 
 ### Model contrasts
 
 ```{r}
-pp_contrasts <- contrast_models(pp_all, 
-                                list("auc_hour","auc_hour", "auc_day"), 
-                                list("auc_week", "auc_day", "auc_week"))
+pp_contrasts <- contrast_models(pp, 
+                                list("hour","hour", "day"), 
+                                list("week", "day", "week"))
 summary(pp_contrasts, size = .01)
 pp_contrasts %>% autoplot(size = .01)
 ```
 
+### Plots
+
 ```{r}
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
 
-pp_contrasts  %>% tidy(seed = 123) %>% 
-  glimpse
+ci <- pp_tidy %>% 
+  summary() %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour")),
+         y = 1000)
 
+pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+                 bins = 30) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+                data = ci) +
+  facet_wrap(~model, ncol = 1) +
+  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  # ylab("Posterior Probability Density") +
+  xlab("Area Under ROC Curve")
+```
 ```
 
