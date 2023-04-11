@@ -241,55 +241,15 @@ screen <- screen %>%
   select(subid, reason_not_enrolled)
 ```
 
-Status determined from qualtrics surveys
-```{r}
-tabyl(screen$reason_not_enrolled)
-```
 
-
-Status determined from notes    
-Update variable documenting if participant was not_interested or ineligible or if it is unclear to explain why they didn't enroll   
-No show or multiple reschedules before cancelling interpreted as not interested
+Eligibility status determined from notes    
 ```{r}
 disposition <- disposition %>% 
   full_join(screen %>% select(subid, reason_not_enrolled), by = "subid") %>% 
-  mutate(reason_not_enrolled = case_when(subid == 4 ~ "not_interested",
-                                      subid == 68 ~ "ineligible",
-                                      subid == 75 ~ "ineligible",
-                                      subid == 142 ~ "ineligible",
-                                      subid == 144 ~ "ineligible",
-                                      subid == 12 ~ "ineligible",
-                                      subid == 13 ~ "ineligible",
-                                      subid == 14 ~ "ineligible",
-                                      subid == 22 ~ "not_interested",
-                                      subid == 35 ~ "ineligible",
-                                      subid == 36 ~ "not_interested",
-                                      subid == 45 ~ "unclear",
-                                      subid == 46 ~ "unclear",
-                                      subid == 49 ~ "unclear",
-                                      subid == 57 ~ "ineligible",
-                                      subid == 60 ~ "ineligible",
-                                      subid == 67 ~ "ineligible",
-                                      subid == 69 ~ "unclear",
-                                      subid == 91 ~ "not_interested",
-                                      subid == 101 ~ "not_interested",
-                                      subid == 108 ~ "not_interested",
-                                      subid == 112 ~ "not_interested",
-                                      subid == 124 ~ "unclear",
-                                      subid == 125 ~ "unclear",
-                                      subid == 165 ~ "ineligible",
-                                      subid == 168 ~ "unclear",
-                                      subid == 174 ~ "not_interested",
-                                      subid == 216 ~ "not_interested",
-                                      subid == 219 ~ "unclear",
-                                      subid == 220 ~ "not_interested",
-                                      subid == 227 ~ "unclear",
-                                      subid == 233 ~ "not_interested",
-                                      subid == 235 ~ "unclear",
-                                      subid == 254 ~ "not_interested",
-                                      subid == 260 ~ "ineligible",
-                                      subid == 272 ~ "ineligible",
-                                      TRUE ~ reason_not_enrolled))
+  mutate(reason_not_enrolled = case_when(subid %in% c(68, 75, 142, 144, 12, 13,
+                                                      14, 35, 57, 60, 67, 165, 260,
+                                                      272) ~ "ineligible",
+                                         TRUE ~ reason_not_enrolled))
 ```
 
 ```{r}
@@ -299,12 +259,6 @@ disposition %>%
   janitor::adorn_totals("row")
 ```
 
-Without more info - unclear cases will be defaulted to participant not being interested in study
-```{r}
-disposition <- disposition %>% 
-  mutate(reason_not_enrolled = case_when(reason_not_enrolled == "unclear" ~ "not_interested",
-                                      TRUE ~ reason_not_enrolled))
-```
 
 Notes these dispositions were derived from
 ```{r}
@@ -323,7 +277,7 @@ eligible sample
 ```{r}
 disposition <- disposition %>% 
   mutate(eligible = case_when(reason_not_enrolled == "ineligible" ~ "no",
-                              TRUE ~ "yes"))
+                              TRUE ~ "yes")) 
 
 tabyl(disposition$eligible)
 ```
@@ -333,7 +287,8 @@ consented sample
 disposition <- disposition %>% 
   filter(eligible == "yes") %>% 
   mutate(consented = case_when(reason_not_enrolled == "no_consent" ~ "no",
-                              TRUE ~ "yes")) 
+                              TRUE ~ "yes")) %>% 
+  select(-reason_not_enrolled)
 
 tabyl(disposition$consented)
 ```
