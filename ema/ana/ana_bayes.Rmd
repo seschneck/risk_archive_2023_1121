@@ -1,5 +1,5 @@
 ---
-title: "Posterior probabilities"
+title: "Posterior probabilities across models"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -19,6 +19,7 @@ In use with iterative improvement
  * [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
  * [warnings](https://mc-stan.org/misc/warnings.html)
  * [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
+ * [R Bloggers on perf_mod](https://www.r-bloggers.com/2019/12/tidyposteriors-bayesian-approach-to-model-comparison/)
  
 ### Set Up Environment
 
@@ -134,5 +135,20 @@ summary(pp_all$stan)
 ```
 
 ```{r}
-shinystan::launch_shinystan(pp_1$stan)
+# shinystan::launch_shinystan(pp_all$stan)
 ```
+
+```{r}
+pp_all %>%  saveRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+```
+
+### Model contrasts
+
+```{r}
+pp_contrasts <- contrast_models(pp_all, 
+                                list("auc_hour","auc_hour", "auc_day"), 
+                                list("auc_week", "auc_day", "auc_week"))
+summary(pp_contrasts, size = .01)
+pp_contrasts %>% autoplot(size = .01)
+```
+
