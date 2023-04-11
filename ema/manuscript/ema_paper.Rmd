@@ -240,11 +240,13 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 
 <!-- Demographics table-->
-<!--Add mins/maxes-->
+<!--Dollar range is getting formatted odd because its using $ as escape characters. Still looking into solution-->
 ```{r table_demo}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
-            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1))) %>% 
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1)),
+            min = as.character(min(dem_1, na.rm = TRUE)),
+            max = as.character(max(dem_1, na.rm = TRUE))) %>% 
   mutate(var = "Age",
          n = as.numeric(""),
          perc = as.numeric("")) %>% 
@@ -292,12 +294,18 @@ dem <- screen %>%
   summarise(n = n()) %>% 
   mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  summarise(mean = as.character(round(mean(dem_7, na.rm = TRUE), 0)),
-            SD = as.character(round(sd(dem_7, na.rm = TRUE), 0))) %>% 
-  mutate(var = "Income",
+  summarise(mean = format(round(mean(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            SD = format(round(sd(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            min =format(round(min(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            max = format(round(max(dem_7, na.rm = TRUE), 0), scientific = FALSE, big.mark = ",")) %>% 
+  mutate(var = "Personal Income",
         n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+        perc = as.numeric(""),
+        mean = str_c("$", as.character(mean)),
+        SD = str_c("$", as.character(SD)),
+        min = str_c("$", as.character(min)),
+        max = str_c("$", as.character(max))) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", "min", "max")) %>% 
   full_join(screen %>% 
   select(var = dem_8) %>% 
   mutate(var = case_when(var == "Never Married" ~ "Never married",
@@ -311,15 +319,17 @@ dem <- screen %>%
 
 # display and format table
 dem %>% 
+  mutate(range = str_c(min, "-", max)) %>%
+  select(-c(min, max)) %>% 
   kbl(longtable = TRUE,
       booktabs = TRUE,
-      col.names = c("", "n", "%", "M", "SD"),
+      col.names = c("", "N", "%", "M", "SD", "Range"),
       digits = 1,
-      align = c("l", "c", "c", "c", "c"),
-      caption = "Table 1: Demographics",
-      table.attr = "style='width:60%;'") %>% 
-  row_spec(row = 0, align = "c") %>% 
-  kable_classic(html_font = "Times New Roman", position = "left") %>% 
+      align = c("l", "c", "c", "c", "c", "c"),
+      caption = "Demographics",
+      escape = FALSE) %>%
+  kable_styling(latex_options = c("HOLD_position")) %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
   pack_rows("Race", 4, 8, bold = FALSE) %>% 
   pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>% 
@@ -333,7 +343,6 @@ dem %>%
 
 <!-- Alcohol Use History table-->
 <!--Add past month/3 month use-->
-<!--update to be clear on income-->
 ```{r table_auh}
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
@@ -437,7 +446,7 @@ auh <- screen %>%
   ungroup() %>% 
   summarise(mean = mean(dsm5_total),
             SD = sd(dsm5_total)) %>% 
-  mutate(var = "AUD DSM-5 Symptom Count*",
+  mutate(var = "AUD DSM-5 Symptom Count",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
   select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
@@ -521,7 +530,7 @@ auh %>%
       col.names = c("", "n", "%", "M", "SD"),
       digits = 1,
       align = c("l", "c", "c", "c", "c"),
-      caption = "Table 2: Alcohol Related Information",
+      caption = "Alcohol Related Information",
       table.attr = "style='width:70%;'") %>% 
   row_spec(row = 0, align = "c") %>% 
   kable_classic(html_font = "Times New Roman", position = "left") %>% 
