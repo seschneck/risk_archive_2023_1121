@@ -23,6 +23,7 @@ conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
 conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
+conflicts_prefer(shiny::observe)
 conflicts_prefer(ggplot2::`%+%`)
 ```
 
@@ -81,27 +82,134 @@ auc_day <- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_k
 
 auc_hour <- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) %>% 
   select(id, id2, roc_auc)
+
+auc <- auc_week %>% 
+  rename(auc_week = roc_auc) %>% 
+  mutate(auc_day = auc_day$roc_auc,
+         auc_hour = auc_hour$roc_auc) %>% 
+  glimpse
+```
+
+```{r}
+auc_week %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), bins = 10)
+
+auc_day %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), bins = 10)
+
+auc_hour %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), bins = 10)
+```
+
+### All models
+
+```{r}
+pp_all <- auc %>% 
+  perf_mod(formula = statistic ~ model + (1 | id2/id),
+         # iter = 6000, chains = 4,  
+         cores = 4, seed = 12345,
+         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+         family = gaussian, 
+         adapt_delta = .99)  
+```
+
+```{r}
+pp_1$stan
+rstanarm::prior_summary(pp_all$stan)
+```
+
+```{r}
+shinystan::launch_shinystan(pp_1$stan)
 ```
 
 ### Week model
+
+#### 10 folds
 ```{r}
 set.seed(12345)
-pp <- auc_week %>% 
+pp_1 <- auc_week %>% 
+  slice(1:10) %>% 
+  perf_mod(formula = statistic ~ 1 + (1 | id2),
+         iter = 6000, chains = 4,  
+         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+         family = gaussian, 
+         adapt_delta = .99999)  
+```
+
+```{r}
+pp_1$stan
+rstanarm::prior_summary(pp_1$stan)
+```
+
+```{r}
+shinystan::launch_shinystan(pp_1$stan)
+```
+
+#### 100 folds nested
+
+```{r}
+set.seed(12345)
+pp_2 <- auc_week %>% 
   perf_mod(formula = statistic ~ 1 + (1 | id2/id),
+           prior_intercept = rstanarm::student_t(autoscale = TRUE),
+           prior = rstanarm::student_t(autoscale = TRUE),
+           iter = 15000, chains = 4,  
+           adapt_delta = .999999,
+           tree_depth = 12,
+           cores = 4, seed = 12345,
+           # transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+           family = gaussian)  
+
+
+```
+
+```{r}
+pp_2$stan
+
+summary(pp_2$stan)
+
+rstanarm::prior_summary(pp_2$stan)
+
+pairs(pp_2$stan)
+```
+
+```{r}
+shinystan::launch_shinystan(pp_2$stan)
+```
+
+#### 100 folds not nested in repeat
+
+```{r}
+set.seed(12345)
+pp_3 <- auc_week %>% 
+  mutate(id_all = str_c(id, "_", id2)) %>%  
+  # select(id_all, roc_auc) %>%
+  perf_mod(formula = statistic ~ 1 + (1 | id_all),
          iter = 6000, chains = 4,  
          transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
          family = gaussian, 
          adapt_delta = .99999)  
 
+stan_3 <- auc_week %>% 
+  mutate(id_all = str_c(id, "_", id2)) %>%  
+  stan_glmer(roc_auc ~ 1 + (1 | id_all),
+           iter = 6000, chains = 4,  
+           adapt_delta = .9999,
+           data = .,
+           cores = 4, seed = 12345,
+           family = gaussian())
 
 
 ```
 
 ```{r}
-# get shinystan package
-# launch_shinystan(pp$stan)
-pp$stan
-
-rstanarm::prior_summary(pp$stan)
+pp_3$stan
+rstanarm::prior_summary(pp_3$stan)
 ```
 
+```{r}
+shinystan::launch_shinystan(pp_3$stan)
+```
