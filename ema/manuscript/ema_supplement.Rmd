@@ -266,7 +266,7 @@ auc_folds_week %>% mutate(model = "week") %>%
 fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
 ```
 
-```{r fig_posterior_d}
+```{r fig_posterior_diffs}
 ci <- pp %>% 
   contrast_models(list("hour","hour", "day"), 
                 list("week", "day", "week")) %>% 
@@ -300,7 +300,9 @@ pp %>%
                              color = contrast), data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
                              color = contrast), data = ci) +
-  facet_wrap(~contrast, ncol = 1)
+  facet_wrap(~contrast, ncol = 1) +
+  ylab("Posterior Probability") +
+  xlab("Model Contrast for AUC")
   
 ```
 
