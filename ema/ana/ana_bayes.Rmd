@@ -13,7 +13,13 @@ output:
 In use with iterative improvement
 
 ### Notes
-
+ Can review online docs for 
+ 
+ * [how to use rstanarm](https://cran.r-project.org/web/packages/rstanarm/vignettes/rstanarm.html)
+ * [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
+ * [warnings](https://mc-stan.org/misc/warnings.html)
+ * [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
+ 
 ### Set Up Environment
 
 Packages for lab workflow 
@@ -109,107 +115,24 @@ auc_hour %>%
 ```{r}
 pp_all <- auc %>% 
   perf_mod(formula = statistic ~ model + (1 | id2/id),
-         # iter = 6000, chains = 4,  
-         cores = 4, seed = 12345,
+         # prior_intercept = rstanarm::student_t(autoscale = TRUE),
+         # prior = rstanarm::student_t(autoscale = TRUE),
          transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+         # iter = 6000, chains = 4,  
+         adapt_delta = .99,
+         cores = 4, seed = 12345,
          family = gaussian, 
-         adapt_delta = .99)  
+)  
 ```
 
 ```{r}
-pp_1$stan
 rstanarm::prior_summary(pp_all$stan)
 ```
 
 ```{r}
-shinystan::launch_shinystan(pp_1$stan)
-```
-
-### Week model
-
-#### 10 folds
-```{r}
-set.seed(12345)
-pp_1 <- auc_week %>% 
-  slice(1:10) %>% 
-  perf_mod(formula = statistic ~ 1 + (1 | id2),
-         iter = 6000, chains = 4,  
-         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-         family = gaussian, 
-         adapt_delta = .99999)  
-```
-
-```{r}
-pp_1$stan
-rstanarm::prior_summary(pp_1$stan)
+summary(pp_all$stan)
 ```
 
 ```{r}
 shinystan::launch_shinystan(pp_1$stan)
-```
-
-#### 100 folds nested
-
-```{r}
-set.seed(12345)
-pp_2 <- auc_week %>% 
-  perf_mod(formula = statistic ~ 1 + (1 | id2/id),
-           prior_intercept = rstanarm::student_t(autoscale = TRUE),
-           prior = rstanarm::student_t(autoscale = TRUE),
-           iter = 15000, chains = 4,  
-           adapt_delta = .999999,
-           tree_depth = 12,
-           cores = 4, seed = 12345,
-           # transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-           family = gaussian)  
-
-
-```
-
-```{r}
-pp_2$stan
-
-summary(pp_2$stan)
-
-rstanarm::prior_summary(pp_2$stan)
-
-pairs(pp_2$stan)
-```
-
-```{r}
-shinystan::launch_shinystan(pp_2$stan)
-```
-
-#### 100 folds not nested in repeat
-
-```{r}
-set.seed(12345)
-pp_3 <- auc_week %>% 
-  mutate(id_all = str_c(id, "_", id2)) %>%  
-  # select(id_all, roc_auc) %>%
-  perf_mod(formula = statistic ~ 1 + (1 | id_all),
-         iter = 6000, chains = 4,  
-         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-         family = gaussian, 
-         adapt_delta = .99999)  
-
-stan_3 <- auc_week %>% 
-  mutate(id_all = str_c(id, "_", id2)) %>%  
-  stan_glmer(roc_auc ~ 1 + (1 | id_all),
-           iter = 6000, chains = 4,  
-           adapt_delta = .9999,
-           data = .,
-           cores = 4, seed = 12345,
-           family = gaussian())
-
-
-```
-
-```{r}
-pp_3$stan
-rstanarm::prior_summary(pp_3$stan)
-```
-
-```{r}
-shinystan::launch_shinystan(pp_3$stan)
 ```
