@@ -238,7 +238,6 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 
 <!-- Demographics table-->
-<!--Dollar range is getting formatted odd because its using $ as escape characters. Still looking into solution-->
 ```{r table_demo}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
@@ -322,11 +321,10 @@ dem %>%
   kbl(longtable = TRUE,
       booktabs = TRUE,
       col.names = c("", "N", "%", "M", "SD", "Range"),
+      align = c("l", "c", "c", "c", "c"),
       digits = 1,
-      align = c("l", "c", "c", "c", "c", "c"),
-      caption = "Demographics",
-      escape = FALSE) %>%
-  kable_styling(latex_options = c("HOLD_position")) %>% 
+      caption = "Demographics") %>%
+  kable_styling() %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
   pack_rows("Race", 4, 8, bold = FALSE) %>% 
