@@ -43,23 +43,18 @@ conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
 conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
-conflict_prefer("col_factor", "vroom")
 conflicts_prefer(ggplot2::`%+%`)
-
-library(here)
 ```
 
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(tidymodels)
-library(themis)
-library(vroom)
-library(janitor)
-library(ggplot2)
 library(forcats)
 library(SHAPforxgboost)
+#library(rstanarm)
+library(tidyposterior)
+library(tidyverse)
+library(tidymodels)
 
 theme_set(theme_classic()) 
 ```
@@ -108,9 +103,9 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R
 ### Read in preds and metrics for best model
 
 ```{r load_preds_metrics}
-preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
+preds_best <- readRDS(file.path(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
                                               "_", cv, ".rds")))
-metrics_best <- readRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
+metrics_best <- readRDS(file.path(path_models, str_c("resample_metrics_best_", data_type, "_", window, "_", lead, "_", version,
                                                 "_", cv, ".rds")))
 ```
 
@@ -136,9 +131,6 @@ Confusion matrix using .5 threshold
 ```{r default_cm}
 (cm <- preds_best %>% 
   conf_mat(truth, estimate))
-
-rownames(cm$table) <- c("No lapse", "Lapse")
-colnames(cm$table) <- c("No lapse", "Lapse")
 
 cm %>% 
   autoplot() +
@@ -188,7 +180,7 @@ preds_best %>%
 ```
 
 ### ROC curve
-Here is single ROC by concatenating all folds.
+file.path is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
 How about Bayesian posterior for AUC instead?
@@ -215,8 +207,57 @@ roc_data %>%
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
+### Posterior probabibilites for AUC
+
+```{r}
+resamples <- metrics_best %>% 
+  select(id, id2, roc_auc) %>% 
+  print(n = 5)
+```
+
+```{r}
+resamples %>% 
+  slice(1:30) %>%   # 3x 10-fold
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), bins = 10)
+```
+
+
+```{r}
+set.seed(101)
+pp <- resamples %>% 
+  slice(1:30) %>%   # 3x 10-fold
+  perf_mod(    formula = statistic ~ 1 + (1 | id2/id),
+               iter = 5000, chains = 4,  
+               transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+               family = gaussian, 
+               adapt_delta = .9999999)  
+
+pp %>%  saveRDS(file.path(path_models, str_c("posteriors_", data_type, "_", window, 
+                                             "_", lead, "_", version, "_", cv, 
+                                             ".rds")))
+```
+
+```{r}
+# get shinystan package
+# launch_shinystan(pp$stan)
+pp$stan
+
+rstanarm::prior_summary(pp$stan)
+```
+
+
+```{r}
+pp %>% 
+  tidy(seed = 123) %>% 
+  ggplot() + 
+  geom_density(aes(x = posterior))
+```
+
+
+
 ### PR Curve
-Here is precision/recall by concatenating all folds
+file.path is precision/recall by concatenating all folds
 Same approach as above for ROC
 ```{r pr_info}
 preds_best %>%
@@ -242,23 +283,18 @@ pr_data %>%
 
 Read in best model fit (chosen with kfold)
 ```{r load_best_model}
-# Add check that file exists
-if (file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 
-                                        window, "_", lead, "_", version, ".rds")))) {
-  model_fit_best <- readRDS(here(path_models, str_c("best_model_fit_", 
+model_fit_best <- readRDS(file.path(path_models, str_c("best_model_fit_", 
                                                     data_type, "_", window, "_", 
                                                     lead, "_", version, ".rds")))
-  } else {
-  stop("Feature importance skipped.  No best model detected")
-}
+
 ```
 
 get data
 ```{r get_data}
-path_best <- here(path_input, 
+path_best <- file.path(path_input, 
                   str_c("train_", data_type, "_", window, "_", lead, "_", 
                         version, "_xgboost_", cv), "input")
-source(here(path_best, "training_controls.R"))
+source(file.path(path_best, "training_controls.R"))
 
 chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
 if (length(chunks) == 2) {
@@ -269,16 +305,17 @@ if (length(chunks) == 2) {
 
 # open based on file type
 if (str_detect(fn, "csv")) {
-  d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+  d <- read_delim(file.path(path_best, fn), delim = "\t",
+                  show_col_types = FALSE) 
 } else {
-  d <- readRDS(here(path_best, fn))
+  d <- readRDS(file.path(path_best, fn))
 }
 
 d <- d %>% 
   rename(y = {{y_col_name}})
     
 # build recipe
-config_best <- readRDS(here(path_models, 
+config_best <- readRDS(file.path(path_models, 
                             str_c("resample_metrics_best_", data_type, "_", 
                                   window, "_", lead, "_", version,
                                   "_kfold", ".rds"))) %>% 
@@ -306,12 +343,12 @@ predictor <- function(model, x){
 #### Permutation Feature Importance
 
 ```{r calc_perm}
-if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_", 
+if(file.exists(file.path(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   
-  message("Loadind previously computed Permutation Variable Importance")
-  imp_perm  <- readRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+  message("Loading previously computed Permutation Variable Importance")
+  imp_perm  <- readRDS(file.path(path_models, str_c("imp_permute_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))
 } else {
@@ -330,7 +367,7 @@ if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_",
     list_rbind()
   
   imp_perm  %>% 
-    saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+    saveRDS(file.path(path_models, str_c("imp_permute_", data_type, "_", 
                                     window, "_", lead, "_", version, 
                                     ".rds")))
 }
@@ -342,7 +379,7 @@ if(file.exists(here(path_models, str_c("imp_permute_", data_type, "_",
 #                                    compare = "difference")
 # 
 # imp_permute  %>% 
-#   saveRDS(here(path_models, str_c("imp_permute_", data_type, "_", 
+#   saveRDS(file.path(path_models, str_c("imp_permute_", data_type, "_", 
 #                                   window, "_", lead, "_", version, 
 #                                   ".rds")))
 ```
@@ -405,25 +442,12 @@ imp_perm %>%
   
   
 ```{r calc_shaps}
-if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+if(file.exists(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   
-  #gsub(",", ", ", .x)
-  # `variable = fct_relabel(variable, ~str_replace(variable, ".l0", ""))`
-#   convert_income <- function(x) {
-#   regex <- "^(?:Lt |)[$]([0-9]+).*$"
-#   is_range <- grepl(regex, x)
-#   num_income <- as.numeric(gsub(regex, "\\1", x[is_range]))
-#   num_income <- trunc(num_income / 5000) * 5000
-#   x[is_range] <- paste0("Gt $", num_income)
-#   x
-# }
-#   
-  # rincome2 <- fct_relabel(gss_cat$rincome, convert_income)
-  
   message("Loading previously calculated raw SHAPS")
-  shap_raw <- readRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+  shap_raw <- readRDS(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                               window, "_", lead, "_", version, 
                                               ".rds")))
 } else {
@@ -432,17 +456,68 @@ if(file.exists(here(path_models, str_c("imp_shap_raw_", data_type, "_",
 shap_raw <- shap.prep(xgb_model = extract_fit_engine(model_fit_best),
                      X_train = x %>% as.matrix())
 
-shap_raw %>% saveRDS(here(path_models, str_c("imp_shap_raw_", data_type, "_", 
+clean_feature_names <- function(feat_name){
+  new_name <- gsub(".l0", "", feat_name)
+  new_name <- gsub("rratecount.count", "raw_count", new_name)
+  new_name <- gsub("dratecount.count", "diff_count", new_name)
+  new_name <- gsub("drecent_response", "diff_recent", new_name)
+  new_name <- gsub("rrecent_response", "raw_recent", new_name)
+  new_name <- gsub("dmin_response", "diff_min", new_name)
+  new_name <- gsub("rmin_response", "raw_min", new_name)
+  new_name <- gsub("dmax_response", "diff_max", new_name)
+  new_name <- gsub("rmax_response", "raw_max", new_name)
+  new_name <- gsub("dmedian_response", "diff_median", new_name)
+  new_name <- gsub("rmedian_response", "raw_median", new_name)
+  new_name <- gsub("label_", "", new_name)
+  new_name <- gsub("demo_", "", new_name)
+  new_name <- gsub("High.school.or.less", "high.school", new_name)
+  new_name <- gsub("Some.college", "some.college", new_name)
+  new_name <- gsub("Mon", "mon", new_name)
+  new_name <- gsub("Tue", "tue", new_name)
+  new_name <- gsub("Wed", "wed", new_name)
+  new_name <- gsub("Thu", "thu", new_name)
+  new_name <- gsub("Fri", "fri", new_name)
+  new_name <- gsub("Sat", "sat", new_name)
+  new_name <- gsub("Sun", "sun", new_name)
+  new_name <- gsub("Never.Married", "never.married", new_name)
+  new_name <- gsub("Never.Other", "never.other", new_name)
+  new_name <- gsub("White.Caucasian", "caucasian", new_name)
+  new_name <- gsub("Male", "male", new_name)
+  new_name <- gsub("p12.raw_count.lapse", "lapse.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.lapse", "lapse.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.lapse", "lapse.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.lapse", "lapse.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.lapse", "lapse.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.lapse", "lapse.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.lapse", "lapse.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.lapse", "lapse.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.lapse", "lapse.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.lapse", "lapse.p168.diff_count", new_name)
+  new_name <- gsub("p12.raw_count.ema", "missing.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.ema", "missing.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.ema", "missing.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.ema", "missing.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.ema", "missing.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.ema", "missing.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.ema", "missing.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.ema", "missing.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.ema", "missing.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.ema", "missing.p168.diff_count", new_name)
+  return(new_name) 
+}
+shap_raw <- shap_raw %>% 
+  mutate(variable = fct_relabel(variable, clean_feature_names))
+
+shap_raw %>% saveRDS(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                               window, "_", lead, "_", version, 
                                               ".rds")))
-
 }
 
-if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_", 
+if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
   message("Loading previously calculated grouped SHAPs")
-  shap_grouped <- readRDS(here(path_models, str_c("imp_shap_grouped_",
+  shap_grouped <- readRDS(file.path(path_models, str_c("imp_shap_grouped_",
                                                        data_type, "_", 
                                                        window, "_", lead, "_",
                                                        version, ".rds")))
@@ -475,7 +550,7 @@ if(file.exists(here(path_models, str_c("imp_shap_grouped_", data_type, "_",
     group_by(ID, group) %>% 
     summarize(shap = sum(value))
   
-  shap_grouped %>% saveRDS(here(path_models, str_c("imp_shap_grouped_",
+  shap_grouped %>% saveRDS(file.path(path_models, str_c("imp_shap_grouped_",
                                                          data_type, "_", 
                                                          window, "_", lead, "_",
                                                          version, ".rds")))
@@ -496,7 +571,7 @@ shap_raw %>%
   geom_point(size = 2, color = "red") +
   geom_segment(aes(x = variable, y = mean_value, xend = variable), 
                yend = 0, colour = "grey50")  +
-  ylab("Mean SHAP value") +
+  ylab("Mean |SHAP| value") +
   coord_flip()
 
 # save plot for presentations
