@@ -255,12 +255,13 @@ auc_folds_week %>% mutate(model = "week") %>%
   ggplot() + 
   geom_histogram(aes(x = roc_auc, fill = model), color = "black", alpha = .4, bins = 15) +
   facet_wrap(~model, ncol = 1) +
-  xlab("Area Under ROC Curve (per fold")
+  xlab("Area Under ROC Curve (per fold)")
 
 ```
 
 
 <!-- Supplemental: Paneled histograms separate by model--> 
+<!--no scientific notation on Y-->
 ```{r caption_predictions_week}
 fig_caption_hist_week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for week Model."
 ```
@@ -404,6 +405,10 @@ fig_pr_hour +
                mapping = aes(x = recall, y = precision),
                color = "black", size = 1)
 ```
+
+<!-- 6 panel plot of above plots using cowplot or similar-->
+<!-- rows are model, columns are model, rows are rocs, auc folds, probabilities-->
+
 
 <!-- Supplemental: SHAP Values for Raw Features--> 
 ```{r caption_shap_week}
