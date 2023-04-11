@@ -18,7 +18,7 @@ fontsize: 11pt
 bibliography: paper_ema.bib
 ---
 
-```{r, knitr_settings, include = FALSE}
+```{r knitr_settings, include = FALSE}
 # settings
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
                       message = FALSE)
@@ -63,6 +63,10 @@ switch (Sys.info()[['sysname']],
 auc_folds_week<- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds"))
 auc_folds_day<- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_kfold.rds"))
 auc_folds_hour<- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) 
+
+# posterior probabilites
+pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+
 
 # Predictions data
 preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
@@ -256,9 +260,49 @@ auc_folds_week %>% mutate(model = "week") %>%
   geom_histogram(aes(x = roc_auc, fill = model), color = "black", alpha = .4, bins = 15) +
   facet_wrap(~model, ncol = 1) +
   xlab("Area Under ROC Curve (per fold)")
-
 ```
 
+```{r caption_pp_contrasts}
+fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
+```
+
+```{r fig_posterior_d}
+ci <- pp %>% 
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week")) %>% 
+  summary(size = .01) %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour vs week", "hour vs day", "day vs week"),
+                           labels = c("hour vs. week", "hour vs. day", "day vs. week")),
+         y = 700)
+
+pp %>% 
+  tidy(seed = 123) %>%   
+  group_by(model) %>% 
+  mutate(sample = row_number()) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = model, values_from = posterior) %>% 
+  mutate(hour_vs_week = hour - week,
+         hour_vs_day = hour - day,
+         day_vs_week = day - week) %>% 
+  pivot_longer(cols = hour_vs_week:day_vs_week,
+               names_to = "contrast",
+               values_to = "posterior") %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
+                           labels = c("hour vs. week", "hour vs. day", "day vs. week"))) %>% 
+  ggplot() +
+  geom_histogram(aes(x = posterior, fill = contrast), 
+                 color = "black", alpha = .4, bins = 30) +
+  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                             color = contrast), data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
+                             color = contrast), data = ci) +
+  facet_wrap(~contrast, ncol = 1)
+  
+```
 
 <!-- Supplemental: Paneled histograms separate by model--> 
 <!--no scientific notation on Y-->
