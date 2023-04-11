@@ -163,6 +163,7 @@ pp_contrasts %>% autoplot(size = .01)
 
 ### Plots
 
+Model posteriors
 ```{r}
 pp_tidy <- pp %>% 
   tidy(seed = 123)
@@ -187,5 +188,43 @@ pp_tidy %>%
   # ylab("Posterior Probability Density") +
   xlab("Area Under ROC Curve")
 ```
+
+model contrast posteriors
+
+```{r model_contrast_posteriors}
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week")) %>% 
+  summary(size = .01) %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour vs week", "hour vs day", "day vs week"),
+                           labels = c("hour vs. week", "hour vs. day", "day vs. week")),
+         y = 700)
+
+pp %>% 
+  tidy(seed = 123) %>%   
+  group_by(model) %>% 
+  mutate(sample = row_number()) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = model, values_from = posterior) %>% 
+  mutate(hour_vs_week = hour - week,
+         hour_vs_day = hour - day,
+         day_vs_week = day - week) %>% 
+  pivot_longer(cols = hour_vs_week:day_vs_week,
+               names_to = "contrast",
+               values_to = "posterior") %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
+                           labels = c("hour vs. week", "hour vs. day", "day vs. week"))) %>% 
+  ggplot() +
+  geom_histogram(aes(x = posterior, fill = contrast), 
+                 color = "black", alpha = .4, bins = 30) +
+  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                             color = contrast), data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
+                             color = contrast), data = ci) +
+  facet_wrap(~contrast, ncol = 1)
 ```
+
 
