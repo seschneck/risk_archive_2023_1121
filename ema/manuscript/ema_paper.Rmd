@@ -18,7 +18,7 @@ fontsize: 11pt
 bibliography: paper_ema.bib
 ---
 
-```{r, knitr_settings, include = FALSE}
+```{r knitr_settings, include = FALSE}
 # settings
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
                       message = FALSE)
@@ -59,25 +59,21 @@ switch (Sys.info()[['sysname']],
        )
 ```
 
-```{r load_tables}
+```{r load_data}
 # Table data
 disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
 screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
-```
 
-```{r load_preds}
 # Predictions data
 preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
 preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
-# pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
-# pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
-# pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
+# posterior probabilites
 pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
 
-
+# ROC curves
 roc_week <- preds_week %>% 
   roc_curve(prob, truth = truth) %>% 
   mutate(model = "1week")
@@ -94,6 +90,7 @@ roc_all <- roc_week %>%
   bind_rows(roc_day) %>% 
   bind_rows(roc_hour)
 
+# PR curves
 pr_week <- preds_week %>% 
   pr_curve(prob, truth = truth) %>% 
   mutate(model = "1week")
@@ -109,10 +106,8 @@ pr_hour <- preds_hour%>%
 pr_all <- pr_week %>% 
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
-```
 
-```{r load_shaps}
-# SHAPS data
+# Raw SHAPS
 shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
   group_by(variable) %>% 
   slice(1) %>%   
@@ -129,6 +124,7 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
   ungroup() %>% 
   arrange(mean_value)
 
+# Grouped SHAPS
 shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
@@ -656,39 +652,9 @@ roc_all %>%
 ```{r caption_pp}
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
+
 <!--fix legend to remove horizontal line-->
 ```{r fig_pp, fig.cap = fig_caption_pp, fig.height=7}
-pp_tidy_week <- pp_week %>% 
-  tidy(seed = 123) %>% 
-  mutate(model = "week")
-pp_tidy_day <- pp_day %>% 
-  tidy(seed = 123) %>% 
-  mutate(model = "day")
-pp_tidy_hour <- pp_hour %>% 
-  tidy(seed = 123) %>% 
-  mutate(model = "hour")
-
-ci <- pp_tidy_week %>% summary() %>% mutate(model = "week", y = 3000) %>% 
-  bind_rows(pp_tidy_day %>% summary() %>% mutate(model = "day", y = 3000)) %>% 
-  bind_rows(pp_tidy_hour %>% summary() %>% mutate(model = "hour", y = 3000)) %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour")))
-
-pp_tidy_week %>% 
-  bind_rows(pp_tidy_day) %>% 
-  bind_rows(pp_tidy_hour) %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>% 
-  ggplot() + 
-  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4) +
-  geom_segment(mapping = aes(y = y+500, yend = y-500, x = mean, xend = mean, 
-                           color = model), 
-               data = ci) + 
-  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
-                data = ci) +
-  facet_wrap(~model, ncol = 1) +
-  ylab("Posterior Probability Density") +
-  xlab("Area Under ROC Curve")
-
-
 pp_tidy <- pp %>% 
   tidy(seed = 123)
 
@@ -734,7 +700,7 @@ pr_all %>%
 fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped_1week, fig.height=7}
+```{r fig_shap_week, fig.cap = fig_caption_shapgrouped_1week, fig.height=7}
 shap_grouped_week %>% 
   mutate(group = factor(group),
          group = forcats::fct_inorder(group)) %>% 
@@ -751,7 +717,7 @@ shap_grouped_week %>%
 fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped_1day, fig.height=7}
+```{r fig_shap_day, fig.cap = fig_caption_shapgrouped_1day, fig.height=7}
 shap_grouped_day %>% 
   mutate(group = factor(group),
          group = forcats::fct_inorder(group)) %>% 
@@ -768,7 +734,7 @@ shap_grouped_day %>%
 fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped_1hour, fig.height=7}
+```{r fig_shap_hour, fig.cap = fig_caption_shapgrouped_1hour, fig.height=7}
 shap_grouped_hour %>% 
   mutate(group = factor(group),
          group = forcats::fct_inorder(group)) %>% 
