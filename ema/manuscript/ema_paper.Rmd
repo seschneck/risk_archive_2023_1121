@@ -240,6 +240,7 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 
 <!-- Demographics table-->
+<!--Add mins/maxes-->
 ```{r table_demo}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
@@ -331,6 +332,8 @@ dem %>%
 \newpage
 
 <!-- Alcohol Use History table-->
+<!--Add past month/3 month use-->
+<!--update to be clear on income-->
 ```{r table_auh}
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
@@ -531,6 +534,7 @@ auh %>%
 
 \newpage
 
+<!--fix borders-->
 ```{r table_metrics}
 metrics_week <- preds_week %>%   
   conf_mat(truth, estimate) %>% 
@@ -590,6 +594,7 @@ metrics %>%
 
 <!-- Consort Diagram-->
 <!--: KW: I think the powerpoint version looks a bit nicer than this.-->
+<!--fix margin-->
 ```{r}
 fig_caption_consort <- "Figure X. Consort Diagram"
 ```
@@ -636,30 +641,31 @@ roc_all %>%
 
 
 <!-- Single Posteriors for AUC by model with rope-->
+
 ```{r}
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
-
+<!--fix legend to remove horizontal line-->
 ```{r fig_pp, fig.cap = fig_caption_pp, fig.height=7}
 pp_tidy_week <- pp_week %>% 
   tidy(seed = 123) %>% 
-  mutate(model = "1week")
+  mutate(model = "week")
 pp_tidy_day <- pp_day %>% 
   tidy(seed = 123) %>% 
-  mutate(model = "1day")
+  mutate(model = "day")
 pp_tidy_hour <- pp_hour %>% 
   tidy(seed = 123) %>% 
-  mutate(model = "1hour")
+  mutate(model = "hour")
 
-ci <- pp_tidy_week %>% summary() %>% mutate(model = "1week", y = 3000) %>% 
-  bind_rows(pp_tidy_day %>% summary() %>% mutate(model = "1day", y = 3000)) %>% 
-  bind_rows(pp_tidy_hour %>% summary() %>% mutate(model = "1hour", y = 3000)) %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour")))
+ci <- pp_tidy_week %>% summary() %>% mutate(model = "week", y = 3000) %>% 
+  bind_rows(pp_tidy_day %>% summary() %>% mutate(model = "day", y = 3000)) %>% 
+  bind_rows(pp_tidy_hour %>% summary() %>% mutate(model = "hour", y = 3000)) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour")))
 
 pp_tidy_week %>% 
   bind_rows(pp_tidy_day) %>% 
   bind_rows(pp_tidy_hour) %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>% 
   ggplot() + 
   geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4) +
   geom_segment(mapping = aes(y = y+500, yend = y-500, x = mean, xend = mean, 
@@ -677,7 +683,7 @@ pp_tidy_week %>%
 ```{r caption_pr}
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
-
+<!--fix order of models - week, day, hour-->
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
   ggplot(aes(x = recall, y = precision, color = model)) +
@@ -739,3 +745,6 @@ shap_grouped_hour %>%
   xlab("") +
   coord_flip()
 ```
+
+<!-- SHAP Importance figure combined across models-->
+<!--organize by item, window and then demo-->
