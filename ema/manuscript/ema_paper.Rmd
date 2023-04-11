@@ -72,9 +72,11 @@ preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_
 preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
-pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
-pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
-pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
+# pp_week <- readRDS(file.path(path_models, "posteriors_all_1week_0_v4_kfold.rds"))
+# pp_day <- readRDS(file.path(path_models, "posteriors_all_1day_0_v4_kfold.rds"))
+# pp_hour <- readRDS(file.path(path_models, "posteriors_all_1hour_0_v4_kfold.rds"))
+pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+
 
 roc_week <- preds_week %>% 
   roc_curve(prob, truth = truth) %>% 
@@ -604,7 +606,7 @@ metrics %>%
 <!-- Consort Diagram-->
 <!--: KW: I think the powerpoint version looks a bit nicer than this.-->
 <!--fix margin-->
-```{r}
+```{r caption_consort}
 fig_caption_consort <- "Figure X. Consort Diagram"
 ```
 
@@ -628,7 +630,7 @@ consort_plot(data = disposition,
 
 
 <!-- Single AUC figure by model-->  
-```{r}
+```{r caption_roc}
 fig_caption_roc <- "Receiver Operating Characteritic Curves by Model  "
 ```
 
@@ -651,7 +653,7 @@ roc_all %>%
 
 <!-- Single Posteriors for AUC by model with rope-->
 
-```{r}
+```{r caption_pp}
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
 <!--fix legend to remove horizontal line-->
@@ -685,6 +687,30 @@ pp_tidy_week %>%
   facet_wrap(~model, ncol = 1) +
   ylab("Posterior Probability Density") +
   xlab("Area Under ROC Curve")
+
+
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
+
+ci <- pp_tidy %>% 
+  summary() %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour")),
+         y = 1000)
+
+pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+                 bins = 30) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+                data = ci) +
+  facet_wrap(~model, ncol = 1) +
+  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  # ylab("Posterior Probability Density") +
+  xlab("Area Under ROC Curve")
 ```
 
 
@@ -704,7 +730,7 @@ pr_all %>%
 
 
 <!-- SHAP Importance figures separate by model-->
-```{r}
+```{r caption_shap_week}
 fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
@@ -721,7 +747,7 @@ shap_grouped_week %>%
   coord_flip()
 ```
 
-```{r}
+```{r caption_shap_day}
 fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
@@ -738,7 +764,7 @@ shap_grouped_day %>%
   coord_flip()
 ```
 
-```{r}
+```{r caption_shap_hour}
 fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
