@@ -6,6 +6,14 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/ema", 
+      "/Volumes/private/studydata/risk/knits/ema")
+    )
+  })
 ---
 
 ### Code Status
@@ -24,7 +32,7 @@ In use with iterative improvement
 ### Set Up Environment
 
 Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
+```{r packages_workflow, message=FALSE, warning=FALSE}
 library(conflicted) # detect and warn about function conflicts
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
@@ -35,7 +43,7 @@ conflicts_prefer(ggplot2::`%+%`)
 ```
 
 Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
+```{r packages_script, message=FALSE, warning=FALSE}
 library(tidyposterior)
 library(tidyverse)
 library(tidymodels)
@@ -44,7 +52,7 @@ theme_set(theme_classic())
 ```
 
 Absolute paths
-```{r, absolute paths}
+```{r absolute paths}
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
