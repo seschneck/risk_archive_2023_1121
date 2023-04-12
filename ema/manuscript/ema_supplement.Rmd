@@ -24,10 +24,10 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE,
                       message = FALSE)
 options(knitr.kable.NA = '')
 knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+options(scipen = 999) #removes scientific notation
 ```
 
 ```{r setup, include = FALSE}
-library(papaja)
 library(knitr)
 library(yardstick) # for roc_curve and pr_curve
 library(kableExtra)
@@ -266,7 +266,7 @@ auc_folds_week %>% mutate(model = "week") %>%
 fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
 ```
 
-```{r fig_posterior_diffs}
+```{r fig_posterior_d}
 ci <- pp %>% 
   contrast_models(list("hour","hour", "day"), 
                 list("week", "day", "week")) %>% 
@@ -300,9 +300,7 @@ pp %>%
                              color = contrast), data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
                              color = contrast), data = ci) +
-  facet_wrap(~contrast, ncol = 1) +
-  ylab("Posterior Probability") +
-  xlab("Model Contrast for AUC")
+  facet_wrap(~contrast, ncol = 1)
   
 ```
 
@@ -322,7 +320,8 @@ preds_week %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 ```{r caption_predictions_day}
@@ -339,7 +338,8 @@ preds_day %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 ```{r caption_predictions_hour}
@@ -356,7 +356,8 @@ preds_hour %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 
@@ -509,4 +510,5 @@ shap_raw_hour %>%
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip()
+>>>>>>> ac2326b278e2d57ee021e66d5a818e869314c619
 ```
