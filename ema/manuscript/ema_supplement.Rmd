@@ -24,6 +24,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE,
                       message = FALSE)
 options(knitr.kable.NA = '')
 knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+options(scipen = 999) #removes scientific notation
 ```
 
 ```{r setup, include = FALSE}
@@ -319,7 +320,8 @@ preds_week %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 ```{r caption_predictions_day}
@@ -336,7 +338,8 @@ preds_day %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 ```{r caption_predictions_hour}
@@ -353,7 +356,8 @@ preds_hour %>%
    xlab("Pr(Lapse)") +
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
+        strip.text = element_text(size = rel(1.75))) +
+  scale_y_continuous(labels = scales::comma)
 ```
 
 
