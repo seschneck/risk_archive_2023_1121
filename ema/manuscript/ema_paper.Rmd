@@ -238,7 +238,10 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 
 <!-- Demographics table-->
-<!--Dollar range is getting formatted odd because its using $ as escape characters. Still looking into solution-->
+```{r}
+footnote_table_dem <- "N = 151"
+```
+
 ```{r table_demo}
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
@@ -302,7 +305,7 @@ dem <- screen %>%
         mean = str_c("$", as.character(mean)),
         SD = str_c("$", as.character(SD)),
         min = str_c("$", as.character(min)),
-        max = str_c("$", as.character(max))) %>% 
+        max = as.character(max)) %>% 
   select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", "min", "max")) %>% 
   full_join(screen %>% 
   select(var = dem_8) %>% 
@@ -322,11 +325,10 @@ dem %>%
   kbl(longtable = TRUE,
       booktabs = TRUE,
       col.names = c("", "N", "%", "M", "SD", "Range"),
-      digits = 1,
       align = c("l", "c", "c", "c", "c", "c"),
-      caption = "Demographics",
-      escape = FALSE) %>%
-  kable_styling(latex_options = c("HOLD_position")) %>% 
+      digits = 1,
+      caption = "Demographics") %>%
+  kable_styling() %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
   pack_rows("Race", 4, 8, bold = FALSE) %>% 
@@ -334,52 +336,72 @@ dem %>%
   pack_rows("Education", 11, 16, bold = FALSE) %>% 
   pack_rows("Employment", 17, 25, bold = FALSE) %>% 
   pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
-  footnote("N = 151")
+  footnote(general=footnote_table_dem, threeparttable = TRUE)
 ```
 
 \newpage
 
 <!-- Alcohol Use History table-->
-<!--Add past month/3 month use-->
+```{r}
+footnote_table_auh_a <- "N = 151"
+footnote_table_auh_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior to calculating the mean (M), standard deviation (SD), and range."
+```
+
 ```{r table_auh}
 auh <- screen %>% 
   summarise(mean = mean(auh_1, na.rm = TRUE),
-            SD = sd(auh_1, na.rm = TRUE)) %>% 
+            SD = sd(auh_1, na.rm = TRUE),
+            min = min(auh_1, na.rm = TRUE),
+            max = max(auh_1, na.rm = TRUE)) %>% 
   mutate(var = "Age of first drink",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
   select(var, n, perc, everything()) %>% 
   full_join(screen %>% 
   summarise(mean = mean(auh_2, na.rm = TRUE),
-            SD = sd(auh_2, na.rm = TRUE)) %>% 
+            SD = sd(auh_2, na.rm = TRUE),
+            min = min(auh_2, na.rm = TRUE),
+            max = max(auh_2, na.rm = TRUE)) %>% 
   mutate(var = "Age of regular drinking",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", 
+                                             "min", "max")) %>% 
   full_join(screen %>% 
   summarise(mean = mean(auh_3, na.rm = TRUE),
-            SD = sd(auh_3, na.rm = TRUE)) %>% 
+            SD = sd(auh_3, na.rm = TRUE),
+            min = min(auh_3, na.rm = TRUE),
+            max = max(auh_3, na.rm = TRUE)) %>% 
   mutate(var = "Age at which drinking became problematic",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
   full_join(screen %>% 
   summarise(mean = mean(auh_4, na.rm = TRUE),
-            SD = sd(auh_4, na.rm = TRUE)) %>% 
+            SD = sd(auh_4, na.rm = TRUE),
+            min = min(auh_4, na.rm = TRUE),
+            max = max(auh_4, na.rm = TRUE)) %>% 
   mutate(var = "Age of first quit attempt",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
   full_join(screen %>% 
+  # filter out 2 people with 100 and 365 reported quit attempts - will make footnote in table
+  filter(auh_5 < 100) %>% 
   summarise(mean = mean(auh_5, na.rm = TRUE),
-            SD = sd(auh_5, na.rm = TRUE)) %>% 
-  mutate(var = "Number of Quit Attempts",
+            SD = sd(auh_5, na.rm = TRUE),
+            min = min(auh_5, na.rm = TRUE),
+            max = max(auh_5, na.rm = TRUE)) %>% 
+  mutate(var = "Number of Quit Attempts*",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
   full_join(screen %>% 
   select(var = auh_6_1) %>%
-  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ mos.)",
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ months)",
                          TRUE ~ var)) %>% 
   group_by(var) %>% 
   drop_na() %>% 
@@ -387,7 +409,7 @@ auh <- screen %>%
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
   select(var = auh_6_2) %>%
-  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 mos.)",
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 months)",
                          TRUE ~ var)) %>% 
   group_by(var) %>% 
   drop_na() %>% 
@@ -443,79 +465,74 @@ auh <- screen %>%
                             dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
   ungroup() %>% 
   summarise(mean = mean(dsm5_total),
-            SD = sd(dsm5_total)) %>% 
-  mutate(var = "AUD DSM-5 Symptom Count",
+            SD = sd(dsm5_total),
+            min = min(dsm5_total, na.rm = TRUE),
+            max = max(dsm5_total, na.rm = TRUE)) %>% 
+  mutate(var = "Alcohol Use Disorder DSM-5 Symptom Count",
         n = as.numeric(""),
         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_1) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_1) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_2) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Cannabis (marijuana, pot, grass, hash, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_2) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Cannabis (marijuana, pot, grass, hash, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_3) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Cocaine (coke, crack, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_3) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Cocaine (coke, crack, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_4) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_4) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_5) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Inhalants (nitrous, glue, petrol, paint thinner, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_5) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Inhalants (nitrous, glue, petrol, paint thinner, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_6) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_6) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_7) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_7) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
   full_join(screen %>% 
-  select(var = assist_1_8) %>%
-  filter(var == "Yes") %>% 
-  mutate(var = case_when(var == "Yes" ~ "Opioids (heroin, morphine, methadone, codeine, etc.)",
-                         TRUE ~ var)) %>% 
+  select(var = assist_2_8) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Opioids (heroin, morphine, methadone, codeine, etc.)") %>% 
   group_by(var) %>% 
   drop_na() %>% 
   summarise(n = n()) %>% 
@@ -523,20 +540,22 @@ auh <- screen %>%
 
 # display and format table
 auh %>%
+  mutate(range = str_c(min, "-", max)) %>%
+  select(-c(min, max)) %>% 
   kbl(longtable = TRUE,
       booktabs = TRUE,
-      col.names = c("", "n", "%", "M", "SD"),
+      col.names = c("", "N", "%", "M", "SD", "Range"),
+      align = c("l", "c", "c", "c", "c", "c"),
       digits = 1,
-      align = c("l", "c", "c", "c", "c"),
-      caption = "Alcohol Related Information",
-      table.attr = "style='width:70%;'") %>% 
-  row_spec(row = 0, align = "c") %>% 
+      caption = "Alcohol Related Information") %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
   kable_classic(html_font = "Times New Roman", position = "left") %>% 
-  pack_rows("AUD Milestones", 1, 4, bold = FALSE) %>% 
+  pack_rows("Alcohol Use Disorder Milestones", 1, 4, bold = FALSE) %>% 
   pack_rows("Lifetime History of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>% 
-  pack_rows("Received Medication for AUD", 13, 14, bold = FALSE) %>% 
-  pack_rows("Lifetime Drug Use", 16, 23, bold = FALSE) %>% 
-  footnote("N = 151")
+  pack_rows("Received Medication for Alcohol Use Disorder", 13, 14, bold = FALSE) %>% 
+  pack_rows("Current (Past 3 Month) Drug Use", 16, 23, bold = FALSE) %>% 
+  footnote(general=footnote_table_auh_a, symbol = c(footnote_table_auh_b), 
+           threeparttable = TRUE)
 ```
 
 \newpage
