@@ -224,25 +224,24 @@ This gave us a total of 267,283 features for 1-hour lapse windows, 274,175 featu
 
 ### Model Training and Evaluation
 
-**1. algorithms**  
 We considered three candidate classification statistical algorithms (elasticnet, random forest, xgboost) that differed across various characteristics expected to affect model performance (e.g., flexibility, ability to handle higher-order interactions natively, complexity, linear vs. non-linear). <!-- [also changed previous sentence to expand slightly]. Suggested addition: These algorithms are well-established with documented good "out of box" performance, and they vary with respect to the degree of feature selection performed automatically during model fitting.--> <!--cite Kunn & Johnson APM -->
 
-**2. Model configurations**   
+  
 Each candidate algorithm was tuned for its associated hyperparameters <!--(i.e., model tuning parameters)--> and resampled using two methods (up and down sampling). <!--GEF: Resampling approaches are designed to address class imbalances by sampling additional minority class observations (upsampling) or removing majority class observations (downsampling) within held-in data.-->
 
-**3. k-fold**  
+
 We trained all possible model configurations (i.e., <!--combination of -->algorithm, hyperparameter values, and resampling method) using 10-fold cross validation. <!--GEF suggest adding a 1-2 sentence description here--> Cross-validation folds were grouped by participant ID (i.e., participants in the held-in data set were not also in the held-out data set). 
 
-**4. pre-processing**  
+ 
 Generic (e.g., handling of missing data and zero-variance variables) and algorithmic-specific (e.g., dummy coding and normalization) pre-processing steps were estimated using held in data and applied to held out data<!--KW: possibly reference supplemental recipe code here-->.
 
-**5. selection** <!--GEF: if this subsection gets labeled, consider calling it performance metric?--> 
+<!--GEF: if this subsection gets labeled, consider calling it performance metric?--> 
 The best model configuration was selected <!--GEF: using cross-validation--> based on the primary performance metric of interest, area under the receiver operating characteristic curve (AUC ROC).
 
-**6. evaluation**  
+
 We evaluated performance of our best model configuration by averaging the AUC ROC across the 10 held out folds. In addition to our primary performance metric, we report the average sensitivity, specificity, balanced accuracy, and positive predictive value (PPV) from all held out folds<!--KW: will cite source for these metrics - tidymodels reference or IAML-->. We also provide the ROC and Precision-Recall (PR) curves. 
 
-**7. interpretability**  
+
 We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i.e., across participants) index of feature importance.<!--KW: Not sure best spot for this section yet-->
 
 
@@ -639,12 +638,11 @@ metrics %>%
 
 <!-- Consort Diagram-->
 <!--: KW: I think the powerpoint version looks a bit nicer than this.-->
-<!--fix margin-->
 ```{r caption_consort}
-fig_caption_consort <- "Figure X. Consort Diagram"
+fig_caption_consort <- "Consort Diagram"
 ```
 
-```{r fig_consort, fig.cap=fig_caption_consort, fig.height=6.5}
+```{r fig_consort, fig.cap=fig_caption_consort, fig.height=7}
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
                         consented_reason = "Not Consented",
@@ -659,7 +657,8 @@ consort_plot(data = disposition,
                           "enrolled_reason", 
                           "completed_followup_reason",
                           "analysis_reason"),
-             cex = .9)
+             cex = .9,
+             text_width = 45)
 ```
 
 
