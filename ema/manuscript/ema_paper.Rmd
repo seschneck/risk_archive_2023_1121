@@ -566,8 +566,8 @@ auh %>%
       align = c("l", "c", "c", "c", "c", "c"),
       digits = 1,
       caption = "Alcohol Related Information") %>% 
+  kable_styling() %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
-  kable_classic(html_font = "Times New Roman", position = "left") %>% 
   pack_rows("Alcohol Use Disorder Milestones", 1, 4, bold = FALSE) %>% 
   pack_rows("Lifetime History of Treatment (Can choose more than 1)", 6, 12, bold = FALSE) %>% 
   pack_rows("Received Medication for Alcohol Use Disorder", 13, 14, bold = FALSE) %>% 
@@ -578,7 +578,10 @@ auh %>%
 
 \newpage
 
-<!--fix borders-->
+```{r}
+footnote_table_perf_metrics <- "Insert footnote"
+```
+
 ```{r table_metrics}
 metrics_week <- preds_week %>%   
   conf_mat(truth, estimate) %>% 
@@ -623,14 +626,14 @@ metrics <- metrics %>%
 metrics <- metrics[c(6,1,2,3,4,5),]
 
 metrics %>%
-  kbl(col.names = c("metric", "week", "day", "hour"),
+ kbl(col.names = c("Metric", "Week", "Day", "Hour"),
+      booktabs = TRUE,
       digits = 3,
       align = c("l", "c", "c", "c"),
-      caption = "Table 3: Performance Metrics by Model",
-      table.attr = "style='width:40%;'") %>% 
+      caption = "Performance Metrics by Model") %>% 
   row_spec(row = 0, align = "c") %>% 
-  kable_classic(html_font = "Times New Roman", position = "left") %>% 
-  footnote("insert table note")
+  kable_styling(position = "left") %>% 
+  footnote(general=footnote_table_perf_metrics)
 ```
 
 \newpage
