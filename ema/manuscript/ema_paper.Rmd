@@ -796,3 +796,47 @@ shap_grouped_hour %>%
 
 <!-- SHAP Importance figure combined across models-->
 <!--organize by item, window and then demo-->
+```{r}
+shap_grouped_all <- shap_grouped_week %>% 
+  mutate(window = "week") %>% 
+  bind_rows(shap_grouped_day %>% 
+              mutate(window = "day")) %>% 
+  bind_rows(shap_grouped_hour %>% 
+              mutate(window = "hour")) %>% 
+  mutate(window = factor(window, levels = c("week", "day", "hour"))) %>% 
+  # ema items ordered as they appeared on survey
+  mutate(group = factor(group, levels = c("past use", "craving", "past risky situation", 
+                                          "past stressful event", "past pleasant event", 
+                                          "valence", "arousal", "future risky situation", 
+                                          "future stressful event", "future efficacy", 
+                                          "lapse hour", "lapse day", "missing surveys", "age", 
+                                          "educ", "marital", "race", "sex")))
+
+shap_grouped_all %>% 
+  # reverse factor order for coord_flip()
+  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip() 
+```
+
+
+```{r}
+shap_grouped_all %>% 
+  mutate(group = factor(group, levels = rev(levels(group))),
+         window = factor(window, levels = rev(levels(window)))) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), 
+           stat = "identity", position = "dodge") +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip() +
+    coord_flip() +
+  scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF"), 
+                    breaks = c("week", "day", "hour")) +
+  scale_color_manual(values = c("#F8766D", "#00BA38", "#619CFF"),
+                     breaks = c("week", "day", "hour")) 
+```
+
