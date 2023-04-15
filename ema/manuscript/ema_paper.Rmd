@@ -727,9 +727,10 @@ pp_tidy %>%
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
 
-<!--fix order of models - week, day, hour-->
+
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>%
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
