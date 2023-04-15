@@ -675,7 +675,8 @@ fig_caption_roc <- "Receiver Operating Characteritic Curves by Model  "
 ```{r fig_roc, fig.cap = fig_caption_roc, fig.height=7}
 
 roc_all %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
   geom_path() +
   geom_abline(lty = 3) +
@@ -695,7 +696,7 @@ roc_all %>%
 fig_caption_pp <- "Posterior Probability Distributions for Area Under the ROC Curve by Model.  Horizontal lines represent 95 percent credible intervals for each model.  Verical line represents mean of the posteerior distribution."
 ```
 
-<!--fix legend to remove horizontal line-->
+
 ```{r fig_pp, fig.cap = fig_caption_pp, fig.height=7}
 pp_tidy <- pp %>% 
   tidy(seed = 123)
@@ -712,9 +713,11 @@ pp_tidy %>%
                  bins = 30) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
                            color = model),
+               show.legend = FALSE,
                data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
-                data = ci) +
+              show.legend = FALSE,
+               data = ci) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
   # ylab("Posterior Probability Density") +
@@ -730,7 +733,8 @@ fig_caption_pr <- "Precision-Recall Curves for models."
 
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"))) %>%
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>%
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
