@@ -858,13 +858,27 @@ fig_caption_shapgrouped_demo2 <- "Insert Note here (ordered by highest mean SHAP
 ```
 
 ```{r}
-fig_caption_shapgrouped_demo3 <- "Insert Note here (possible alternative way to display three windows)."
+fig_caption_shapgrouped_demo3 <- "Insert Note here (possible alternative way to display three windows - ordered by EMA item)."
 ```
 
 ```{r fig.cap = fig_caption_shapgrouped_demo3, fig.height=7}
 shap_grouped_all %>% 
   # reverse factor order for coord_flip()
   mutate(group = factor(group, levels = rev(levels(group)))) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+```{r}
+fig_caption_shapgrouped_demo4 <- "Insert Note here (possible alternative way to display three windows - ordered by sum mean SHAP)."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_demo4, fig.height=7}
+shap_grouped_all %>% 
+  mutate(group = reorder(group, mean_value, sum)) %>% 
   ggplot() +
   geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
   ylab("Mean |SHAP| value") +
