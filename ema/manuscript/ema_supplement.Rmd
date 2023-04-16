@@ -39,6 +39,7 @@ library(consort)
 library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
+library(cowplot)
 
 theme_set(theme_classic()) 
 ```
@@ -269,7 +270,7 @@ auc_folds_week %>% mutate(model = "week") %>%
 fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
 ```
 
-```{r fig_posterior_d}
+```{r fig_posterior_d, fig.cap = fig_caption_pp_contrasts, fig.height = 7}
 ci <- pp %>% 
   contrast_models(list("hour","hour", "day"), 
                 list("week", "day", "week")) %>% 
@@ -300,15 +301,14 @@ pp %>%
   geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
   geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-                             color = contrast), data = ci) +
+                             color = contrast), data = ci, show.legend = FALSE) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
-                             color = contrast), data = ci) +
+                             color = contrast), data = ci, show.legend = FALSE) +
   facet_wrap(~contrast, ncol = 1)
   
 ```
 
 <!-- Supplemental: Paneled histograms separate by model--> 
-<!--no scientific notation on Y-->
 ```{r caption_predictions_week}
 fig_caption_hist_week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for week Model."
 ```
@@ -458,6 +458,199 @@ fig_pr_hour +
 
 <!-- 6 panel plot of above plots using cowplot or similar-->
 <!-- rows are model, columns are model, rows are rocs, auc folds, probabilities-->
+
+<!-- Save individual plots from above to combine -->
+```{r}
+fig_roc_week <- roc_week_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+  
+for (i in 1:nrow(roc_week)) {
+  fig_roc_week <- fig_roc_week +
+     geom_path(data = roc_week$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#fdd2ce")
+}
+
+fig_roc_week <- fig_roc_week +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#F8766D", size = 1)
+```
+
+```{r}
+fig_roc_day <- roc_day_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) 
+  
+for (i in 1:nrow(roc_day)) {
+  fig_roc_day <- fig_roc_day +
+     geom_path(data = roc_day$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#bcffcf")
+}
+
+fig_roc_day <- fig_roc_day +
+     geom_path(data = roc_day_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#00BA38", size = 1)
+  
+```
+
+
+```{r}
+fig_roc_hour <- roc_hour_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) 
+  
+for (i in 1:nrow(roc_hour)) {
+  fig_roc_hour <- fig_roc_hour +
+     geom_path(data = roc_hour$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#c8dcff")
+}
+
+fig_roc_hour <- fig_roc_hour +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#619CFF", size = 1)
+```
+
+
+```{r}
+fig_auc_week <- auc_folds_week %>% 
+  mutate(model = "week") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") 
+
+fig_auc_day <- auc_folds_day %>% 
+  mutate(model = "day") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") 
+
+fig_auc_hour <- auc_folds_hour %>% 
+  mutate(model = "hour") %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  xlab("Area Under ROC Curve (per fold)")
+```
+
+
+```{r}
+fig_caption_3_x_2 <- "Insert Note Here."
+```
+
+```{r fig.cap = fig_caption_3_x_2, fig.height = 7}
+plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fig_auc_hour,
+          ncol = 2, align = "h")
+```
+
+```{r}
+fig_preds_week <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, scales = "free_y", ncol = 1) +
+   xlab("Pr(Lapse)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_day <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_hour <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
+fig_auc_week <- auc_folds_week %>% 
+  mutate(model = "week") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") 
+
+fig_auc_day <- auc_folds_day %>% 
+  mutate(model = "day") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") 
+
+fig_auc_hour <- auc_folds_hour %>% 
+  mutate(model = "hour") %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
+  xlab("Area Under ROC Curve (per fold)")
+```
+
+
+```{r}
+fig_caption_3_x_3 <- "Insert Note Here."
+```
+
+```{r fig.cap = fig_caption_3_x_3, fig.width = 8, fig.height= 6.5}
+fig_roc_auc <- plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day,
+                         fig_roc_hour, fig_auc_hour, nrow = 3, align = "hv")
+fig_preds <- plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, ncol = 1, align = "hv")
+
+plot_grid(fig_roc_auc, fig_preds, rel_widths = c(2,1), align = "hv")
+```
+
+
 
 
 <!-- Supplemental: SHAP Values for Raw Features--> 

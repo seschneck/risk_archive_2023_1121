@@ -821,8 +821,8 @@ shap_grouped_all %>%
   mutate(group = factor(group, levels = rev(levels(group))),
          window = factor(window, levels = rev(levels(window)))) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = "black"), 
-           stat = "identity", position = "dodge") +
+  geom_bar(aes(x = group, y = mean_value, fill = window), 
+           color = "black", stat = "identity", position = "dodge") +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip() +
@@ -845,8 +845,8 @@ fig_caption_shapgrouped_demo2 <- "Insert Note here (ordered by highest mean SHAP
   # reverse factor order for coord_flip()
   mutate(window = factor(window, levels = rev(levels(window)))) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = "black"), 
-           stat = "identity", position = "dodge") +
+  geom_bar(aes(x = group, y = mean_value, fill = window), 
+           color = "black", stat = "identity", position = "dodge") +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip() +
