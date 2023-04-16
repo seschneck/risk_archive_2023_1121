@@ -797,6 +797,10 @@ shap_grouped_hour %>%
 <!-- SHAP Importance figure combined across models-->
 <!--organize by item, window and then demo-->
 ```{r}
+fig_caption_shapgrouped_demo1 <- "Insert Note here (ordered by EMA item, then lapse info and demographics)."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_demo1, fig.height=7}
 shap_grouped_all <- shap_grouped_week %>% 
   mutate(window = "week") %>% 
   bind_rows(shap_grouped_day %>% 
@@ -814,21 +818,10 @@ shap_grouped_all <- shap_grouped_week %>%
 
 shap_grouped_all %>% 
   # reverse factor order for coord_flip()
-  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
-  ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip() 
-```
-
-
-```{r}
-shap_grouped_all %>% 
   mutate(group = factor(group, levels = rev(levels(group))),
          window = factor(window, levels = rev(levels(window)))) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), 
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = "black"), 
            stat = "identity", position = "dodge") +
   ylab("Mean |SHAP| value") +
   xlab("") +
@@ -837,6 +830,46 @@ shap_grouped_all %>%
   scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF"), 
                     breaks = c("week", "day", "hour")) +
   scale_color_manual(values = c("#F8766D", "#00BA38", "#619CFF"),
-                     breaks = c("week", "day", "hour")) 
+                     breaks = c("week", "day", "hour"))
 ```
+
+<!--Ordered by overall mean Shap value (across groups)-->
+```{r}
+fig_caption_shapgrouped_demo2 <- "Insert Note here (ordered by highest mean SHAP value across 3 windows)."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_demo2, fig.height=7}
+ shap_grouped_all %>% 
+  # reorder factor based on mean value
+  mutate(group = reorder(group, mean_value, mean)) %>% 
+  # reverse factor order for coord_flip()
+  mutate(window = factor(window, levels = rev(levels(window)))) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = "black"), 
+           stat = "identity", position = "dodge") +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip() +
+    coord_flip() +
+  scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF"), 
+                    breaks = c("week", "day", "hour")) +
+  scale_color_manual(values = c("#F8766D", "#00BA38", "#619CFF"),
+                     breaks = c("week", "day", "hour"))
+```
+
+```{r}
+fig_caption_shapgrouped_demo3 <- "Insert Note here (possible alternative way to display three windows)."
+```
+
+```{r fig.cap = fig_caption_shapgrouped_demo3, fig.height=7}
+shap_grouped_all %>% 
+  # reverse factor order for coord_flip()
+  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
 
