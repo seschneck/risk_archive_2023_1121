@@ -457,6 +457,8 @@ pp %>%
                              color = contrast), data = ci, show.legend = FALSE) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
                              color = contrast), data = ci, show.legend = FALSE) +
+  geom_text(data = ci, x = c(.0255, .035, .015), y = 700, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~contrast, ncol = 1)
   
 ```

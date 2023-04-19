@@ -652,7 +652,7 @@ metrics %>%
 fig_caption_roc_pp <- "Insert note here"
 ```
 
-```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height=4, fig.width = 7}
+```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
 
 roc_plot <- roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -687,12 +687,14 @@ pp_plot <- pp_tidy %>%
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
               show.legend = FALSE,
                data = ci) +
+  geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
-  # ylab("Posterior Probability Density") +
   xlab("Area Under ROC Curve") +
   theme(strip.background = element_blank(),
-        strip.text.x = element_blank())
+        strip.text.x = element_blank(),
+        legend.position = "bottom")
 
 plot_grid(roc_plot, pp_plot, ncol = 2, rel_widths = c(1, 1.25))
 ```
@@ -746,10 +748,11 @@ pp_tidy %>%
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
               show.legend = FALSE,
                data = ci) +
+  geom_text(data = ci, x = c(.925, .912, .915), y = 1000, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
-  # ylab("Posterior Probability Density") +
-  xlab("Area Under ROC Curve")
+  xlab("Area Under ROC Curve") 
 ```
 
 
