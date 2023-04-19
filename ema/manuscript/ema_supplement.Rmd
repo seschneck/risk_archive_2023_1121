@@ -291,6 +291,7 @@ fig_auc_hour <- auc_folds_hour %>%
 ```
 
 
+
 ```{r}
 fig_caption_3_x_2 <- "Insert Note Here."
 ```
@@ -301,40 +302,6 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
 ```
 
 ```{r}
-fig_preds_week <- preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "week") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, scales = "free_y", ncol = 1) +
-   xlab("Pr(Lapse)") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  scale_y_continuous(labels = scales::comma)
-
-fig_preds_day <- preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  scale_y_continuous(labels = scales::comma)
-
-fig_preds_hour <- preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  scale_y_continuous(labels = scales::comma)
-
 fig_auc_week <- auc_folds_week %>% 
   mutate(model = "week") %>%
   ggplot() + 
@@ -360,12 +327,89 @@ fig_auc_hour <- auc_folds_hour %>%
   xlab("Area Under ROC Curve (per fold)")
 ```
 
+<!--lapse predictions faceted by model-->
+
+```{r}
+fig_caption_preds_facet <- "Insert Note Here."
+```
+
+```{r fig.cap = fig_caption_preds_facet, fig.width = 7, fig.height = 5}
+fig_preds_week <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_day <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "day") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_hour <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "hour") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
+plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, nrow = 1)
+```
+
 
 ```{r}
 fig_caption_3_x_3 <- "Insert Note Here."
 ```
 
 ```{r fig.cap = fig_caption_3_x_3, fig.width = 8, fig.height= 6.5, out.extra='angle=90'}
+
+fig_preds_week <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, scales = "free_y", ncol = 1) +
+   xlab("Pr(Lapse)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_day <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "day") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_y_continuous(labels = scales::comma)
+
+fig_preds_hour <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "hour") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
 fig_roc_auc <- plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day,
                          fig_roc_hour, fig_auc_hour, nrow = 3, align = "hv")
 fig_preds <- plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, ncol = 1, align = "hv")

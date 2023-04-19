@@ -805,7 +805,7 @@ shap_grouped_all <- shap_grouped_week %>%
 shap_grouped_all %>% 
   mutate(group = reorder(group, mean_value, sum)) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity", alpha = .4) +
+  geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip()
