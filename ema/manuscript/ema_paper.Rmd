@@ -47,6 +47,7 @@ library(consort)
 library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
+library(cowplot)
 
 theme_set(theme_classic()) 
 ```
@@ -643,6 +644,58 @@ metrics %>%
 
 \clearpage
 
+
+
+
+<!-- AUC figure by model w/posterior probabilities-->  
+```{r caption_roc_pp}
+fig_caption_roc_pp <- "Insert note here"
+```
+
+```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height=4, fig.width = 7}
+
+roc_plot <- roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(legend.position = "none")
+
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
+
+ci <- pp_tidy %>% 
+  summary() %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour")),
+         y = 1000)
+
+pp_plot <- pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+                 bins = 30) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               show.legend = FALSE,
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+              show.legend = FALSE,
+               data = ci) +
+  facet_wrap(~model, ncol = 1) +
+  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  # ylab("Posterior Probability Density") +
+  xlab("Area Under ROC Curve") +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+plot_grid(roc_plot, pp_plot, ncol = 2, rel_widths = c(1, 1.25))
+```
 
 <!-- Single AUC figure by model-->  
 ```{r caption_roc}
