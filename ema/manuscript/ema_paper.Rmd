@@ -661,9 +661,7 @@ roc_all %>%
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))
+    labels = sprintf("%.2f", seq(1,0,-.25)))
 ```
 
 
@@ -724,11 +722,37 @@ pr_all %>%
 fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped_demo4, fig.height=7}
+```{r fig.cap = fig_caption_shapgrouped, fig.height=7}
+shap_grouped_all <- shap_grouped_week %>% 
+  mutate(window = "week") %>% 
+  bind_rows(shap_grouped_day %>% 
+              mutate(window = "day")) %>% 
+  bind_rows(shap_grouped_hour %>% 
+              mutate(window = "hour")) %>% 
+  mutate(window = factor(window, levels = c("week", "day", "hour"))) %>% 
+  mutate(group = case_when(group == "past use" ~ "past use (EMA item)",
+                           group == "future efficacy" ~ "future efficacy (EMA item)" ,
+                           group == "craving" ~ "craving (EMA item)",
+                           group == "lapse hour" ~ "lapse hour (other)",
+                           group == "past stressful event" ~ "past stressful event (EMA item)",
+                           group == "past risky situation" ~ "past risky situation (EMA item)" ,
+                           group == "arousal" ~ "arousal (EMA item)",
+                           group == "past pleasant event" ~ "past pleasant event (EMA item)",
+                           group == "future risky situation" ~ "future risky situation (EMA item)",
+                           group == "future stressful event" ~ "future stressful event (EMA item)",
+                           group == "valence" ~ "valence (EMA item)",
+                           group == "lapse day" ~ "lapse day (other)",
+                           group == "missing surveys" ~ "missing surveys (other)",
+                           group == "age" ~ "age (demographic)",
+                           group == "sex" ~ "sex (demographic)",
+                           group == "race" ~ "race (demographic)",
+                           group == "marital" ~ "marital (demographic)",
+                           group == "educ" ~ "education (demographic)"))
+
 shap_grouped_all %>% 
   mutate(group = reorder(group, mean_value, sum)) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
+  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity", alpha = .4) +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip()
