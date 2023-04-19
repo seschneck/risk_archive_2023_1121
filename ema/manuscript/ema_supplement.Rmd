@@ -62,6 +62,11 @@ switch (Sys.info()[['sysname']],
 # path_models <- "/cloud/project/posit_data"
 ```
 
+```{r load_consort_data}
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+```
+
+
 ```{r load_model_data}
 # AUCs for 10x10 folds data
 auc_folds_week<- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds"))
@@ -151,6 +156,30 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
+```
+
+<!-- Consort Diagram-->
+```{r caption_consort}
+fig_caption_consort <- "Consort Diagram"
+```
+
+```{r fig_consort, fig.cap=fig_caption_consort, fig.height=7}
+consort_plot(data = disposition,
+             orders = c(eligible = "Eligible Sample",
+                        consented_reason = "Not Consented",
+                        consented = "Consented",
+                        enrolled_reason = "Not Enrolled",
+                        enrolled = "Enrolled",
+                        completed_followup_reason = "Discontinued",
+                        completed_followup = "Completed through Followup 1",
+                        analysis_reason = "Excluded",
+                        analysis = "Final Analysis"),
+             side_box = c("consented_reason", 
+                          "enrolled_reason", 
+                          "completed_followup_reason",
+                          "analysis_reason"),
+             cex = .9,
+             text_width = 45)
 ```
 
 <!-- Supplemental:  ROC figures (100 folds separate by model)-->
