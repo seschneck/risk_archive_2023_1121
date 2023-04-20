@@ -47,6 +47,7 @@ library(consort)
 library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
+library(cowplot)
 
 theme_set(theme_classic()) 
 ```
@@ -136,7 +137,7 @@ shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_
 
 Alcohol and other substance use disorders (SUDs) are highly prevalent and costly.  In 2019, the National Survey on Drug Use and Health estimated that over 20 million adults in the United States had some form of active substance use disorder within that year [@substanceabuseandmentalhealthservicesadministrationKeySubstanceUse2020]. Nearly 15 million of those adults had an active alcohol use disorder (AUD) [@samhsa2019NationalSurvey; @samhsa2019NationalSurveyb]. Furthermore, a substantial 25.8% of adults reported engaging in hazardous alcohol misuse within the past month [@samhsa2019NationalSurveya]. Alcohol ranks as the third leading preventable cause of death, accounting for approximately 140,000 fatalities per year [@centersfordiseasecontrolandpreventionAlcoholPublicHealth; @esserEstimatedDeathsAttributable2022]. In economic terms, the US Surgeon General disclosed that alcohol misuse cost the United States $249 billion in 2016 alone [@administrationusFacingAddictionAmerica2016]. <!--GEF: i know it might be annoying, but i think best to clarify that these stats are for the US only in each sentence-->
 
-Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010; @lieseCognitiveBehavioralTherapyAddictive2022],  mindfulness-based relapse prevention [@bowenMindfulnessBasedRelapsePrevention2021; @goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational interviewing [@millerMotivationalInterviewingHelping2012], and contingency management[@bigelowTheoreticalEmpiricalFoundations1999;@dutraMetaanalyticReviewPsychosocial2008<!--can cut some refs eventually-->] are effective when provided to patients.  Unfortunately, fewer than 1 in 13 adults who experienced an active AUD in 2019 received any treatment[@samhsa2019NationalSurveyc].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @MentalHealthReport1999; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017; @novakChangesHealthInsurance2018]. This treatment gap stems from well-known barriers to receiving clinician-delivered mental healthcare related to their affordability, accessibility, availability, and acceptability[@jacobsonUsingDigitalTherapeutics2023].
+Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010; @lieseCognitiveBehavioralTherapyAddictive2022],  mindfulness-based relapse prevention [@bowenMindfulnessBasedRelapsePrevention2021; @goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational interviewing [@millerMotivationalInterviewingHelping2012], and contingency management[@bigelowTheoreticalEmpiricalFoundations1999; @dutraMetaAnalyticReviewPsychosocial2008<!--can cut some refs eventually-->] are effective when provided to patients.  Unfortunately, fewer than 1 in 13 adults who experienced an active AUD in 2019 received any treatment[@samhsa2019NationalSurveyc].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @MentalHealthReport1999; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017; @novakChangesHealthInsurance2018]. This treatment gap stems from well-known barriers to receiving clinician-delivered mental healthcare related to their affordability, accessibility, availability, and acceptability[@jacobsonUsingDigitalTherapeutics2023].
 
 In recent years, digital therapeutics have emerged as an alternative method to deliver evidence-based treatments and other support to patients either independently or in conjunction with medications or clinician-administered mental healthcare[@jacobsonDigitalTherapeuticsMental2022 <!--Can re-use this reference later rather than chapters if needed to get cites <= 40-->]. Digital therapeutics are web-based or smartphone "apps" that are used to prevent, treat, or manage a medical disorder including AUD or other mental illnesses.  Several large randomized controlled trials have confirmed that digital therapeutics for alcohol or other substance use disorders improve clinical outcomes (e.g., abstinence, heavy drinking days[@gustafsonSmartphoneApplicationSupport2014]; @campbellInternetdeliveredTreatmentSubstance2014]; see Campbell et al. [@campbellFirstWaveScalable2023] for review). They also may enhance treatment retention, reduce readmissions, and support engagement with medication-assisted treatments [@bottsMPOWERProjectResults2017; @japuntichSmokingCessationInternet2006; @pattenRandomizedClinicalTrial2006; @campbellInternetdeliveredTreatmentSubstance2014].
 
@@ -146,10 +147,16 @@ Despite the documented clinical and other benefits, the full potential of these 
 
 Recovery from AUD is a dynamic process because AUD is a chronic, relapsing disorder [@brandonRelapseRelapsePrevention2007; @witkiewitzModelingComplexityPosttreatment2007; @mclellanDrugDependenceChronic2000]. Numerous risk and protective factors interact in complex, non-linear ways to influence the probability, timing, and severity of relapse[@hendershotRelapsePreventionAddictive2011; @witkiewitzRelapsePreventionAlcohol2004; @huffordRelapseNonlinearDynamic2003; @witkiewitzNonnormalityDivergencePosttreatment2007; @witkiewitzModelingComplexityPosttreatment2007]. Many of these factors are transient, leading to fluctuating relapse risk.  Factors such as urges, mood, lifestyle imbalances, self-efficacy, and motivation can all vary over time.  Social networks may evolve to be more protective or risky, and high risk situations can arise unexpectedly.
 
-Clinical observations and research indicate that successful recovery necessitates life-long monitoring [@hendershotRelapsePreventionAddictive2011; @brandonRelapseRelapsePrevention2007; @huffordRelapseNonlinearDynamic2003; @witkiewitzTherapistGuideEvidencebased2007; @witkiewitzModelingComplexityPosttreatment2007]. However, this monitoring is challenging due to the dynamic and complex interplay of various factors over time. Despite these challenges, continuous monitoring of lapse risk and its contributing factors, if feasible, would enable patients to adapt their lifestyle, behaviors, and support to their changing needs. In the context of digital therapeutic use, successful monitoring could direct patients to engage with the most appropriate specific modules in an app, addressing the unique risks present at any given moment throughout their recovery. This guided, adaptive engagement could potentially enhance the app's effectiveness.
+Clinical observations and research indicate that successful recovery necessitates life-long monitoring [@hendershotRelapsePreventionAddictive2011; @brandonRelapseRelapsePrevention2007; @huffordRelapseNonlinearDynamic2003; @witkiewitzTherapistGuideEvidenceBased2007; @witkiewitzModelingComplexityPosttreatment2007]. However, this monitoring is challenging due to the dynamic and complex interplay of various factors over time. <!-- SS: Individuals with active SUDs have been demonstrated to have significant difficulty recognizing and responding to various factors associated with substance use, preventing them from utilizing existing treatment techniques or apps during times of need. Additionally, due to the relapsing nature of SUDs, even individuals with greater awareness of their substance use triggers may struggle to utilize appropriate skills when needed due to cognitive and functional impairments experienced during moments of use [CITE]. Psychological research has shown that individuals with substance use disorders (SUDs) may struggle to monitor their risk for relapse and fail to utilize treatments at appropriate times, which can lead to relapse. Factors such as cognitive deficits, negative affect, and social support can affect an individual's ability @emeryEmotionDifferentiationEarlyRecovery2021--> Despite these challenges, continuous monitoring of lapse risk and its contributing factors, if feasible, would enable patients to adapt their lifestyle, behaviors, and support to their changing needs. In the context of digital therapeutic use, successful monitoring could direct patients to engage with the most appropriate specific modules in an app, addressing the unique risks present at any given moment throughout their recovery. This guided, adaptive engagement could potentially enhance the app's effectiveness.
 
 <!--relevant review: mohrPersonalSensingUnderstanding2017-->
 Moment-by-moment personal sensing of intra- and interpersonal risk factors for AUD is now feasible[@epsteinPredictionStressDrug2020; @suchtingUsingElasticNet2019; @hebertPredictingFirstSmoking2021a; @engelhardPredictingSmokingEvents2018; @businelleUsingIntensiveLongitudinal2016; @soysterPooledPersonspecificMachine2022; @hebertEcologicalMomentaryIntervention2018; @moshontzProspectivePredictionLapses2021; @wyantAcceptabilityPersonalSensing2022; @chihPredictiveModelingAddiction2014; @baeMobilePhoneSensors2018]. In a seminal review, Mohr et al.[@mohrPersonalSensingUnderstanding2017] discuss methods and potential future applications of personal sensing for both monitoring and forecasting of mental health functioning.  Mohr defines personal sensing as "collecting and analyzing data from sensors embedded in the context of daily life with the aim of identifying human behaviors, thoughts, feelings, and traits".  The widespread proliferation of smartphones has made personal sensing both powerful and practical.  Smartphones can be used for ecological momentary assessments (i.e., repeated brief self-reports) and also passive, continuous sensing of geolocation, cellular communications (e.g., phone calls and text messages), activity level, sleep, and other raw signals that can predict meaningful clinical outcomes. 
+
+Application of personal sensing to predict instances of substance use holds potential for extreme benefit in reducing the self-monitoring burden on individuals with SUDs and could streamline appropriate SUD treatments to be delivered in moments of greatest need. The current project aims to generate robust prediction algorithms to make temporally precise predictions of alcohol use episodes for individuals in early recovery from AUD. We propose to build these prediction algorithms from densly sampled ecological momentary assesment (EMA) data aimed to capture relevant environment and person specific factors preceding incidcies of alcohol use.
+
+Ecological momentary assessment (EMA) is a well-established personal sensing method in alcohol and SUD research literature broadly. Due to the ability to frequently sample individuals in their natural enviornment, EMA is well equipped to sample the often fluctuating and episodic context preceding a substance use episode (@wrayUsingEMAtoassess2014). As such, a large repository of research has utilized EMA to identify important environmental and person specific factors associated with instances of alcohol use for individuals in recovery from AUD (@russellAffectRelativeDayLevelDrinking2020; @shiffmanEMASubstanceUse2009; @friedbergAlcoholSubjectiveResponses2021). In particular, past work has found strong associations between alcohol use episodes and EMA reports of affect (@russellAffectRelativeDayLevelDrinking2020), craving (@dulinSmartphoneBasedMomentaryInterventionCraving2017), stress level(@wemmDayByDayStressAlcohol), motivation (@dvorakEMAAcuteAUDSymptoms2014), and experience of positive events (@dvorakTensionReductionAffectReg2018). However, the strength and direction of these associations is varied across studies due to study-specific differences in sampling rates, total variables assessed, and limitations of association-based designs (e.g. where EMA assessments occur during the same time window as the alcohol use episode to be predicted) (@russellAffectRelativeDayLevelDrinking2020). 
+
+These concerns are addressed in novel, emerging work utilizing denser sampling of these context-related variables in prospective prediction of alcohol use episodes.Gustafson et al. developed one of the earliest machine learning prediction algorithms for future alcohol lapse [@chihPredictiveModelingAddiction2014]. This algorithm used features based on EMAs delivered by an AUD treatment app, A-CHESS, to predict patient-specific probabilities of future lapses back to drinking in the next week.  These lapse probabilities were updated weekly. The algorithm displayed good performance, with an area under receiver operating characteristic curve (AUC) of 0.83 assessed by 10-fold cross-validation. A small number of contemporary studies have yeilded similarly encouraging results across other drinking populations. Bae and colleagues (@baeMobilePhoneSensorsSupervised2018) predicted drinking episodes in a non-clinical sample using sensing data from a drinking monitoring app (AWARE). Utilizing a random forest model, Bae and collegaues  accurately predict 30 minute windows of high risk drinking episodes using data from the previous day. Soyster and colleagues (@soysterPooledPersonSpecific2020) utilized both person-specific, idiographic models as well as pooled prediction models using EMA to predict instances of drinking in the next two hours in a non-clincial sample. Both models trained using predictors derived from person-specific EMA (AUC = .78) and predictors derived from EMA pooled across participants (AUC = .81) performed well on average predicting instances of drinking for each participant, assessed via held-out test set. Walters and colleagues (@waltersMachineLearningPredictorsDrinking2021) utilized predictors from 5x/daily sampled EMA to predict onset of first drink of the day in individuals with AUD currently experiencing homelessness. In addition to confirming the viability of these data collection techniques in the homeless population, Walter and collegues final model yieled an AUC of .86, though without out of sample assessment, this estimate may be inflated. Due to the emerging nature of this work, studies utilizing EMA for prediction of alcohol use episodes remain limited in non-clinical samples with adequate sample size and data collection timeline to produce results likely to generalize to a larger population. The current study adds to this exciting body of work via collection of EMA over 3 months in a large clinical sample of individuals in early-recovery for AUD.
 
 
 Next steps
@@ -643,31 +650,60 @@ metrics %>%
 
 \clearpage
 
-<!-- Consort Diagram-->
-<!--: KW: I think the powerpoint version looks a bit nicer than this.-->
-```{r caption_consort}
-fig_caption_consort <- "Consort Diagram"
+
+
+
+<!-- AUC figure by model w/posterior probabilities-->  
+```{r caption_roc_pp}
+fig_caption_roc_pp <- "Insert note here"
 ```
 
-```{r fig_consort, fig.cap=fig_caption_consort, fig.height=7}
-consort_plot(data = disposition,
-             orders = c(eligible = "Eligible Sample",
-                        consented_reason = "Not Consented",
-                        consented = "Consented",
-                        enrolled_reason = "Not Enrolled",
-                        enrolled = "Enrolled",
-                        completed_followup_reason = "Discontinued",
-                        completed_followup = "Completed through Followup 1",
-                        analysis_reason = "Excluded",
-                        analysis = "Final Analysis"),
-             side_box = c("consented_reason", 
-                          "enrolled_reason", 
-                          "completed_followup_reason",
-                          "analysis_reason"),
-             cex = .9,
-             text_width = 45)
-```
+```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
 
+roc_plot <- roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(legend.position = "none")
+
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
+
+ci <- pp_tidy %>% 
+  summary() %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour")),
+         y = 1000)
+
+pp_plot <- pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+                 bins = 30) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               show.legend = FALSE,
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+              show.legend = FALSE,
+               data = ci) +
+  geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+  facet_wrap(~model, ncol = 1) +
+  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  xlab("Area Under ROC Curve") +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank(),
+        legend.position = "bottom")
+
+plot_grid(roc_plot, pp_plot, ncol = 2, rel_widths = c(1, 1.25))
+```
 
 <!-- Single AUC figure by model-->  
 ```{r caption_roc}
@@ -686,9 +722,7 @@ roc_all %>%
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))
+    labels = sprintf("%.2f", seq(1,0,-.25)))
 ```
 
 
@@ -720,18 +754,41 @@ pp_tidy %>%
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
               show.legend = FALSE,
                data = ci) +
+  geom_text(data = ci, x = c(.925, .912, .915), y = 1000, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
-  # ylab("Posterior Probability Density") +
-  xlab("Area Under ROC Curve")
+  xlab("Area Under ROC Curve") 
 ```
 
 
 <!-- PR curve by model-->
+<!-- get exact sensitivity at .75 PPV -->
+```{r}
+pr_.75_cutoff <- pr_all %>% 
+  mutate(recall = round(recall, 3),
+         precision = round(precision, 3),
+         .threshold = round(.threshold, 3),
+         model = factor(model,
+                        levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>% 
+  filter(precision == .75) %>% 
+  group_by(model, precision) %>% 
+  summarise(recall = mean(recall),
+            threshold = mean(.threshold),
+            .groups = "drop")
+```
+
+<!-- Week sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "week"), recall), 3)` -->
+
+<!-- Day sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "day"), recall), 3)` -->
+
+<!-- Hour sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "hour"), recall), 3)` -->
+
+
 ```{r caption_pr}
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
-
 
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
@@ -739,70 +796,29 @@ pr_all %>%
                         labels = c("week", "day", "hour"))) %>%
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
+  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
+  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Sensitivity (Recall)",
        y = "Positive Predictive Value (Precision)")
 ```
 
-<!-- SHAP Importance figures separate by model-->
-```{r caption_shap_week}
-fig_caption_shapgrouped_1week <- "Variable Importance (SHAP Valuse) for 1week Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
-```
-
-```{r fig_shap_week, fig.cap = fig_caption_shapgrouped_1week, fig.height=7}
-shap_grouped_week %>% 
-  mutate(group = factor(group),
-         group = forcats::fct_inorder(group)) %>% 
-  ggplot(mapping = aes(x = group, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = group, y = mean_value, xend = group), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-```{r caption_shap_day}
-fig_caption_shapgrouped_1day <- "Variable Importance (SHAP Values) for 1day Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
-```
-
-```{r fig_shap_day, fig.cap = fig_caption_shapgrouped_1day, fig.height=7}
-shap_grouped_day %>% 
-  mutate(group = factor(group),
-         group = forcats::fct_inorder(group)) %>% 
-  ggplot(mapping = aes(x = group, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = group, y = mean_value, xend = group), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-```{r caption_shap_hour}
-fig_caption_shapgrouped_1hour <- "Variable Importance (SHAP Values) for 1hour Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
-```
-
-```{r fig_shap_hour, fig.cap = fig_caption_shapgrouped_1hour, fig.height=7}
-shap_grouped_hour %>% 
-  mutate(group = factor(group),
-         group = forcats::fct_inorder(group)) %>% 
-  ggplot(mapping = aes(x = group, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = group, y = mean_value, xend = group), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-<!-- SHAP Importance figure combined across models-->
-<!--organize by item, window and then demo-->
+<!-- SHAP Importance figure-->
 ```{r}
-fig_caption_shapgrouped_demo1 <- "Insert Note here (ordered by EMA item, then lapse info and demographics)."
+fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped_demo1, fig.height=7}
+```{r fig.cap = fig_caption_shapgrouped, fig.height=7}
 shap_grouped_all <- shap_grouped_week %>% 
   mutate(window = "week") %>% 
   bind_rows(shap_grouped_day %>% 
@@ -810,79 +826,29 @@ shap_grouped_all <- shap_grouped_week %>%
   bind_rows(shap_grouped_hour %>% 
               mutate(window = "hour")) %>% 
   mutate(window = factor(window, levels = c("week", "day", "hour"))) %>% 
-  # ema items ordered as they appeared on survey
-  mutate(group = factor(group, levels = c("past use", "craving", "past risky situation", 
-                                          "past stressful event", "past pleasant event", 
-                                          "valence", "arousal", "future risky situation", 
-                                          "future stressful event", "future efficacy", 
-                                          "lapse hour", "lapse day", "missing surveys", "age", 
-                                          "educ", "marital", "race", "sex")))
+  mutate(group = case_when(group == "past use" ~ "past use (EMA item)",
+                           group == "future efficacy" ~ "future efficacy (EMA item)" ,
+                           group == "craving" ~ "craving (EMA item)",
+                           group == "lapse hour" ~ "lapse hour (other)",
+                           group == "past stressful event" ~ "past stressful event (EMA item)",
+                           group == "past risky situation" ~ "past risky situation (EMA item)" ,
+                           group == "arousal" ~ "arousal (EMA item)",
+                           group == "past pleasant event" ~ "past pleasant event (EMA item)",
+                           group == "future risky situation" ~ "future risky situation (EMA item)",
+                           group == "future stressful event" ~ "future stressful event (EMA item)",
+                           group == "valence" ~ "valence (EMA item)",
+                           group == "lapse day" ~ "lapse day (other)",
+                           group == "missing surveys" ~ "missing surveys (other)",
+                           group == "age" ~ "age (demographic)",
+                           group == "sex" ~ "sex (demographic)",
+                           group == "race" ~ "race (demographic)",
+                           group == "marital" ~ "marital (demographic)",
+                           group == "educ" ~ "education (demographic)"))
 
-shap_grouped_all %>% 
-  # reverse factor order for coord_flip()
-  mutate(group = factor(group, levels = rev(levels(group))),
-         window = factor(window, levels = rev(levels(window)))) %>% 
-  ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window), 
-           color = "black", stat = "identity", position = "dodge") +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip() +
-    coord_flip() +
-  scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF"), 
-                    breaks = c("week", "day", "hour")) +
-  scale_color_manual(values = c("#F8766D", "#00BA38", "#619CFF"),
-                     breaks = c("week", "day", "hour"))
-```
-
-<!--Ordered by overall mean Shap value (across groups)-->
-```{r}
-fig_caption_shapgrouped_demo2 <- "Insert Note here (ordered by highest mean SHAP value across 3 windows)."
-```
-
-```{r fig.cap = fig_caption_shapgrouped_demo2, fig.height=7}
- shap_grouped_all %>% 
-  # reorder factor based on mean value
-  mutate(group = reorder(group, mean_value, mean)) %>% 
-  # reverse factor order for coord_flip()
-  mutate(window = factor(window, levels = rev(levels(window)))) %>% 
-  ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window), 
-           color = "black", stat = "identity", position = "dodge") +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip() +
-    coord_flip() +
-  scale_fill_manual(values = c("#F8766D", "#00BA38", "#619CFF"), 
-                    breaks = c("week", "day", "hour")) +
-  scale_color_manual(values = c("#F8766D", "#00BA38", "#619CFF"),
-                     breaks = c("week", "day", "hour"))
-```
-
-```{r}
-fig_caption_shapgrouped_demo3 <- "Insert Note here (possible alternative way to display three windows - ordered by EMA item)."
-```
-
-```{r fig.cap = fig_caption_shapgrouped_demo3, fig.height=7}
-shap_grouped_all %>% 
-  # reverse factor order for coord_flip()
-  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
-  ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-```{r}
-fig_caption_shapgrouped_demo4 <- "Insert Note here (possible alternative way to display three windows - ordered by sum mean SHAP)."
-```
-
-```{r fig.cap = fig_caption_shapgrouped_demo4, fig.height=7}
 shap_grouped_all %>% 
   mutate(group = reorder(group, mean_value, sum)) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window, color = window), stat = "identity") +
+  geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip()
