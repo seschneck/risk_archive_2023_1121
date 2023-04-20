@@ -757,10 +757,32 @@ pp_tidy %>%
 
 
 <!-- PR curve by model-->
+<!-- get exact sensitivity at .75 PPV -->
+```{r}
+pr_.75_cutoff <- pr_all %>% 
+  mutate(recall = round(recall, 3),
+         precision = round(precision, 3),
+         .threshold = round(.threshold, 3),
+         model = factor(model,
+                        levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>% 
+  filter(precision == .75) %>% 
+  group_by(model, precision) %>% 
+  summarise(recall = mean(recall),
+            threshold = mean(.threshold),
+            .groups = "drop")
+```
+
+<!-- Week sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "week"), recall), 3)` -->
+
+<!-- Day sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "day"), recall), 3)` -->
+
+<!-- Hour sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "hour"), recall), 3)` -->
+
+
 ```{r caption_pr}
 fig_caption_pr <- "Precision-Recall Curves for models."
 ```
-
 
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
 pr_all %>% 
@@ -768,6 +790,18 @@ pr_all %>%
                         labels = c("week", "day", "hour"))) %>%
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
+  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
+  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Sensitivity (Recall)",
        y = "Positive Predictive Value (Precision)")
