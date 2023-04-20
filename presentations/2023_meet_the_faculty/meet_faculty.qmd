@@ -15,6 +15,109 @@ format:
     css: arc.css
 ---
 
+```{r knitr_settings, include = FALSE}
+# settings
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
+                      message = FALSE)
+options(knitr.kable.NA = '')
+knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+```
+
+```{r setup, include = FALSE}
+library(knitr)
+library(yardstick) # for roc_curve
+library(kableExtra)
+library(janitor)
+library(corx)
+library(patchwork)
+library(ggtext)
+library(consort)
+library(tidyverse)
+library(tidymodels)
+library(tidyposterior)
+
+theme_set(theme_classic()) 
+```
+
+
+```{r paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_models <- "P:/studydata/risk/models/ema"
+          path_data_shared <- "P:/studydata/risk/data_processed/shared"
+          path_data_ema <- "P:/studydata/risk/data_processed/ema"},
+        # IOS paths
+        Darwin = {
+          path_models <- "/Volumes/private/studydata/risk/models/ema"
+          path_data_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_data_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+       )
+```
+
+```{r load_data}
+# Table data
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
+
+# Predictions data
+preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+
+# posterior probabilites
+pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+
+# ROC curves
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+# PR curves
+pr_week <- preds_week %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+pr_day <- preds_day %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+pr_hour <- preds_hour%>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+pr_all <- pr_week %>% 
+  bind_rows(pr_day) %>% 
+  bind_rows(pr_hour)
+
+# Grouped SHAPS
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+```
+
 ## Mental Healthcare Needs are High and Unmet  {.smaller}
 
 - In 2019, [52 million]{style="color: red;"} Americans had an active mental illness
@@ -367,62 +470,31 @@ And, of course, these performance metrics are calculated for new observations an
 #| fig-height: 6
 #| fig-width: 6
 
-library(tidyverse)
-library(tidymodels)
-library(themis)
-library(vroom)
-library(janitor)
-library(ggplot2)
-library(forcats)
-library(here)
-
-params <- tibble(study = "ema",
-  data_type = "all",
-  cv = "kfold",
-  window = "1week",
-  lead = 0,
-  version = "v4",)
-  
-  
-  
-study <- params$study
-data_type <- params$data_type
-cv <- params$cv
-window <- params$window
-lead <- params$lead 
-version <- params$version
-
-
-switch (Sys.info()[['sysname']],
-        # PC paths
-        Windows = {
-          path_input <- str_c("P:/studydata/risk/chtc/", study)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
-          path_models <- str_c("P:/studydata/risk/models/", study)},
-
-        # IOS paths
-        Darwin = {
-          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)
-          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)}
-        )
-
-preds_best <- readRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", window, "_", lead, "_", version, 
-                                              "_", cv, ".rds")))
-
-preds_best %>%
+fig_hist_week <- preds_week %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>%
-  ggplot(data = ., aes(x = prob)) +
-   geom_histogram(bins = 15, fill = "white", col = "black") +
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)),
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75))) +
-  theme_classic() +
-  theme(axis.title.x = element_text(size = 12),
-        strip.text.x = element_text(size = 20))   
+  scale_y_continuous(labels = scales::comma)
+
+fig_hist_week
+
+# preds_best %>%
+#   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+#          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>%
+#   ggplot(data = ., aes(x = prob)) +
+#    geom_histogram(bins = 15, fill = "white", col = "black") +
+#    facet_wrap(~truth, nrow = 2, scales = "free_y") +
+#    xlab("Pr(Lapse)") +
+#   theme(axis.text = element_text(size = rel(1.00)),
+#         axis.title.x = element_text(size = rel(1.25)),
+#         strip.text = element_text(size = rel(1.75))) +
+#   theme_classic() +
+#   theme(axis.title.x = element_text(size = 12),
+#         strip.text.x = element_text(size = 20))   
 
 
 ```
@@ -462,7 +534,12 @@ And this is exactly what we see for the one week lapse window model
 
 
 ::: {.column width="40%"}
-![1_week_lapse_no_lapse_threshold.png](images\1_week_lapse_no_lapse_threshold.png)\ 
+```{r}
+#| fig-height: 6
+#| fig-width: 6
+fig_hist_week
+```
+
 :::
 
 ::::
