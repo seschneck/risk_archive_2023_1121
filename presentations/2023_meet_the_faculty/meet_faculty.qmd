@@ -1,6 +1,6 @@
 ---
 title: "Smart Digital Therapeutics for Alcohol Use Disorder: Algorithms for Prediction and Adaptive Intervention" 
-author: "John J Curtin"
+author: "John J. Curtin, Ph.D."
 institute: "University of Wisconsin-Madison"
 
 title-slide-attributes:
@@ -13,7 +13,11 @@ format:
   revealjs:
     scrollable: true
     css: arc.css
+    
+fig-cap-location: top
 ---
+
+<!--NEED TO MAKE THIS NOT TAKE UP A PAGE-->
 
 ```{r knitr_settings, include = FALSE}
 # settings
@@ -24,17 +28,16 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
 ```
 
 ```{r setup, include = FALSE}
-library(knitr)
-library(yardstick) # for roc_curve
-library(kableExtra)
-library(janitor)
-library(corx)
-library(patchwork)
-library(ggtext)
-library(consort)
+# library(knitr)
+# library(kableExtra)
+# library(janitor)
+# ibrary(corx)
+# library(patchwork)
+# library(ggtext)
+# library(consort)
 library(tidyverse)
 library(tidymodels)
-library(tidyposterior)
+# library(tidyposterior)
 
 theme_set(theme_classic()) 
 ```
@@ -57,9 +60,9 @@ switch (Sys.info()[['sysname']],
 
 ```{r load_data}
 # Table data
-disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
-screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
-  filter(subid %in% subset(disposition, analysis == "yes")$subid)
+# disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+# screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+#   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
 # Predictions data
 preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
@@ -67,7 +70,7 @@ preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kf
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
 # posterior probabilites
-pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+# pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
 
 # ROC curves
 roc_week <- preds_week %>% 
@@ -104,7 +107,7 @@ pr_all <- pr_week %>%
   bind_rows(pr_hour)
 
 # Grouped SHAPS
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>%
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -112,7 +115,7 @@ shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>%
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -467,6 +470,7 @@ And, of course, these performance metrics are calculated for new observations an
 ::: {.column width="40%"}
 
 ```{r}
+#| fig-cap: "Lapse Probability by Ground Truth"
 #| fig-height: 6
 #| fig-width: 6
 
@@ -516,16 +520,16 @@ And this is exactly what we see for the one week lapse window model
 
 :::
 
-<!--NEED VERTICAL LINE AT .5-->
 
 ::: {.column width="40%"}
 ```{r}
+#| fig-cap: "Lapse Probability by Ground Truth"
 #| fig-height: 6
 #| fig-width: 6
+
 fig_hist_week +
   geom_vline(xintercept = .5, color = "red")
 ```
-
 :::
 
 ::::
@@ -585,6 +589,9 @@ Area under the ROC curve (AUC)
 
 <!-- ADD AUC text-->
 ```{r}
+#| fig-cap: "ROC Curves for Models"
+#| fig-height: 6
+#| fig-width: 6
 roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("week", "day", "hour"))) %>% 
@@ -707,6 +714,10 @@ But we were also eager to see how well we could do if we required a higher level
 
 ::: {.column width="50%"}
 ```{r}
+#| fig-cap: "ROC Curves for Models"
+#| fig-height: 6
+#| fig-width: 6
+
 roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("week", "day", "hour"))) %>% 
@@ -827,6 +838,10 @@ Given our success with this day level model, we next developed a model with the 
 
 ::: {.column width="50%"}
 ```{r}
+#| fig-cap: "ROC Curves for Models"
+#| fig-height: 6
+#| fig-width: 6
+
 roc_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("week", "day", "hour"))) %>% 
@@ -958,8 +973,9 @@ And we may need to be careful about how we convey our predictions to patients.  
 
 ::: {.column width="50%"}
 ```{r}
-#| fig-height: 4
-#| fig-width: 4
+#| fig-cap: "Lapse Probabilities for Day Model"
+#| fig-height: 6
+#| fig-width: 6
 
 fig_hist_day <- preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
@@ -995,6 +1011,10 @@ Here I am showing you the performance of the day level model when we use the def
 
 ::: {.column width="50%"}
 ```{r}
+#| fig-cap: "Lapse Probabilities for Day Model"
+#| fig-height: 6
+#| fig-width: 6
+
 fig_hist_day +
   geom_vline(xintercept = .9, color = "red")
 ```
@@ -1023,7 +1043,22 @@ And this is what we will need to do if we want to recommend more costly treatmen
 :::
 
 ::: {.column width="50%"}
-![recall_curves_graph.png](images\recall_curves_graph.png)\ 
+
+```{r}
+#| fig-cap: "Precision-Recall Curves by Models"
+#| fig-height: 6
+#| fig-width: 6
+
+pr_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>%
+  ggplot(aes(x = recall, y = precision, color = model)) +
+  geom_path() +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)") +
+  scale_color_manual(values = c("purple","blue","orange"))
+```
 :::
 
 ::::
@@ -1189,7 +1224,7 @@ However, when we add GPS to the EMA models that I described today, we appear to 
 
 [PAUSE]
 
-The story is pretty much the same right now for cellular communications as well.   At this point we have only worked with the meta data – the contact numbes, call times, durations, etc – combined with context.   We haven’t yet done anything with the text message content.   And models built from the meta data perform about as well at these preliminary GPS models.
+The story is pretty much the same right now for cellular communications as well.   At this point we have only worked with the meta data – the contact numbers, call times, durations, etc – combined with context.   We haven’t yet done anything with the text message content.   And models built from the meta data perform about as well at these preliminary GPS models.
 
 But we are hoping to extract more signal from the both of these as we continue to work on feature engineering with it.
 
@@ -1300,7 +1335,7 @@ We are also sensitive to the fact that these recommendations from the machine le
 - MRT to optimize recommendation message components
 - RCT to evaluate Standard vs. Smart DTx on clinical outcomes
 
-![nida_logo.png](images\nida_logo.png){.absolute bottom="10%" right="2%" width="auto" height="auto"}\ 
+![nida_logo.png](images\niaaa_logo.png){.absolute bottom="10%" right="2%" width="auto" height="auto"}\ 
 
 ::: {.notes}
 
@@ -1312,3 +1347,13 @@ We are also sensitive to the fact that these recommendations from the machine le
 ::: {.notes}
 
 :::
+
+## Demographics
+
+## Alcohol Use History
+
+## Consort Diagram
+
+## ROC Posterior Probabilities
+
+## Model Comparison Posterior Probabilites
