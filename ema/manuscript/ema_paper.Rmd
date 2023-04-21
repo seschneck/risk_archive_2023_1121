@@ -816,11 +816,11 @@ pr_all %>%
 ```
 
 <!-- SHAP Importance figure-->
-```{r}
+```{r caption_shap}
 fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 ```
 
-```{r fig.cap = fig_caption_shapgrouped, fig.height=7}
+```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
 shap_grouped_all <- shap_grouped_week %>% 
   mutate(window = "week") %>% 
   bind_rows(shap_grouped_day %>% 
