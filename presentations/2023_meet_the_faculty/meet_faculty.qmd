@@ -16,7 +16,7 @@ format:
     
 fig-cap-location: top
 ---
-
+## Mental Healthcare Needs are High and Unmet  {.smaller}
 <!--NEED TO MAKE THIS NOT TAKE UP A PAGE-->
 
 ```{r knitr_settings, include = FALSE}
@@ -58,20 +58,26 @@ switch (Sys.info()[['sysname']],
        )
 ```
 
-```{r load_data}
+```{r r-load_id}
 # Table data
 # disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
 # screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
 #   filter(subid %in% subset(disposition, analysis == "yes")$subid)
+```
 
+```{r r-load_preds}
 # Predictions data
 preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
 preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
 preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+```
 
+```{r r-load_posterior}
 # posterior probabilites
 # pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+```
 
+```{r r-load_roc}
 # ROC curves
 roc_week <- preds_week %>% 
   roc_curve(prob, truth = truth) %>% 
@@ -105,9 +111,11 @@ pr_hour <- preds_hour%>%
 pr_all <- pr_week %>% 
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
+```
 
+```{r tmp_shaps}
 # Grouped SHAPS
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>%
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -115,13 +123,209 @@ shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>%
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
 ```
 
-## Mental Healthcare Needs are High and Unmet  {.smaller}
+
+
+```{r r-load_shaps_week}
+xfun::cache_rds({
+  
+  shap_week_local <- readRDS(file.path(path_models, 
+                                      "imp_shap_grouped_all_1week_0_v4.rds"))  %>% 
+     mutate(window = "week",
+            group = case_when(group == "past use" 
+                              ~ "past use (EMA item)",
+                              group == "future efficacy" 
+                              ~ "future efficacy (EMA item)" ,
+                              group == "craving" 
+                              ~ "craving (EMA item)",
+                              group == "lapse hour" 
+                              ~ "lapse hour (other)",
+                              group == "past stressful event" 
+                              ~ "past stressful event (EMA item)",
+                              group == "past risky situation" 
+                              ~ "past risky situation (EMA item)" ,
+                              group == "arousal" 
+                              ~ "arousal (EMA item)",
+                              group == "past pleasant event" 
+                              ~ "past pleasant event (EMA item)",
+                              group == "future risky situation" 
+                              ~ "future risky situation (EMA item)",
+                              group == "future stressful event" 
+                              ~ "future stressful event (EMA item)",
+                              group == "valence" 
+                              ~ "valence (EMA item)",
+                              group == "lapse day" 
+                              ~ "lapse day (other)",
+                              group == "missing surveys" 
+                              ~ "missing surveys (other)",
+                              group == "age" 
+                              ~ "age (demographic)",
+                              group == "sex" 
+                              ~ "sex (demographic)",
+                              group == "race" 
+                              ~ "race (demographic)",
+                              group == "marital" 
+                              ~ "marital (demographic)",
+                              group == "educ" 
+                              ~ "education (demographic)"))
+ 
+},
+dir = "cache",
+file = "r-load_shaps_week")
+```
+
+
+```{r r-load_shaps_day}
+# xfun::cache_rds({
+  
+#   shap_day_local <-  readRDS(file.path(path_models,
+#                                        "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+#     mutate(window = "day",
+#            group = case_when(group == "past use" 
+#                              ~ "past use (EMA item)",
+#                              group == "future efficacy" 
+#                              ~ "future efficacy (EMA item)" ,
+#                              group == "craving" 
+#                              ~ "craving (EMA item)",
+#                              group == "lapse hour" 
+#                              ~ "lapse hour (other)",
+#                              group == "past stressful event" 
+#                              ~ "past stressful event (EMA item)",
+#                              group == "past risky situation" 
+#                              ~ "past risky situation (EMA item)" ,
+#                              group == "arousal" 
+#                              ~ "arousal (EMA item)",
+#                              group == "past pleasant event" 
+#                              ~ "past pleasant event (EMA item)",
+#                              group == "future risky situation" 
+#                              ~ "future risky situation (EMA item)",
+#                              group == "future stressful event" 
+#                              ~ "future stressful event (EMA item)",
+#                              group == "valence" 
+#                              ~ "valence (EMA item)",
+#                              group == "lapse day" 
+#                              ~ "lapse day (other)",
+#                              group == "missing surveys" 
+#                              ~ "missing surveys (other)",
+#                              group == "age" 
+#                              ~ "age (demographic)",
+#                              group == "sex" 
+#                              ~ "sex (demographic)",
+#                              group == "race" 
+#                              ~ "race (demographic)",
+#                              group == "marital" 
+#                              ~ "marital (demographic)",
+#                              group == "educ" 
+#                              ~ "education (demographic)"))
+# 
+# shap_day_local %>% saveRDS(file.path(path_models, 
+#                                        "tmp_shap_day_local.rds"))
+
+# shap_day_local <- readRDS(file.path(path_models, 
+#                                       "tmp_shap_day_local.rds"))
+# })
+```
+
+```{r r-load_shaps_hour}
+#xfun::cache_rds({
+  
+#   shap_hour_local <-  readRDS(file.path(path_models,
+#                                         "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+#     mutate(window = "hour",
+#            group = case_when(group == "past use" 
+#                              ~ "past use (EMA item)",
+#                              group == "future efficacy" 
+#                              ~ "future efficacy (EMA item)" ,
+#                              group == "craving" 
+#                              ~ "craving (EMA item)",
+#                              group == "lapse hour" 
+#                              ~ "lapse hour (other)",
+#                              group == "past stressful event" 
+#                              ~ "past stressful event (EMA item)",
+#                              group == "past risky situation" 
+#                              ~ "past risky situation (EMA item)" ,
+#                              group == "arousal" 
+#                              ~ "arousal (EMA item)",
+#                              group == "past pleasant event" 
+#                              ~ "past pleasant event (EMA item)",
+#                              group == "future risky situation" 
+#                              ~ "future risky situation (EMA item)",
+#                              group == "future stressful event" 
+#                              ~ "future stressful event (EMA item)",
+#                              group == "valence" 
+#                              ~ "valence (EMA item)",
+#                              group == "lapse day" 
+#                              ~ "lapse day (other)",
+#                              group == "missing surveys" 
+#                              ~ "missing surveys (other)",
+#                              group == "age" 
+#                              ~ "age (demographic)",
+#                              group == "sex" 
+#                              ~ "sex (demographic)",
+#                              group == "race" 
+#                              ~ "race (demographic)",
+#                              group == "marital" 
+#                              ~ "marital (demographic)",
+#                              group == "educ" 
+#                              ~ "education (demographic)"))
+# 
+# shap_hour_local %>% saveRDS(file.path(path_models, 
+#                                        "tmp_shap_hour_local.rds"))
+
+# shap_hour_local <- readRDS(file.path(path_models, 
+#                                       "tmp_shap_hour_local.rds"))
+# })
+```
+
+```{r r-make_shaps_global}
+# xfun::cache_rds({
+  
+#   shap_global <- shap_week_local %>% 
+#     bind_rows(shap_day_local) %>% 
+#     bind_rows(shap_hour_local) %>% 
+#     mutate(window = factor(window, levels = c("week", "day", "hour"))) %>% 
+#     group_by(group, window) %>% 
+#     summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+#     group_by(window) %>% 
+#     arrange(mean_value)
+# 
+# shap_global %>% saveRDS(file.path(path_models, 
+#                                        "tmp_shap_global.rds"))
+
+# shap_global <- readRDS(file.path(path_models, 
+#                                        "tmp_shap_global.rds"))
+# })
+
+# shap_week_global <- shap_week_local %>%
+#   group_by(group, window) %>% 
+#   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+#   arrange(mean_value)
+# shap__day_global <- shap_week_local %>% 
+#   group_by(group, window) %>% 
+#   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+#   arrange(mean_value)
+# shap__hour_global <-shap_hour_local %>%
+#   group_by(group) %>% 
+#   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+#   arrange(mean_value)
+# 
+# shap_global <- shap_week_global %>% 
+#   bind_rows(shap_day_global %>% 
+#   bind_rows(shap_hour_global %>% 
+#   mutate(window = factor(window, levels = c("week", "day", "hour"))) 
+```
+
+```{r r-make_shaps_local}
+
+```
+
+
+
 
 - In 2019, [52 million]{style="color: red;"} Americans had an active mental illness
   - More than half did not receive any [treatment]{style="color: red;"}
@@ -625,53 +829,6 @@ And the AUC for our 1 week model is .90, which is generally considered excellent
 
 :::
 
-## 1 Week: Features {.smaller}
-
-:::: {.columns}
-
-::: {.column width="50%"}
-
-- Small number of features are important
-
-- 8 EMA items
-  - Past lapses (item 1)
-  - Craving (item 2)
-  - Risky situation (item 3)
-  - Stressful events (item 4)
-  - Pleasant events (item 5)
-  - Affective arousal (item 7)
-  - Expected future risky situation (item 8)
-expected future drinking (item 10)
-
-- EMA compliance
-
-- Counts, median, mins and maxes are useful
-
-- Both raw score (_raw) and change from baseline (_chng) are useful
-
-
-:::
-
-
-::: {.column width="50%"}
-![features_1_week.png](images\features_1_week.png)\ 
-:::
-
-
-::::
-::: {.notes}
-In the spirit of making this model more transparent and interpretable, lets briefly look under the hood at the feature importance for the top 25 features
-
-The plot on the right shows feature names and their associated importance.  From this we see a few important characteristics of the model.   
-
-First, only a small number of the approximately 300 features contribute meaningfully to predictions.   You can see that the importance is already skewing toward 0 even among the first 25 important features
-
-Second, 8 of the 10 EMA items are represented among these features. 
-
-And counts, mins, maxes, and medians, as well as raw and chng scores across all time periods all make contributions.
-
-:::
-
 ## 1 Day: ROC Curve
 
 
@@ -768,35 +925,6 @@ And consistent with this higher AUC, the day level model also had slightly bette
 
 :::
 
-## 1 Day: Features
-
-:::: {.columns}
-
-::: {.column width="50%"}
-
-- Similar (fewer unique?) EMA items
-
-- Day emerges as new feature (Saturday)
-
-
-
-:::
-
-
-::: {.column width="50%"}
-![features_1_day.png](images\features_1_day.png)\ 
-:::
-
-
-::::
-::: {.notes}
-We can look at the important features for this model too to get a sense of how it works.
-
-The important EMA items are similar to the week model although this day level model seems to depend more on fewer unique EMA items.
-
-And the day of the week for the lapse window emerges as a useful predictor.  Not surprisingly, Saturdays have higher probability of lapse than other days of the week and the model can take advantage of this.
-:::
-
 
 ## 1 Hour: ROC Curve
 
@@ -887,38 +1015,86 @@ And again, consistent with that AUC, the sensitivity, specificity, and balanced 
 
 :::
 
-## 1 Hour: Features
+
+## Global Variable Importance by Model{.medium}
 
 :::: {.columns}
 
 ::: {.column width="50%"}
 
-- Past reports from previous 0 – 168 hours are still useful
-
-- Still fewer unique EMA items
-
-- Day still matters
-
-- Hour matters (evening/5pm – midnight vs. other)
-
-
-
-
+- All EMA items impact lapse probability (both globally and locally)
+- Local importance used for recommendation interventions?
+- Lapse day and Lapse hour are useful for day and hour level models as expected
+- Demographics not particularly important (but limited race/ethnicity diversity)
 :::
 
-
 ::: {.column width="50%"}
-![features_1_hour.png](images\features_1_hour.png)\ 
+```{r r-shap_global}
+#| fig-height: 6
+#| fig-width: 6
+
+
+shap_grouped_all <- shap_grouped_week %>% 
+  mutate(window = "week") %>% 
+  bind_rows(shap_grouped_day %>% 
+              mutate(window = "day")) %>% 
+  bind_rows(shap_grouped_hour %>% 
+              mutate(window = "hour")) %>% 
+  mutate(window = factor(window, levels = c("week", "day", "hour"))) %>% 
+  mutate(group = case_when(group == "past use" ~ "past use (EMA item)",
+                           group == "future efficacy" ~ "future efficacy (EMA item)" ,
+                           group == "craving" ~ "craving (EMA item)",
+                           group == "lapse hour" ~ "lapse hour (other)",
+                           group == "past stressful event" ~ "past stressful event (EMA item)",
+                           group == "past risky situation" ~ "past risky situation (EMA item)" ,
+                           group == "arousal" ~ "arousal (EMA item)",
+                           group == "past pleasant event" ~ "past pleasant event (EMA item)",
+                           group == "future risky situation" ~ "future risky situation (EMA item)",
+                           group == "future stressful event" ~ "future stressful event (EMA item)",
+                           group == "valence" ~ "valence (EMA item)",
+                           group == "lapse day" ~ "lapse day (other)",
+                           group == "missing surveys" ~ "missing surveys (other)",
+                           group == "age" ~ "age (demographic)",
+                           group == "sex" ~ "sex (demographic)",
+                           group == "race" ~ "race (demographic)",
+                           group == "marital" ~ "marital (demographic)",
+                           group == "educ" ~ "education (demographic)"))
+
+shap_grouped_all %>% 
+  mutate(group = reorder(group, mean_value, sum)) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip() +
+  scale_fill_manual(values = c("purple","blue","orange"))
+
+# shap_global %>% 
+#   mutate(group = reorder(group, mean_value, sum)) %>% 
+#   ggplot() +
+#   geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
+#   ylab("Mean |SHAP| value") +
+#   xlab("") +
+#   coord_flip() +
+#   scale_fill_manual(values = c("purple","blue","orange"))
+```
+
 :::
 
 
 ::::
 ::: {.notes}
-Looking at the important features, we see this model uses fewer still unique EMA items (only 5 of the 10 items)
+In the spirit of making this model more transparent and interpretable, lets briefly look under the hood at the feature importance
 
-The day associated with the lapse window still matters -  hours on Saturday are still higher risk
 
-But now we can also use the hour of the lapse window as a feature too.  And again not surprisingly, lapses are higher probability between 5 pm and midnight than at other times of the day across all days
+
+The plot on the right shows feature names and their associated importance.  From this we see a few important characteristics of the model.   
+
+First, only a small number of the approximately 300 features contribute meaningfully to predictions.   You can see that the importance is already skewing toward 0 even among the first 25 important features
+
+Second, 8 of the 10 EMA items are represented among these features. 
+
+And counts, mins, maxes, and medians, as well as raw and chng scores across all time periods all make contributions.
 :::
 
 ## Positive Predictive Value (PPV)
@@ -1018,7 +1194,6 @@ Here I am showing you the performance of the day level model when we use the def
 ::: {.column width="50%"}
 <!--Lapse Probabilities for Day Model- .9 threshold-->
 ```{r}
-
 #| fig-height: 6
 #| fig-width: 6
 
