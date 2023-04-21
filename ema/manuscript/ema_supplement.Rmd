@@ -156,6 +156,11 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
   slice(1) %>%   
   ungroup() %>% 
   arrange(mean_value)
+
+# Grouped SHAPS
+shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
 ```
 
 <!-- Consort Diagram-->
@@ -519,9 +524,72 @@ shap_raw_hour %>%
 ```
 
 
+<!-- Supplemental: Local SHAP values for EMA items -->
+
+```{r}
+shap_grouped_week <- shap_grouped_week %>% 
+  filter(!group %in% c("lapse hour", "lapse day", "missing surveys", "age", 
+                       "educ", "marital", "race", "sex")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use", "craving", "past risky situation", 
+                                          "past stressful event", "past pleasant event", 
+                                          "valence", "arousal", "future risky situation", 
+                                          "future stressful event", "future efficacy")),
+         window = "week")
+
+shap_grouped_day <- shap_grouped_day %>% 
+  filter(!group %in% c("lapse hour", "lapse day", "missing surveys", "age", 
+                       "educ", "marital", "race", "sex")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use", "craving", "past risky situation", 
+                                          "past stressful event", "past pleasant event", 
+                                          "valence", "arousal", "future risky situation", 
+                                          "future stressful event", "future efficacy")),
+         window = "day")
+
+shap_grouped_hour <- shap_grouped_hour %>% 
+  filter(!group %in% c("lapse hour", "lapse day", "missing surveys", "age", 
+                       "educ", "marital", "race", "sex")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use", "craving", "past risky situation", 
+                                          "past stressful event", "past pleasant event", 
+                                          "valence", "arousal", "future risky situation", 
+                                          "future stressful event", "future efficacy")),
+         window = "hour")
+```
+
+```{r caption_shap_local}
+fig_caption_shap_local <- "Insert Note here."
+```
+
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
+shap_grouped_all <- shap_grouped_week %>% 
+  bind_rows(shap_grouped_day) %>% 
+  bind_rows(shap_grouped_hour) %>% 
+  mutate(window = factor(window, levels = c("week", "day", "hour")))
+  
+
+shap_tmp <- shap_grouped_all %>%
+  ungroup() %>%
+  slice_sample(n = 100000)
+
+shap_tmp %>% 
+  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
+  ggplot(mapping = aes(x = group, y = shap, color = window)) +
+  geom_point(size = 2) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
+        alpha = 0.7) +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(legend.position = "bottom")
+```
+
+
 
 <!-- Supplemental:  ROC figures (100 folds separate by model)-->
-
 <!--
 ```{r caption_roc_folds_week}
 fig_caption_roc_folds_week <- "ROC Curves across Folds for Week Model."
