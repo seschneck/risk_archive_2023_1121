@@ -373,17 +373,6 @@ if(file.exists(file.path(path_models, str_c("imp_permute_", data_type, "_",
 }
 ```
 
-
-```{r}
-# imp_permute <- iml::FeatureImp$new(predictor, loss = Metrics::auc,
-#                                    compare = "difference")
-# 
-# imp_permute  %>% 
-#   saveRDS(file.path(path_models, str_c("imp_permute_", data_type, "_", 
-#                                   window, "_", lead, "_", version, 
-#                                   ".rds")))
-```
-
 ```{r perm_plot}
 imp_perm %>%   
   mutate(importance = metric_median) %>% 
@@ -526,26 +515,60 @@ if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_",
   message("Calculating grouped SHAPs")
   
   shap_grouped <- shap_raw %>% 
-    mutate(group = if_else(str_detect(variable, ".lapse"), "past use", variable),
-           group = if_else(str_detect(group, "ema_2"), "craving", group),
-           group = if_else(str_detect(group, "ema_3"), "past risky situation", group),
-           group = if_else(str_detect(group, "ema_4"), "past stressful event", group),
-           group = if_else(str_detect(group, "ema_5"), "past pleasant event", group),
-           group = if_else(str_detect(group, "ema_6"), "valence", group),
-           group = if_else(str_detect(group, "ema_7"), "arousal", group),
-           group = if_else(str_detect(group, "ema_8"), "future risky situation",
+    mutate(group = if_else(str_detect(variable, ".lapse"), 
+                           "past use (EMA item)", 
+                           variable),
+           group = if_else(str_detect(group, "ema_2"), 
+                           "craving (EMA item)", 
                            group),
-           group = if_else(str_detect(group, "ema_9"), "future stressful event",
+           group = if_else(str_detect(group, "ema_3"), 
+                           "past risky situation (EMA item)", 
                            group),
-           group = if_else(str_detect(group, "ema_10"), "future efficacy", group),
-           group = if_else(str_detect(group, "count.ema"), "missing surveys", group),
-           group = if_else(str_detect(group, "day"), "lapse day", group),
-           group = if_else(str_detect(group, "hour"), "lapse hour", group),
-           group = if_else(str_detect(group, "age"), "age", group),
-           group = if_else(str_detect(group, "sex"), "sex", group),
-           group = if_else(str_detect(group, "marital"), "marital", group),
-           group = if_else(str_detect(group, "race"), "race", group),
-           group = if_else(str_detect(group, "educ"), "educ", group)) %>%
+           group = if_else(str_detect(group, "ema_4"), 
+                           "past stressful event (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_5"), 
+                           "past pleasant event (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_6"), 
+                           "valence (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_7"), 
+                           "arousal (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_8"), 
+                           "future risky situation (EMA item)",
+                           group),
+           group = if_else(str_detect(group, "ema_9"), 
+                           "future stressful event (EMA item)",
+                           group),
+           group = if_else(str_detect(group, "ema_10"), 
+                           "future efficacy (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "count.ema"), 
+                           "missing surveys (other)", 
+                           group),
+           group = if_else(str_detect(group, "day"), 
+                           "lapse day (other)", 
+                           group),
+           group = if_else(str_detect(group, "hour"), 
+                           "lapse hour (other)", 
+                           group),
+           group = if_else(str_detect(group, "age"), 
+                           "age (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "sex"), 
+                           "sex (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "marital"), 
+                           "marital (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "race"), 
+                           "race (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "educ"), 
+                           "education (demographic)", 
+                           group)) %>%
     mutate(group = factor(group)) %>% 
     group_by(ID, group) %>% 
     summarize(shap = sum(value))
