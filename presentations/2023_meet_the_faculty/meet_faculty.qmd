@@ -475,28 +475,12 @@ fig_hist_week <- preds_week %>%
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
          model = "week") %>% 
   ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
+   geom_histogram(bins = 15, fill = "purple", col = "black", alpha = .4) +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
   scale_y_continuous(labels = scales::comma)
 
 fig_hist_week
-
-# preds_best %>%
-#   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-#          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>%
-#   ggplot(data = ., aes(x = prob)) +
-#    geom_histogram(bins = 15, fill = "white", col = "black") +
-#    facet_wrap(~truth, nrow = 2, scales = "free_y") +
-#    xlab("Pr(Lapse)") +
-#   theme(axis.text = element_text(size = rel(1.00)),
-#         axis.title.x = element_text(size = rel(1.25)),
-#         strip.text = element_text(size = rel(1.75))) +
-#   theme_classic() +
-#   theme(axis.title.x = element_text(size = 12),
-#         strip.text.x = element_text(size = 20))   
-
-
 ```
 
 
@@ -532,12 +516,14 @@ And this is exactly what we see for the one week lapse window model
 
 :::
 
+<!--NEED VERTICAL LINE AT .5-->
 
 ::: {.column width="40%"}
 ```{r}
 #| fig-height: 6
 #| fig-width: 6
-fig_hist_week
+fig_hist_week +
+  geom_vline(xintercept = .5, color = "red")
 ```
 
 :::
@@ -596,7 +582,23 @@ Area under the ROC curve (AUC)
 
 
 ::: {.column width="50%"}
-![roc_1_week.png](images\roc_1_week.png)\ 
+
+<!-- ADD AUC text-->
+```{r}
+roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
+  filter(model == "week") %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25)))  +
+  scale_color_manual(values = c("purple","blue","orange"))
+```
 :::
 
 ::::
@@ -704,7 +706,21 @@ But we were also eager to see how well we could do if we required a higher level
 
 
 ::: {.column width="50%"}
-![roc_1_day.png](images\roc_1_day.png)\ 
+```{r}
+roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
+  filter(model == "week" | model == "day") %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25), 
+                     labels = sprintf("%.2f", seq(1,0,-.25))) +
+  scale_color_manual(values = c("purple","blue","orange"))
+```
 :::
 ::::
 
@@ -810,7 +826,20 @@ Given our success with this day level model, we next developed a model with the 
 
 
 ::: {.column width="50%"}
-![roc_1_hour.png](images\roc_1_hour.png)\ 
+```{r}
+roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("week", "day", "hour"))) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path() +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25)))  +
+  scale_color_manual(values = c("purple","blue","orange"))
+```
 :::
 ::::
 
@@ -928,7 +957,24 @@ And we may need to be careful about how we convey our predictions to patients.  
 :::: {.columns}
 
 ::: {.column width="50%"}
-![threshold_.5_graph.png](images\threshold_.5_graph.png){width=80%}\ 
+```{r}
+#| fig-height: 4
+#| fig-width: 4
+
+fig_hist_day <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "blue", col = "black", alpha = .4) +
+   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  scale_y_continuous(labels = scales::comma)
+
+fig_hist_day +
+  geom_vline(xintercept = .5, color = "red")
+```
+
 :::
 
 ::: {.column width="50%"}
@@ -948,7 +994,10 @@ Here I am showing you the performance of the day level model when we use the def
 :::: {.columns}
 
 ::: {.column width="50%"}
-![threshold_.9_graph.png](images\threshold_.9_graph.png){width=80%}\ 
+```{r}
+fig_hist_day +
+  geom_vline(xintercept = .9, color = "red")
+```
 :::
 
 ::: {.column width="50%"}
