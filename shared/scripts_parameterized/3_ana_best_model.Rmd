@@ -515,7 +515,7 @@ if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_",
   message("Calculating grouped SHAPs")
   
   shap_grouped <- shap_raw %>% 
-    mutate(group = if_else(str_detect(variable, ".lapse"), 
+    mutate(group = if_else(str_detect(variable, "lapse."), 
                            "past use (EMA item)", 
                            variable),
            group = if_else(str_detect(group, "ema_2"), 
