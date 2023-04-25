@@ -288,6 +288,8 @@ footnote_table_dem <- "N = 151"
 ```
 
 ```{r table_demo}
+options(knitr.kable.NA = "")
+
 dem <- screen %>% 
   summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
             SD = as.character(round(sd(dem_1, na.rm = TRUE), 1)),
