@@ -468,60 +468,6 @@ pp %>%
   
 ```
 
-<!-- Supplemental: SHAP Values for Raw Features--> 
-```{r caption_shap_week}
-fig_caption_shapraw_week <- "Variable Importance (SHAP Values) for week Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig_shap_week, fig.cap = fig_caption_shapraw_week, fig.height=7}
-shap_raw_week %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "#F8766D") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-```{r caption_shap_day}
-fig_caption_shapraw_day <- "Variable Importance (SHAP Values) for day Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig_shap_day, fig.cap = fig_caption_shapraw_day, fig.height=7}
-shap_raw_day %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "#00BA38") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
-
-```{r caption_shap_hour}
-fig_caption_shapraw_hour <- "Variable Importance (SHAP Values) for hour Model.  Mean absolute SHAP values across observations are displayed for the top 50 raw features."
-```
-
-```{r fig_shap_hour, fig.cap = fig_caption_shapraw_hour, fig.height=7}
-shap_raw_hour %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "#619CFF") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  xlab("") +
-  coord_flip()
-```
 
 
 <!-- Supplemental: Local SHAP values for EMA items -->
