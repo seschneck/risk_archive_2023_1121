@@ -50,7 +50,7 @@ conflicts_prefer(ggplot2::`%+%`)
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(forcats)
-library(SHAPforxgboost)
+# library(SHAPforxgboost)
 #library(rstanarm)
 library(tidyposterior)
 library(tidyverse)
@@ -330,7 +330,16 @@ features_test <- rec %>%
 
 x <- features_test %>% select(-y)  # x features
 y <- features_test %>% pull(y)
+
+mean_y <- features_test %>% 
+  tab(y) %>% 
+  filter(y == "yes") %>% 
+  pull(prop)
 ```
+
+
+
+#### Permutation Feature Importance
 
 make  predictor function that returns lapse (yes) probabilities
 ```{r}
@@ -339,8 +348,6 @@ predictor <- function(model, x){
     pull(.pred_yes)
 }
 ```
-
-#### Permutation Feature Importance
 
 ```{r calc_perm}
 if(file.exists(file.path(path_models, str_c("imp_permute_", data_type, "_", 
@@ -392,45 +399,12 @@ imp_perm %>%
 
 
 #### Shapley Value Feature Importance
-# make iml predictor function
-```{r}
-# predict_wrapper <- function(model, newdata) {
-#   predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
-#     dplyr::select(yes = .pred_yes, no = .pred_no)
-#   
-# }
-# 
-# iml_predictor <- iml::Predictor$new(model = model_fit_best, 
-#                            data = x, 
-#                            y = y,
-#                            predict.fun = predict_wrapper)  
-```
 
-```{r global_shapley_function}
+Using SHAPforxgboost package
+  
 
-# get_shapley_values <- function(df1, predictor){
-#   iml::Shapley$new(iml_predictor, x.interest = df1)$results %>%
-#     separate_wider_delim(feature.value, delim = "=",
-#                          names = c("tmp", "feature_value")) %>%
-#     mutate(feature_value = as.numeric(feature_value)) %>%
-#     select(feature, feature_value, phi)
-# }
-```
-  
-```{r global_shapley}
-# x1 <- slice(x, 1:2)
-# local_shaps <- x1 %>%
-#   dplyr::mutate(id = row_number()) %>%
-#   nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
-#   dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
-#   dplyr::select(-dfs) %>%
-#   unnest(shapleys) 
-# 
-# local_shaps %>% head
-```
-  
-  
 ```{r calc_shaps}
+
 if(file.exists(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
@@ -442,7 +416,7 @@ if(file.exists(file.path(path_models, str_c("imp_shap_raw_", data_type, "_",
 } else {
   message("Calculating raw SHAPS")
   
-shap_raw <- shap.prep(xgb_model = extract_fit_engine(model_fit_best),
+shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_fit_best),
                      X_train = x %>% as.matrix())
 
 clean_feature_names <- function(feat_name){
@@ -501,7 +475,10 @@ shap_raw %>% saveRDS(file.path(path_models, str_c("imp_shap_raw_", data_type, "_
                                               window, "_", lead, "_", version, 
                                               ".rds")))
 }
+```
 
+Now group SHAPs
+```{r calc_grouped_shaps}
 if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))){
@@ -580,6 +557,7 @@ if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_",
 }
 ```
 
+
 Global importance Shap plot for raw features
 ```{r shap_raw_plot}
 shap_raw %>% 
@@ -626,3 +604,218 @@ shap_grouped %>%
 # shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
 #                         top_n = 20, dilute = 10)
 ```
+
+
+### Alternative SHAP code
+
+```{r}
+# Using shapr package.  However, only currently supports 30 features.
+
+# might be able to  use groups to reduce "features" but not implemented in current package version
+# group_list <- list(lapse = colnames(x)[str_detect(colnames(x), ".lapse")],
+#                    ema_2 = colnames(x)[str_detect(colnames(x), "ema_2")],
+#                    ema_3 = colnames(x)[str_detect(colnames(x), "ema_3")],
+#                    ema_4 = colnames(x)[str_detect(colnames(x), "ema_4")],
+#                    ema_5 = colnames(x)[str_detect(colnames(x), "ema_5")],
+#                    ema_6 = colnames(x)[str_detect(colnames(x), "ema_6")],
+#                    ema_7 = colnames(x)[str_detect(colnames(x), "ema_7")],
+#                    ema_8 = colnames(x)[str_detect(colnames(x), "ema_8")],
+#                    ema_9 = colnames(x)[str_detect(colnames(x), "ema_9")],
+#                    ema_10 = colnames(x)[str_detect(colnames(x), "ema_10")],
+#                    age = colnames(x)[str_detect(colnames(x), "age")],
+#                    educ = colnames(x)[str_detect(colnames(x), "educ")],
+#                    marital = colnames(x)[str_detect(colnames(x), "marital")],
+#                    race = colnames(x)[str_detect(colnames(x), "race")],
+#                    day = colnames(x)[str_detect(colnames(x), "day")],
+#                    hour = colnames(x)[str_detect(colnames(x), "hour")])
+# 
+# 
+# if(file.exists(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
+#                                   window, "_", lead, "_", version, 
+#                                   ".rds")))){
+#   
+#   message("Loading previously calculated raw SHAPS")
+#   shap_raw <- readRDS(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
+#                                               window, "_", lead, "_", version, 
+#                                               ".rds")))
+# } else {
+#   message("Calculating raw SHAPS")
+#   
+#   explainer <- shapr::shapr(x, model_fit_best$fit)
+# 
+#   shap_raw <- shapr::explain(x, approach = "empirical", explainer = explainer,
+#                              prediction_zero = mean_y) %>%     
+#     pull(dt)
+#   
+# shap_raw <- shap.prep(xgb_model = extract_fit_engine(model_fit_best),
+#                      X_train = x %>% as.matrix())
+# 
+# clean_feature_names <- function(feat_name){
+#   new_name <- gsub(".l0", "", feat_name)
+#   new_name <- gsub("rratecount.count", "raw_count", new_name)
+#   new_name <- gsub("dratecount.count", "diff_count", new_name)
+#   new_name <- gsub("drecent_response", "diff_recent", new_name)
+#   new_name <- gsub("rrecent_response", "raw_recent", new_name)
+#   new_name <- gsub("dmin_response", "diff_min", new_name)
+#   new_name <- gsub("rmin_response", "raw_min", new_name)
+#   new_name <- gsub("dmax_response", "diff_max", new_name)
+#   new_name <- gsub("rmax_response", "raw_max", new_name)
+#   new_name <- gsub("dmedian_response", "diff_median", new_name)
+#   new_name <- gsub("rmedian_response", "raw_median", new_name)
+#   new_name <- gsub("label_", "", new_name)
+#   new_name <- gsub("demo_", "", new_name)
+#   new_name <- gsub("High.school.or.less", "high.school", new_name)
+#   new_name <- gsub("Some.college", "some.college", new_name)
+#   new_name <- gsub("Mon", "mon", new_name)
+#   new_name <- gsub("Tue", "tue", new_name)
+#   new_name <- gsub("Wed", "wed", new_name)
+#   new_name <- gsub("Thu", "thu", new_name)
+#   new_name <- gsub("Fri", "fri", new_name)
+#   new_name <- gsub("Sat", "sat", new_name)
+#   new_name <- gsub("Sun", "sun", new_name)
+#   new_name <- gsub("Never.Married", "never.married", new_name)
+#   new_name <- gsub("Never.Other", "never.other", new_name)
+#   new_name <- gsub("White.Caucasian", "caucasian", new_name)
+#   new_name <- gsub("Male", "male", new_name)
+#   new_name <- gsub("p12.raw_count.lapse", "lapse.p12.raw_count", new_name)
+#   new_name <- gsub("p24.raw_count.lapse", "lapse.p24.raw_count", new_name)
+#   new_name <- gsub("p48.raw_count.lapse", "lapse.p48.raw_count", new_name)
+#   new_name <- gsub("p72.raw_count.lapse", "lapse.p72.raw_count", new_name)
+#   new_name <- gsub("p168.raw_count.lapse", "lapse.p168.raw_count", new_name)
+#   new_name <- gsub("p12.diff_count.lapse", "lapse.p12.diff_count", new_name)
+#   new_name <- gsub("p24.diff_count.lapse", "lapse.p24.diff_count", new_name)
+#   new_name <- gsub("p48.diff_count.lapse", "lapse.p48.diff_count", new_name)
+#   new_name <- gsub("p72.diff_count.lapse", "lapse.p72.diff_count", new_name)
+#   new_name <- gsub("p168.diff_count.lapse", "lapse.p168.diff_count", new_name)
+#   new_name <- gsub("p12.raw_count.ema", "missing.p12.raw_count", new_name)
+#   new_name <- gsub("p24.raw_count.ema", "missing.p24.raw_count", new_name)
+#   new_name <- gsub("p48.raw_count.ema", "missing.p48.raw_count", new_name)
+#   new_name <- gsub("p72.raw_count.ema", "missing.p72.raw_count", new_name)
+#   new_name <- gsub("p168.raw_count.ema", "missing.p168.raw_count", new_name)
+#   new_name <- gsub("p12.diff_count.ema", "missing.p12.diff_count", new_name)
+#   new_name <- gsub("p24.diff_count.ema", "missing.p24.diff_count", new_name)
+#   new_name <- gsub("p48.diff_count.ema", "missing.p48.diff_count", new_name)
+#   new_name <- gsub("p72.diff_count.ema", "missing.p72.diff_count", new_name)
+#   new_name <- gsub("p168.diff_count.ema", "missing.p168.diff_count", new_name)
+#   return(new_name) 
+# }
+# shap_raw <- shap_raw %>% 
+#   mutate(variable = fct_relabel(variable, clean_feature_names))
+# 
+# shap_raw %>% saveRDS(file.path(path_models, str_c("imp_shap_raw_", data_type, "_", 
+#                                               window, "_", lead, "_", version, 
+#                                               ".rds")))
+# }
+# 
+# if(file.exists(file.path(path_models, str_c("imp_shap_grouped_", data_type, "_", 
+#                                   window, "_", lead, "_", version, 
+#                                   ".rds")))){
+#   message("Loading previously calculated grouped SHAPs")
+#   shap_grouped <- readRDS(file.path(path_models, str_c("imp_shap_grouped_",
+#                                                        data_type, "_", 
+#                                                        window, "_", lead, "_",
+#                                                        version, ".rds")))
+# } else {
+#   
+#   message("Calculating grouped SHAPs")
+#   
+#   shap_grouped <- shap_raw %>% 
+#     mutate(group = if_else(str_detect(variable, "lapse."), 
+#                            "past use (EMA item)", 
+#                            variable),
+#            group = if_else(str_detect(group, "ema_2"), 
+#                            "craving (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_3"), 
+#                            "past risky situation (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_4"), 
+#                            "past stressful event (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_5"), 
+#                            "past pleasant event (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_6"), 
+#                            "valence (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_7"), 
+#                            "arousal (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "ema_8"), 
+#                            "future risky situation (EMA item)",
+#                            group),
+#            group = if_else(str_detect(group, "ema_9"), 
+#                            "future stressful event (EMA item)",
+#                            group),
+#            group = if_else(str_detect(group, "ema_10"), 
+#                            "future efficacy (EMA item)", 
+#                            group),
+#            group = if_else(str_detect(group, "missing."), 
+#                            "missing surveys (other)", 
+#                            group),
+#            group = if_else(str_detect(group, "day"), 
+#                            "lapse day (other)", 
+#                            group),
+#            group = if_else(str_detect(group, "hour"), 
+#                            "lapse hour (other)", 
+#                            group),
+#            group = if_else(str_detect(group, "age"), 
+#                            "age (demographic)", 
+#                            group),
+#            group = if_else(str_detect(group, "sex"), 
+#                            "sex (demographic)", 
+#                            group),
+#            group = if_else(str_detect(group, "marital"), 
+#                            "marital (demographic)", 
+#                            group),
+#            group = if_else(str_detect(group, "race"), 
+#                            "race (demographic)", 
+#                            group),
+#            group = if_else(str_detect(group, "educ"), 
+#                            "education (demographic)", 
+#                            group)) %>%
+#     mutate(group = factor(group)) %>% 
+#     group_by(ID, group) %>% 
+#     summarize(shap = sum(value))
+#   
+#   shap_grouped %>% saveRDS(file.path(path_models, str_c("imp_shap_grouped_",
+#                                                          data_type, "_", 
+#                                                          window, "_", lead, "_",
+#                                                          version, ".rds")))
+# }
+```
+
+```{r}
+# Using iml package
+
+# predict_wrapper <- function(model, newdata) {
+#   predict(model, newdata, type = "prob") %>%  # set type = "prob" for probabilities
+#     dplyr::select(yes = .pred_yes, no = .pred_no)
+#   
+# }
+# 
+# iml_predictor <- iml::Predictor$new(model = model_fit_best, 
+#                            data = x, 
+#                            y = y,
+#                            predict.fun = predict_wrapper)  
+
+
+# get_shapley_values <- function(df1, predictor){
+#   iml::Shapley$new(iml_predictor, x.interest = df1)$results %>%
+#     separate_wider_delim(feature.value, delim = "=",
+#                          names = c("tmp", "feature_value")) %>%
+#     mutate(feature_value = as.numeric(feature_value)) %>%
+#     select(feature, feature_value, phi)
+# }
+
+# x1 <- slice(x, 1:2)
+# local_shaps <- x1 %>%
+#   dplyr::mutate(id = row_number()) %>%
+#   nest(.by = id, .key = "dfs") %>%  # nest a dataframe for each observation
+#   dplyr::mutate(shapleys = map(dfs, \(df1) get_shapley_values(df1, predictor))) %>%
+#   dplyr::select(-dfs) %>%
+#   unnest(shapleys) 
+# 
+# local_shaps %>% head
+```
+
