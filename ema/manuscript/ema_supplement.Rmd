@@ -122,23 +122,21 @@ pr_hour_full <- preds_hour%>%
   pr_curve(prob, truth = truth)
 
 # prs per fold
-pr_week <- preds_week %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+pr_week <- preds_week %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
 
-pr_day <- preds_day %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "day")
+pr_day <- preds_day %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
 
-pr_hour <- preds_hour %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(pr = map(preds, \(preds) pr_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+pr_hour <- preds_hour%>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+pr_all <- pr_week %>% 
+  bind_rows(pr_day) %>% 
+  bind_rows(pr_hour)
 
 #raw SHAPs
 shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
@@ -187,7 +185,7 @@ consort_plot(data = disposition,
              text_width = 45)
 ```
 
-<!-- 6 panel plot of above plots using cowplot or similar-->
+<!-- Supp figure: ROC curves and AUCs for each held out fold-->
 ```{r}
 fig_roc_week <- roc_week_full %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
@@ -373,56 +371,6 @@ plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, nrow = 1)
 ```
 
 
-```{r}
-fig_caption_3_x_3 <- "Insert Note Here."
-```
-
-```{r fig.cap = fig_caption_3_x_3, fig.width = 8, fig.height= 6.5, out.extra='angle=90'}
-
-fig_preds_week <- preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "week") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, scales = "free_y", ncol = 1) +
-   xlab("Pr(Lapse)") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  scale_y_continuous(labels = scales::comma)
-
-fig_preds_day <- preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "day") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  scale_y_continuous(labels = scales::comma)
-
-fig_preds_hour <- preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "hour") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  scale_y_continuous(labels = scales::comma)
-
-fig_roc_auc <- plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day,
-                         fig_roc_hour, fig_auc_hour, nrow = 3, align = "hv")
-fig_preds <- plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, ncol = 1, align = "hv")
-
-plot_grid(fig_roc_auc, fig_preds, rel_widths = c(2,1), align = "hv")
-```
-
-
 
 ```{r caption_pp_contrasts}
 fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
@@ -468,348 +416,47 @@ pp %>%
   
 ```
 
+<!-- PR curves-->
 
-
-<!-- Supplemental: Local SHAP values for EMA items -->
-
-```{r}
-shap_grouped_week <- shap_grouped_week %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "week")
-
-shap_grouped_day <- shap_grouped_day %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "day")
-
-shap_grouped_hour <- shap_grouped_hour %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "hour")
+```{r caption_pr}
+fig_caption_pr <- "Precision-Recall Curves for models."
 ```
 
-```{r caption_shap_local}
-fig_caption_shap_local <- "Insert Note here."
-```
+```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
+pr_.75_cutoff <- pr_all %>% 
+  mutate(recall = round(recall, 3),
+         precision = round(precision, 3),
+         .threshold = round(.threshold, 3),
+         model = factor(model,
+                        levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>% 
+  filter(precision == .75) %>% 
+  group_by(model, precision) %>% 
+  summarise(recall = mean(recall),
+            threshold = mean(.threshold),
+            .groups = "drop")
 
-```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
-shap_grouped_all <- shap_grouped_week %>% 
-  bind_rows(shap_grouped_day) %>% 
-  bind_rows(shap_grouped_hour) %>% 
-  mutate(window = factor(window, levels = c("week", "day", "hour")))
-  
-
-shap_tmp <- shap_grouped_all %>%
-  ungroup() %>%
-  slice_sample(n = 100000)
-
-shap_tmp %>% 
-  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
-  ggplot(mapping = aes(x = group, y = shap, color = window)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
-        alpha = 0.4) +
-  facet_wrap(~window) +
-  geom_hline(yintercept = 0) +
-  ylab("Local SHAP values") +
-  xlab("") +
-  coord_flip() +
-  theme(legend.position = "bottom")
-```
-
-
-
-<!-- Supplemental:  ROC figures (100 folds separate by model)-->
-<!--
-```{r caption_roc_folds_week}
-fig_caption_roc_folds_week <- "ROC Curves across Folds for Week Model."
-```
-
-```{r fig_roc_folds_week, fig.cap = fig_caption_roc_folds_week}
-fig_roc_week <- roc_week_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(roc_week)) {
-  fig_roc_week <- fig_roc_week +
-     geom_path(data = roc_week$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "gray")
-}
-
-fig_roc_week +
-     geom_path(data = roc_week_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "black", size = 1)
-  
-```
-
-```{r caption_roc_folds_day}
-fig_caption_roc_folds_day <- "ROC Curves across Folds for Day Model."
-```
-
-```{r fig_roc_folds_day, fig.cap = fig_caption_roc_folds_day}
-fig_roc_day <- roc_day_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(roc_day)) {
-  fig_roc_day <- fig_roc_day +
-     geom_path(data = roc_day$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "gray")
-}
-
-fig_roc_day +
-     geom_path(data = roc_day_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "black", size = 1)
-  
-```
-
-
-```{r caption_roc_folds_hour}
-fig_caption_roc_folds_hour <- "ROC Curves across Folds for Hour Model."
-```
-
-```{r fig_roc_folds_hour, fig.cap = fig_caption_roc_folds_hour}
-fig_roc_hour <- roc_hour_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(roc_hour)) {
-  fig_roc_hour <- fig_roc_hour +
-     geom_path(data = roc_hour$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "gray")
-}
-
-fig_roc_hour +
-     geom_path(data = roc_week_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "black", size = 1)
-```
--->
-
-
-
-<!-- Supplemental:  Histogram of all fold AUCs-->
-
-<!--
-```{r caption_auc_folds}
-fig_caption_auc_folds <- "Area under ROC Curve across Folds by Model.  The area under the receiver operating characteristic curve for each model (week, day, and hour) was evaluated using 10 repeats of 10-fold cross-validation.  This histogram displays the AUC observed for these models in the 100 held-out folds."
-```
-
-```{r fig_auc_folds, fig.cap = fig_caption_auc_folds, fig.height=7 }
-auc_folds_week %>% mutate(model = "week") %>% 
-  bind_rows(auc_folds_day %>% mutate(model = "day")) %>% 
-  bind_rows(auc_folds_hour %>% mutate(model = "hour")) %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>% 
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc, fill = model), color = "black", alpha = .4, bins = 15) +
-  facet_wrap(~model, ncol = 1) +
-  xlab("Area Under ROC Curve (per fold)")
-```
--->
-
-
-<!-- Supplemental: Paneled histograms separate by model--> 
-<!--
-```{r caption_predictions_week}
-fig_caption_hist_week <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for week Model."
-```
-
-```{r fig_predictions_week, fig.cap = fig_caption_hist_week, fig.height=7}
-preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75))) +
-  scale_y_continuous(labels = scales::comma)
-```
-
-```{r caption_predictions_day}
-fig_caption_hist_day <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for day Model."
-```
-
-```{r fig_predictions_day, fig.cap = fig_caption_hist_day, fig.height=7}
-preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75))) +
-  scale_y_continuous(labels = scales::comma)
-```
-
-```{r caption_predictions_hour}
-fig_caption_hist_hour <- "Lapse Probability Predictions Paneled by Ground Truth (Lapse vs. No Lapse) for hour Model."
-```
-
-```{r fig_predictions_hour, fig.cap = fig_caption_hist_hour, fig.height=7}
-preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse")) %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75))) +
-  scale_y_continuous(labels = scales::comma)
-```
--->
-
-
-<!-- Supplemental:  PR figures (100 folds separate by model)-->
-
-```{r caption_pr_folds_week}
-fig_caption_pr_folds_week <- "Precision-Recall Curves across Folds for Week Model."
-```
-
-```{r fig_pr_folds_week, fig.cap = fig_caption_pr_folds_week}
-fig_pr_week <- pr_week_full %>% 
-  ggplot(aes(x = recall, y = precision)) + 
-  geom_abline(lty = 3) +
+pr_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+                        labels = c("week", "day", "hour"))) %>%
+  ggplot(aes(x = recall, y = precision, color = model)) +
+  geom_path() +
+  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
+  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = pr_.75_cutoff) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Sensitivity (Recall)",
-       y = "Positive Predictive Value (Precision)") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(pr_week)) {
-  fig_pr_week <- fig_pr_week +
-     geom_path(data = pr_week$pr[[i]],
-               mapping = aes(x = recall, y = precision),
-               color = "gray")
-}
-
-fig_pr_week +
-     geom_path(data = pr_week_full,
-               mapping = aes(x = recall, y = precision),
-               color = "black", size = 1)
-```
-
-```{r caption_pr_folds_day}
-fig_caption_pr_folds_day <- "pr Curves across Folds for Day Model."
-```
-
-```{r fig_pr_folds_day, fig.cap = fig_caption_pr_folds_day}
-fig_pr_day <- pr_day_full %>% 
-  ggplot(aes(x = recall, y = precision)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Sensitivity (Recall)",
-       y = "Positive Predictive Value (Precision)") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(pr_day)) {
-  fig_pr_day <- fig_pr_day +
-     geom_path(data = pr_day$pr[[i]],
-               mapping = aes(x = recall, y = precision),
-               color = "gray")
-}
-
-fig_pr_day +
-     geom_path(data = pr_day_full,
-               mapping = aes(x = recall, y = precision),
-               color = "black", size = 1)
-  
+       y = "Positive Predictive Value (Precision)")
 ```
 
 
-```{r caption_pr_folds_hour}
-fig_caption_pr_folds_hour <- "pr Curves across Folds for Hour Model."
-```
-
-```{r fig_pr_folds_hour, fig.cap = fig_caption_pr_folds_hour}
-fig_pr_hour <- pr_hour_full %>% 
-  ggplot(aes(x = recall, y = precision)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Sensitivity (Recall)",
-       y = "Positive Predictive Value (Precision)") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))  
-  
-for (i in 1:nrow(pr_hour)) {
-  fig_pr_hour <- fig_pr_hour +
-     geom_path(data = pr_hour$pr[[i]],
-               mapping = aes(x = recall, y = precision),
-               color = "gray")
-}
-
-fig_pr_hour +
-     geom_path(data = pr_hour_full,
-               mapping = aes(x = recall, y = precision),
-               color = "black", size = 1)
-```
 

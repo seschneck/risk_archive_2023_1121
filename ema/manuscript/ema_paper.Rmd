@@ -685,7 +685,7 @@ plot_grid(roc_plot, pp_plot, ncol = 2, rel_widths = c(1, 1.25))
 
 
 
-<!-- PR curve by model-->
+<!-- PR-->
 <!-- get exact sensitivity at .75 PPV -->
 ```{r}
 pr_.75_cutoff <- pr_all %>% 
@@ -709,32 +709,6 @@ pr_.75_cutoff <- pr_all %>%
 <!-- Hour sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "hour"), recall), 3)` -->
 
 
-```{r caption_pr}
-fig_caption_pr <- "Precision-Recall Curves for models."
-```
-
-```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
-pr_all %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
-                        labels = c("week", "day", "hour"))) %>%
-  ggplot(aes(x = recall, y = precision, color = model)) +
-  geom_path() +
-  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
-                           color = model),
-               linetype = "dashed",
-               alpha = .8,
-               show.legend = FALSE,
-               data = pr_.75_cutoff) +
-  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
-                           color = model),
-               linetype = "dashed",
-               alpha = .8,
-               show.legend = FALSE,
-               data = pr_.75_cutoff) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Sensitivity (Recall)",
-       y = "Positive Predictive Value (Precision)")
-```
 
 <!-- SHAP Importance figure-->
 ```{r caption_shap}
@@ -776,6 +750,85 @@ shap_grouped_all %>%
   xlab("") +
   coord_flip()
 ```
+
+<!-- Local SHAP values for EMA items -->
+
+```{r}
+shap_grouped_week <- shap_grouped_week %>% 
+  filter(str_detect(group, "EMA item")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)")),
+         window = "week")
+
+shap_grouped_day <- shap_grouped_day %>% 
+  filter(str_detect(group, "EMA item")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)")),
+         window = "day")
+
+shap_grouped_hour <- shap_grouped_hour %>% 
+  filter(str_detect(group, "EMA item")) %>% 
+  # order ema items as they appear on survey
+  mutate(group = factor(group, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)")),
+         window = "hour")
+```
+
+<!--local shap plot-->
+```{r caption_shap_local}
+fig_caption_shap_local <- "Insert Note here."
+```
+
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
+shap_grouped_all <- shap_grouped_week %>% 
+  bind_rows(shap_grouped_day) %>% 
+  bind_rows(shap_grouped_hour) %>% 
+  mutate(window = factor(window, levels = c("week", "day", "hour")))
+  
+
+shap_tmp <- shap_grouped_all %>%
+  ungroup() %>%
+  slice_sample(n = 100000)
+
+shap_tmp %>% 
+  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
+  ggplot(mapping = aes(x = group, y = shap, color = window)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
+        alpha = 0.4) +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(legend.position = "bottom")
+```
+
 
 \clearpage
 # References
