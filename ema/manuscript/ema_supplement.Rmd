@@ -345,6 +345,7 @@ fig_preds_week <- preds_week %>%
    geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma)
 
 fig_preds_day <- preds_day %>% 
@@ -355,6 +356,7 @@ fig_preds_day <- preds_day %>%
    geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma)
 
 fig_preds_hour <- preds_hour %>% 
@@ -365,6 +367,7 @@ fig_preds_hour <- preds_hour %>%
    geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
    facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma)
 
 plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, nrow = 1)

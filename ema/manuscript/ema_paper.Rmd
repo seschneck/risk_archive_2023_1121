@@ -751,74 +751,19 @@ shap_grouped_all %>%
   coord_flip()
 ```
 
-<!-- Local SHAP values for EMA items -->
-
-```{r}
-shap_grouped_week <- shap_grouped_week %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "week")
-
-shap_grouped_day <- shap_grouped_day %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "day")
-
-shap_grouped_hour <- shap_grouped_hour %>% 
-  filter(str_detect(group, "EMA item")) %>% 
-  # order ema items as they appear on survey
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)")),
-         window = "hour")
-```
-
-<!--local shap plot-->
+<!-- Local SHAP values -->
 ```{r caption_shap_local}
 fig_caption_shap_local <- "Insert Note here."
 ```
 
 ```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
-shap_grouped_all <- shap_grouped_week %>% 
-  bind_rows(shap_grouped_day) %>% 
-  bind_rows(shap_grouped_hour) %>% 
-  mutate(window = factor(window, levels = c("week", "day", "hour")))
-  
-
 shap_tmp <- shap_grouped_all %>%
   ungroup() %>%
   slice_sample(n = 100000)
 
 shap_tmp %>% 
-  mutate(group = factor(group, levels = rev(levels(group)))) %>% 
-  ggplot(mapping = aes(x = group, y = shap, color = window)) +
+  mutate(group = reorder(group, mean_value, sum)) %>%
+  ggplot(mapping = aes(x = group, y = mean_value, color = window)) +
   ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
         alpha = 0.4) +
   facet_wrap(~window) +
