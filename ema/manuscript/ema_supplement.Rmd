@@ -266,31 +266,34 @@ fig_roc_hour <- fig_roc_hour +
 
 ```{r}
 fig_auc_week <- auc_folds_week %>% 
-  mutate(model = "week") %>%
+  mutate(model = "Week") %>%
   ggplot() + 
   geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
   facet_wrap(~model, ncol = 1, strip.position = "right") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
-        legend.position = "none") 
+        legend.position = "none") +
+  ylab("Count")
 
 fig_auc_day <- auc_folds_day %>% 
-  mutate(model = "day") %>%
+  mutate(model = "Day") %>%
   ggplot() + 
   geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
   facet_wrap(~model, ncol = 1, strip.position = "right") +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
-        legend.position = "none") 
+        legend.position = "none") +
+  ylab("Count")
 
 fig_auc_hour <- auc_folds_hour %>% 
-  mutate(model = "hour") %>% 
+  mutate(model = "Hour") %>% 
   ggplot() + 
   geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
   facet_wrap(~model, ncol = 1, strip.position = "right") +
-  xlab("Area Under ROC Curve (per fold)")
+  xlab("Area Under ROC Curve (per fold)") +
+  ylab("Count")
 ```
 
 
@@ -304,31 +307,6 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
           ncol = 2, align = "h")
 ```
 
-```{r}
-fig_auc_week <- auc_folds_week %>% 
-  mutate(model = "week") %>%
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position = "none") 
-
-fig_auc_day <- auc_folds_day %>% 
-  mutate(model = "day") %>%
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position = "none") 
-
-fig_auc_hour <- auc_folds_hour %>% 
-  mutate(model = "hour") %>% 
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
-  xlab("Area Under ROC Curve (per fold)")
-```
 
 <!--lapse predictions faceted by model-->
 
@@ -336,42 +314,103 @@ fig_auc_hour <- auc_folds_hour %>%
 fig_caption_preds_facet <- "Insert Note Here."
 ```
 
-```{r fig.cap = fig_caption_preds_facet, fig.width = 7, fig.height = 5}
-fig_preds_week <- preds_week %>% 
+
+```{r fig.cap = fig_caption_preds_facet, fig.width = 7.5, fig.height = 5}
+fig_preds_week_lapse <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Week") %>% 
+  filter(truth == "Lapse") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
+   facet_wrap(~model) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab("Count")
+
+fig_preds_week_nolapse <- preds_week %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
          model = "week") %>% 
+  filter(truth == "No lapse") %>% 
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
   geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma)
+  scale_y_continuous(labels = scales::comma) +
+  ylab("Count")
 
-fig_preds_day <- preds_day %>% 
+
+fig_preds_day_lapse <- preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "day") %>% 
+         model = "Day") %>% 
+  filter(truth == "Lapse") %>%
   ggplot(data = ., aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   facet_wrap(~model) +
    xlab("Pr(Lapse)") +
   geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma)
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab("Count")
 
-fig_preds_hour <- preds_hour %>% 
+fig_preds_day_nolapse <- preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
          estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "hour") %>% 
+         model = "Day") %>% 
+  filter(truth == "No lapse") %>%
   ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
-   facet_wrap(~truth, nrow = 2, scales = "free_y") +
+   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
    xlab("Pr(Lapse)") +
   geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma)
+  scale_y_continuous(labels = scales::comma) +
+  ylab("Count")
 
-plot_grid(fig_preds_week, fig_preds_day, fig_preds_hour, nrow = 1)
+fig_preds_hour_lapse <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Hour") %>% 
+  filter(truth == "Lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
+   facet_grid(truth~model) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab("Count")
+
+fig_preds_hour_nolapse <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Hour") %>% 
+  filter(truth == "No lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
+   facet_wrap(~truth, strip.position = "right") +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  ylab("Count")
+
+
+fig_week <- plot_grid(fig_preds_week_lapse, fig_preds_week_nolapse, ncol = 1, align = "v")
+fig_day <- plot_grid(fig_preds_day_lapse, fig_preds_day_nolapse, ncol = 1, align = "v")
+fig_hour <- plot_grid(fig_preds_hour_lapse, fig_preds_hour_nolapse, ncol = 1, align = "v")
+
+
+plot_grid(fig_week, fig_day, fig_hour, nrow = 1, rel_widths = c(1, 1, 1.1))
 ```
+
 
 
 
@@ -386,7 +425,7 @@ ci <- pp %>%
   summary(size = .01) %>% 
   mutate(contrast = factor(contrast, 
                            levels = c("hour vs week", "hour vs day", "day vs week"),
-                           labels = c("hour vs. week", "hour vs. day", "day vs. week")),
+                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week")),
          y = 700)
 
 pp %>% 
@@ -403,7 +442,7 @@ pp %>%
                values_to = "posterior") %>% 
   mutate(contrast = factor(contrast, 
                            levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
-                           labels = c("hour vs. week", "hour vs. day", "day vs. week"))) %>% 
+                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week"))) %>% 
   ggplot() +
   geom_histogram(aes(x = posterior, fill = contrast), 
                  color = "black", alpha = .4, bins = 30) +
@@ -415,7 +454,8 @@ pp %>%
                              color = contrast), data = ci, show.legend = FALSE) +
   geom_text(data = ci, x = c(.0255, .035, .015), y = 700, 
             label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
-  facet_wrap(~contrast, ncol = 1)
+  facet_wrap(~contrast, ncol = 1) +
+  xlab("Posterior")
   
 ```
 
@@ -432,7 +472,7 @@ pr_.75_cutoff <- pr_all %>%
          .threshold = round(.threshold, 3),
          model = factor(model,
                         levels = c("1week", "1day", "1hour"),
-                        labels = c("week", "day", "hour"))) %>% 
+                        labels = c("Week", "Day", "Hour"))) %>% 
   filter(precision == .75) %>% 
   group_by(model, precision) %>% 
   summarise(recall = mean(recall),
@@ -441,7 +481,7 @@ pr_.75_cutoff <- pr_all %>%
 
 pr_all %>% 
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
-                        labels = c("week", "day", "hour"))) %>%
+                        labels = c("Week", "Day", "Hour"))) %>%
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path() +
   geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
