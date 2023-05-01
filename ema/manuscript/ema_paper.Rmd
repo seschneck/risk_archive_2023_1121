@@ -116,16 +116,20 @@ pr_all <- pr_week %>%
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
 
-# Grouped SHAPS
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) %>% 
+# Local and Global Grouped SHAPS
+shap_local_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+shap_local_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+shap_local_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+
+shap_grouped_week <- shap_local_week %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds")) %>% 
+shap_grouped_day <- shap_local_day %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) %>% 
+shap_grouped_hour <- shap_local_hour %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -760,21 +764,54 @@ fig_caption_shap_local <- "Insert Note here."
 ```
 
 ```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
-shap_tmp <- shap_grouped_all %>%
-  ungroup() %>%
-  slice_sample(n = 100000)
+shap_local_all <- shap_local_week %>% 
+  mutate(window = "Week") %>% 
+  bind_rows(shap_local_day %>% 
+              mutate(window = "Day")) %>% 
+  bind_rows(shap_local_hour %>% 
+              mutate(window = "Hour")) 
 
-shap_tmp %>% 
-  mutate(group = reorder(group, mean_value, sum)) %>%
-  ggplot(mapping = aes(x = group, y = mean_value, color = window)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
-        alpha = 0.4) +
-  facet_wrap(~window) +
-  geom_hline(yintercept = 0) +
-  ylab("Local SHAP values") +
-  xlab("") +
-  coord_flip() +
-  theme(legend.position = "bottom")
+# get order for items based on global sum importance
+shap_levels <- shap_grouped_all %>% 
+  mutate(group = reorder(group, mean_value, sum)) %>% 
+  pull(group) %>% 
+  levels()
+
+shap_local_tmp <- shap_local_all %>% 
+  ungroup() %>%
+  slice_sample(n = 200000)
+
+shap_local_tmp %>%
+    mutate(group = factor(group, levels = shap_levels)) %>%
+    ggplot(mapping = aes(x = group, y = shap, color = window)) +
+    ggforce::geom_sina(method = "counts", maxwidth = 0.7,
+          alpha = 0.4) +
+    facet_wrap(~window) +
+    geom_hline(yintercept = 0) +
+    ylab("Local SHAP values") +
+    xlab("") +
+    coord_flip() +
+    theme(legend.position = "bottom")
+  
+
+# shap_plot <-  xfun::cache_rds({
+#   shap_local_all %>% 
+#     mutate(group = factor(group, levels = shap_levels)) %>%
+#     ggplot(mapping = aes(x = group, y = shap, color = window)) +
+#     ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
+#           alpha = 0.4) +
+#     facet_wrap(~window) +
+#     geom_hline(yintercept = 0) +
+#     ylab("Local SHAP values") +
+#     xlab("") +
+#     coord_flip() +
+#     theme(legend.position = "bottom")
+# },
+# dir = "cache/",
+# file = "cache_shap_plot")
+
+# Note for JC: It is taking a long time to print this plot even with the ggplot object cached
+# shap_plot
 ```
 
 
