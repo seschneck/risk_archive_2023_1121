@@ -765,13 +765,14 @@ shap_grouped_all %>%
 fig_caption_shap_local <- "Insert Note here."
 ```
 
-```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.height=7, fig.width = 7}
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, out.extra='angle=90'}
 shap_local_all <- shap_local_week %>% 
   mutate(window = "Week") %>% 
   bind_rows(shap_local_day %>% 
               mutate(window = "Day")) %>% 
   bind_rows(shap_local_hour %>% 
-              mutate(window = "Hour")) 
+              mutate(window = "Hour")) %>% 
+  mutate(window = factor(window, levels = c("Week", "Day", "Hour")))
 
 # get order for items based on global sum importance
 shap_levels <- shap_grouped_all %>% 
@@ -779,42 +780,71 @@ shap_levels <- shap_grouped_all %>%
   pull(group) %>% 
   levels()
 
-shap_local_tmp <- shap_local_all %>% 
-  ungroup() %>%
-  slice_sample(n = 200000)
 
-shap_local_tmp %>%
-    mutate(group = factor(group, levels = shap_levels)) %>%
-    ggplot(mapping = aes(x = group, y = shap, color = window)) +
-    ggforce::geom_sina(method = "counts", maxwidth = 0.7,
-          alpha = 0.4) +
-    facet_wrap(~window) +
-    geom_hline(yintercept = 0) +
-    ylab("Local SHAP values") +
-    xlab("") +
-    coord_flip() +
-    theme(legend.position = "bottom")
-  
+# downsample to 10% of observations
+# CURRENTLY SET TO 1% WHILE WORKING IN MANUSCRIPT
+id_10 <- shap_local_all %>% 
+  ungroup() %>% 
+  select(ID) %>% 
+  unique() %>% 
+  slice_sample(prop = .01)
 
-# shap_plot <-  xfun::cache_rds({
-#   shap_local_all %>% 
-#     mutate(group = factor(group, levels = shap_levels)) %>%
-#     ggplot(mapping = aes(x = group, y = shap, color = window)) +
-#     ggforce::geom_sina(method = "counts", maxwidth = 0.7, 
-#           alpha = 0.4) +
-#     facet_wrap(~window) +
-#     geom_hline(yintercept = 0) +
-#     ylab("Local SHAP values") +
-#     xlab("") +
-#     coord_flip() +
-#     theme(legend.position = "bottom")
-# },
-# dir = "cache/",
-# file = "cache_shap_plot")
+shap_local_10 <- shap_local_all %>% 
+  ungroup() %>% 
+  filter(ID %in% id_10$ID)
 
-# Note for JC: It is taking a long time to print this plot even with the ggplot object cached
-# shap_plot
+shap_week <- shap_local_10 %>%
+  filter(window == "Week") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#F8766D") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Week"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() 
+
+shap_day <- shap_local_10 %>%
+  filter(window == "Day") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#00BA38") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Day"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+shap_hour <- shap_local_10 %>%
+  filter(window == "Hour") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#619CFF") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Hour"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+shap_week + shap_day + shap_hour
 ```
+
 
 
 \clearpage
