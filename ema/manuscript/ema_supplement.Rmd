@@ -159,6 +159,11 @@ shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds
 shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
 shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
 shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+
+# lapse labels
+labels_week <- read_csv(file.path(path_data_ema, "labels_1week.csv"), col_types = cols())
+labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = cols())
+labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
 ```
 
 <!-- Consort Diagram-->
@@ -359,7 +364,7 @@ fig_preds_day_lapse <- preds_day %>%
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) +
-  ylab("Count")
+  ylab(NULL)
 
 fig_preds_day_nolapse <- preds_day %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
@@ -371,7 +376,7 @@ fig_preds_day_nolapse <- preds_day %>%
    xlab("Pr(Lapse)") +
   geom_vline(xintercept = .5, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
-  ylab("Count")
+  ylab(NULL)
 
 fig_preds_hour_lapse <- preds_hour %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
@@ -387,7 +392,7 @@ fig_preds_hour_lapse <- preds_hour %>%
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank()) +
-  ylab("Count")
+  ylab(NULL)
 
 fig_preds_hour_nolapse <- preds_hour %>% 
   mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
@@ -400,7 +405,7 @@ fig_preds_hour_nolapse <- preds_hour %>%
    xlab("Pr(Lapse)") +
   geom_vline(xintercept = .5, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
-  ylab("Count")
+  ylab(NULL)
 
 
 fig_week <- plot_grid(fig_preds_week_lapse, fig_preds_week_nolapse, ncol = 1, align = "v")
@@ -499,6 +504,116 @@ pr_all %>%
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Sensitivity (Recall)",
        y = "Positive Predictive Value (Precision)")
+```
+
+
+
+<!-- Supp figure: mean lapse rates per subid and overall mean lapse rate per model -->
+
+```{r caption_lapses}
+fig_caption_lapses <- "Version 1 with different x-axis scale"
+```
+
+```{r fig_lapses, fig.cap = fig_caption_lapses, fig.width = 7}
+plot_week <- labels_week %>% 
+  mutate(window = "Week",
+         window = factor(window),
+         lapse = if_else(lapse == "no", 0, 1))  %>% 
+  group_by(window, subid) %>% 
+  summarise(lapse_mean = mean(lapse), .groups = "drop") %>% 
+  ggplot() +
+  geom_histogram(mapping = aes(x = lapse_mean), fill = "#F8766D",
+                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
+  facet_wrap(~window) +
+  xlab("Lapse Rate") +
+  ylab("Count") +
+  scale_x_continuous(breaks = seq(0, 1, .2)) +
+  scale_y_continuous(limits = c(0, 150)) +
+  geom_vline(aes(xintercept = lapse_mean), labels_week %>% 
+    group_by(subid) %>% 
+    mutate(lapse = if_else(lapse == "no", 0, 1)) %>% 
+    summarise(lapse_mean = mean(lapse), .groups = "drop_last") %>% 
+    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
+
+plot_day <- labels_day %>% 
+  mutate(window = "Day",
+         window = factor(window),
+         lapse = if_else(lapse == "no", 0, 1))  %>% 
+  group_by(window, subid) %>% 
+  summarise(lapse_mean = mean(lapse), .groups = "drop") %>% 
+  ggplot() +
+  geom_histogram(mapping = aes(x = lapse_mean), fill = "#00BA38",
+                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
+  facet_wrap(~window) +
+  xlab("Lapse Rate") +
+  ylab(NULL) +
+  scale_x_continuous(breaks = seq(0, 1, .2), limits = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 150)) +
+  geom_vline(aes(xintercept = lapse_mean), labels_day %>% 
+    group_by(subid) %>% 
+    mutate(lapse = if_else(lapse == "no", 0, 1)) %>% 
+    summarise(lapse_mean = mean(lapse), .groups = "drop_last") %>% 
+    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+plot_hour <- labels_hour %>% 
+  mutate(window = "Hour",
+         window = factor(window),
+         lapse = if_else(lapse == "no", 0, 1))  %>% 
+  group_by(subid, window) %>% 
+  summarise(lapse_mean = mean(lapse), .groups = "drop") %>% 
+  ggplot() +
+  geom_histogram(mapping = aes(x = lapse_mean), fill = "#619CFF",
+                 color = "black", alpha = .4, binwidth = .01, boundary = 0) +
+  facet_wrap(~window) +
+  xlab("Lapse Rate") +
+  ylab(NULL) +
+  scale_x_continuous(breaks = seq(0, .2, .04), limits = c(0, .2)) +
+  scale_y_continuous(limits = c(0, 150)) +
+  geom_vline(aes(xintercept = lapse_mean), labels_hour %>% 
+    group_by(subid) %>% 
+    mutate(lapse = if_else(lapse == "no", 0, 1)) %>% 
+    summarise(lapse_mean = mean(lapse), .groups = "drop_last") %>% 
+    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed") +
+  theme(axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+
+plot_week + plot_day + plot_hour 
+```
+
+
+
+```{r caption_lapses_2}
+fig_caption_lapses_2 <- "Version 2 with same x-axis scale"
+```
+
+```{r fig_lapses_2, fig.cap = fig_caption_lapses_2, fig.height = 6}
+labels_all <- labels_week %>% 
+  mutate(window = "Week") %>% 
+  bind_rows(labels_day %>% 
+              mutate(window = "Day")) %>% 
+  bind_rows(labels_hour %>% 
+              mutate(window = "Hour")) %>% 
+  mutate(window = factor(window, levels = c("Week", "Day", "Hour")),
+         lapse = if_else(lapse == "no", 0, 1)) 
+
+labels_all %>% 
+  group_by(window, subid) %>% 
+  summarise(lapse_mean = mean(lapse), .groups = "drop") %>% 
+  ggplot() +
+  geom_histogram(mapping = aes(x = lapse_mean, fill = window), 
+                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
+  facet_wrap(~window, ncol = 1) +
+  xlab("Lapse Rate") +
+  ylab("Count") +
+  scale_x_continuous(breaks = seq(0, 1, .1)) +
+  geom_vline(aes(xintercept = lapse_mean), labels_all %>% 
+    group_by(window, subid) %>% 
+    summarise(lapse_mean = mean(lapse), .groups = "drop_last") %>% 
+    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
 ```
 
 
