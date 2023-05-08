@@ -1,0 +1,866 @@
+---
+title: "Untitled"
+format: pdf
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/national-library-of-medicine-grant-proposals.csl
+geometry: margin=.5in
+fontsize: 11pt
+bibliography: paper_ema.bib
+---
+
+<!--old YAML
+output:
+  pdf_document:
+    includes:
+      in_header: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/latex/header.tex
+    template: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/latex/nih_latex_template.tex
+    keep_tex: no
+    number_sections: no
+    latex_engine: xelatex
+    citation_package: default
+header-includes:
+  - \usepackage{helvet}
+  - \usepackage[T1]{fontenc}
+  - \renewcommand\familydefault{\sfdefault}
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/national-library-of-medicine-grant-proposals.csl
+geometry: margin=.5in
+fontsize: 11pt
+bibliography: paper_ema.bib
+
+
+
+
+-->
+
+
+<!--General notes
+Considering American Journal of Psychiatry
+https://ajp.psychiatryonline.org/ajp_ifora
+
+ARTICLES
+Articles are reports of original work that embodies scientific excellence in psychiatric medicine and advances in clinical research. Typically, articles will contain new data derived from a sizable series of patients or subjects. The text is usually within 3,500 words, which does not include an abstract of no more than 250 words, a maximum of 5 tables and figures (total), and up to 40 references. Word count includes only the main body of text (i.e., not tables, figures, abstracts or references). Additional tables can be submitted in a separate file as supplemental data for posting online. (See Supplemental Data for what types of data and formats are acceptable for posting online.)
+-->
+
+```{r knitr_settings, include = FALSE}
+# settings
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
+                      message = FALSE)
+options(knitr.kable.NA = '')
+knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+```
+
+```{r setup, include = FALSE}
+library(knitr)
+library(yardstick) # for roc_curve
+library(kableExtra)
+library(janitor)
+library(corx)
+library(patchwork)
+library(ggtext)
+library(consort)
+library(tidyverse)
+library(tidymodels)
+library(tidyposterior)
+library(cowplot)
+
+theme_set(theme_classic()) 
+```
+
+
+```{r paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_models <- "P:/studydata/risk/models/ema"
+          path_data_shared <- "P:/studydata/risk/data_processed/shared"
+          path_data_ema <- "P:/studydata/risk/data_processed/ema"},
+        # IOS paths
+        Darwin = {
+          path_models <- "/Volumes/private/studydata/risk/models/ema"
+          path_data_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_data_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+       )
+```
+
+```{r load_data}
+# Table data
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
+
+# Predictions data
+preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+
+# posterior probabilites
+pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+
+# ROC curves
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+# PR curves
+pr_week <- preds_week %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1week")
+
+pr_day <- preds_day %>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1day")
+
+pr_hour <- preds_hour%>% 
+  pr_curve(prob, truth = truth) %>% 
+  mutate(model = "1hour")
+
+pr_all <- pr_week %>% 
+  bind_rows(pr_day) %>% 
+  bind_rows(pr_hour)
+
+# Local and Global Grouped SHAPS
+shap_local_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+shap_local_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+shap_local_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+
+shap_grouped_week <- shap_local_week %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_day <- shap_local_day %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+shap_grouped_hour <- shap_local_hour %>% 
+  group_by(group) %>% 
+  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+  arrange(mean_value)
+```
+
+# Introduction
+
+<!--GEF: reminder to think about relapse vs. return to substance use language - updating from our last meeting to say that we should just clearly define what we mean by a lapse (goal-inconsistent return to substance use) somewhere early in the introduction-- --SJS Added to recovery paragraph to highlight earlier-->
+
+Alcohol and other substance use disorders (SUDs) are highly prevalent and costly.  In 2019, the National Survey on Drug Use and Health estimated that over 20 million adults in the United States had some form of active substance use disorder within that year [@substanceabuseandmentalhealthservicesadministrationKeySubstanceUse2020]. Nearly 15 million of those adults had an active alcohol use disorder (AUD) [@samhsa2019NationalSurvey; @samhsa2019NationalSurveyb]. Furthermore, a substantial 25.8% of adults reported engaging in hazardous alcohol misuse within the past month [@samhsa2019NationalSurveya]. Alcohol ranks as the third leading preventable cause of death, accounting for approximately 140,000 fatalities per year [@centersfordiseasecontrolandpreventionAlcoholPublicHealth; @esserEstimatedDeathsAttributable2022]. In economic terms, the US Surgeon General disclosed that alcohol misuse cost the United States $249 billion in 2016 alone [@administrationusFacingAddictionAmerica2016]. <!--GEF: i know it might be annoying, but i think best to clarify that these stats are for the US only in each sentence-->
+
+Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010; @lieseCognitiveBehavioralTherapyAddictive2022],  mindfulness-based relapse prevention [@bowenMindfulnessBasedRelapsePrevention2021; @goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational interviewing [@millerMotivationalInterviewingHelping2012], and contingency management[@bigelowTheoreticalEmpiricalFoundations1999; @dutraMetaAnalyticReviewPsychosocial2008<!--can cut some refs eventually-->] are effective when provided to patients.  Unfortunately, fewer than 1 in 13 adults who experienced an active AUD in 2019 received any treatment[@samhsa2019NationalSurveyc].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @MentalHealthReport1999; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017; @novakChangesHealthInsurance2018]. This treatment gap stems from well-known barriers to receiving clinician-delivered mental healthcare related to their affordability, accessibility, availability, and acceptability[@jacobsonUsingDigitalTherapeutics2023].
+
+In recent years, digital therapeutics have emerged as an alternative method to deliver evidence-based treatments and other support to patients either independently or in conjunction with medications or clinician-administered mental healthcare[@jacobsonDigitalTherapeuticsMental2022 <!--Can re-use this reference later rather than chapters if needed to get cites <= 40-->]. Digital therapeutics are web-based or smartphone "apps" that are used to prevent, treat, or manage a medical disorder including AUD or other mental illnesses.  Several large randomized controlled trials have confirmed that digital therapeutics for alcohol or other SUDs improve clinical outcomes (e.g., abstinence, heavy drinking days[@gustafsonSmartphoneApplicationSupport2014]; @campbellInternetdeliveredTreatmentSubstance2014]; see Campbell et al. [@campbellFirstWaveScalable2023] for review). They also may enhance treatment retention, reduce readmissions, and support engagement with medication-assisted treatments [@bottsMPOWERProjectResults2017; @japuntichSmokingCessationInternet2006; @pattenRandomizedClinicalTrial2006; @campbellInternetdeliveredTreatmentSubstance2014].
+
+Digital therapeutics can mitigate or eliminate many of the affordability, accessibility, availability, and acceptability barriers associated with in-person, clinician-delivered mental healthcare because they are typically provided to patients on their smartphones[@jacobsonUsingDigitalTherapeutics2023].  Recent Pew Research Center survey data indicate high rates of smartphone ownership among US adults (approximately 85% in April 2021), with minimal variation across race, ethnicity, socioeconomic status, and geographic settings (e.g., urban, suburban, rural) [@pewresearchcenterMobileFactSheet2021]. Moreover, individuals with SUDs generally exhibit high rates of mobile technology use [@collinsFactorsAssociatedPatterns2016]. Consequently, digital therapeutics can offer highly scalable, on-demand therapeutic support that is accessible whenever and wherever it is needed most. 
+
+Despite the documented clinical and other benefits, the full potential of these digital therapeutics has not yet been realized because patients do not use them optimally.  Patients often don't engage with them as developers intended, and long-term engagement may not be sustained or matched to patients' needs [@hatchExpertConsensusSurvey2018; @lattieDigitalMentalHealth2019; @ngUserEngagementMental2019; @yeagerIfWeBuild2018].  The substantial benefits of digital therapeutics come from easy, 24/7 access to their many modules - their treatments, tools, and other support services.  However, this also presents patients with a challenge.  They may be uncertain about when to use the app, which of the numerous modules within the app best suit their needs, and more specifically, which modules are most appropriate for their current situation, given the dynamic nature of recovery over time.
+
+Recovery from AUD is a dynamic process because AUD is a chronic, relapsing disorder [@brandonRelapseRelapsePrevention2007; @witkiewitzModelingComplexityPosttreatment2007; @mclellanDrugDependenceChronic2000]. Despite intentions to avoid or reduce alcohol use, individuals in recovery from AUD frequently experience lapses, defined as instances of alcohol use inconsistent with one's recovery goals.  Numerous risk and protective factors interact in complex, non-linear ways to influence the probability, timing, and severity of lapses [@hendershotRelapsePreventionAddictive2011; @witkiewitzRelapsePreventionAlcohol2004; @huffordRelapseNonlinearDynamic2003; @witkiewitzNonnormalityDivergencePosttreatment2007; @witkiewitzModelingComplexityPosttreatment2007]. Many of these factors are transient, leading to fluctuating risk of lapse.  Factors such as urges, mood, lifestyle imbalances, self-efficacy, cognitive impairments arising during use, and motivation can all vary over time.  Social networks may evolve to be more protective or risky, and high risk situations can arise unexpectedly.
+
+Clinical observations and research indicate that successful recovery necessitates life-long monitoring of lapse risk [@hendershotRelapsePreventionAddictive2011; @brandonRelapseRelapsePrevention2007; @huffordRelapseNonlinearDynamic2003; @witkiewitzTherapistGuideEvidenceBased2007; @witkiewitzModelingComplexityPosttreatment2007]. However, this monitoring is challenging due to the dynamic and complex interplay of various factors over time. As such, even with increased access to substance use treatment materials via digital healthcare, individuals with SUDs are unable to benefit from this increased access to treatment due to inability to recognize factors forecasting<!--GEF: consider "signaling" instead of "associated with" to imply prediction--> <!--KW: could also consider using "forecasting" since you use that in the mohr/personal sensing paragraph below--> impending substance use episodes and use the appropriate resources at their fingertips. 
+
+Despite these challenges, continuous monitoring of lapse risk and its contributing factors, if feasible, would enable patients to adapt their lifestyle, behaviors, and support to their changing needs. In the context of digital therapeutic use, successful monitoring could direct patients to engage with the most appropriate specific modules in an app, addressing the unique risks present at any given moment throughout their recovery. This guided, adaptive engagement could potentially enhance the app's effectiveness.
+
+<!--relevant review: mohrPersonalSensingUnderstanding2017-->
+Moment-by-moment personal sensing of intra- and interpersonal risk factors for AUD is now feasible[@epsteinPredictionStressDrug2020; @suchtingUsingElasticNet2019; @hebertPredictingFirstSmoking2021a; @engelhardPredictingSmokingEvents2018; @businelleUsingIntensiveLongitudinal2016; @soysterPooledPersonspecificMachine2022; @hebertEcologicalMomentaryIntervention2018; @moshontzProspectivePredictionLapses2021; @wyantAcceptabilityPersonalSensing2022; @chihPredictiveModelingAddiction2014; @baeMobilePhoneSensors2018]. In a seminal review, Mohr et al.[@mohrPersonalSensingUnderstanding2017] discuss methods and potential future applications of personal sensing for both monitoring and forecasting of mental health functioning.  Mohr defines personal sensing as "collecting and analyzing data from sensors embedded in the context of daily life with the aim of identifying human behaviors, thoughts, feelings, and traits".  The widespread proliferation of smartphones has made personal sensing both powerful and practical.  Smartphones can be used for ecological momentary assessments (EMAs; i.e., repeated, brief self-reports) and also passive, continuous sensing of geolocation, cellular communications (e.g., phone calls and text messages), activity level, sleep, and other raw signals that can predict meaningful clinical outcomes. 
+
+The current project collects personal sensing data via EMA <!--GEF: can just say EMA since abbreviation is defined in previous paragraph--> to obtain the rich contextual data required for temporally precise prediction of lapse episodes. While there is growing excitement related to more passive methods for monitoring alcohol use, <!--KW: since we already provide examples of passive methods in paragraph above, I suggest just saying "passive methods" (removing "or physiological" and e.g.'s) or providing examples specific to alcohol use such as BAC detection-->, we choose to focus on EMA for both practical and theoretically guided reasons. Importantly, EMA is inherently simple to implement and naturally scalable due to high national rates of smartphone ownership and use. Most smartphone owners interact with their devices multiple times a day and EMA collection is easily integrated with typical smartphone use patterns.  <!--GEF: i like this argument, but the second half of the sentence loses me, especially sine we haven't shown (yet) that we can make those predictions. maybe something simpler like "... everything needed to provide EMA data."?--> <!--KW: I was going to make a similar comment to GEF! I think you can remove this whole sentence. The benefit of EMA as a method of data collection is well stated by your first sentence. I don't think we need to mention predictions for this point.-->. The ability of EMA to frequently sample individuals in their natural environment is intuitively well-mapped to collect the often fluctuating and episodic features preceding lapses during AUD recovery. Moreover, EMA can utilize the same data collection procedures and implementation features across multiple platforms and settings, increasing it's utility in both research and clinical settings.<!--KW: we should be consistent with terminology. Start of paragraph we use lapse episode and next paragraph alcohol use lapse episodes. Consider which we want to use-->. As such, a large respository of EMA literature has established the feasibility of high frequency, long term personal sensing via EMA in individuals with alcohol and other SUDs. These studies have also demonstrated strong relationships between AUD lapses and a number of EMA measured variables including affect (@russellAffectRelativeDayLevelDrinking2020), craving (@dulinSmartphoneBasedMomentaryInterventionCraving2017), stress level(@wemmDayByDayStressAlcohol), motivation (@dvorakEMAAcuteAUDSymptoms2014), and experience of positive events (@dvorakTensionReductionAffectReg2018). Given the face-valid nature of EMA assessment of these variables, relationships uncovered via EMA are well-aligned with factors proposed to indicate lapse risk in Marlatt's Relapse Prevention model. This model underlies the majority of current treatments for substance use and provides a theoretical basis for lapse prediction via EMA.
+
+<!--GEF: this sentence is hard for me to follow. consider breaking apart into two sentences, e.g., "Lastly, EMA can measure face-valid content that is well-aligned with factors proposed to indicate lapse risk in Marlatt's Relapse Prevention model. This model underlies the majority of current treatments for substance use."--> <!--this last point is not a reason to prefer EMA over other passive approaches which can sample even more frequently-->  <!--JJC:  EMA can be implemented the same way, same, questions, same features, across implementations.  Not true for some other measures like GPS-->. <!--GEF: i worry that this idea is clear in our heads but may not be to readers. maybe an example would help? or something that makes it clear that if we're predicting risk from features that inherently map onto treatments, then it makes guiding treatment selection much easier?--><!--I agree with GEF that this can come in later.  But clear mapping EMA to content of relapse prevention model is worth highlight-->
+
+An exciting avenue of emerging work has begun to utilize machine learning approaches for EMA informed lapse prediction. While the performance of these initial models is promising, several gaps remain that limit their eventual utility and generalizability. First, predictions of lapse are only useful when they can be updated frequently enough to provide meaningfully timed warnings or feedback prior to lapse onset. This requires models to generate lapse predictions that are both temporally precise and informed by frequently sampled predictors. Gustafson et al. developed one of the earliest machine learning algorithms predicting future alcohol lapses from EMA data [@chihPredictiveModelingAddiction2014]. However, this model produced temporally course predictions of lapse risk within the next week, and these predictions could only be updated once per week when EMA data were collected. These predictions lack the dynamic flexibiltiy to identify crucial periods of time during which typical lapse prevention methods would be deployed. For example, more immediate lapse risk reduction techniques such as urge surfing would require prediction at the level of the hour, while broader interventions centering on seeking support may be best implemented the day before a lapse episode. 
+
+Additionally, emerging EMA lapse prediction models lack generalizability due to the non-clinical samples and outcomes used for model training and development.<!--GEF: consider "used for model training/development" instead of "these initial models have been trained on"-->. Published models that make more temporally precise predictions (e.g., predicting lapses <!--KW: we should consider some of this terminolgy that is clear to us but may not be for readers. ex. since we are discussing lapse episodes consider "probability of a lapse episode" instead of "lapse risk" or introduce lapse risk earlier and be consistent with using it)--> in the next day or next few hours) have been limited to non-clinical samples that do not have recovery goals related to reducing drinking, such as collegiate populations or non-treatment seeking individuals endorsing frequent hazardous alcohol use.  It is likely that the context predicting instances of drinking in these populations is starkly different than those of individuals in recovery from AUD using a digital therapeutic to assist them in avoiding or reducing drinking. To reach clinical utility, it is crucial that future models are trained and assessed in the populations with whom they will be implemented. <!--GEF: "...populations with whom they will be implemented"-->
+
+The current project aims to address these existing gaps by using EMA data to generate temporally precise predictions of lapse risk in individuals with AUD. Our models are trained using densley sampled EMA data across the first three months of participants' recovery from AUD, yeilding temporally precise predictions of lapse within the oncoming hour, day, or week that can be frequently updated. Additionally, our models are trained and evaluated in a treatment-seeking clinical sample that matches the target audience for whom a lapse prediction algorithm would be useful. Lastly, we limit our models to only predict lapses (goal-inconsistent alcohol use) rather than general instances of alcohol use. This increased specificity of the outcome variable serves to increase clinical utility by tuning predictions to time points when treatment would be wanted and most effective for this population. 
+
+<!--GEF: i really love the flow of this now!! it makes it so clear what this study does, the gaps it fills/improvements it makes, and why it is both appropriate and important to make predictions from EMA data. great job!!-->
+
+<!--I agree that the general flow and organization is now good.   Next step is to work on paragraph and sentence strucutre.  Crips, clear topic sentences (mostly good but consider still) and crisper, clearer sentences.   Also need to work a little on what the content of the paragraphs contains.   Some redundance, some inconsitent terminology.  Some ideas that shoudl be dropped b/c the reader wont understand yet.   Some additional focus on new content/support might be needed. One or two example above-->
+
+# Method
+## Research Transparency
+
+## Participants
+We recruited participants in early recovery (1-8 weeks of abstinence) from alcohol use disorder in Madison, Wisconsin, USA, to participate in a 3-month longitudinal study. Participants were recruited through print and targeted digital advertisements and partnerships with treatment centers. We required that participants:
+
+1.  were 18 years of age or older,
+2.  were able to write and read in English,
+3.  had at least moderate alcohol use disorder (\>= 4 DSM-5 symptoms^[We measured DSM-5 symptoms with a self-report survey administered to participants during the in-person screening visit.]),
+4.  were abstinent from alcohol for at least 1 week but no longer than 2 months,
+5.  were willing to use a single smartphone (their personal phone or one provided by us) while enrolled in the study.
+
+We also excluded participants if they exhibited severe symptoms of psychosis or paranoia^[Psychosis and paranoia were defined as scores greater than 2.2 or 2.8, respectively, on the psychosis or paranoia scales of the on the Symptom Checklist – 90 (SCL-90) [@derogatisSCL90OutpatientPsychiatric1973].]. 
+
+One hundred ninety-two participants were eligible for enrollment. Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Fifteen participants discontinued prior to the first monthly follow-up visit. <!--GEF: might be a good place to refer to a consort diagram/enrollment chart (or maybe below the next paragraph?). i'm left wondering why these people didn't enroll - though not sure if we have that information-->
+
+We excluded data from one participant who appeared to not have a goal of abstinence during their participation (i.e., they had lapses every day on study except for one day and reported they were uncertain if their goal was abstinence on the daily EMA and monthly follow-up surveys). We also excluded data from two participants who showed evidence of careless responding (e.g., completing 2-4 EMAs within an hour and providing different responses) and unusually low compliance (e.g., only 5 EMAs completed over one month), rendering their lapse labels unusable. 
+
+Our final sample consisted of 151 participants. Participants provided study measures for one (N = 14), two (N = 6) or three (N = 131) months. Participants were mostly white (87%), roughly half were male (51%), and the mean age was 41 years (SD = 12). 
+
+<!--KW: Discuss if we want any demographic/AUD history/mental health tables or flowchart of participant retention.-->
+<!--GEF: see my comment above, i think the flowchart would be helpful! demographic/AUD history/other participant characteristic tables probably most relevant in results -->
+
+## Procedure
+Participants completed five study visits over the course of approximately three months. After an initial phone screen, participants attended an in-person screening visit where we determined eligibility, obtained informed consent, and collected self-report measures of individual differences (e.g., demographics, mental health and alcohol use history). Eligible and consented participants returned approximately one week later to enroll in the study. Three additional follow-up visits  occurred about every 30 days participants were on study. At each follow-up visit, we collected additional self-report and interview measures (e.g., Alcohol Timeline Followback). <!--GEF: rather than provide an example here of the TLFB, i think you could just refer to Measures below. or could refer above when you talk about IDs and then say nothing here.-->
+
+For the entire duration on study, participants were expected to complete EMAs four times each day. Other personal sensing data streams (geolocation, cellular communications, sleep quality, and audio check-ins) were collected as part of the larger grant's aims (R01 AA024391). A full description of the procedure and data collected at each visit can be found at the study's OSF page [<!--Insert link here-->]. All procedures were approved by the University of Wisconsin-Madison Institutional Review Board.
+
+## Measures
+### EMA
+<!--citation for validity of self-reported alcohol use: https://pubmed.ncbi.nlm.nih.gov/26160523/-->
+Participants completed a brief (7-10 questions) EMA four times each day following reminders from us that were sent by text message. These text messages included a link to a Qualtrics survey, optimized for completion on their smartphone. 
+
+All four EMAs included seven items that asked about alcohol use not yet reported, current affective state (pleasantness and arousal), greatest urge to drink alcohol since the last EMA, any pleasant or positive events, any hassles or stressful events, and any exposure to risky situations (i.e., people, places, or things) that occurred since the last EMA. The first EMA each day asked an additional three questions about how likely participants were to encounter a risky situation, encounter a stressful event, and drink alcohol in the upcoming week. 
+
+The first and last EMAs of the day were scheduled within one hour of participants' typical wake and sleep times. The other two EMAs were each scheduled randomly within the first and second halves of the participants' typical day. All EMAs were separated from each other by at least one hour.
+
+### Individual Differences
+At the screening visit we collected self-report information about demographics, mental health, and drug and alcohol use history. These measures are used to describe our sample. Only age, sex, race, education, and marital status are used as features for our analyses. <!--Refer to OSF for full list of measures--> <!--GEF: if you're using them to describe the sample, do they need to be listed/mentioned here? -->
+
+## Data Analytic Strategy
+Data preprocessing and modeling were done in RStudio, using the tidyverse and tidymodels ecosystems. <!--KW: Will add version numbers and references-->
+
+### Lapse Labels
+We created rolling lapse windows that varied in width (i.e., 1 hour, 24 hours, and 168 hours). Each window shifted hour by hour for prediction.
+
+We only included lapse and no lapse windows that we were confident were accurately labeled. A valid lapse window must contain a lapse observation. A valid no lapse window must have all observations labeled as no lapse (i.e., no excluded observations). <!--GEF: after reading the next two paragraphs, i'm not sure this paragraph is necessary. possibly, you could move this information into the subsequent paragraphs? but i feel like it's already there and is clearer in those paragraphs -->
+
+We derived lapse labels from the first item of each EMA ("Have you drank any alcohol that you have not yet reported?"). If participants answered yes to this item, they were prompted to enter the hour and date of the first unreported drink (i.e., lapse onset) and the hour and date of their last drink (i.e., lapse offset). To be labeled as a lapse, the observation must have an hour associated with it, not be in the future, and the onset and offset of lapse must be ordered correctly. 
+
+We used the EMA and other data (e.g., Alcohol Timeline Follow-back <!--GEF: cite -->) to label no lapse observations. Observations that we could not definitively label as no lapse were excluded from sampling (e.g., occurred within 24 hours of lapse onset, contained lapse reported retrospectively <!--GEF: this second example isn't clear to me-->).
+
+
+### Feature Engineering
+Features were calculated from different periods of data (6, 12, 24, 48, 72, and 168 hours prior to observation). Features were derived from EMA questions, demographics (i.e., age, white vs. other race, sex, education, and marital status), previous history of lapses, and date and time of observation (i.e., evening vs other hour, and day of week). 
+
+We created features using both raw (e.g., min., max., median, most recent response, and total counts) and change (e.g., within-subject baseline comparisons) scores. 
+
+This gave us a total of 267,283 features for 1-hour lapse windows, 274,175 features for 24-hour lapse windows, and 270,077 features for 168-hour lapse windows.
+
+
+### Model Training and Evaluation
+
+We considered three candidate classification statistical algorithms (elasticnet, random forest, xgboost) that differed across various characteristics expected to affect model performance (e.g., flexibility, ability to handle higher-order interactions natively, complexity, linear vs. non-linear). <!-- [also changed previous sentence to expand slightly]. Suggested addition: These algorithms are well-established with documented good "out of box" performance, and they vary with respect to the degree of feature selection performed automatically during model fitting.--> <!--cite Kunn & Johnson APM -->
+
+  
+Each candidate algorithm was tuned for its associated hyperparameters <!--(i.e., model tuning parameters)--> and resampled using two methods (up and down sampling). <!--GEF: Resampling approaches are designed to address class imbalances by sampling additional minority class observations (upsampling) or removing majority class observations (downsampling) within held-in data.-->
+
+
+We trained all possible model configurations (i.e., <!--combination of -->algorithm, hyperparameter values, and resampling method) using 10-fold cross validation. <!--GEF suggest adding a 1-2 sentence description here--> Cross-validation folds were grouped by participant ID (i.e., participants in the held-in data set were not also in the held-out data set). 
+
+ 
+Generic (e.g., handling of missing data and zero-variance variables) and algorithmic-specific (e.g., dummy coding and normalization) pre-processing steps were estimated using held in data and applied to held out data<!--KW: possibly reference supplemental recipe code here-->.
+
+<!--GEF: if this subsection gets labeled, consider calling it performance metric?--> 
+The best model configuration was selected <!--GEF: using cross-validation--> based on the primary performance metric of interest, area under the receiver operating characteristic curve (AUC ROC).
+
+
+We evaluated performance of our best model configuration by averaging the AUC ROC across the 10 held out folds. In addition to our primary performance metric, we report the average sensitivity, specificity, balanced accuracy, and positive predictive value (PPV) from all held out folds<!--KW: will cite source for these metrics - tidymodels reference or IAML-->. We also provide the ROC and Precision-Recall (PR) curves. 
+
+
+We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i.e., across participants) index of feature importance.<!--KW: Not sure best spot for this section yet-->
+
+
+\newpage
+
+# Results
+<!--Information for results: Participants were on study for an average of 85 days out of the possible 90 days. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 symptom criteria for alcohol use disorder. Generally, scores of 2-3 are considered mild, 4-5 are considered moderate, and 6+ considered severe alcohol use disorder.-->
+
+<!--Move to results: Across participants there were a total of 1029 unique lapses. There was variation in the frequency of lapses, ranging from 0-75 lapses per participant (M = 6.8, SD = 12.0). Only 56% of participants (N = 84) reported a lapse. However, this was expected since our participants all had a goal of abstinence from alcohol.-->
+
+<!--Citation for ROC cutoffs - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
+
+
+<!-- Demographics table-->
+```{r}
+footnote_table_dem_a <- "N = 151"
+footnote_table_dem_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior to calculating the mean (M), standard deviation (SD), and range."
+```
+
+```{r table_demo}
+options(knitr.kable.NA = "")
+
+dem <- screen %>% 
+  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1)),
+            min = as.character(min(dem_1, na.rm = TRUE)),
+            max = as.character(max(dem_1, na.rm = TRUE))) %>% 
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  select(var = dem_2) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_3) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_4) %>% 
+  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_5) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = dem_6, dem_6_1) %>% 
+  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
+                         dem_6_1 == "Part-time" ~ "Employed part-time",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Employed full-time", "Employed part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  summarise(mean = format(round(mean(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            SD = format(round(sd(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            min =format(round(min(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            max = format(round(max(dem_7, na.rm = TRUE), 0), scientific = FALSE, big.mark = ",")) %>% 
+  mutate(var = "Personal Income",
+        n = as.numeric(""),
+        perc = as.numeric(""),
+        mean = str_c("$", as.character(mean)),
+        SD = str_c("$", as.character(SD)),
+        min = str_c("$", as.character(min)),
+        max = as.character(max)) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", "min", "max")) %>% 
+  full_join(screen %>% 
+  select(var = dem_8) %>% 
+  mutate(var = case_when(var == "Never Married" ~ "Never married",
+                         TRUE ~ var)) %>% 
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never married", "Married", "Divorced", "Separated",
+                           "Widowed")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+auh <- screen %>% 
+  summarise(mean = mean(auh_1, na.rm = TRUE),
+            SD = sd(auh_1, na.rm = TRUE),
+            min = min(auh_1, na.rm = TRUE),
+            max = max(auh_1, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_2, na.rm = TRUE),
+            SD = sd(auh_2, na.rm = TRUE),
+            min = min(auh_2, na.rm = TRUE),
+            max = max(auh_2, na.rm = TRUE)) %>% 
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", 
+                                             "min", "max")) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_3, na.rm = TRUE),
+            SD = sd(auh_3, na.rm = TRUE),
+            min = min(auh_3, na.rm = TRUE),
+            max = max(auh_3, na.rm = TRUE)) %>% 
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
+  full_join(screen %>% 
+  summarise(mean = mean(auh_4, na.rm = TRUE),
+            SD = sd(auh_4, na.rm = TRUE),
+            min = min(auh_4, na.rm = TRUE),
+            max = max(auh_4, na.rm = TRUE)) %>% 
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
+  full_join(screen %>% 
+  # filter out 2 people with 100 and 365 reported quit attempts - will make footnote in table
+  filter(auh_5 < 100) %>% 
+  summarise(mean = mean(auh_5, na.rm = TRUE),
+            SD = sd(auh_5, na.rm = TRUE),
+            min = min(auh_5, na.rm = TRUE),
+            max = max(auh_5, na.rm = TRUE)) %>% 
+  mutate(var = "Number of Quit Attempts*",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_1) %>%
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ months)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_2) %>%
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 months)",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_3) %>%
+  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_4) %>%
+  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_5) %>%
+  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
+                         TRUE ~ var)) %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_6) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_6_7) %>%
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = auh_7) %>% 
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
+  group_by(var) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
+  rowwise() %>% 
+  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
+  ungroup() %>% 
+  summarise(mean = mean(dsm5_total),
+            SD = sd(dsm5_total),
+            min = min(dsm5_total, na.rm = TRUE),
+            max = max(dsm5_total, na.rm = TRUE)) %>% 
+  mutate(var = "Alcohol Use Disorder DSM-5 Symptom Count",
+        n = as.numeric(""),
+        perc = as.numeric("")) %>% 
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_1) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_2) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Cannabis (marijuana, pot, grass, hash, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_3) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Cocaine (coke, crack, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_4) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_5) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Inhalants (nitrous, glue, petrol, paint thinner, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_6) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_7) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) %>% 
+  full_join(screen %>% 
+  select(var = assist_2_8) %>%
+  filter(var != "Never" & !is.na(var)) %>% 
+  mutate(var = "Opioids (heroin, morphine, methadone, codeine, etc.)") %>% 
+  group_by(var) %>% 
+  drop_na() %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) 
+```
+
+
+```{r}
+# display and format table
+dem %>% 
+  bind_rows(auh %>% 
+              mutate(across(mean:max, ~round(.x, 1))) %>% 
+              mutate(across(mean:max, ~as.character(.x)))) %>% 
+  mutate(range = str_c(min, "-", max)) %>%
+  select(-c(min, max)) %>% 
+  kbl(longtable = TRUE,
+      booktabs = TRUE,
+      col.names = c("", "N", "%", "M", "SD", "Range"),
+      align = c("l", "c", "c", "c", "c", "c"),
+      digits = 1,
+      caption = "Demographics and Alcohol Use Information") %>%
+  kable_styling() %>% 
+  row_spec(row = 0, align = "c", italic = TRUE) %>% 
+  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
+  pack_rows("Race", 4, 8, bold = FALSE) %>% 
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>% 
+  pack_rows("Education", 11, 16, bold = FALSE) %>% 
+  pack_rows("Employment", 17, 25, bold = FALSE) %>% 
+  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
+  pack_rows("Alcohol Use Disorder Milestones", 32, 35, bold = FALSE) %>% 
+  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) %>% 
+  pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) %>% 
+  pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) %>% 
+  footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
+           threeparttable = TRUE)
+```
+
+
+\newpage
+
+```{r}
+footnote_table_perf_metrics <- "Insert footnote"
+```
+
+```{r table_metrics}
+metrics_week <- preds_week %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(week = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics_day <- preds_day %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(day = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics_hour <- preds_hour %>%   
+  conf_mat(truth, estimate) %>% 
+  summary() %>% 
+  mutate(.estimate = round(.estimate, 3)) %>% 
+  rename(hour = .estimate,
+         metric = .metric) %>% 
+  select(-.estimator)
+
+metrics <- metrics_week %>% 
+  full_join(metrics_day, by = "metric") %>% 
+  full_join(metrics_hour, by = "metric") %>% 
+  filter(metric %in% c("accuracy", "sens", "spec", "ppv", "npv"))
+
+auc <- tibble(metric = "auc", 
+              week = preds_week %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3), 
+              day = preds_day %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3),
+              hour = preds_hour %>% roc_auc(prob, truth = truth) %>%  
+                pull(.estimate) %>% round(3))
+
+metrics <- metrics %>% 
+  bind_rows(auc)
+
+metrics <- metrics[c(6,1,2,3,4,5),]
+
+metrics %>%
+ kbl(col.names = c("Metric", "Week", "Day", "Hour"),
+      booktabs = TRUE,
+      digits = 3,
+      align = c("l", "c", "c", "c"),
+      caption = "Performance Metrics by Model",
+     linesep = "") %>% 
+  row_spec(row = 0, align = "c") %>% 
+  kable_styling(position = "left") %>% 
+  footnote(general=footnote_table_perf_metrics)
+```
+
+\clearpage
+
+
+
+
+<!-- AUC figure by model w/posterior probabilities-->  
+```{r caption_roc_pp}
+fig_caption_roc_pp <- "Insert note here"
+```
+
+```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
+
+roc_plot <- roc_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
+                        labels = c("Week", "Day", "Hour"))) %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
+  geom_path(show.legend = FALSE) +
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) 
+
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
+
+ci <- pp_tidy %>% 
+  summary() %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
+                        labels = c("Week", "Day", "Hour")),
+         y = 1000)
+
+pp_plot <- pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
+                        labels = c("Week", "Day", "Hour"))) %>%
+  ggplot() + 
+  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+                 bins = 30) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               show.legend = FALSE,
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
+              show.legend = FALSE,
+               data = ci) +
+  geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+  facet_wrap(~model, ncol = 1) +
+  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  xlab("Area Under ROC Curve") +
+  theme(strip.background = element_blank(),
+        strip.text.x = element_blank())
+
+roc_plot + pp_plot +
+  plot_layout (guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+
+
+
+<!-- PR-->
+<!-- get exact sensitivity at .75 PPV -->
+```{r}
+pr_.75_cutoff <- pr_all %>% 
+  mutate(recall = round(recall, 3),
+         precision = round(precision, 3),
+         .threshold = round(.threshold, 3),
+         model = factor(model,
+                        levels = c("1week", "1day", "1hour"),
+                        labels = c("Week", "Day", "Hour"))) %>% 
+  filter(precision == .75) %>% 
+  group_by(model, precision) %>% 
+  summarise(recall = mean(recall),
+            threshold = mean(.threshold),
+            .groups = "drop")
+```
+
+<!-- Week sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "week"), recall), 3)` -->
+
+<!-- Day sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "day"), recall), 3)` -->
+
+<!-- Hour sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "hour"), recall), 3)` -->
+
+
+
+<!-- SHAP Importance figure-->
+```{r caption_shap}
+fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+```
+
+```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
+shap_grouped_all <- shap_grouped_week %>% 
+  mutate(window = "Week") %>% 
+  bind_rows(shap_grouped_day %>% 
+              mutate(window = "Day")) %>% 
+  bind_rows(shap_grouped_hour %>% 
+              mutate(window = "Hour")) %>% 
+  mutate(window = factor(window, levels = c("Week", "Day", "Hour"))) %>% 
+  mutate(group = factor(group, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)",
+                                          "lapse day (other)",
+                                          "lapse hour (other)",
+                                          "missing surveys (other)",
+                                          "age (demographic)",
+                                          "sex (demographic)",
+                                          "race (demographic)",
+                                          "marital (demographic)",
+                                          "education (demographic)")))
+
+shap_grouped_all %>% 
+  mutate(group = reorder(group, mean_value, sum)) %>% 
+  ggplot() +
+  geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
+  ylab("Mean |SHAP| value") +
+  xlab("") +
+  coord_flip()
+```
+
+<!-- Local SHAP values -->
+```{r caption_shap_local}
+fig_caption_shap_local <- "Insert Note here."
+```
+
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
+shap_local_all <- shap_local_week %>% 
+  mutate(window = "Week") %>% 
+  bind_rows(shap_local_day %>% 
+              mutate(window = "Day")) %>% 
+  bind_rows(shap_local_hour %>% 
+              mutate(window = "Hour")) %>% 
+  mutate(window = factor(window, levels = c("Week", "Day", "Hour")))
+
+# get order for items based on global sum importance
+shap_levels <- shap_grouped_all %>% 
+  mutate(group = reorder(group, mean_value, sum)) %>% 
+  pull(group) %>% 
+  levels()
+
+
+# downsample to 10% of observations
+# CURRENTLY SET TO 1% WHILE WORKING IN MANUSCRIPT
+id_10 <- shap_local_all %>% 
+  ungroup() %>% 
+  select(ID) %>% 
+  unique() %>% 
+  slice_sample(prop = .01)
+
+shap_local_10 <- shap_local_all %>% 
+  ungroup() %>% 
+  filter(ID %in% id_10$ID)
+
+shap_week <- shap_local_10 %>%
+  filter(window == "Week") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#F8766D") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Week"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() 
+
+shap_day <- shap_local_10 %>%
+  filter(window == "Day") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#00BA38") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Day"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+shap_hour <- shap_local_10 %>%
+  filter(window == "Hour") %>% 
+  mutate(group = factor(group, levels = shap_levels)) %>%
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#619CFF") +
+  facet_wrap(~window) +
+  geom_hline(yintercept = 0) +
+  geom_text(data = subset(shap_grouped_all, window == "Hour"), 
+            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5)) +
+  ylab("Local SHAP values") +
+  xlab("") +
+  coord_flip() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+shap_week + shap_day + shap_hour
+```
+
+
+
+\clearpage
+# References
