@@ -1,5 +1,5 @@
 ---
-title: "Make Study Dates for EMA"
+title: "Make Study Dates for Insight"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 output: 
@@ -10,8 +10,8 @@ knit: (function(input, ...) {
     rmarkdown::render(
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/ema", 
-      "/Volumes/private/studydata/risk/knits/ema")
+      "P:/studydata/risk/knits/insight", 
+      "/Volumes/private/studydata/risk/knits/insight")
     )
   })
 ---
@@ -20,10 +20,10 @@ knit: (function(input, ...) {
 
 Complete
 
-This script creates an EMA study-level dates file that includes the study start date, which is also called data_start (see below).  It also includes study end and ema_end for use in mak_labels.  
+This script creates an Insight study-level dates file that includes the study start date, which is also called data_start (see below).  It also includes study end and ema_end for use in mak_labels.  
 
-This script is essentially the same as Kendra'  meta script because the EMA study currently includes
-the same sample as the meta study.  The only change is how we handle 74 (who had communications file issue).  They are retained in the EMA study.
+This script is essentially the same as Kendra'  meta script because the Insight study currently includes
+the same sample as the meta study & the EMA study.  The only change is how we handle 74 (who had communications file issue).  They are retained in the EMA study & the current Insight study.
 
 
 ### Conclusions   
@@ -94,12 +94,12 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_processed <- "P:/studydata/risk/data_processed/shared"
-          path_ema <- "P:/studydata/risk/data_processed/ema"},
+          path_insight <- "P:/studydata/risk/data_processed/insight"},
 
         # IOS paths
         Darwin = {
           path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+          path_insight <- "/Volumes/private/studydata/risk/data_processed/insight"}
         )
 ```
 
@@ -194,7 +194,7 @@ dates <- dates %>%
 save dates
 ```{r}
 dates %>% 
-  vroom_write(here(path_ema, "study_dates.csv"), delim = ",") %>% 
+  vroom_write(here(path_insight, "study_dates.csv"), delim = ",") %>% 
   glimpse()
 ```
 
