@@ -1,0 +1,458 @@
+---
+title: "Create EMA lapse labels"
+author: "Gaylen Fronk, John Curtin, and Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/insight", 
+      "/Volumes/private/studydata/risk/knits/insight")
+    )
+  })
+---
+
+### Code Status
+
+These labels are now complete to be used for the EMA project. This script makes labels based on the cleaned lapses. See conclusions for important decisions and notes related to the pre-processing of lapses done in shared/scripts_mak/mak_lapses.  
+
+GEF: Updating for Insight project. Primary update is to use EMA completion times as the anchor for lapse labels rather than "raw" time.
+
+
+### Conclusions   
+
+- More complete EDA on all EMA data and lapses is in cln_ema.Rmd and mak_lapses.Rmd.  
+
+
+- We decided to retain lapses with no end time if their onset was valid. We will use a
+24 hour rule when sampling non-lapses. That is we will not sample non-lapses in the 
+24 hours following the onset of the lapse.  
+
+- with all lapses we will not sample no_lapses +- 24 hours from lapse   
+
+- invalid lapses were also not sampled from for no_lapses within 24 hours of lapse  
+
+- Our exclusion criteria can be summarized as:
+
+- lapses that were reported in an interview   
+- lapses that have no start time and date     
+- lapses that have a negative duration   
+- lapses that have a duration longer than 24 hours     
+- future lapses (lapse start > ema end time)   
+
+
+- John and Kendra have decided to drop subid 104's data for the following reasons:   
+- They had lapses every day on study except one day.    
+- Only had 75 surveys where a lapse was not reported.   
+- Viewing their lapse times it appears they were drinking constantly (morning and 
+night).   
+- They consistently report being uncertain that their goal is to be abstinent 
+(uncertain on 125 of 137 lapses. They also report they are uncertain in this goal 
+at followup 1 and 2.    
+- They are ultimately discontinued since they were struggling to gain sobriety.   
+- Unfortunately this drops 109 valid lapses.    
+
+
+- John and Kendra have decided to drop subid 269's data for the following reasons:       
+- They completed 10-15 surveys on many days on study (avg number of surveys per 
+day is 6.76).  
+- Their responses indicate careless responding - they were filling 2-4 surveys out 
+within an hour of each other and the responses to the questions were completely different.     
+- They have questionable no lapse labels - they reported no lapses while on study but 
+according to notes left two messages for study staff where they admitted to drinking 
+over the weekend.   
+
+
+- John and Kendra have decided to drop subid 204's data for the following reasons:    
+- Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. 
+They only did a total of 5 surveys between followup 2 and 3.    
+- We don't trust their lapse labels - They report several lapses during their interviews 
+but times appear questionable (same time every night). They only report 1 lapse with EMA.
+- From notes - "Participant did not do many surveys during their second month of participation. 
+At their Follow-up 2 visit they reported several lapses that were not documented in their 
+EMAs - estimated lapse days/times in subid's raw data log."  
+- JC note: "There are issues with 204. They are missing lapses reported by interview. But they  
+also stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to 
+drop them for lapse analyses for anything after 5/17.  Probably also need to add in their 
+reported lapses at follow-up 2. OR we drop them at the end of follow-up 1 or wherever their 
+ema gets sketchy"    
+
+
+- John and Kendra have decided to decided to retain 128's data even though they have over 100 lapses for 
+the following reasons:   
+- Compliance is good (averaged over 3 surveys per day, no days without an EMA).       
+- completed the study for the full 90 days.    
+- appeared to still want abstinence as they reported they were uncertain to ema_1_5 
+on only 3 surveys. They reported they were uncertain that their goal was to remain 
+abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.    
+- Has more non-lapse surveys than lapse surveys.   
+
+
+- Subid 118 has an invalid end time (None12pm) left in cleaned EMA as study-level decision. 
+After Kendra and John reviewed this situation, it was concluded that it was likely they were 
+still drinking at time of EMA (i.e., no end time). Changing end time to NA in this script.    
+
+
+- Subid 238 has 419 total EMAs for 89 days on study. Some days they have as many as 10 
+surveys a day. Not clear why. They report no lapses while on study. They also have no other notes or 
+evidence to suggest their data is unreliable.    
+
+- Interview lapses are used to exclude days from non-lapse sampling but should not be 
+used as valid lapses. Times are approximations made retrospectively.     
+
+- There were no EMA surveys sent to any participants on 3/2/19.   
+
+- 23 EMAs with lapses took more than 10 minutes to complete (ranges from 11 - 582 minutes 
+for finished surveys).     
+
+- All unfinished surveys (finished = 0) have at least ema_1 answered which reports if 
+there have been any lapses since the last survey.  
+- Note that there are several "self-correcting surveys" where a participant answers 
+"Yes" for ema_1 then restarts another survey within minutes of the incomplete survey 
+and puts "no" for ema_1.  
+
+
+- All final timezones are in America/Chicago timezone.    
+
+
+### Set Up Environment
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_raw <- "P:/studydata/risk/data_raw"
+          path_processed <- "P:/studydata/risk/data_processed/shared"
+          path_insight <- "P:/studydata/risk/data_processed/insight"},
+        
+        # IOS paths
+        Darwin = {
+          path_raw <- "/Volumes/private/studydata/risk/data_raw"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_insight <- "/Volumes/private/studydata/risk/data_processed/insight"}
+)
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) # detect and warn about function conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+
+library(here)  # establish project directory consistently as working directory
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+# for data wrangling
+library(tidyverse)
+library(vroom)
+library(janitor)
+library(lubridate)
+library(furrr)
+```
+
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/print_kbl.R?raw=true")
+source(here("shared/fun_local.R"))
+```
+
+### Read in lapses
+```{r}
+lapses <- vroom(here(path_processed, "lapses.csv"), 
+                col_types = vroom::cols()) %>% 
+  mutate(across(c(lapse_start, lapse_end, ema_end)), 
+         with_tz(., "America/Chicago")) %>% 
+  glimpse()
+```
+
+
+### Study Dates/Times
+
+We will not predict lapses outside of study participation dates. Need info on:
+
+* Start and end dates for participation
+* Who completed followup_1 so that they have context
+* Time of the last EMA so we can know the definite window for no_lapse sampling.
+We can assume no_lapse sampling starts with study_start but it end with the earlier
+of study_end or ema_end (time of the last ema that we trust has valid data)     
+
+Read in dates from study level folder
+```{r}
+dates <- vroom(here(path_insight, "study_dates.csv"), col_types = vroom::cols()) %>%
+  mutate(across(study_start:ema_end), with_tz(., tz = "America/Chicago")) %>% 
+  glimpse()
+```
+
+
+`r length(unique(subset(lapses, !exclude)$subid))` out of `r length(unique(dates$subid))` subids (`r round(length(unique(subset(lapses, !exclude)$subid))/length(unique(dates$subid)), 2)`) have lapses. 
+```{r}
+lapses %>%
+  filter(!exclude) %>%
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
+### Read in morning EMA
+
+Read in morning EMA data from shared processed data
+```{r}
+emam <- vroom(here(path_processed, "ema_morning.csv"), 
+              col_types = vroom::cols()) %>% 
+  mutate(across(c(start_date, end_date)), 
+         with_tz(., tz = "America/Chicago")) %>% 
+  mutate(subid = as.numeric(subid)) %>% 
+  glimpse()
+```
+
+
+### Get valid observations of lapse and no_lapse
+
+Get valid lapse and no_lapse observations by specified window duration (in seconds)   
+
+Set up parallel processing
+```{r}
+# use furrr to future map over subids (the_subid) when making labels
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+
+subids <- unique(emam$subid)
+```
+
+Make window_start and window_end dttm columns
+```{r}
+labels <- emam %>% 
+  select(subid, response_id, start_date, end_date) %>% 
+  mutate(window_start = end_date + seconds(1)) %>% 
+  mutate(window_end = window_start + seconds(604800)) %>% 
+  mutate(label = "no_lapse") %>% 
+  glimpse()
+
+```
+
+Make labeling function (based off get_lapse_labels() in fun_local.R but adjusted for insight project where we are windowing differently)
+```{r}
+label_insight_windows <- function(the_subid, lapses, labels) {
+  # Purpose: Returns a tibble of lapse labels that includes subid, windows, and
+  #   label column (lapse, no_lapse, NA) 
+  
+  labels <- filter(labels, subid == the_subid)
+  
+  # Step 1: Handle invalid lapses (set labels$label to NA)
+  exclusions <- lapses %>% 
+    filter(subid == the_subid) %>% 
+    filter(exclude)
+  
+  if(nrow(exclusions) != 0) {
+    
+    for (i in 1:nrow(exclusions)) {
+      
+      inv_lapse_subid <- exclusions$subid[[i]]
+      
+      if(is.na(exclusions$lapse_start[[i]])) {
+        # fix missing lapse_start - exclude full date
+        lapse_start <- as_datetime(exclusions$lapse_start_date[[i]],
+                                   format = "%m-%d-%Y", tz = "America/Chicago")
+        lapse_end <- as_datetime(exclusions$lapse_end_date[[i]],
+                                 format = "%m-%d-%Y", tz = "America/Chicago")
+        
+        lapse_hours_exclude <- seq(lapse_start, # beginning of day
+                                   lapse_end + hours(24), # end of day
+                                   by = "hours")
+        
+        for (lapse_hour_exclude in lapse_hours_exclude) {
+          row_index <- which(labels$subid == inv_lapse_subid &
+                               labels$window_start <= lapse_hour_exclude &
+                               labels$window_end >= lapse_hour_exclude)
+          
+          labels$label[row_index] <- NA
+        }
+      } else {
+        
+        if(is.na(exclusions$lapse_end[[i]])) {
+          # fix missing lapse_end (but DOES have lapse_start)
+          # be cautious & set lapse duration as longest valid lapse duration (24h)
+          # then create lapse_end (lapse_start + 24h)
+          
+          lapse_start <- exclusions$lapse_start[[i]]
+          
+          lapse_hours_exclude <- seq(lapse_start, # beginning of day
+                                     lapse_start + hours(24), # end of day
+                                     by = "hours")
+          
+          for (lapse_hour_exclude in lapse_hours_exclude) {
+            row_index <- which(labels$subid == inv_lapse_subid &
+                                 labels$window_start <= lapse_hour_exclude &
+                                 labels$window_end >= lapse_hour_exclude)
+            
+            labels$label[row_index] <- NA
+          }
+          
+        }
+        
+        if(!is.na(exclusions$duration[[i]]) & exclusions$duration[[i]] < 0) {
+          # fix negative lapse durations
+          # switch start and end days/times, then exclude full period
+          
+          lapse_hours_exclude <- seq(exclusions$lapse_end[[i]],
+                                     exclusions$lapse_start[[i]],
+                                     by = "hours")
+          
+          for (lapse_hour_exclude in lapse_hours_exclude) {
+            row_index <- which(labels$subid == inv_lapse_subid &
+                                 labels$window_start <= lapse_hour_exclude &
+                                 labels$window_end >= lapse_hour_exclude)
+            
+            labels$label[row_index] <- NA
+          }
+          
+        }
+        
+        # handle remaining invalid lapses (no missing/improper data)
+        inv_lapse_start <- exclusions$lapse_start[[i]]
+        
+        row_index <- which(labels$subid == inv_lapse_subid &
+                             labels$window_start <= inv_lapse_start &
+                             labels$window_end >= inv_lapse_start)
+        
+        labels$label[row_index] <- NA
+      }
+    }
+  }
+  
+  # Step 2: handle valid lapses (set labels$label to "lapse")
+  valid_lapses <- lapses %>%
+    filter(subid == the_subid) %>% 
+    filter(!exclude)
+  
+  if(nrow(valid_lapses) != 0) {
+    for (i in 1:nrow(valid_lapses)) {
+      lapse_subid <- valid_lapses$subid[[i]]
+      lapse_start <- valid_lapses$lapse_start[[i]]
+      
+      row_index <- which(labels$subid == lapse_subid & 
+                           labels$window_start <= lapse_start &
+                           labels$window_end >= lapse_start)
+      
+      labels$label[row_index] <- "lapse"
+      
+    }
+  }
+  
+  return(labels)
+  
+} 
+```
+
+Make 1-week window labels dataframe
+```{r}
+labels_1_week <- subids %>% 
+  future_map_dfr(~ label_insight_windows(., lapses, labels),
+                 .options = furrr_options(seed = NULL)) 
+```
+
+Check counts
+```{r}
+janitor::tabyl(labels_1_week$label)
+
+# Lapse labels
+nrow(filter(labels_1_week, label == "lapse")) 
+
+# No lapse labels
+nrow(filter(labels_1_week, label == "no_lapse"))
+
+# NA labels (window contains an invalid lapse without a valid lapse)
+nrow(filter(labels_1_week, is.na(label)))
+```
+
+### Remove labels that end after study_end date (including partial weeks)
+
+recalculate study end time
+```{r}
+study_end_times <- dates %>% 
+  rowwise() %>% 
+  mutate(study_end = study_end + (hours(23)),
+         ema_end = floor_date(ema_end, unit = "hours"),
+         end_time = min(study_end, ema_end)) %>% 
+  ungroup() %>% 
+  select(subid, end_time)
+```
+
+Remove any labels that fall in partial windows or windows that end after study_end
+```{r}
+labels_1_week <- left_join(labels_1_week, study_end_times, by = "subid") %>% 
+  filter(window_start < end_time) %>% 
+  filter(window_end <= end_time)
+```
+
+### Remove invalid lapse labels
+
+```{r}
+labels_1_week <- filter(labels_1_week, !is.na(label))
+```
+
+### Remove windows without corresponding morning EMA
+
+Combine datasets & remove observations where insight question is unanswered
+```{r}
+insight <- left_join(labels_1_week, emam,
+                     by = c("subid", "response_id", 
+                            "start_date", "end_date")) %>% 
+  select(subid, lapse = label, ema_start = start_date, ema_end = end_date,
+         window_start, window_end, starts_with("ema_"),
+         finished, status, utc) %>% 
+  mutate(lapse = if_else(lapse == "lapse", "yes", "no")) %>% 
+  filter(!is.na(ema_10))
+```
+
+### EDA on Final Labels 
+
+#### Proportion of lapses    
+
+```{r}
+insight %>% 
+  tabyl(lapse)
+```
+
+#### Lapses per subid
+
+```{r}
+insight %>% 
+  tabyl(subid, lapse) %>% 
+  arrange(yes) %>% 
+  adorn_totals("col")
+```
+
+#### Histogram of insight responses
+
+```{r}
+insight %>% 
+  ggplot(aes(x = ema_10)) +
+  geom_bar() +
+  labs(x = "Insight (Very unlikely to Very Likely")
+```
+
+### Save
+
+save valid_observations and labels, raw only because file is pretty small
+```{r}
+insight %>% 
+  write_csv(here(path_insight, "insight.csv")) 
+```
