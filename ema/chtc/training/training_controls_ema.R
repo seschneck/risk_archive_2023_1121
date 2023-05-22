@@ -5,7 +5,7 @@ study <- "ema"
 data_type <- "all"  
 window <- "1hour"
 lead <- 0
-version <- "v5"
+version <- "v4"
 algorithm <- "xgboost"
 batch <- "batch1"
 
@@ -13,15 +13,6 @@ ml_mode <- "classification"   # regression or classification
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", version, ".csv.xz") 
-
-
-# STUDY PATHS----------------------------
-# the name of the job to set folder names
-name_job <- str_c("train_", algorithm, "_", cv_name, "_", version, "_", batch) 
-# the name of the job to set folder names
-path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
-# location of data set
-path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
 
 # OUTCOME-------------------------------------
@@ -46,6 +37,14 @@ cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_inner_resample, "_",
                          cv_outer_resample),
                    str_c(cv_resample_type, "_", cv_resample))
+
+# STUDY PATHS----------------------------
+# the name of the job to set folder names
+name_job <- str_c("train_", algorithm, "_", cv_name, "_", version, "_", batch) 
+# the name of the job to set folder names
+path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
+# location of data set
+path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
 
 # ALGORITHM-SPECIFIC HYPERPARAMETERS-----------
@@ -83,7 +82,7 @@ format_data <- function (df){
   df %>% 
     rename(y = !!y_col_name) %>% 
     mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)),
-           across(where(is.character), as_factor)) %>%
+           across(where(is.character), factor)) %>%
     select(-label_num, -dttm_label)
   # Now include additional mutates to change classes for columns as needed
   # see https://jjcurtin.github.io/dwt/file_and_path_management.html#using-a-separate-mutate
