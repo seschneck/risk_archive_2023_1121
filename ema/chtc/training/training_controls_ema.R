@@ -12,7 +12,8 @@ batch <- "batch1"
 ml_mode <- "classification"   # regression or classification
 
 feature_set <- c("all") # EMA Features set names
-data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", version, ".csv.xz") 
+data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", 
+                  version, ".csv.xz") 
 
 
 # OUTCOME-------------------------------------
@@ -23,7 +24,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
+resample <- c("down_1") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
 # CV SETTINGS---------------------------------
