@@ -111,15 +111,15 @@ shap_local_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_
 shap_local_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
 shap_local_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
 
-shap_grouped_week <- shap_local_week %>% 
+shap_global_week <- shap_local_week %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_day <- shap_local_day %>% 
+shap_global_day <- shap_local_day %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
-shap_grouped_hour <- shap_local_hour %>% 
+shap_global_hour <- shap_local_hour %>% 
   group_by(group) %>% 
   summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
   arrange(mean_value)
@@ -715,11 +715,11 @@ fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  R
 ```
 
 ```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
-shap_grouped_all <- shap_grouped_week %>% 
+shap_global_all <- shap_global_week %>% 
   mutate(window = "Week") %>% 
-  bind_rows(shap_grouped_day %>% 
+  bind_rows(shap_global_day %>% 
               mutate(window = "Day")) %>% 
-  bind_rows(shap_grouped_hour %>% 
+  bind_rows(shap_global_hour %>% 
               mutate(window = "Hour")) %>% 
   mutate(window = factor(window, levels = c("Week", "Day", "Hour"))) %>% 
   mutate(group = factor(group, levels = c("past use (EMA item)", 
@@ -756,83 +756,72 @@ fig_caption_shap_local <- "Insert Note here."
 ```
 
 ```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
-shap_local_all <- shap_local_week %>% 
-  mutate(window = "Week") %>% 
-  bind_rows(shap_local_day %>% 
-              mutate(window = "Day")) %>% 
-  bind_rows(shap_local_hour %>% 
-              mutate(window = "Hour")) %>% 
-  mutate(window = factor(window, levels = c("Week", "Day", "Hour")))
 
-# get order for items based on global sum importance
-shap_levels <- shap_grouped_all %>% 
-  mutate(group = reorder(group, mean_value, sum)) %>% 
-  pull(group) %>% 
+shap_levels <- shap_global_all |> 
+  mutate(group = reorder(group, mean_value, sum)) |> 
+  pull(group) |> 
   levels()
 
+# downsample to 2% of observations for each plot (COULD INCREASE?)
+ids_week <- shap_local_week |> 
+  pull(ID) |> 
+  unique()
+ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
+ids_day <- shap_local_day |> 
+  pull(ID) |> 
+  unique()
+ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
+ids_hour <- shap_local_hour |> 
+  pull(ID) |> 
+  unique()
+ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
 
-# downsample to 10% of observations
-# CURRENTLY SET TO 1% WHILE WORKING IN MANUSCRIPT
-id_10 <- shap_local_all %>% 
-  ungroup() %>% 
-  select(ID) %>% 
-  unique() %>% 
-  slice_sample(prop = .01)
-
-shap_local_10 <- shap_local_all %>% 
-  ungroup() %>% 
-  filter(ID %in% id_10$ID)
-
-shap_week <- shap_local_10 %>%
-  filter(window == "Week") %>% 
-  mutate(group = factor(group, levels = shap_levels)) %>%
+plot_shap_week <- shap_local_week |> 
+  filter(ID %in% ids_week) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
   ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#F8766D") +
-  facet_wrap(~window) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "orange") +
   geom_hline(yintercept = 0) +
-  geom_text(data = subset(shap_grouped_all, window == "Week"), 
-            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
-            color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5)) +
-  ylab("Local SHAP values") +
+  geom_text(data = shap_global_all |> filter(window == "week"),
+            aes(x = group, y = -1.75, label = round(mean_value, 2)),
+            color = "orange") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
   xlab("") +
   coord_flip() 
 
-shap_day <- shap_local_10 %>%
-  filter(window == "Day") %>% 
-  mutate(group = factor(group, levels = shap_levels)) %>%
+plot_shap_day <- shap_local_day |> 
+  filter(ID %in% ids_day) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
   ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#00BA38") +
-  facet_wrap(~window) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "green") +
   geom_hline(yintercept = 0) +
-  geom_text(data = subset(shap_grouped_all, window == "Day"), 
-            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
-            color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5)) +
-  ylab("Local SHAP values") +
+  geom_text(data = shap_global_all |> filter(window == "day"),
+            aes(x = group, y = -2, label = round(mean_value, 2)),
+            color = "green") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
   xlab("") +
-  coord_flip() +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+  coord_flip() 
 
-shap_hour <- shap_local_10 %>%
-  filter(window == "Hour") %>% 
-  mutate(group = factor(group, levels = shap_levels)) %>%
+plot_shap_hour <- shap_local_hour |> 
+  filter(ID %in% ids_hour) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
   ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, color = "#619CFF") +
-  facet_wrap(~window) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "blue") +
   geom_hline(yintercept = 0) +
-  geom_text(data = subset(shap_grouped_all, window == "Hour"), 
-            aes(x = group, y = -1.75, label = round(mean_value, 2)), 
+  geom_text(data = shap_global_all |> filter(window == "hour"),
+            aes(x = group, y = -1.75, label = round(mean_value, 2)),
             color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5)) +
-  ylab("Local SHAP values") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
   xlab("") +
-  coord_flip() +
-  theme(axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+  coord_flip() 
 
-shap_week + shap_day + shap_hour
+plot_shap_week + plot_shap_day + plot_shap_hour
 ```
 
 
