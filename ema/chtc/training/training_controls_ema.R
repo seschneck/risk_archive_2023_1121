@@ -7,7 +7,7 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch1"
+batch <- "batch2"
 
 ml_mode <- "classification"   # regression or classification
 
@@ -24,7 +24,7 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_1") 
+resample <- c("down_2") 
 # resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
@@ -76,6 +76,8 @@ request_memory <- "24000MB"
 request_disk <- "1600MB"
 flock <- FALSE
 glide <- FALSE
+
+# down_1: request_memory <- "24000MB", request_disk <- "1600MB"
 
 
 # FORMAT DATA-----------------------------------------
