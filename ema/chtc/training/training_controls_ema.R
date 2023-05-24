@@ -7,7 +7,7 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch3"
+batch <- "batch4"
 
 ml_mode <- "classification"   # regression or classification
 
@@ -24,7 +24,7 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("up_.5") 
+resample <- c("up_1") 
 # resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
@@ -72,21 +72,21 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "24000MB"
+request_memory <- "28000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
 
 # down_1: request_memory <- "24000MB", request_disk <- "1600MB"
 # down_2: request_memory <- "24000MB", request_disk <- "1600MB"
-
+# up_.5: request_memory <- "28000MB", request_disk <- "1600MB"
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
   
   df %>% 
     rename(y = !!y_col_name) %>% 
-    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)),
+    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)), # set pos class first
            across(where(is.character), factor)) %>%
     select(-label_num, -dttm_label)
   # Now include additional mutates to change classes for columns as needed
