@@ -272,6 +272,8 @@ features <- features %>%
 ### Write feature file
 
 ```{r save_features}
+# NEED TO UPDATE THIS AT SOME POINT TO USE write_csv() rather than vroom_write
+# AND TO MAKE IT A CSV FILE.
 features %>% 
-  vroom_write(here(path_processed, str_c("features_", data_type, "_", window, "_", lead, "_", version, ".csv.xz")))
+  vroom_write(here(path_processed, str_c("features_", data_type, "_", window, "_", lead, "_", version, ".tsv.xz")))
 ```
