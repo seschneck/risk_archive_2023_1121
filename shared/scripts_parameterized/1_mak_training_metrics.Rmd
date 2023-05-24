@@ -7,18 +7,18 @@ output:
     toc: true 
     toc_depth: 4
 params:
-  study: "messages"
+  study: "ema"
   data_type: "all"
   window: "1hour"
   lead: 0
-  version: "v1"
-  cv: "kfold"
-  algorithms: "xgboost"   # "all" or name of specific algorithm
+  version: "v4"
+  cv: "nested"
+  algorithms: "all"   # "all" or name of specific algorithm
 ---
 
 ### Code Status
 
-In (beta) use for glmnet, random forest, and xgboost
+In use for both kfold and nested cv, including use of batches
 
 ### Notes
 This script aggregates all results/metrics for a batch or batches of jobs
@@ -36,32 +36,24 @@ cv <- params$cv
 algorithms <- params$algorithms
 ```
 
-
-Packages for lab workflow 
+Handle conflicts
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) # detect and warn about function conflicts
-conflict_prefer("filter", "dplyr")
-conflict_prefer("select", "dplyr")
-conflict_prefer("spec", "yardstick")
-conflict_prefer("col_factor", "vroom")
-
-library(here)  # establish project directory consistently as working directory
+options(conflicts.policy = "depends.ok")
 ```
-
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(lubridate)
-library(vroom)
-library(purrr)
 library(furrr)
-library(janitor)
-library(ggplot2)
-library(kableExtra)
-library(vip)
+library(tidyverse)
 
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
 theme_set(theme_classic()) 
+```
+
+Parallel backend
+```{r}
+cl <- parallel::makePSOCKcluster(parallel::detectCores(logical = FALSE))
+doParallel::registerDoParallel(cl)
 ```
 
 Absolute paths
@@ -79,7 +71,6 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-
 Chunk Defaults
 ```{r defaults, include=FALSE}
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
@@ -89,20 +80,7 @@ options(tibble.print_max = Inf)
 ```
 
 
-Source training controls 
-```{r}
-source(here("../lab_support/chtc/static_files/fun_chtc.R"))
-source(here("../lab_support/print_kbl.R"))
-```
-
-
-### Check for proper results, error, and output files
-
-Will do this part in parallel as needed
-```{r}
-(n_core <- parallel::detectCores(logical = FALSE))
-plan(multisession, workers = n_core)
-```
+### Read results.csv files
 
 Set up object for results
 ```{r}
@@ -111,105 +89,59 @@ metrics_raw_all <- NULL
 
 Get batch_names
 ```{r}
+batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+  
 if (algorithms == "all") {
-  batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE) %>% 
-    str_subset(., pattern = str_c("train_", data_type, "_", window, "_", lead, "_", version))
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                             str_detect(batch_names, cv) &
+                             str_detect(batch_names, version) &
+                             str_detect(batch_names, window)]
 } else {
-  batch_names <- str_c("train_", data_type, "_", window, "_", lead, "_", version, "_", algorithms, "_", cv)
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                             str_detect(batch_names, cv) &
+                             str_detect(batch_names, version) &
+                             str_detect(batch_names, window) &
+                             str(detect(batch_names, algorithms))]
 }
 ```
 
 
 Loop over batch_names to read in files and perform checks
 ```{r}
+# plan for future_map()
+plan(multisession, workers = parallel::detectCores(logical = FALSE))
+
 for (batch_name in batch_names) {
   # read in jobs
-  jobs <- vroom(here(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
-  n_jobs <- nrow(jobs)
+  jobs <- read_csv(file.path(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
+  (n_jobs <- nrow(jobs))
   
-  # Check counts of error and results
-  err_files <- map_dfr(list.files(here(path_input, batch_name, "output", "error"), 
-                                 full.names = TRUE), 
-                      file.info)
-  n_err_files <- nrow(err_files)
-  
-  results_files <- list.files(here(path_input, batch_name, "output", "results"), 
+  # Check counts of results files
+  results_files <- list.files(file.path(path_input, batch_name, "output", "results"), 
                                  full.names = TRUE)
   n_results_files <- length(results_files)
-
-
-  if (!(n_jobs == n_err_files)) {
-    stop(n_jobs, " jobs != ", n_err_files, " error files!") 
-  } else {
-    message(n_err_files, " error files detected.  Correct!")
-  }
   
   if (!(n_jobs == n_results_files)) {
-    stop(n_jobs, " jobs != ", n_results_files, " feature files!")
+    stop(n_jobs, " jobs != ", n_results_files, " results files!")
   } else {
     message(n_results_files, " results files detected.  Correct!")
   }
   
-  # Display path/filename of non-zero error files
-  err_files %>%
-      filter(size > 0) %>%
-      rownames_to_column("path") %>%
-      pull(path)
-
-
   # read in all result CSVs
   metrics_raw_batch <- results_files %>% 
-    future_map_dfr(read_csv, col_types = readr::cols())
-  
-  # Update variable names if old version (n_repeat & n_fold vs. split_num)
-  if(any(str_detect(names(metrics_raw_batch), "n_fold"))) {
-    metrics_raw_batch <- metrics_raw_batch %>% 
-      mutate(split_num = case_when(n_repeat == 1 & n_fold == 1 ~ 1,
-                                   n_repeat == 1 & n_fold == 2 ~ 2,
-                                   n_repeat == 1 & n_fold == 3 ~ 3,
-                                   n_repeat == 1 & n_fold == 4 ~ 4,
-                                   n_repeat == 1 & n_fold == 5 ~ 5,
-                                   n_repeat == 1 & n_fold == 6 ~ 6,
-                                   n_repeat == 1 & n_fold == 7 ~ 7,
-                                   n_repeat == 1 & n_fold == 8 ~ 8,
-                                   n_repeat == 1 & n_fold == 9 ~ 9,
-                                   n_repeat == 1 & n_fold == 10 ~ 10),
-             outer_split_num = NA_integer_,
-             inner_split_num = NA_integer_) %>%
-      select(-c(n_repeat, n_fold)) %>%
-      relocate(job_num, split_num, outer_split_num, inner_split_num)
-  }
-  
-  # Basic counts and checks
-  job_nums <- as.numeric(unique(metrics_raw_batch$job_num))
-  if (!(n_jobs == length(job_nums))) {
-    warning(n_jobs, " jobs != ", length(job_nums), "  job_nums in metrics!") 
-  } else {
-    message(length(job_nums), " unique job numbs detected.  Correct!")
-  }
-  
-  # Check each job_num is unique
-  max_job_num <- metrics_raw_batch %>% tabyl(job_num) %>% 
-    pull(n) %>% 
-    max() 
-  if (max_job_num > 1) {
-    stop("Job numbers are not unique") 
-  } else {
-    message(max_job_num, " job for each job number. Correct!")
-  }
+    future_map_dfr(read_csv, col_types = cols())
 
-  metrics_raw_batch %>% tabyl(split_num) %>% print()
-  metrics_raw_batch %>% tabyl(outer_split_num) %>% print()
-  metrics_raw_batch %>% tabyl(inner_split_num) %>% print()
-  metrics_raw_batch %>% tabyl(algorithm) %>% print()
-  metrics_raw_batch %>% tabyl(feature_set) %>% print()
-  metrics_raw_batch %>% tabyl(hp1) %>% print()
-  metrics_raw_batch %>% tabyl(hp2) %>% print()
-  metrics_raw_batch %>% tabyl(hp3) %>% print()
-  metrics_raw_batch %>% tabyl(resample) %>% print()
-  metrics_raw_batch %>% tabyl(n_feats) %>% print()
+  metrics_raw_batch %>% tab(split_num) %>% print()
+  metrics_raw_batch %>% tab(outer_split_num) %>% print()
+  metrics_raw_batch %>% tab(inner_split_num) %>% print()
+  metrics_raw_batch %>% tab(algorithm) %>% print()
+  metrics_raw_batch %>% tab(feature_set) %>% print()
+  metrics_raw_batch %>% tab(hp1) %>% print()
+  metrics_raw_batch %>% tab(hp2) %>% print()
+  metrics_raw_batch %>% tab(hp3) %>% print()
+  metrics_raw_batch %>% tab(resample) %>% print()
 
-  # Add batch 3 to all metrics
+  # Add batch to all metrics
   metrics_raw_all <- metrics_raw_all %>% 
     bind_rows(metrics_raw_batch)
 }
@@ -217,7 +149,6 @@ for (batch_name in batch_names) {
 
 
 ### Wrap up processing of raw metrics
-
 
 back to sequential
 ```{r}
@@ -227,7 +158,9 @@ plan(sequential)
 Save raw metrics file
 ```{r}
 metrics_raw_all %>% 
-  vroom_write(here(path_processed, str_c("metrics_raw_train_", data_type, "_", window, "_", lead, "_", version, "_", cv, ".csv")), delim = ",")
+  write_csv(file.path(path_processed, str_c("metrics_raw_train_", data_type, "_", 
+                                            window, "_", lead, "_", version, "_", 
+                                            cv, ".csv")))
 ```
 
 ### Average metrics across folds for model configurations
@@ -239,25 +172,18 @@ metrics_avg <- metrics_raw_all %>%
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
                     mean),
              n_jobs = n(), .groups = "drop") %>% 
-  relocate(n_jobs)
-```
+  relocate(n_jobs) %>% 
+  arrange(desc(roc_auc))
 
-Brief check of job counts.  
-Number of jobs should = folds X repeats 
-```{r}
-metrics_avg %>% 
-  group_by(algorithm) %>% 
-  tabyl(n_jobs)
+metrics_avg |> print_kbl()
 ```
 
 
 ### Plot hyperparameters
 
-
 ```{r}
 # update algorithms to actual ones in the tibble
 algorithms <- unique(metrics_avg$algorithm) 
-
 feature_sets <- unique(metrics_avg$feature_set) 
 
 for (k in algorithms) {
@@ -389,6 +315,3 @@ for (k in algorithms) {
   }
 }
 ```
-
-
-

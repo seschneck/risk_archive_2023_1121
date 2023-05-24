@@ -5,23 +5,15 @@ study <- "ema"
 data_type <- "all"  
 window <- "1hour"
 lead <- 0
-version <- "v5"
+version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch1"
+batch <- "batch3"
 
 ml_mode <- "classification"   # regression or classification
 
 feature_set <- c("all") # EMA Features set names
-data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", version, ".csv.xz") 
-
-
-# STUDY PATHS----------------------------
-# the name of the job to set folder names
-name_job <- str_c("train_", algorithm, "_", cv_name, "_", version, "_", batch) 
-# the name of the job to set folder names
-path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
-# location of data set
-path_data <- str_c("P:/studydata/risk/data_processed/", study) 
+data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", 
+                  version, ".csv.xz") 
 
 
 # OUTCOME-------------------------------------
@@ -32,7 +24,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
+resample <- c("up_.5") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
 # CV SETTINGS---------------------------------
@@ -46,6 +39,14 @@ cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_inner_resample, "_",
                          cv_outer_resample),
                    str_c(cv_resample_type, "_", cv_resample))
+
+# STUDY PATHS----------------------------
+# the name of the job to set folder names
+name_job <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
+# the name of the job to set folder names
+path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
+# location of data set
+path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
 
 # ALGORITHM-SPECIFIC HYPERPARAMETERS-----------
@@ -62,19 +63,22 @@ hp3_rf <- 1500 # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-hp3_xgboost <- c(20, 30, 40, 50)  # mtry (previously included 2 and 10 but not needed)
-# trees = 100
-# early stopping = 10
+hp3_xgboost <- c(20, 30, 40, 50)  # mtry
+# trees = 500
+# early stopping = 20
  
 
 # CHTC SPECIFIC CONTROLS----------------------------
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "16000MB"
-request_disk <- "1000MB"
-flock <- FALSE
-glide <- FALSE
+request_memory <- "24000MB"
+request_disk <- "1600MB"
+flock <- TRUE
+glide <- TRUE
+
+# down_1: request_memory <- "24000MB", request_disk <- "1600MB"
+# down_2: request_memory <- "24000MB", request_disk <- "1600MB"
 
 
 # FORMAT DATA-----------------------------------------
@@ -83,7 +87,7 @@ format_data <- function (df){
   df %>% 
     rename(y = !!y_col_name) %>% 
     mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)),
-           across(where(is.character), as_factor)) %>%
+           across(where(is.character), factor)) %>%
     select(-label_num, -dttm_label)
   # Now include additional mutates to change classes for columns as needed
   # see https://jjcurtin.github.io/dwt/file_and_path_management.html#using-a-separate-mutate
