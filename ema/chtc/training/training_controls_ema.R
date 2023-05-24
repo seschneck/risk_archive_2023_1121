@@ -7,7 +7,7 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch2"
+batch <- "batch3"
 
 ml_mode <- "classification"   # regression or classification
 
@@ -24,7 +24,7 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_2") 
+resample <- c("up_.5") 
 # resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
@@ -63,9 +63,9 @@ hp3_rf <- 1500 # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-hp3_xgboost <- c(20, 30, 40, 50)  # mtry (previously included 2 and 10 but not needed)
-# trees = 100
-# early stopping = 10
+hp3_xgboost <- c(20, 30, 40, 50)  # mtry
+# trees = 500
+# early stopping = 20
  
 
 # CHTC SPECIFIC CONTROLS----------------------------
@@ -74,10 +74,11 @@ max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "24000MB"
 request_disk <- "1600MB"
-flock <- FALSE
-glide <- FALSE
+flock <- TRUE
+glide <- TRUE
 
 # down_1: request_memory <- "24000MB", request_disk <- "1600MB"
+# down_2: request_memory <- "24000MB", request_disk <- "1600MB"
 
 
 # FORMAT DATA-----------------------------------------
