@@ -42,7 +42,7 @@ cv_name <- if_else(cv_resample_type == "nested",
 
 # STUDY PATHS----------------------------
 # the name of the job to set folder names
-name_job <- str_c("train_", algorithm, "_", cv_name, "_", version, "_", batch) 
+name_job <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
 # the name of the job to set folder names
 path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
 # location of data set
