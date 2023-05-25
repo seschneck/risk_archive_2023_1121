@@ -115,9 +115,9 @@ metrics_raw <-
 ```
 
 
-### Non-nested CV (Kfold and boot)
 
-#### Review best performing model configuration 
+
+### Review best performing model configuration 
 
 ```{r best_model_info_kfold}
 
@@ -150,7 +150,7 @@ algorithm_best <- config_best %>%
 ```
 
 
-#### Refit resamples for best model locally
+### Refit resamples for best model locally
 
 10 x 1-fold resampling of best model configuration 
 ```{r resample_best_config_kfold}
@@ -253,7 +253,7 @@ if(file.exists(here(path_models, str_c("resample_metrics_best_", data_type, "_",
 ```
 
 
-#### Fit best final model in all data
+### Fit best final model in all data
 
 ```{r}
 if(!file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 

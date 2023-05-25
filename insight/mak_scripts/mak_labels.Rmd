@@ -366,10 +366,13 @@ Make 1-week window labels dataframe
 labels_1_week <- subids %>% 
   future_map_dfr(~ label_insight_windows(., lapses, labels),
                  .options = furrr_options(seed = NULL)) 
+
+(nrow_all_labels <- nrow(labels_1_week))
 ```
 
 Check counts
 ```{r}
+
 janitor::tabyl(labels_1_week$label)
 
 # Lapse labels
@@ -400,12 +403,18 @@ Remove any labels that fall in partial windows or windows that end after study_e
 labels_1_week <- left_join(labels_1_week, study_end_times, by = "subid") %>% 
   filter(window_start < end_time) %>% 
   filter(window_end <= end_time)
+
+nrow(labels_1_week)
+nrow_all_labels
 ```
 
 ### Remove invalid lapse labels
 
 ```{r}
 labels_1_week <- filter(labels_1_week, !is.na(label))
+
+nrow(labels_1_week)
+nrow_all_labels
 ```
 
 ### Remove windows without corresponding morning EMA
@@ -418,8 +427,14 @@ insight <- left_join(labels_1_week, emam,
   select(subid, lapse = label, ema_start = start_date, ema_end = end_date,
          window_start, window_end, starts_with("ema_"),
          finished, status, utc) %>% 
-  mutate(lapse = if_else(lapse == "lapse", "yes", "no")) %>% 
-  filter(!is.na(ema_10))
+  mutate(lapse = if_else(lapse == "lapse", "yes", "no"))
+
+glimpse(insight)
+nrow(labels_1_week)
+
+insight <- filter(insight, !is.na(ema_10))
+nrow(insight)
+
 ```
 
 ### EDA on Final Labels 
@@ -443,6 +458,8 @@ insight %>%
 #### Histogram of insight responses
 
 ```{r}
+ggplot2::theme_set(theme_classic())
+
 insight %>% 
   ggplot(aes(x = ema_10)) +
   geom_bar() +
