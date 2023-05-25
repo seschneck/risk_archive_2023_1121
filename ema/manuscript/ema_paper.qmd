@@ -150,9 +150,14 @@ The current project focuses explicitly on the use of EMA to monitor lapse risk f
 
 Preliminary research is now emerging that uses EMA as features in machine learning models to predict the probability of future alcohol lapses or related outcomes [<!--Sarah - insert  refs-->].  This research is potentially important because it rigorously establishes temporal ordering between the predictors (features engineered from EMAs) and the outcomes and the models are evaluated on "new" participants that were not used to train the models.   Both of these criteria are necessary to develop models that can be clinically useful to truly predict future lapses when implemented with new patients rather than simply confirm associations between putative risk factors and alcohol lapses among existing research participants.  
 
-Despite this initial promise, several important gaps in this preliminary research restrict its generalizability and utility.  First, there are limitations regarding the samples used to train and evaluate these models.  Prediction models developed with convenience samples (e.g., <!--Sarah - insert college student or other convenience samples-->) provide important proof of concept but may not generalize well to perform well for patients with AUD.  Similarly, models that have been developed to predict alcohol use in non-treatment seeking patients with AUD may be less clinically useful.  These individuals are unlikely to use digital therapeutics to support their recovery until they begin to contemplate and/or commit to behavior change regarding their alcohol use [<!--JJC to insert stage of change reference-->].  Moreover, features that predict planned or otherwise intentional alcohol use among individuals that are not motivated to change their behavior may not generalize to predict goal-inconsistent alcohol use (i.e., alcohol lapses) among patients in recovery.  
+Despite this initial promise, several important gaps in this preliminary research restrict its generalizability and utility.  First, there are limitations regarding the samples used to train and evaluate these models.  Prediction models developed with convenience samples (e.g., college students, non-treament seeking hazardous drinking populations<!--Sarah - insert college student or other convenience samples-->) provide important proof of concept but may not generalize well to perform well for patients with AUD.  Similarly, models that have been developed to predict alcohol use in non-treatment seeking patients with AUD may be less clinically useful.  These individuals are unlikely to use digital therapeutics to support their recovery until they begin to contemplate and/or commit to behavior change regarding their alcohol use [<!--JJC to insert stage of change reference-->].  Moreover, features that predict planned or otherwise intentional alcohol use among individuals that are not motivated to change their behavior may not generalize to predict goal-inconsistent alcohol use (i.e., alcohol lapses) among patients in recovery.  
 
-<!--Sarah - what about models predicting outcomes other than lapse (e.g., craving, stress)?  What can you tell us about those studies?-->
+<!--Sarah - what about models predicting outcomes other than lapse (e.g., craving, stress)?  What can you tell us about those studies?
+
+Added: Limited to studies that use EMA as a predictor, target SUD related outcomes (some smoking related...), utilized machine learning methods-->
+
+A second limitation concerns the types of outcomes models are trained to predict. A handful of studies have trained models to predict precursors of substance use events, such as craving or stress events. Due to the increased frequency of these events relative to substance use episodes, higher model performance can be achieved with less effort (Epstein et al 2020). For example, EMA has been demonstrated to predict levels of craving in individuals attempting to quit smoking (Durmortier et al 2016) as well as individuals in medication assisted treatment programs for opiod use disorder (Burguess-Hall et al 2022). EMA combined with physiological data yeilded prospective prediction of stressful event episodes in a small sample of individuals endorsing polysubstance use (Sarker et al 2016). However, while craving and stress are strongly associated with substance use, they do not reliably predict instances of substance use, limiting their utility for identifying specific instances for substance use treatment. Conversely, some studies have sought to increase performance of predictive models by predicting temporally coarse clinically outcomes such as binary SUD treatment success (Acion et al 2017; Coughlin et al,2018) or probability of treatment drop out for individuals in a medication assisted treatment program for opioid use disorder (Gottlieb et al, 2022). While these prediction models are useful for identifying individuals who would benefit from increased SUD treatment, they do not provide enough temporal specificity to assist in identifying when resources should be directed to these individuals.
+
 
 <!--JJC will justify lapse after we have above paragraph out other outcomes drafted.  - temporally precise, clearly defined, necessary for relapse, often early warning, can produce AVEs which can further undermine recovery. Abstinence is the FDA indicated outcome for clinical trials.  Describe here or in the current study below-->
 
@@ -838,8 +843,68 @@ shap_week + shap_day + shap_hour
 
 # Discussion
 
+Outline
 
-Limitation - lapse in patients pursuing abstinence vs. harm reduction - we only had abstinence and we didnt measure harm or heavy drinking
+<!-- Summary of model performance - Our models perform well and this is why -->
+
+*1. The performance of our models across all three prediction windows is higher than any published literature to date.*
+  * Break down meanings of sensitivity, specificity, AUC
+    * We are doing really well...Likely have reached a performance ceiling (due to irreducible error)
+  * Week and hour models perform comparably, Day level model is a significant improvement in classifier performance (via Baysian anlaysis of posteriors)
+  * Highlight how we build upon previous research -- large N, treatment seeking sample, temporally precise lapse outcome, grouped resampling
+
+*2. Our top performing model was an xgboost, which incorporates multiple elements that likely contribute to our succesful prediction.*
+  * Boosted tree models can handle non linear interactive effects natively within the algorithm
+  * We trained configurations up to tree depths of 4, allowing 4 way interactions among features
+  * This allows for incorporation of within subject variation to make precise predictions. We build time into our features with change scores, most recent features, etc. With the ability to consider 4 way interactions with these types of features, we can identify highly complex scenarios. Example: we can consider how past use ratings interact with current future efficacy ratings immediately following a lapse episode (You might expect lower future efficacy right after a lapse episode)
+  * XGBoost is able to handle highly correlated features (which is expected for this data)
+  
+*3. SHAPP values provide interpretability as to why our models are performing well*
+  	* Emerging standard for interpretability
+    * Additive decomposition of the contributions that each of these features make to the prediction for each observation 
+    *Difference between global versus local Shaps
+    *Highest SHAPs are generally in agreement with relapse prevention model.
+  
+<!-- Considerations for Clinical Application -->
+*4. It is important to consider multiple aspects of model performance when identifying the clinical utility of prediction models.*
+    * While sensitivity, specificity, and balanced accuracy are encouragingly high, PPV is low
+    * PPV and NPC are significantly effected by outcome distribution, often not reported in ML models.
+    * Adjusting the decision threshold can increase PPV (at cost of reducing sensitivity)
+    * Some interventions are more appropriate for low PPV, high sensitivity scenarioes (e.g. false alarms are not necessarily bad if you are just encouraging increased use of the dtx). Higher cost interventions (e.g. contacting a provider) may be better suited for higher decision thresholds to increase PPV
+
+Decision thresholds we choose will impact the types of feedback participants are given.
+    * Potential risks of reporting binary lapse/no lapse, versus lapse probability, versus no report (just intervention)
+    * Literature on impact of false predictions on trust in ML recommendations
+
+*5. Three prediction windows allows for increased personalization of treatment recommendations.*
+  *Different treatments may be more appropriate/feasible when considering risk of lapse in next hour, next day, next week.
+  *e.g. urge surfing for lapse risk in the next hour, scheduling appointment with provider if elevated risk in next week
+
+*6. Local importance scores can provide information about what treatments to recommend during high risk periods.*
+  * Explain how features map to specific observation for specific individual
+  * Across observations, generally all features become important at some time
+  * Many of our top local SHAPs align with Marlatt's relapse prevention model -- align nicely with modules you would expect to see in AUD treatment app
+  
+<!-- Limitations and future directions -->
+
+*7. Certain aspects of our study design may limit generalizability.*
+  * Results only applicable to individuals with AUD with an abstinence only goal. Future work can incorporate harm reduction approaches to identify goal-inconsistent drinking behavior that is not limited to abstinence only.
+  * Current sample was high N, but limited due to Madison based and low diversity sample. Importance of diverse training sets to offset racial bias in ML models
+  * Data collection currently underway to recruit a national, more diverse sample, with OUD
+  
+*8. Important considerations for implementation*
+  * Lapse prediction windows currently have a lead time of 0. This means week level model could predict a lapse in the next week, or the next hour.
+      * Potential problems for recommending a treatment that takes a lot of time if lapse can happen sooner.
+      * Utilization all three prediction windows concurrently and recommend treatments based on shortest window
+  * Current models built on active sensing via EMA, which may increase burden.
+    * EMA requires more effort on part of participant, some uncertaintly about how long response rate can be maintained for
+    * Current project also collected gps, cellular communications with context, and other passive measures. We will be able to see if we get comparable performance passively
+    
+  
+    
+
+
+
 
 
 \clearpage
