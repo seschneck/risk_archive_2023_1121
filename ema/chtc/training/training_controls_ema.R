@@ -7,7 +7,7 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch4"
+batch <- "batch5"
 
 ml_mode <- "classification"   # regression or classification
 
@@ -15,6 +15,7 @@ feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", 
                   version, ".csv.xz") 
 
+seed_splits <- 102030
 
 # OUTCOME-------------------------------------
 y_col_name <- "lapse" 
@@ -24,7 +25,7 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("up_1") 
+resample <- c("smote_.5") 
 # resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
 
 
@@ -80,6 +81,7 @@ glide <- TRUE
 # down_1: request_memory <- "24000MB", request_disk <- "1600MB"
 # down_2: request_memory <- "24000MB", request_disk <- "1600MB"
 # up_.5: request_memory <- "28000MB", request_disk <- "1600MB"
+# up_1: request_memory <- "30000MB", request_disk <- "1600MB"
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
