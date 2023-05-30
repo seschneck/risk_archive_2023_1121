@@ -9,6 +9,7 @@ algorithm <- "xgboost"
 batch <- "batch5"
 
 ml_mode <- "classification"   # regression or classification
+configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -40,10 +41,10 @@ cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_resample))
 
 # STUDY PATHS----------------------------
-# the name of the job to set folder names
-name_job <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
-# the name of the job to set folder names
-path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
+# the name of the batch of jobs to set folder name
+name_batch <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
+# the path to the batch of jobs to put the folder name
+path_batch <- str_c("P:/studydata/risk/chtc/", study) 
 # location of data set
 path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
@@ -98,19 +99,19 @@ format_data <- function (df){
 
 # BUILD RECIPE---------------------------------------
 # Script should have a single build_recipe function to be compatible with fit script. 
-build_recipe <- function(d, job) {
+build_recipe <- function(d, config) {
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
   
   # get relevant info from job (algorithm, feature_set, resample, under_ratio)
-  algorithm <- job$algorithm
-  feature_set <- job$feature_set
+  algorithm <- config$algorithm
+  feature_set <- config$feature_set
   
-  if (job$resample == "none") {
-    resample <- job$resample
+  if (config$resample == "none") {
+    resample <- config$resample
   } else {
-    resample <- str_split(job$resample, "_")[[1]][1]
-    ratio <- as.numeric(str_split(job$resample, "_")[[1]][2])
+    resample <- str_split(config$resample, "_")[[1]][1]
+    ratio <- as.numeric(str_split(config$resample, "_")[[1]][2])
   }
   
   # Set recipe steps generalizable to all model configurations
