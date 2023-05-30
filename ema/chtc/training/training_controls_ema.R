@@ -2,7 +2,6 @@
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-data_type <- "all"  
 window <- "1hour"
 lead <- 0
 version <- "v4"
@@ -12,8 +11,7 @@ batch <- "batch5"
 ml_mode <- "classification"   # regression or classification
 
 feature_set <- c("all") # EMA Features set names
-data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", 
-                  version, ".csv.xz") 
+data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
 
 seed_splits <- 102030
 
@@ -25,8 +23,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("smote_.5") 
-# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
+resample <- c("down_3") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5", down_3) 
 
 
 # CV SETTINGS---------------------------------
@@ -73,15 +71,17 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "28000MB"
+request_memory <- "25000MB"
 request_disk <- "1600MB"
-flock <- TRUE
-glide <- TRUE
+flock <- FALSE
+glide <- FALSE
 
-# down_1: request_memory <- "24000MB", request_disk <- "1600MB"
-# down_2: request_memory <- "24000MB", request_disk <- "1600MB"
-# up_.5: request_memory <- "28000MB", request_disk <- "1600MB"
-# up_1: request_memory <- "30000MB", request_disk <- "1600MB"
+# Batches
+# down_1: request_memory <- "24000MB", request_disk <- "1600MB" john
+# down_2: request_memory <- "24000MB", request_disk <- "1600MB" susan
+# up_.5: request_memory <- "28000MB", request_disk <- "1600MB" john (not complete)
+# up_1: request_memory <- "30000MB", request_disk <- "1600MB" kendra (not complete)
+# down_3:
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
