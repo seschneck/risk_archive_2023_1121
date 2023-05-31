@@ -1,5 +1,5 @@
 ---
-title: "Combines training jobs from CHTC for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version`"
+title: "Combines training jobs from CHTC for `r params$window` window and `r params$lead` lead and `r params$version`"
 author: "John Curtin & Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -8,7 +8,6 @@ output:
     toc_depth: 4
 params:
   study: "ema"
-  data_type: "all"
   window: "1hour"
   lead: 0
   version: "v4"
@@ -28,7 +27,6 @@ that train all model configurations for a specific outcome/label window.
 
 ```{r set_params}
 study <- params$study
-data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
 version <- params$version
@@ -103,6 +101,8 @@ if (algorithms == "all") {
                              str_detect(batch_names, window) &
                              str(detect(batch_names, algorithms))]
 }
+
+batch_names
 ```
 
 
@@ -112,6 +112,8 @@ Loop over batch_names to read in files and perform checks
 plan(multisession, workers = parallel::detectCores(logical = FALSE))
 
 for (batch_name in batch_names) {
+  message("Processing Batch: ", batch_name)
+  
   # read in jobs
   jobs <- read_csv(file.path(path_input, batch_name, "input", "jobs.csv"), show_col_types = FALSE)
   (n_jobs <- nrow(jobs))
@@ -129,7 +131,7 @@ for (batch_name in batch_names) {
   
   # read in all result CSVs
   metrics_raw_batch <- results_files %>% 
-    future_map_dfr(read_csv, col_types = cols())
+    future_map_dfr(\(fn) read_csv(fn, col_types = cols()))
 
   metrics_raw_batch %>% tab(split_num) %>% print()
   metrics_raw_batch %>% tab(outer_split_num) %>% print()
@@ -155,17 +157,29 @@ back to sequential
 plan(sequential)
 ```
 
+Remove duplicate rows (e.g., same hyperparameters across multiple batches)
+```{r}
+nrow(metrics_raw_all)
+
+metrics_raw_all <- metrics_raw_all |> 
+  distinct(split_num, outer_split_num, inner_split_num, algorithm, feature_set,
+           hp1, hp2, hp3, resample, .keep_all = TRUE)
+
+nrow(metrics_raw_all)
+```
+
 Save raw metrics file
 ```{r}
 metrics_raw_all %>% 
-  write_csv(file.path(path_processed, str_c("metrics_raw_train_", data_type, "_", 
+  # arrange(split_num, outer_split_num, inner_split_num, algorithm, resample
+  write_csv(file.path(path_processed, str_c("metrics_raw_train_", 
                                             window, "_", lead, "_", version, "_", 
                                             cv, ".csv")))
 ```
 
 ### Average metrics across folds for model configurations
 
-
+Foreshadow performance.  These are simple kfold evaluations
 ```{r}
 metrics_avg <- metrics_raw_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 

@@ -2,19 +2,19 @@
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-data_type <- "all"  
 window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch4"
+batch <- "batch5"
 
 ml_mode <- "classification"   # regression or classification
+configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
 
 feature_set <- c("all") # EMA Features set names
-data_trn <- str_c("features_", data_type, "_", window, "_", lead, "_", 
-                  version, ".csv.xz") 
+data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
 
+seed_splits <- 102030
 
 # OUTCOME-------------------------------------
 y_col_name <- "lapse" 
@@ -24,8 +24,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("up_1") 
-# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5") 
+resample <- c("down_3") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5", down_3) 
 
 
 # CV SETTINGS---------------------------------
@@ -41,10 +41,10 @@ cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_resample))
 
 # STUDY PATHS----------------------------
-# the name of the job to set folder names
-name_job <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
-# the name of the job to set folder names
-path_jobs <- str_c("P:/studydata/risk/chtc/", study) 
+# the name of the batch of jobs to set folder name
+name_batch <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
+# the path to the batch of jobs to put the folder name
+path_batch <- str_c("P:/studydata/risk/chtc/", study) 
 # location of data set
 path_data <- str_c("P:/studydata/risk/data_processed/", study) 
 
@@ -72,14 +72,17 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "28000MB"
+request_memory <- "25000MB"
 request_disk <- "1600MB"
-flock <- TRUE
-glide <- TRUE
+flock <- FALSE
+glide <- FALSE
 
-# down_1: request_memory <- "24000MB", request_disk <- "1600MB"
-# down_2: request_memory <- "24000MB", request_disk <- "1600MB"
-# up_.5: request_memory <- "28000MB", request_disk <- "1600MB"
+# Batches
+# down_1: request_memory <- "24000MB", request_disk <- "1600MB" john
+# down_2: request_memory <- "24000MB", request_disk <- "1600MB" susan
+# up_.5: request_memory <- "28000MB", request_disk <- "1600MB" john (not complete)
+# up_1: request_memory <- "30000MB", request_disk <- "1600MB" kendra (not complete)
+# down_3:
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
@@ -96,19 +99,19 @@ format_data <- function (df){
 
 # BUILD RECIPE---------------------------------------
 # Script should have a single build_recipe function to be compatible with fit script. 
-build_recipe <- function(d, job) {
+build_recipe <- function(d, config) {
   # d: (training) dataset from which to build recipe
   # job: single-row job-specific tibble
   
   # get relevant info from job (algorithm, feature_set, resample, under_ratio)
-  algorithm <- job$algorithm
-  feature_set <- job$feature_set
+  algorithm <- config$algorithm
+  feature_set <- config$feature_set
   
-  if (job$resample == "none") {
-    resample <- job$resample
+  if (config$resample == "none") {
+    resample <- config$resample
   } else {
-    resample <- str_split(job$resample, "_")[[1]][1]
-    ratio <- as.numeric(str_split(job$resample, "_")[[1]][2])
+    resample <- str_split(config$resample, "_")[[1]][1]
+    ratio <- as.numeric(str_split(config$resample, "_")[[1]][2])
   }
   
   # Set recipe steps generalizable to all model configurations
