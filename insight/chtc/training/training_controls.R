@@ -19,12 +19,13 @@ algorithm <- "glmnet" # specify one algorithm per training control file - can be
 ml_mode <- "classification"   # regression or classification
 
 if (algorithm == "random_forest") {
-  feature_set <- c("insight_only") # also "comparison"
-  resample <- c("none", "up_1", "down_1") # DECIDE
+  feature_set <- c("insight_only") # eventually also "comparison"
+  resample <- c("none", "up_1", "down_1", "up_.5", "down_2") # DECIDE
 } else { # xgb & glmnet
   feature_set <- c("insight_only_dummy",
                    "insight_only_ordinal") # also "comparison_dummy/ordinal"
-  resample <- c("none", "up_1", "down_1", "smote_1") # DECIDE
+  resample <- c("none", "up_1", "down_1", "smote_1",
+                "up_.5", "down_2") # DECIDE
 }
 
 data_trn <- "insight.csv" # set to NULL if using chtc staging for large data
@@ -38,10 +39,10 @@ y_level_neg <- "no" # character string of the outcome variable's negative level 
 # cv_resample will be used to specify kfold and bootstrapping splits (non-nested)
 # nested cv should use cv_inner_resample and cv_outer_resample instead of cv_resample
 # see resampling demo in lab_support/chtc for examples
-cv_resample_type <- "nested" # can be boot, kfold, or nested # DECIDE
-cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
-cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
-cv_outer_resample <- "1_x_10" # outer resample will always be kfold
+cv_resample_type <- "kfold" # can be boot, kfold, or nested # DECIDE
+cv_resample = "1_x_10" # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
+cv_inner_resample <- NULL # can also be a single number for bootstrapping (i.e., 100)
+cv_outer_resample <- NULL # outer resample will always be kfold
 cv_group <- "subid" # set to NULL if not grouping
 
 
@@ -109,6 +110,7 @@ format_data <- function (df){
   df %>% 
     rename(y = !!y_col_name) %>% 
     mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first)
+    # check these previous two rows here and in match?
     select(-ema_type, -finished, -status, -utc, -starts_with("ema_1_"),
            -ema_1, -starts_with("window"), -ema_start, -ema_end) %>% 
     mutate(across(c(ema_2, ema_3, ema_4, ema_5),
