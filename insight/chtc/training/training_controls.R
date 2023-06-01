@@ -109,8 +109,7 @@ format_data <- function (df){
 
   df %>% 
     rename(y = !!y_col_name) %>% 
-    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first)
-    # check these previous two rows here and in match?
+    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first
     select(-ema_type, -finished, -status, -utc, -starts_with("ema_1_"),
            -ema_1, -starts_with("window"), -ema_start, -ema_end) %>% 
     mutate(across(c(ema_2, ema_3, ema_4, ema_5),
