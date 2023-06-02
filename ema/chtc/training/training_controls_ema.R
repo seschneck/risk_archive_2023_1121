@@ -1,12 +1,22 @@
 # Training controls for EMA study
 
+# NOTES------------------------------
+# Batches
+# Batch_1: down_1; request_memory <- "24000MB", request_disk <- "1600MB" john
+# Batch_2: down_2; request_memory <- "24000MB", request_disk <- "1600MB" susan
+# Batch_3: up_2; request_memory <- "34000MB", request_disk <- "1600MB" susan (current)  NEED TO CHANGE RATIO IN RESULTS
+# Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
+# Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
+# Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra (current) NEED TO CHANGE RATIO IN RESULTS
+# Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john (current) 
+
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
 window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch5"
+batch <- "batch7"
 
 ml_mode <- "classification"   # regression or classification
 configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
@@ -24,8 +34,9 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_3") 
-# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5", down_3) 
+resample <- c("down_4") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_2", "smote_2", 
+#               "down_3", "down_4") 
 
 
 # CV SETTINGS---------------------------------
@@ -72,17 +83,12 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "25000MB"
+request_memory <- "30000MB"
 request_disk <- "1600MB"
 flock <- FALSE
 glide <- FALSE
 
-# Batches
-# down_1: request_memory <- "24000MB", request_disk <- "1600MB" john
-# down_2: request_memory <- "24000MB", request_disk <- "1600MB" susan
-# up_.5: request_memory <- "28000MB", request_disk <- "1600MB" john (not complete)
-# up_1: request_memory <- "30000MB", request_disk <- "1600MB" kendra (not complete)
-# down_3:
+
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
@@ -116,6 +122,7 @@ build_recipe <- function(d, config) {
   
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
+    step_rm(subid) %>%
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric_predictors()) %>% 
     step_impute_mode(all_nominal_predictors()) 
@@ -124,15 +131,18 @@ build_recipe <- function(d, config) {
   # resampling options for unbalanced outcome variable
   if (resample == "down") {
     rec <- rec %>% 
+      # ratio is equivalent to tidymodels under_ratio
       themis::step_downsample(y, under_ratio = ratio, seed = 10) 
   }
   
   if (resample == "smote") {
+    ratio <- 1 / ratio # correct ratio to over_ratio
     rec <- rec %>% 
       themis::step_smote(y, over_ratio = ratio, seed = 10) 
   }
   
   if (resample == "up") {
+    ratio <- 1 / ratio # correct ratio to over_ratio
     rec <- rec %>% 
       themis::step_upsample(y, over_ratio = ratio, seed = 10)
   }
