@@ -8,7 +8,7 @@
 # Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
 # Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
 # Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra (current) NEED TO CHANGE RATIO IN RESULTS
-# Batch_7: smote_??  TBD
+# Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john (current) 
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -16,7 +16,7 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch6"
+batch <- "batch7"
 
 ml_mode <- "classification"   # regression or classification
 configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
@@ -34,8 +34,9 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("up_.33") 
-# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_.5", "smote_.5", down_3) 
+resample <- c("down_4") 
+# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_2", "smote_2", 
+#               "down_3", "down_4") 
 
 
 # CV SETTINGS---------------------------------
@@ -82,7 +83,7 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "34000MB"
+request_memory <- "30000MB"
 request_disk <- "1600MB"
 flock <- FALSE
 glide <- FALSE
