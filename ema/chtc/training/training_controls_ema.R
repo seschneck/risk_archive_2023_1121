@@ -4,11 +4,12 @@
 # Batches
 # Batch_1: down_1; request_memory <- "24000MB", request_disk <- "1600MB" john
 # Batch_2: down_2; request_memory <- "24000MB", request_disk <- "1600MB" susan
-# Batch_3: up_2; request_memory <- "34000MB", request_disk <- "1600MB" susan (current)  NEED TO CHANGE RATIO IN RESULTS
+# Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan (current)  NEED TO CHANGE RATIO IN RESULTS
 # Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
 # Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
 # Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra (current) NEED TO CHANGE RATIO IN RESULTS
-# Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john (current) 
+# Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john
+# Batch_8: down_5; request_memory <- "32000MB", request_disk <- "1600MB" john
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -16,10 +17,10 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch7"
+batch <- "batch8"
 
 ml_mode <- "classification"   # regression or classification
-configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
+configs_per_job <- 150  # number of model configurations that will be fit/evaluated within each CHTC
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -34,9 +35,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_4") 
-# resample <- c("down_1", "up_1", "smote_1", "down_2", "up_2", "smote_2", 
-#               "down_3", "down_4") 
+resample <- c("down_5") 
+# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3") 
 
 
 # CV SETTINGS---------------------------------
@@ -83,10 +83,10 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "30000MB"
+request_memory <- "32000MB"
 request_disk <- "1600MB"
-flock <- FALSE
-glide <- FALSE
+flock <- TRUE
+glide <- TRUE
 
 
 
