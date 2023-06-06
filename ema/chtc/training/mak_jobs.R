@@ -2,6 +2,6 @@
 
 library(tidyverse) 
 path_training_controls <- file.path("ema/chtc/training/training_controls_ema.R") 
-devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/fun_make_jobs.R?raw=true")
 
 make_jobs(path_training_controls, overwrite_batch = FALSE)
