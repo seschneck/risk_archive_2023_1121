@@ -1,5 +1,5 @@
 ---
-title: "Combines training jobs from CHTC for `r params$window` window and `r params$lead` lead and `r params$version`"
+title: "Combines batches of training jobs from CHTC for `r params$window` window and `r params$lead` lead `r params$version` using 1r params$cv` CV"
 author: "John Curtin & Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -19,9 +19,11 @@ params:
 
 In use for both kfold and nested cv, including use of batches
 
-### Notes
 This script aggregates all results/metrics for a batch or batches of jobs
 that train all model configurations for a specific outcome/label window.  
+
+
+NEED: update hyperparameter plots.  Currently combines across ratios for resampling.   Need to disagregate into different plots.
 
 ### Set Up Environment
 
@@ -106,11 +108,14 @@ for (batch_name in batch_names) {
   message("Processing Batch: ", batch_name)
   
   # read in configs
-  configs <- read_csv(file.path(path_input, batch_name, "input", "configs.csv"), show_col_types = FALSE)
+  configs <- read_csv(file.path(path_input, batch_name, "input", "configs.csv"), 
+                      show_col_types = FALSE)
   (n_configs <- nrow(configs))
   
   # read in results
-  results_batch <- read_csv(file.path(path_input, batch_name, "output", "results_batch.csv"), show_col_types = FALSE)
+  results_batch <- read_csv(file.path(path_input, batch_name, "output", 
+                                      "batch_results.csv"), 
+                            show_col_types = FALSE)
   (n_results_batch <- nrow(results_batch))
   
   # Check counts of results files
@@ -174,6 +179,10 @@ metrics_avg <- results_all %>%
   arrange(desc(roc_auc))
 
 metrics_avg |> print_kbl()
+
+metrics_avg |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
 ```
 
 
