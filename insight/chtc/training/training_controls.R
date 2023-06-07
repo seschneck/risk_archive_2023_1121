@@ -10,22 +10,26 @@ data_type <- "all"   # but still need to change more (e.g., feature set) to swit
 version <- "v1"
 batch <- "batch1" # specify a batch (numbered sequentially) if you need to add to an existing set of jobs (e.g., add hyperparameters but maintain version, algorithm, cv, etc.)
 algorithm <- "glmnet" # specify one algorithm per training control file - can be glmnet, knn, random_forest, xgboost
-
+seed_splits <- 102030
 
 # GEF: search on "DECIDE" to find remaining decision points/updates
-
+# down_2 = 2:1 majority:minority (cutting maj observations)
+# up_.5 = 2:1 majority:minority (resampling min observations)
+# smote_.5 2:1 majority:minority (resampling min observations)
 
 # SET GLOBAL PARAMETERS --------
 ml_mode <- "classification"   # regression or classification
 
 if (algorithm == "random_forest") {
-  feature_set <- c("insight_only") # also "comparison"
-  resample <- c("none", "up_1", "down_1") # DECIDE
+  feature_set <- c("insight_only") # eventually also "comparison"
+  resample <- c("none", "up_1", "down_1", "up_.5", "down_2") 
 } else { # xgb & glmnet
   feature_set <- c("insight_only_dummy",
                    "insight_only_ordinal") # also "comparison_dummy/ordinal"
-  resample <- c("none", "up_1", "down_1", "smote_1") # DECIDE
+  resample <- c("none", "up_1", "down_1", "smote_1",
+                "up_.5", "down_2", "smote_.5") 
 }
+# FIX so xgboost & glmnet have same resample but xgb & rf have same FS
 
 data_trn <- "insight.csv" # set to NULL if using chtc staging for large data
 
@@ -38,10 +42,10 @@ y_level_neg <- "no" # character string of the outcome variable's negative level 
 # cv_resample will be used to specify kfold and bootstrapping splits (non-nested)
 # nested cv should use cv_inner_resample and cv_outer_resample instead of cv_resample
 # see resampling demo in lab_support/chtc for examples
-cv_resample_type <- "nested" # can be boot, kfold, or nested # DECIDE
-cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
-cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
-cv_outer_resample <- "1_x_10" # outer resample will always be kfold
+cv_resample_type <- "kfold" # can be boot, kfold, or nested 
+cv_resample = "1_x_10" # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
+cv_inner_resample <- NULL # can also be a single number for bootstrapping (i.e., 100)
+cv_outer_resample <- NULL # outer resample will always be kfold
 cv_group <- "subid" # set to NULL if not grouping
 
 
@@ -67,26 +71,23 @@ hp2_glmnet_out <- 200 # length of penalty grid
 
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
 
-# DECIDE
 # changed mtry already [max = length(unique(d$ema_10))]
 # min_n stays the same? or change?
 # trees - should it just be 10 then..?
-hp1_rf <- c(1:11) # mtry (p/3 for reg or square root of p for class)
-hp2_rf <- c(2, 15, 30) # min_n
-hp3_rf <- 1500 # trees (10 x's number of predictors)
+hp1_rf <- 1 # mtry (p/3 for reg or square root of p for class)
+hp2_rf <- c(2, 15, 30, 50, 75, 100) # min_n
+hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors) # review
 
-# DECIDE
-hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
+hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-hp3_xgboost <- c(20, 30, 40, 50)  # mtry (previously included 2 and 10 but not needed)
+hp3_xgboost <- 1  # mtry (previously included 2 and 10 but not needed)
 # trees = 500
 # early stopping = 20
 
 
 
 # CHANGE CHTC SPECIFIC CONTROLS
-# DECIDE - study-specific tar needed?
-tar <- c("train.tar.gz", "other_project_specific.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
+tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000 # according to CHTC we should set this at 1000 to not flood the server. It will not limit the number of jobs running at one time 
 request_cpus <- 1 
 request_memory <- "28000MB"
@@ -105,26 +106,19 @@ glide <- FALSE
 # of the best configuration selected.
 
 format_data <- function (df){
-
+  
   df %>% 
     rename(y = !!y_col_name) %>% 
-    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first)
-    select(-ema_type, -finished, -status, -utc, -starts_with("ema_1_"),
-           -ema_1, -starts_with("window"), -ema_start, -ema_end) %>% 
-    mutate(across(c(ema_2, ema_3, ema_4, ema_5),
-                  ~ factor(. levels = c("0", "1", "2", "3", "4", "5",
-                                        "6", "7", "8", "9", "10", "11", "12"),
-                           ordered = TRUE)),
-           across(c(ema_6, ema_7_, ema_8, ema_9, ema_10),
-                  ~ factor(., levels = c("1", "2", "3", "4", "5", "6",
-                                         "7", "8", "9", "10", "11"),
-                           ordered = TRUE))) %>% 
-    rename(insight = ema_10)
-    
+    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first
+    select(subid, y, insight = ema_10) %>% 
+    mutate(insight = factor(insight, levels = c("1", "2", "3", "4", "5", "6",
+                                                "7", "8", "9", "10", "11"),
+                            ordered = TRUE)) # CHECK
+  
   # Now include additional mutates to change classes for columns as needed
   # see https://jjcurtin.github.io/dwt/file_and_path_management.html#using-a-separate-mutate
 }
-  
+
 
 # BUILD RECIPE ---------
 
@@ -151,28 +145,19 @@ build_recipe <- function(d, job) {
   
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
-    step_zv(all_predictors()) %>% 
-    step_impute_median(all_numeric_predictors()) %>% 
-    step_impute_mode(all_nominal_predictors())
-  
-  # If statements for filtering features based on feature set
-  if (str_detect(feature_set, "insight")) {
-    rec <- rec %>%
-      step_rm(starts_with("ema_"))
-  } 
+    step_rm(subid) %>% # here not in format_data() bc needed for splits
+    step_zv(all_predictors()) 
   
   # algorithm specific steps
   if (algorithm == "glmnet") {
     if(str_detect(feature_set, "dummy")) {
       rec <- rec  %>%
         step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
-        step_zv(all_predictors()) %>% 
         step_normalize(all_predictors())
     }
     if(str_detect(feature_set, "ordinal")) {
       rec <- rec %>% 
         step_ordinalscore(all_nominal_predictors()) %>% 
-        step_zv(all_predictors()) %>% 
         step_normalize(all_predictors())
     }
   } 
@@ -182,20 +167,13 @@ build_recipe <- function(d, job) {
   } 
   
   if (algorithm == "xgboost") {
-    if(str_detect(feature_set, "dummy")) {
-      rec <- rec  %>%
-        step_dummy(all_nominal_predictors(), one_hot = TRUE)
-    }
-    if(str_detect(feature_set, "ordinal")) {
       rec <- rec %>% 
         step_ordinalscore(all_nominal_predictors()) 
-    }
   } 
   
   if (algorithm == "knn") {
     rec <- rec  %>% 
       step_dummy(all_nominal_predictors(), one_hot = TRUE) %>% 
-      step_zv(all_predictors()) %>% 
       step_normalize(all_predictors())
   }
   

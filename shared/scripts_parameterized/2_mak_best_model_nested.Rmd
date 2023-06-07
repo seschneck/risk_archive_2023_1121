@@ -52,8 +52,6 @@ Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(tidymodels)
-#library(furrr)
-
 ```
 
 Source support functions
@@ -67,8 +65,8 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/sta
 
 Parallel backend
 ```{r}
-cl <- parallel::makePSOCKcluster(parallel::detectCores(logical = FALSE))
-doParallel::registerDoParallel(cl)
+# cl <- parallel::makePSOCKcluster(parallel::detectCores(logical = FALSE))
+# doParallel::registerDoParallel(cl)
 ```
 
 Absolute paths
@@ -103,7 +101,8 @@ Read in aggregate CHTC metrics
 metrics_raw <- 
   read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
                                    "_", lead, "_", version, "_", cv, ".csv")), 
-           col_types = "iiiiccdddcdddddddi")
+           col_types = "iiiiccdddcdddddddi") |> 
+  glimpse()
 ```
 
 
@@ -126,7 +125,8 @@ configs_best <- metrics_avg |>
   group_by(outer_split_num) |> 
   arrange(desc(roc_auc)) |> 
   slice(1) |> 
-  ungroup()
+  ungroup() |> 
+  relocate(roc_auc, .before = accuracy)
 
 configs_best |> print_kbl()
 ```
@@ -230,6 +230,8 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 
 
 future map over all outer splits to get predicted probabilities and metrics from held out outer folds.  Then save predicted probs and metrics
+
+NOTE: Delete `resample_metrics_best_*` or this code chunk won't run~
 ```{r resample_best_config_kfold}
 if(!file.exists(file.path(path_models, str_c("resample_metrics_best_", 
                                   window, "_", lead, "_", version, "_", 
@@ -253,8 +255,8 @@ if(!file.exists(file.path(path_models, str_c("resample_metrics_best_",
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
 
-  robs_out %>%
-    saveRDS(here(path_models, str_c("resample_preds_best_", 
+  probs_out %>%
+    saveRDS(file.path(path_models, str_c("resample_preds_best_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
 } else {
