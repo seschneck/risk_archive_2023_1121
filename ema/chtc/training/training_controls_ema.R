@@ -83,7 +83,7 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "32000MB"
+request_memory <- "36000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
