@@ -267,6 +267,9 @@ if(!file.exists(file.path(path_models, str_c("resample_metrics_best_",
 Review performance eval from outer loop
 ```{r}
 metrics_out |> 
+  print_kbl()
+
+metrics_out |> 
   summarize(mean(roc_auc), min(roc_auc), max(roc_auc))
 
 metrics_out |> 

@@ -17,10 +17,10 @@ window <- "1hour"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch8"
+batch <- "batch9"
 
 ml_mode <- "classification"   # regression or classification
-configs_per_job <- 150  # number of model configurations that will be fit/evaluated within each CHTC
+configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -35,8 +35,8 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_5") 
-# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3") 
+resample <- c("up_4") 
+# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3", "up_4") 
 
 
 # CV SETTINGS---------------------------------
