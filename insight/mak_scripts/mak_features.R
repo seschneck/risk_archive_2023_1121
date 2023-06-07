@@ -3,6 +3,8 @@
 # Version 2 was for Nowak group
 # This is version 3
 
+
+
 # Constants: EDIT
 ##GEF: will we need these for insight? would only use one set of paramaters
 window <- "1week"  # window for calculating labels
@@ -10,9 +12,10 @@ lead <-  0 # feature lead time
 version <- "v4"
 
 ##GEF: not needed?
-period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
+period_durations_morning <- c(24, 48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 
+library(tidyverse)
 
 suppressWarnings(suppressPackageStartupMessages({
   library(dplyr)
@@ -32,13 +35,13 @@ job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in 
 job_stop <- as.numeric(args[2])
 
 # read in insight ##GEF: UPDATE to read in insight file from server
-ema <- vroom("ema.csv", show_col_types = FALSE) %>% 
+ema <- read_csv("ema.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"),
          ema_2 = ema_2,  
          ema_3 = ema_3,
          ema_4 = ema_4,
          ema_5 = ema_5)  %>%   
-  select(-ema_1) %>%   # not using ema_1.  Info is in lapse df
+  select(-starts_with("ema_1_"), -ema_1, -ema_type) %>%   # not using ema_1.  Info is in lapse df
   arrange(subid, dttm_obs)
 
 # hack b.c I couldnt get data_type_col_name working with ema_long
@@ -53,7 +56,7 @@ ema_long <- ema %>%
     names_to = "ema_num",
     values_to = "response")
 
-##GEF: not needed, all in insight.csv
+
 lapses <- vroom("lapses.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"))
 
