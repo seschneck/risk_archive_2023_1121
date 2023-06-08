@@ -160,23 +160,14 @@ Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 # for data wrangling
 library(tidyverse)
-library(vroom)
-library(janitor)
 library(lubridate)
 library(furrr)
 ```
 
-
-Source for script
-```{r, source_script, message=FALSE, warning=FALSE}
-devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/print_kbl.R?raw=true")
-source(here("shared/fun_local.R"))
-```
-
 ### Read in lapses
 ```{r}
-lapses <- vroom(here(path_processed, "lapses.csv"), 
-                col_types = vroom::cols()) %>% 
+lapses <- read_csv(here(path_processed, "lapses.csv"), 
+                col_types = cols()) %>% 
   mutate(across(c(lapse_start, lapse_end, ema_end)), 
          with_tz(., "America/Chicago")) %>% 
   glimpse()
@@ -195,7 +186,7 @@ of study_end or ema_end (time of the last ema that we trust has valid data)
 
 Read in dates from study level folder
 ```{r}
-dates <- vroom(here(path_insight, "study_dates.csv"), col_types = vroom::cols()) %>%
+dates <- read_csv(here(path_insight, "study_dates.csv"), col_types = cols()) %>%
   mutate(across(study_start:ema_end), with_tz(., tz = "America/Chicago")) %>% 
   glimpse()
 ```
@@ -205,7 +196,7 @@ dates <- vroom(here(path_insight, "study_dates.csv"), col_types = vroom::cols())
 ```{r}
 lapses %>%
   filter(!exclude) %>%
-  tabyl(subid) %>% 
+  janitor::tabyl(subid) %>% 
   arrange(desc(n))
 ```
 
@@ -213,8 +204,8 @@ lapses %>%
 
 Read in morning EMA data from shared processed data
 ```{r}
-emam <- vroom(here(path_processed, "ema_morning.csv"), 
-              col_types = vroom::cols()) %>% 
+emam <- read_csv(here(path_processed, "ema_morning.csv"), 
+              col_types = cols()) %>% 
   mutate(across(c(start_date, end_date)), 
          with_tz(., tz = "America/Chicago")) %>% 
   mutate(subid = as.numeric(subid)) %>% 
@@ -233,13 +224,12 @@ library(doParallel)
 cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
 registerDoParallel(cl)
 
-subids <- unique(emam$subid)
 ```
 
 Make window_start and window_end dttm columns
 ```{r}
 labels <- emam %>% 
-  select(subid, response_id, start_date, end_date) %>% 
+  select(subid, response_id, start_date, end_date, insight = ema_10) %>% 
   mutate(window_start = end_date + seconds(1)) %>% 
   mutate(window_end = window_start + seconds(604800)) %>% 
   mutate(label = "no_lapse") %>% 
@@ -363,6 +353,8 @@ label_insight_windows <- function(the_subid, lapses, labels) {
 
 Make 1-week window labels dataframe
 ```{r}
+subids <- unique(dates$subid) # study_dates.csv contains eligible sample
+
 labels_1_week <- subids %>% 
   future_map_dfr(~ label_insight_windows(., lapses, labels),
                  .options = furrr_options(seed = NULL)) 
@@ -385,24 +377,28 @@ nrow(filter(labels_1_week, label == "no_lapse"))
 nrow(filter(labels_1_week, is.na(label)))
 ```
 
-### Remove labels that end after study_end date (including partial weeks)
+### Remove labels based on study dates
 
-recalculate study end time
+Recalculate study end time
 ```{r}
-study_end_times <- dates %>% 
+study_boundaries <- dates %>% 
   rowwise() %>% 
-  mutate(study_end = study_end + (hours(23)),
+  mutate(start_time = study_start + (minutes(1)),
+         study_end = study_end + (hours(23)),
          ema_end = floor_date(ema_end, unit = "hours"),
          end_time = min(study_end, ema_end)) %>% 
   ungroup() %>% 
-  select(subid, end_time)
+  select(subid, start_time, end_time)
 ```
 
-Remove any labels that fall in partial windows or windows that end after study_end
+Remove any labels that fall in:
+* Partial windows
+* Windows that end after study_end
+* Windows that begin before study start (e.g., if there are test EMAs)
 ```{r}
-labels_1_week <- left_join(labels_1_week, study_end_times, by = "subid") %>% 
-  filter(window_start < end_time) %>% 
-  filter(window_end <= end_time)
+labels_1_week <- left_join(labels_1_week, study_boundaries, by = "subid") %>% 
+  filter(window_end <= end_time) %>% 
+  filter(window_start > start_time)
 
 nrow(labels_1_week)
 nrow_all_labels
@@ -417,42 +413,43 @@ nrow(labels_1_week)
 nrow_all_labels
 ```
 
-### Remove windows without corresponding morning EMA
+### Remove windows where corresponding EMA insight question is unanswered
 
-Combine datasets & remove observations where insight question is unanswered
 ```{r}
-insight <- left_join(labels_1_week, emam,
-                     by = c("subid", "response_id", 
-                            "start_date", "end_date")) %>% 
-  select(subid, lapse = label, ema_start = start_date, ema_end = end_date,
-         window_start, window_end, starts_with("ema_"),
-         finished, status, utc) %>% 
+labels_1_week <- filter(labels_1_week, !is.na(insight))
+
+nrow(labels_1_week)
+nrow_all_labels
+```
+
+### Final cleanup on dataframe
+
+```{r}
+labels_1_week <- labels_1_week %>% 
+  rename(lapse = label, ema_start = start_date, ema_end = end_date,
+         study_start_time = start_time, study_end_time = end_time) %>% 
   mutate(lapse = if_else(lapse == "lapse", "yes", "no"))
 
-glimpse(insight)
-nrow(labels_1_week)
-
-insight <- filter(insight, !is.na(ema_10))
-nrow(insight)
-
+glimpse(labels_1_week)
 ```
+
 
 ### EDA on Final Labels 
 
 #### Proportion of lapses    
 
 ```{r}
-insight %>% 
-  tabyl(lapse)
+labels_1_week %>% 
+  janitor::tabyl(lapse)
 ```
 
 #### Lapses per subid
 
 ```{r}
-insight %>% 
-  tabyl(subid, lapse) %>% 
+labels_1_week %>% 
+  janitor::tabyl(subid, lapse) %>% 
   arrange(yes) %>% 
-  adorn_totals("col")
+  janitor::adorn_totals("col")
 ```
 
 #### Histogram of insight responses
@@ -460,16 +457,16 @@ insight %>%
 ```{r}
 ggplot2::theme_set(theme_classic())
 
-insight %>% 
-  ggplot(aes(x = ema_10)) +
+labels_1_week %>% 
+  ggplot(aes(x = insight)) +
   geom_bar() +
   labs(x = "Insight (Very unlikely to Very Likely")
 ```
 
 ### Save
 
-save valid_observations and labels, raw only because file is pretty small
 ```{r}
-insight %>% 
-  write_csv(here(path_insight, "insight.csv")) 
+labels_1_week %>% 
+  select(-insight) %>% 
+  write_csv(here(path_insight, "labels_1week.csv")) 
 ```
