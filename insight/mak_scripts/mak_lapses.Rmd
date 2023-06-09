@@ -1,0 +1,76 @@
+---
+title: "Create lapses.csv file"
+author: "Gaylen Fronk"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/insight", 
+      "/Volumes/private/studydata/risk/knits/insight")
+    )
+  })
+---
+
+### Code Status
+
+Bringing in code from mak_jobs.R (from EMA project) to make lapses.csv file needed for making features
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_insight <- "P:/studydata/risk/data_processed/insight"},
+        
+        # IOS paths
+        Darwin = {
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_insight <- "/Volumes/private/studydata/risk/data_processed/insight"}
+)
+```
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+library(here) 
+```
+
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+### Process and save lapses.csv
+
+```{r}
+lapses <- read_csv(here(path_shared, "lapses.csv"),
+                   show_col_types = FALSE) %>% 
+  glimpse()
+```
+
+```{r}
+lapses <- lapses %>% 
+  filter(!exclude) %>% 
+  select(subid, dttm_obs = lapse_start) %>% 
+  arrange(subid, dttm_obs) %>% 
+  mutate(count = "lapse")
+```
+
+```{r}
+glimpse(lapses)
+
+lapses %>% 
+  write_csv(here(path_insight, "lapses.csv"))
+```
+
+
+
