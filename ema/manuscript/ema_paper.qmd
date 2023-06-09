@@ -133,7 +133,7 @@ Alcohol and other substance use disorders (SUDs) are highly prevalent and costly
 
 Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010; @lieseCognitiveBehavioralTherapyAddictive2022],  mindfulness-based relapse prevention [@bowenMindfulnessBasedRelapsePrevention2021; @goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational interviewing [@millerMotivationalInterviewingHelping2012], and contingency management [@bigelowTheoreticalEmpiricalFoundations1999; @dutraMetaAnalyticReviewPsychosocial2008<!--can cut some refs eventually-->] are effective when provided to patients.  Unfortunately, fewer than 1 in 13 adults with an active AUD in 2019 received any treatment[@samhsa2019NationalSurveyc].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @MentalHealthReport1999; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017; @novakChangesHealthInsurance2018]. This treatment gap and associated disparities stem from well-known barriers to receiving clinician-delivered mental healthcare related to their affordability, accessibility, availability, and acceptability[@jacobsonUsingDigitalTherapeutics2023].
 
-In recent years, digital therapeutics have emerged as an alternative method to deliver evidence-based treatments and other support to patients either independently or in conjunction with medications or clinician-administered mental healthcare[@jacobsonDigitalTherapeuticsMental2022 <!--Can re-use this reference later rather than chapters if needed to get cites <= 40-->]. Digital therapeutics are web-based or smartphone "apps" that are used to prevent, treat, or manage a medical disorder including AUD or other mental illnesses.  Several large randomized controlled trials have confirmed that digital therapeutics for alcohol or other SUDs improve clinical outcomes (e.g., abstinence, heavy drinking days[@gustafsonSmartphoneApplicationSupport2014]; @campbellInternetdeliveredTreatmentSubstance2014]; see Campbell et al. [@campbellFirstWaveScalable2023] for review). They also may enhance treatment retention, reduce readmissions, and support engagement with medication-assisted treatments [@bottsMPOWERProjectResults2017; @japuntichSmokingCessationInternet2006; @pattenRandomizedClinicalTrial2006; @campbellInternetdeliveredTreatmentSubstance2014].
+In recent years, digital therapeutics have emerged as an alternative method to deliver evidence-based treatments and other support to patients either independently or in conjunction with medications or clinician-administered mental healthcare[@jacobsonDigitalTherapeuticsMental2022 <!--Can re-use this reference later rather than chapters if needed to get cites <= 40-->]. Digital therapeutics are web-based or smartphone "apps" that are used to prevent, treat, or manage a medical disorder including AUD or other mental illnesses.  Several large randomized controlled trials have confirmed that digital therapeutics for alcohol or other SUDs improve clinical outcomes (e.g., abstinence, heavy drinking days[@gustafsonSmartphoneApplicationSupport2014; @campbellInternetdeliveredTreatmentSubstance2014]; see Campbell et al. [@campbellFirstWaveScalable2023] for review). They also may enhance treatment retention, reduce readmissions, and support engagement with medication-assisted treatments [@bottsMPOWERProjectResults2017; @japuntichSmokingCessationInternet2006; @pattenRandomizedClinicalTrial2006; @campbellInternetdeliveredTreatmentSubstance2014].
 
 Digital therapeutics can mitigate or eliminate many of the affordability, accessibility, availability, and acceptability barriers associated with in-person, clinician-delivered mental healthcare because they are typically provided to patients on their smartphones[@jacobsonUsingDigitalTherapeutics2023].  Recent Pew Research Center survey data indicate high rates of smartphone ownership among US adults (approximately 85% in April 2021), with minimal variation across race, ethnicity, socioeconomic status, and geographic settings (e.g., urban, suburban, rural) [@pewresearchcenterMobileFactSheet2021]. Moreover, individuals with SUDs generally exhibit high rates of mobile technology use [@collinsFactorsAssociatedPatterns2016]. Consequently, digital therapeutics can offer highly scalable, on-demand therapeutic support that is accessible whenever and wherever it is needed most. 
 
@@ -850,6 +850,12 @@ Outline
   * We trained configurations up to tree depths of 4, allowing 4 way interactions among features
   * This allows for incorporation of within subject variation to make precise predictions. We build time into our features with change scores, most recent features, etc. With the ability to consider 4 way interactions with these types of features, we can identify highly complex scenarios. Example: we can consider how past use ratings interact with current future efficacy ratings immediately following a lapse episode (You might expect lower future efficacy right after a lapse episode)
   * XGBoost is able to handle highly correlated features (which is expected for this data)
+
+<!--KW: I don't think we need to a whole paragraph on xgboost in discussion but it might be good to bring out some of these points in other areas. For example, our intro puts a lot of focus on the dynamic nature of lapse risk. We could use bullet point 3 to emphasize this point (see below).
+
+2. Ability to capture individual fluctuations in lapse risk
+  * XGBoost contribution....This allows for incorporation of within subject variation to make precise predictions. We build time into our features with change scores, most recent features, etc. With the ability to consider 4 way interactions with these types of features, we can identify highly complex scenarios. Example: we can consider how past use ratings interact with current future efficacy ratings immediately following a lapse episode (You might expect lower future efficacy right after a lapse episode)
+-->
   
 *3. SHAPP values provide interpretability as to why our models are performing well*
   	* Emerging standard for interpretability
@@ -870,7 +876,7 @@ Decision thresholds we choose will impact the types of feedback participants are
 
 *5. Three prediction windows allows for increased personalization of treatment recommendations.*
   *Different treatments may be more appropriate/feasible when considering risk of lapse in next hour, next day, next week.
-  *e.g. urge surfing for lapse risk in the next hour, scheduling appointment with provider if elevated risk in next week
+  *e.g. urge surfing for lapse risk in the next hour, scheduling appointment with provider if elevated risk in next week <!--KW: To be even more helpful we would want to be able to predict with different lag times as well.-->
 
 *6. Local importance scores can provide information about what treatments to recommend during high risk periods.*
   * Explain how features map to specific observation for specific individual
@@ -880,7 +886,10 @@ Decision thresholds we choose will impact the types of feedback participants are
 <!-- Limitations and future directions -->
 
 *7. Certain aspects of our study design may limit generalizability.*
-  * Results only applicable to individuals with AUD with an abstinence only goal. Future work can incorporate harm reduction approaches to identify goal-inconsistent drinking behavior that is not limited to abstinence only.
+  * Results only applicable to individuals with AUD with an abstinence only goal. Future work can incorporate harm reduction approaches to identify goal-inconsistent drinking behavior that is not limited to abstinence only. 
+  
+  <!--KW: also mention our sample is in early recovery and our study is 3 months long. It would be important to also look at people stable in their recovery as well if we wanted to use our algorithm for long-term monitoring. -->
+  
   * Current sample was high N, but limited due to Madison based and low diversity sample. Importance of diverse training sets to offset racial bias in ML models
   * Data collection currently underway to recruit a national, more diverse sample, with OUD
   
@@ -890,8 +899,12 @@ Decision thresholds we choose will impact the types of feedback participants are
       * Utilization all three prediction windows concurrently and recommend treatments based on shortest window
   * Current models built on active sensing via EMA, which may increase burden.
     * EMA requires more effort on part of participant, some uncertaintly about how long response rate can be maintained for
-    * Current project also collected gps, cellular communications with context, and other passive measures. We will be able to see if we get comparable performance passively
     
+    <!--KW: Future direction might be to see if it is possible to predict as well with a one time daily EMA-->
+    
+    * Current project also collected gps, cellular communications with context, and other passive measures. We will be able to see if we get comparable performance passively
+
+<!--KW: Another consideration for considering different risk windows/implementation is the user experience (e.g., It might be alarming to get a notification that you will lapse in the next hour)-->
   
     
 
