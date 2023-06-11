@@ -1,7 +1,7 @@
 # Training controls for EMA study
 
 # NOTES------------------------------
-# Batches
+# Hour Batches
 # Batch_1: down_1; request_memory <- "24000MB", request_disk <- "1600MB" john
 # Batch_2: down_2; request_memory <- "24000MB", request_disk <- "1600MB" susan
 # Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan (current)  NEED TO CHANGE RATIO IN RESULTS
@@ -13,13 +13,17 @@
 # Batch_9: up_4; request_memory <- "42000MB", request_disk <- "1600MB" john (current)
 # Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah (current)
 
+# Week Batches
+# Batch_1: down_1; request_memory <- "36000MB", request_disk <- "1600MB" John (current)
+# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" John (queued)
+
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-window <- "1hour"
+window <- "1week"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch10"
+batch <- "batch2"
 
 ml_mode <- "classification"   # regression or classification
 configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
@@ -37,7 +41,7 @@ y_level_neg <- "no"
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("up_5") 
+resample <- c("down_2") 
 # resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3", "up_4") 
 
 
@@ -57,10 +61,9 @@ cv_name <- if_else(cv_resample_type == "nested",
 # the name of the batch of jobs to set folder name
 name_batch <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
 # the path to the batch of jobs to put the folder name
-path_batch <- str_c("P:/studydata/risk/chtc/", study) 
+path_batch <- str_c("studydata/risk/chtc/", study) 
 # location of data set
-path_data <- str_c("P:/studydata/risk/data_processed/", study) 
-
+path_data <- str_c("studydata/risk/data_processed/", study) 
 
 # ALGORITHM-SPECIFIC HYPERPARAMETERS-----------
 hp1_glmnet <- c(0.05, seq(.1, 1, length.out = 10)) # alpha (mixture)
@@ -89,7 +92,6 @@ request_memory <- "42000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
-
 
 
 # FORMAT DATA-----------------------------------------
@@ -173,3 +175,13 @@ build_recipe <- function(d, config) {
   
   return(rec)
 }
+
+# Update paths for OS--------------------------------
+# This does NOT need to be edited.  This will work for Windows, Mac and Linux OSs
+path_batch <- if_else(Sys.info()[["sysname"]] == "Windows",
+               str_c("P:/", path_batch), 
+               str_c("/Volumes/private/", path_batch))
+
+path_data <- if_else(Sys.info()[["sysname"]] == "Windows",
+                      str_c("P:/", path_data), 
+                      str_c("/Volumes/private/", path_data))
