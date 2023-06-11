@@ -4,13 +4,13 @@
 # Hour Batches
 # Batch_1: down_1; request_memory <- "24000MB", request_disk <- "1600MB" john
 # Batch_2: down_2; request_memory <- "24000MB", request_disk <- "1600MB" susan
-# Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan (current)  NEED TO CHANGE RATIO IN RESULTS
+# Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan
 # Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
 # Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
 # Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra (current) NEED TO CHANGE RATIO IN RESULTS
 # Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john
 # Batch_8: down_5; request_memory <- "32000MB", request_disk <- "1600MB" john
-# Batch_9: up_4; request_memory <- "42000MB", request_disk <- "1600MB" john (current)
+# Batch_9: up_4; request_memory <- "42000MB", request_disk <- "1600MB" john
 # Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah (current)
 
 # Week Batches
