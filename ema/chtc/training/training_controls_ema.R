@@ -14,35 +14,48 @@
 # Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah (current)
 
 # Week Batches
-# Batch_1: down_1; request_memory <- "36000MB", request_disk <- "1600MB" John (current)
-# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" John (queued)
+# Batch_1: down_1; request_memory <- "36000MB", request_disk <- "1600MB" john
+# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" john (current)
+# Batch_3: up_2; susan (current)
+# Batch_4: up_1; sarah (pending/current)
+
+# Day Batches
+# Batch_1: down_1; kendra
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-window <- "1week"
+window <- "1day"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch2"
-
-ml_mode <- "classification"   # regression or classification
-configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
+batch <- "batch1"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
 
 seed_splits <- 102030
 
+ml_mode <- "classification"   # regression or classification
+configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
+
+# RESAMPLING FOR OUTCOME-----------------------------------
+# note that ratio is under_ratio for up and smote and over_ratio for down
+resample <- c("down_1") 
+# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3", "up_4") 
+
+# CHTC SPECIFIC CONTROLS----------------------------
+tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
+max_idle <- 1000
+request_cpus <- 1 
+request_memory <- "36000MB"
+request_disk <- "1600MB"
+flock <- TRUE
+glide <- TRUE
+
 # OUTCOME-------------------------------------
 y_col_name <- "lapse" 
 y_level_pos <- "yes" 
 y_level_neg <- "no"
-
-
-# RESAMPLING FOR OUTCOME-----------------------------------
-# note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_2") 
-# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3", "up_4") 
 
 
 # CV SETTINGS---------------------------------
@@ -84,14 +97,7 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 # early stopping = 20
  
 
-# CHTC SPECIFIC CONTROLS----------------------------
-tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
-max_idle <- 1000
-request_cpus <- 1 
-request_memory <- "42000MB"
-request_disk <- "1600MB"
-flock <- TRUE
-glide <- TRUE
+
 
 
 # FORMAT DATA-----------------------------------------
