@@ -7,20 +7,22 @@
 # Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan
 # Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
 # Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
-# Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra (current) NEED TO CHANGE RATIO IN RESULTS
+# Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra
 # Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john
 # Batch_8: down_5; request_memory <- "32000MB", request_disk <- "1600MB" john
 # Batch_9: up_4; request_memory <- "42000MB", request_disk <- "1600MB" john
-# Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah (current)
+# Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah
 
 # Week Batches
 # Batch_1: down_1; request_memory <- "36000MB", request_disk <- "1600MB" john
-# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" john (current)
-# Batch_3: up_2; susan (current)
-# Batch_4: up_1; sarah (pending/current)
+# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" john
+# Batch_3: up_2; susan
+# Batch_4: up_1; sarah (current)
 
 # Day Batches
-# Batch_1: down_1; kendra
+# Batch_1: down_1; kendra (current)
+# Batch_2: down_2; john (current)
+# Batch_3: down_2; susan (current)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -28,7 +30,7 @@ window <- "1day"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch1"
+batch <- "batch3"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -39,9 +41,10 @@ ml_mode <- "classification"   # regression or classification
 configs_per_job <- 50  # number of model configurations that will be fit/evaluated within each CHTC
 
 # RESAMPLING FOR OUTCOME-----------------------------------
-# note that ratio is under_ratio for up and smote and over_ratio for down
-resample <- c("down_1") 
-# resample <- c("down_1", "down_2", "down_3", "down_4", "down_5", "up_1" "up_2", "up_3", "up_4") 
+# note that ratio is under_ratio, which is used by downsampling as is
+# It is converted to  overratio (1/ratio) for up and smote
+resample <- c("down_3") 
+
 
 # CHTC SPECIFIC CONTROLS----------------------------
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
@@ -51,6 +54,7 @@ request_memory <- "36000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
+
 
 # OUTCOME-------------------------------------
 y_col_name <- "lapse" 
