@@ -842,8 +842,10 @@ Outline
 *1. The performance of our models across all three prediction windows is higher than any published literature to date.*
   * Break down meanings of sensitivity, specificity, AUC
     * We are doing really well...Likely have reached a performance ceiling (due to irreducible error)
-  * Week and hour models perform comparably, Day level model is a significant improvement in classifier performance (via Baysian anlaysis of posteriors)
+  * Week and hour models perform comparably, Day level model is a significant improvement in classifier performance (via Baysian anlaysis of posteriors) 
   * Highlight how we build upon previous research -- large N, treatment seeking sample, temporally precise lapse outcome, grouped resampling
+
+<!--JJC: its the hour level model that is the best but otherwise, this is good.   Comment on why the hour level model is likely superior? though perhaps we need to have discussed SHAP to do that?-->
 
 *2. Our top performing model was an xgboost, which incorporates multiple elements that likely contribute to our succesful prediction.*
   * Boosted tree models can handle non linear interactive effects natively within the algorithm
@@ -856,13 +858,19 @@ Outline
 2. Ability to capture individual fluctuations in lapse risk
   * XGBoost contribution....This allows for incorporation of within subject variation to make precise predictions. We build time into our features with change scores, most recent features, etc. With the ability to consider 4 way interactions with these types of features, we can identify highly complex scenarios. Example: we can consider how past use ratings interact with current future efficacy ratings immediately following a lapse episode (You might expect lower future efficacy right after a lapse episode)
 -->
+
+<!-- JJC: Agree with kendra that we try to keep the machine learning in the background and the model and its performance, uses, limtations etc in the foreground.   No need to focus on XGBoost-->
+
+
   
-*3. SHAPP values provide interpretability as to why our models are performing well*
+*3. SHAP values provide interpretability as to why our models are performing well*
   	* Emerging standard for interpretability
     * Additive decomposition of the contributions that each of these features make to the prediction for each observation 
     *Difference between global versus local Shaps
     *Highest SHAPs are generally in agreement with relapse prevention model.
-  
+    
+<!-- JJC: Again, I dont want to confuse the reader with a focus on SHAP other than enough to understand what is needed to intepret the results.   We do need them to know the difference between global vs local b/c we will want to make clear that even features that arent generally influential (i.e., high global SHAP) are importnat for some participants at some times - local SHAP.  We will need to talk about the top features in a bit more detail.  We need to comment on the demos not having much/any impact -->
+
 <!-- Considerations for Clinical Application -->
 *4. It is important to consider multiple aspects of model performance when identifying the clinical utility of prediction models.*
     * While sensitivity, specificity, and balanced accuracy are encouragingly high, PPV is low
@@ -877,11 +885,15 @@ Decision thresholds we choose will impact the types of feedback participants are
 *5. Three prediction windows allows for increased personalization of treatment recommendations.*
   *Different treatments may be more appropriate/feasible when considering risk of lapse in next hour, next day, next week.
   *e.g. urge surfing for lapse risk in the next hour, scheduling appointment with provider if elevated risk in next week <!--KW: To be even more helpful we would want to be able to predict with different lag times as well.-->
+  
+  <!-- this should go earlier when we first talk about the three models and their performance.  Very important points.  I agree with KW about the need for lags too.  Not sure if that is raised here as a future direction or saved for a later future directions section-->
 
 *6. Local importance scores can provide information about what treatments to recommend during high risk periods.*
   * Explain how features map to specific observation for specific individual
   * Across observations, generally all features become important at some time
   * Many of our top local SHAPs align with Marlatt's relapse prevention model -- align nicely with modules you would expect to see in AUD treatment app
+  
+<!-- JJC:  Good, this can follow SHAP.  Need to consider how it should be ordered relative to the ideas about lag that KW raised.  I think it may be able to be kept separate.  -->
   
 <!-- Limitations and future directions -->
 
@@ -889,7 +901,9 @@ Decision thresholds we choose will impact the types of feedback participants are
   * Results only applicable to individuals with AUD with an abstinence only goal. Future work can incorporate harm reduction approaches to identify goal-inconsistent drinking behavior that is not limited to abstinence only. 
   
   <!--KW: also mention our sample is in early recovery and our study is 3 months long. It would be important to also look at people stable in their recovery as well if we wanted to use our algorithm for long-term monitoring. -->
-  
+
+<!--JJC: not really high N. High on observations but still only N=151, which is just adequate.  I might just avoid this topic.  We DO need to talk about the other participant characteristics for which we did have variability and for which we didnt.   Race/ethniticy, geography, and stage of recovery seem the most important to highlight-->
+
   * Current sample was high N, but limited due to Madison based and low diversity sample. Importance of diverse training sets to offset racial bias in ML models
   * Data collection currently underway to recruit a national, more diverse sample, with OUD
   
@@ -900,11 +914,16 @@ Decision thresholds we choose will impact the types of feedback participants are
   * Current models built on active sensing via EMA, which may increase burden.
     * EMA requires more effort on part of participant, some uncertaintly about how long response rate can be maintained for
     
-    <!--KW: Future direction might be to see if it is possible to predict as well with a one time daily EMA-->
+    <!--JJC:  Need to consider where point 8 is raised.   It might have come up earlier but maybe lag is saved until here.   Need to consider flow-->
     
+<!--KW: Future direction might be to see if it is possible to predict as well with a one time daily EMA-->
+<!--JJC: Agree with Kendra that we need to have a limitation/direction about burden.   Can cite burden and say well tolerated.   But can talk about potential difficulty with longer term use.  Can talk about ways to address which include 1x daily and added passive signals like GPS-->
+
     * Current project also collected gps, cellular communications with context, and other passive measures. We will be able to see if we get comparable performance passively
 
 <!--KW: Another consideration for considering different risk windows/implementation is the user experience (e.g., It might be alarming to get a notification that you will lapse in the next hour)-->
+
+<!-- JJC:  We do need a section where we talk about what we do with these signals.   This should follow the PPV so we can acknowledge those issues.   Can talk about feedback to clinicians but highglight they may want it.  Can talk about risk feedback to patients but need to consider what info is provided.  Can talk about use to recommend IRL and DTx treatments.  
   
     
 
