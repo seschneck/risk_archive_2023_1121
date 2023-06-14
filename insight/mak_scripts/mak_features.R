@@ -1,17 +1,8 @@
 # Script to engineer EMA features on CHTC
-# Version 1 was for CBIT
-# Version 2 was for Nowak group
-# This is version 3
-
-
 
 # Constants: EDIT
-##GEF: will we need these for insight? would only use one set of paramaters
-window <- "1week"  # window for calculating labels
 lead <-  0 # feature lead time
-version <- "v4"
-
-##GEF: not needed?
+version <- "v1" # insight version 1
 period_durations_morning <- c(24, 48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 
@@ -34,15 +25,14 @@ args <- commandArgs(trailingOnly = TRUE)
 job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in row numbers
 job_stop <- as.numeric(args[2])
 
-# read in insight ##GEF: UPDATE to read in insight file from server
+# read in ema.csv (for ema features)
 ema <- read_csv("ema.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"),
          ema_2 = ema_2,  
          ema_3 = ema_3,
          ema_4 = ema_4,
          ema_5 = ema_5)  %>%   
-  select(-starts_with("ema_1_"), -ema_1, -ema_type) %>%   # not using ema_1.  Info is in lapse df
-  arrange(subid, dttm_obs)
+  arrange(subid, dttm_obs) 
 
 # hack b.c I couldnt get data_type_col_name working with ema_long
 ema_count <- ema %>% 
@@ -56,40 +46,25 @@ ema_long <- ema %>%
     names_to = "ema_num",
     values_to = "response")
 
-
-lapses <- vroom("lapses.csv", show_col_types = FALSE) %>% 
+# read in lapses.csv (for lapse history features)
+lapses <- read_csv("lapses.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"))
 
-##GEF: not needed, all in insight.csv
-labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
-  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
+# read in labels_1week.csv (for outcome labels & job slicing)
+labels <- read_csv("labels_1week.csv", show_col_types = FALSE) %>% 
+  mutate(window_start = with_tz(window_start, tz = "America/Chicago")) %>% 
+  select(subid, response_id, dttm_label = window_start, lapse) %>% 
   slice(job_start:job_stop) %>% 
   mutate(label_num = seq(job_start, job_stop, by = 1))
 
-##GEF: needed? already removed out of bounds observations from insight.csv
-dates <- vroom("study_dates.csv", show_col_types = FALSE) %>% 
+# read in study_dates.csv (for windowing early features)
+dates <- read_csv("study_dates.csv", show_col_types = FALSE) %>% 
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
-##GEF: needed?
-demos <- vroom("screen.csv", show_col_types = FALSE) %>% 
-  select(subid,
-         demo_age = dem_1,
-         demo_sex = dem_2,
-         dem_3, dem_4,
-         demo_educ = dem_5,
-         demo_marital = dem_8) %>% 
-  mutate(demo_race = if_else(str_detect(dem_3, "White/Caucasian"), "White/Caucasian", "Other"),
-         demo_race = if_else(str_detect(dem_4, "Yes"), "Other", demo_race),
-         demo_educ = str_replace(demo_educ, "High school or GED", "High school or less"),
-         demo_educ = str_replace(demo_educ, "Less than high school or GED degree", "High school or less"),
-         demo_educ = str_replace(demo_educ, "2-Year degree", "Some college"),
-         demo_educ = str_replace(demo_educ, "College degree", "College or more"),
-         demo_educ = str_replace(demo_educ, "Advanced degree", "College or more"),
-         demo_marital = str_replace(demo_marital, "Divorced", "Other"),
-         demo_marital = str_replace(demo_marital, "Widowed", "Other"),
-         demo_marital = str_replace(demo_marital, "Separated", "Other")) %>% 
-  select(-dem_3, -dem_4)
+# read in demos.csv (for demographic features)
+demos <- read_csv("demos.csv", show_col_types = FALSE) %>% 
+  arrange(subid)
 
 # make features ------------------
 # i_label <- 1   # for testing
@@ -242,5 +217,5 @@ features <- features %>%
 features %>%
   mutate(lapse = labels$lapse) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
-  vroom_write(str_c("features_", window, "_", lead, "_", version, "_", 
-                    job_start, "_", job_stop, ".csv"), delim = ",")
+  write_csv(str_c("features_", version, "_", job_start, "_", job_stop, ".csv"), 
+            delim = ",")
