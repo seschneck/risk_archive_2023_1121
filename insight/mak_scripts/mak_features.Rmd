@@ -157,6 +157,13 @@ period_durations_morning <- c(24, 48, 72, 168) # feature duration window for ite
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 ```
 
+Set window & lead
+```{r}
+window <- "1week"
+lead <- 0
+```
+
+
 Calculate features in loop
 ```{r}
 features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
