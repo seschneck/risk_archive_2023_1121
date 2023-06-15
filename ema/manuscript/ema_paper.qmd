@@ -837,9 +837,27 @@ plot_shap_week + plot_shap_day + plot_shap_hour
 
 ## 1. Model Performance, SHAP, and Model Comparisons
 
+- Overall model performance
+* Talk about solid overall performance of three models
+- ROC, sensitivity and specificity of three models
+- Likely hit a ceiling with model performance. Can talk about low difference between inner and outer fold performance as potential support that we reached a ceiling/arent capitalizing on noise
+* Likely result of benefit of using nonlinear algorithms, time baked into features, etc, discussed in methods. High dimensional data set, longitiudinal measurement. BUT our method of model selection did not include comparison to lower dimensional feature sets, consideration of other algorithms. So conclusion cannot be that this is more superior. But conclusion is our stated performance. 
+* Reminder that these are held out performance metrics in new people -- i.e. grouped nested kfold cv. So we expect these high performance estimates to generalize
 
 
+SHAP
+* Describe enough so people know what it is
+* Difference between global and local importance
+* Even features with low overall global importance can be significant if they have high local importance -- indicating these things can be very important for some people at some times
+*Demographic variables not really important, but conclusions are dependent on representativeness of our sample. Despite having wide representation of SES, gender, and age, these did not typically emerge in SHAPs. While race/ethnicity did not emerge, we had a limimted representation of black and brown populations so we should be cautious of drawing conclusion of the lack of race as a highly predictive feature.
 
+
+Model comparisons
+* Reasons why hour level models are the best -- closest to lapse event, inclusion of temporally based features (day and hour)
+* While sensitivity, specificity, and balanced accuracy are encouragingly high, PPV is low
+    * PPV and NPC are significantly effected by outcome distribution, often not reported in ML models.
+    * Adjusting the decision threshold can increase PPV (at cost of reducing sensitivity)
+    * Some interventions are more appropriate for low PPV, high sensitivity scenarioes (e.g. false alarms are not necessarily bad if you are just encouraging increased use of the dtx). Higher cost interventions (e.g. contacting a provider) may be better suited for higher decision thresholds to increase PPV
 
 
 
