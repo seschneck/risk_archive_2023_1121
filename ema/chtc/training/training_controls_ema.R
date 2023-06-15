@@ -23,9 +23,9 @@
 # Batch_1: down_1; kendra
 # Batch_2: down_2; john
 # Batch_3: down_3; susan
-# Batch_4: down_4; john (current)
+# Batch_4: down_4; john
 # Batch_5: down_5; kendra (current)
-# Batch_6: up_1; john (pending)
+# Batch_6: up_1; john (current)
 # Batch_7: up_2; kendra (pending)
 # Batch_8: up_3; susan (current)
 
