@@ -24,10 +24,12 @@
 # Batch_2: down_2; john
 # Batch_3: down_3; susan
 # Batch_4: down_4; john
-# Batch_5: down_5; kendra (current)
+# Batch_5: down_5; kendra
 # Batch_6: up_1; john (current)
-# Batch_7: up_2; kendra (pending)
+# Batch_7: up_2; kendra (current)
 # Batch_8: up_3; susan (current)
+# Batch_9: up_4; john (pending)
+# Batch_9: up_5; susan (pending)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -35,7 +37,7 @@ window <- "1day"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch8"
+batch <- "batch10"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -48,7 +50,7 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("up_3") 
+resample <- c("up_5") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
