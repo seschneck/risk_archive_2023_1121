@@ -1,0 +1,370 @@
+---
+title: "Combines batches of training jobs from CHTC for `r params$window` window and `r params$lead` lead `r params$version` using 1r params$cv` CV"
+author: "John Curtin & Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  study: "ema"
+  window: "1hour"
+  lead: 0
+  version: "v4"
+  cv: "nested"
+  algorithms: "all"   # "all" or name of specific algorithm
+editor_options: 
+  chunk_output_type: console
+---
+
+### Code Status
+
+In use for both kfold and nested cv, including use of batches
+
+This script aggregates all results/metrics for a batch or batches of jobs
+that train all model configurations for a specific outcome/label window.  
+
+
+NEED: update hyperparameter plots.  Currently combines across ratios for resampling.   Need to disagregate into different plots.
+
+### Set Up Environment
+
+```{r set_params}
+study <- params$study
+window <- params$window
+lead <- params$lead 
+version <- params$version
+cv <- params$cv
+algorithms <- params$algorithms
+```
+
+Handle conflicts
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+options(conflicts.policy = "depends.ok")
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+theme_set(theme_classic()) 
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/", study)}
+        )
+```
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Read results.csv files
+
+Set up object for results
+```{r}
+results_all <- NULL
+```
+
+Get batch_names
+```{r}
+batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+  
+if (algorithms == "all") {
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                             str_detect(batch_names, cv) &
+                             str_detect(batch_names, version) &
+                             str_detect(batch_names, window)]
+} else {
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                             str_detect(batch_names, cv) &
+                             str_detect(batch_names, version) &
+                             str_detect(batch_names, window) &
+                             str(detect(batch_names, algorithms))]
+}
+
+batch_names
+```
+
+
+Loop over batch_names to read in files and perform checks
+```{r}
+
+for (batch_name in batch_names) {
+  message("Processing Batch: ", batch_name)
+  
+  # read in configs
+  configs <- read_csv(file.path(path_input, batch_name, "input", "configs.csv"), 
+                      show_col_types = FALSE)
+  (n_configs <- nrow(configs))
+  
+  # read in results
+  results_batch <- read_csv(file.path(path_input, batch_name, "output", 
+                                      "batch_results.csv"), 
+                            show_col_types = FALSE)
+  (n_results_batch <- nrow(results_batch))
+  
+  # Check counts of results files
+  if (!(n_configs == n_results_batch)) {
+    stop(n_configs, " configs != ", n_results_batch, " results files!")
+  } else {
+    message(n_results_batch, " results files detected.  Correct!")
+  }
+  
+  # Check col count
+  if (!(ncol(results_batch) == 17)) {
+    stop(ncol(results_batch), " columsn != 17")
+  } else {
+    message(ncol(results_batch), " columns detected.  Correct!\n")
+  }
+  
+  
+  
+  # results_batch %>% tab(split_num) %>% print()
+  # results_batch %>% tab(outer_split_num) %>% print()
+  # results_batch %>% tab(inner_split_num) %>% print()
+  # results_batch %>% tab(algorithm) %>% print()
+  # results_batch %>% tab(feature_set) %>% print()
+  # results_batch %>% tab(hp1) %>% print()
+  # results_batch %>% tab(hp2) %>% print()
+  # results_batch %>% tab(hp3) %>% print()
+  # results_batch %>% tab(resample) %>% print()
+
+  # Add batch to all metrics
+  results_all <- results_all %>% 
+    bind_rows(results_batch)
+}
+```
+
+
+### Wrap up processing of raw metrics
+
+
+
+Remove duplicate rows (e.g., same hyperparameters across multiple batches)
+```{r}
+nrow(results_all)
+
+results_all <- results_all |> 
+  distinct(split_num, outer_split_num, inner_split_num, algorithm, feature_set,
+           hp1, hp2, hp3, resample, .keep_all = TRUE)
+
+nrow(results_all)
+```
+
+Final checks across all batches
+
+```{r}
+  results_all %>% tab(split_num) %>% print()
+  results_all %>% tab(outer_split_num) %>% print()
+  results_all %>% tab(inner_split_num) %>% print()
+  results_all %>% tab(algorithm) %>% print()
+  results_all %>% tab(feature_set) %>% print()
+  results_all %>% tab(hp1) %>% print()
+  results_all %>% tab(hp2) %>% print()
+  results_all %>% tab(hp3) %>% print()
+  results_all %>% tab(resample) %>% print()
+```
+
+Save raw metrics file
+```{r}
+results_all %>% 
+  # arrange(split_num, outer_split_num, inner_split_num, algorithm, resample
+  write_csv(file.path(path_processed, str_c("metrics_raw_train_", 
+                                            window, "_", lead, "_", version, "_", 
+                                            cv, ".csv")))
+```
+
+### Average metrics across folds for model configurations
+
+Inner loop performance of best config.  
+This mean performance for each configuration over inner x outer folds (e.g., 900 folds for 3x10 inner and outer).
+It is what we would get (essentially) if we just did simple k-fold but with LOTs of folds
+```{r}
+metrics_avg <- results_all %>% 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                    mean),
+             n_jobs = n(), .groups = "drop") %>% 
+  relocate(n_jobs) %>% 
+  arrange(desc(roc_auc))
+
+metrics_avg |> print_kbl()
+
+best_config <- metrics_avg |> 
+  slice(1) |> 
+  print()
+```
+
+Performance metric plot across all inner folds
+
+```{r}
+results_all |> 
+  filter(algorithm == best_config$algorithm,
+         feature_set == best_config$feature_set,
+         hp1 == best_config$hp1,
+         hp2 == best_config$hp2,
+         hp3 == best_config$hp3,
+         resample == best_config$resample) |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
+```
+
+
+### Plot hyperparameters
+
+```{r}
+# update algorithms to actual ones in the tibble
+algorithms <- unique(metrics_avg$algorithm) 
+feature_sets <- unique(metrics_avg$feature_set) 
+
+for (k in algorithms) {
+  
+  results_k <- metrics_avg %>% 
+      filter(algorithm == k)
+  
+  for (i in feature_sets) {
+  
+    results_i <- results_k %>% 
+      filter(feature_set == i)
+    
+    
+    # glmnet
+    if (k == "glmnet") {
+  
+      plot_title <- str_c("Plotting glmnet hyperparameters for ", i, " feature set")
+  
+  
+      plot_i <- results_i %>%
+        mutate(hp1 = factor(hp1, ordered = TRUE),
+               resample = case_when(resample == "none" ~ "none_19",
+                                    TRUE ~ resample)) %>% 
+        separate(resample, c("resample", "under_ratio"), "_") %>% 
+        mutate(under_ratio = factor(under_ratio, levels = c("1", "3", "19"))) %>% 
+        ggplot(mapping = aes(x = log(hp2), 
+                         y = roc_auc, 
+                         group = hp1, 
+                         color = hp1)) +
+          geom_line() +
+          facet_grid(under_ratio ~ resample) +
+          scale_color_discrete(name = "mixture (alpha)") +
+          labs(title = plot_title, x = "penalty (lambda)", y = "ROC AUC")
+  
+      print(plot_i)
+    }
+
+
+    # random forest
+    if (k == "random_forest") {
+      
+      plot_title <- str_c("Plotting RF hyperparameters for ", i, " feature set")
+      
+      plot_i <- results_i %>%
+        mutate(hp2 = factor(hp2, ordered = TRUE),
+              resample = case_when(resample == "none" ~ "none_19",
+                                    TRUE ~ resample)) %>% 
+        separate(resample, c("resample", "under_ratio"), "_") %>% 
+        mutate(under_ratio = factor(under_ratio, levels = c("1", "3", "19"))) %>% 
+        ggplot(mapping = aes(x = hp1, 
+                         y = roc_auc, 
+                         group = hp2, 
+                         color = hp2)) +
+          geom_line() +
+          facet_grid(under_ratio ~ resample) +
+          scale_color_discrete(name = "min n") +
+          labs(title = plot_title, x = "mtry", y = "ROC AUC")
+      
+       print(plot_i)
+    }  
+    
+    # XGBoost
+    if (k == "xgboost") {
+      
+      plot_title <- str_c("Plotting XGBoost hyperparameters for ", i, " feature set and DOWNSAMPLE")
+      plot_i <- results_i %>%
+        mutate(log_hp1 = log10(hp1),
+               hp2 = factor(hp2, ordered = TRUE),
+               hp3 = factor(hp3, ordered = TRUE),
+               resample = case_when(resample == "none" ~ "none_19",
+                                    TRUE ~ resample)) %>% 
+        separate(resample, c("resample", "under_ratio"), "_") %>% 
+        mutate(under_ratio = factor(under_ratio, levels = c("1", "3", "19"))) %>% 
+        filter(resample == "down") %>% 
+        ggplot(mapping = aes(x = log_hp1, 
+                         y = roc_auc, 
+                         group = hp3, 
+                         color = hp3)) +
+          geom_line() +
+          facet_grid(vars(hp2)) +
+          scale_color_discrete(name = "mtry") +
+          labs(title = plot_title, x = "learning rate", y = "ROC AUC")
+      
+       print(plot_i)
+       
+      plot_title <- str_c("Plotting XGBoost hyperparameters for ", i, " feature set and UPSAMPLE")
+      plot_i <- results_i %>%
+        filter(!hp3 == 2) %>% 
+        mutate(log_hp1 = log10(hp1),
+               hp2 = factor(hp2, ordered = TRUE),
+               hp3 = factor(hp3, ordered = TRUE),
+               resample = case_when(resample == "none" ~ "none_19",
+                                    TRUE ~ resample)) %>% 
+        separate(resample, c("resample", "under_ratio"), "_") %>% 
+        mutate(under_ratio = factor(under_ratio, levels = c("1", "3", "19"))) %>% 
+        filter(resample == "up") %>% 
+        ggplot(mapping = aes(x = log_hp1, 
+                         y = roc_auc, 
+                         group = hp3, 
+                         color = hp3)) +
+          geom_line() +
+          facet_grid(vars(hp2)) +
+          scale_color_discrete(name = "mtry") +
+          labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
+      
+       print(plot_i)
+    }  
+  
+    
+    
+    # # knn
+    # if (k == "knn") {
+    #   
+    #   plot_title <- str_c("Plotting knn hyperparameters for ", i, " feature set")
+    #   
+    #   plot_i <- results_i %>%
+    #     mutate(resample = case_when(resample == "none" ~ "none_19",
+    #                                 TRUE ~ resample)) %>% 
+    #     separate(resample, c("resample", "under_ratio"), "_") %>% 
+    #     mutate(under_ratio = factor(under_ratio, levels = c("1", "3", "19"))) %>% 
+    #     ggplot(mapping = aes(x = hp1, 
+    #                      y = bal_accuracy)) +
+    #       geom_line() +
+    #       facet_grid(under_ratio ~ resample) +
+    #       labs(title = plot_title, x = "neighbors", y = "balanced accuracy")
+    #   
+    #     print(plot_i)
+    # }
+  }
+}
+```

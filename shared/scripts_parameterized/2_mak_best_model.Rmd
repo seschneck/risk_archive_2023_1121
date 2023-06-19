@@ -46,8 +46,6 @@ conflict_prefer("slice", "dplyr")
 conflict_prefer("spec", "yardstick")
 conflict_prefer("col_factor", "vroom")
 conflict_prefer("vi", "vip")
-
-library(here)  # establish project directory consistently as working directory
 ```
 
 
@@ -108,7 +106,7 @@ Detect n cores
 Read in aggregate CHTC metrics
 ```{r}
 metrics_raw <- 
-  vroom(here(path_processed, str_c("metrics_raw_train_", data_type, "_", window, 
+  vroom(file.path(path_processed, str_c("metrics_raw_train_", data_type, "_", window, 
                                    "_", lead, "_", version, "_", cv, ".csv")), 
         col_types = "iiiiccdddcdddddddi",
         show_col_types = FALSE)
@@ -154,15 +152,15 @@ algorithm_best <- config_best %>%
 
 10 x 1-fold resampling of best model configuration 
 ```{r resample_best_config_kfold}
-if(file.exists(here(path_models, str_c("resample_metrics_best_", data_type, "_", 
+if(file.exists(file.path(path_models, str_c("resample_metrics_best_", data_type, "_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))) {
   
-  path_best <- here(path_input, 
+  path_best <- file.path(path_input, 
                     str_c("train_", data_type, "_", window, "_", lead, "_", 
                           version, "_", algorithm_best, "_", cv), "input")   
   
-  source(here(path_best, "training_controls.R"))
+  source(file.path(path_best, "training_controls.R"))
   
   chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
   if (length(chunks) == 2) {
@@ -173,9 +171,9 @@ if(file.exists(here(path_models, str_c("resample_metrics_best_", data_type, "_",
   
   # open based on file type
   if (str_detect(fn, "csv")) {
-    d <- vroom(here(path_best, fn), show_col_types = FALSE) 
+    d <- vroom(file.path(path_best, fn), show_col_types = FALSE) 
   } else {
-    d <- readRDS(here(path_best, fn))
+    d <- readRDS(file.path(path_best, fn))
   }
   
   d <- d %>% 
@@ -239,12 +237,12 @@ if(file.exists(here(path_models, str_c("resample_metrics_best_", data_type, "_",
     max()
   
   metrics_best  %>% 
-  saveRDS(here(path_models, str_c("resample_metrics_best_", data_type, "_", 
+  saveRDS(file.path(path_models, str_c("resample_metrics_best_", data_type, "_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
 
   preds_best %>%
-    saveRDS(here(path_models, str_c("resample_preds_best_", data_type, "_", 
+    saveRDS(file.path(path_models, str_c("resample_preds_best_", data_type, "_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
 } else {
@@ -256,14 +254,14 @@ if(file.exists(here(path_models, str_c("resample_metrics_best_", data_type, "_",
 ### Fit best final model in all data
 
 ```{r}
-if(!file.exists(here(path_models, str_c("best_model_fit_", data_type, "_", 
+if(!file.exists(file.path(path_models, str_c("best_model_fit_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))) {
   message("Fitting best model configuration to full dataset")
   fit_best <- fit_best_model(config_best, rec, d, ml_mode = ml_mode)
   
   fit_best  %>% 
-  saveRDS(here(path_models, str_c("best_model_fit_", data_type, "_", 
+  saveRDS(file.path(path_models, str_c("best_model_fit_", data_type, "_", 
                                   window, "_", lead, "_", version, 
                                   ".rds")))
 } else{
