@@ -139,8 +139,6 @@ for (batch_name in batch_names) {
     message(ncol(results_batch), " columns detected.  Correct!\n")
   }
   
-  
-  
   # results_batch %>% tab(split_num) %>% print()
   # results_batch %>% tab(outer_split_num) %>% print()
   # results_batch %>% tab(inner_split_num) %>% print()
@@ -160,9 +158,7 @@ for (batch_name in batch_names) {
 
 ### Wrap up processing of raw metrics
 
-
-
-Remove duplicate rows (e.g., same hyperparameters across multiple batches)
+Remove duplicate rows (e.g., same hyper-parameters across multiple batches)
 ```{r}
 nrow(results_all)
 
@@ -196,7 +192,7 @@ results_all %>%
                                             cv, ".csv")))
 ```
 
-### Average metrics across folds for model configurations
+### Median metrics across folds for model configurations
 
 Inner loop performance of best config.  
 This mean performance for each configuration over inner x outer folds (e.g., 900 folds for 3x10 inner and outer).
@@ -205,12 +201,15 @@ It is what we would get (essentially) if we just did simple k-fold but with LOTs
 metrics_avg <- results_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                    mean),
+                    median),
              n_jobs = n(), .groups = "drop") %>% 
   relocate(n_jobs) %>% 
-  arrange(desc(roc_auc))
+  arrange(desc(roc_auc)) |> 
+  ungroup()
 
-metrics_avg |> print_kbl()
+metrics_avg |> 
+  slice(1:50) |> 
+  print_kbl()
 
 best_config <- metrics_avg |> 
   slice(1) |> 
