@@ -13,6 +13,8 @@ params:
   version: "v4"
   cv: "nested"
   algorithms: "all"   # "all" or name of specific algorithm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -60,7 +62,12 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)}
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/", study)}
         )
 ```
 
@@ -125,15 +132,24 @@ for (batch_name in batch_names) {
     message(n_results_batch, " results files detected.  Correct!")
   }
   
-  results_batch %>% tab(split_num) %>% print()
-  results_batch %>% tab(outer_split_num) %>% print()
-  results_batch %>% tab(inner_split_num) %>% print()
-  results_batch %>% tab(algorithm) %>% print()
-  results_batch %>% tab(feature_set) %>% print()
-  results_batch %>% tab(hp1) %>% print()
-  results_batch %>% tab(hp2) %>% print()
-  results_batch %>% tab(hp3) %>% print()
-  results_batch %>% tab(resample) %>% print()
+  # Check col count
+  if (!(ncol(results_batch) == 17)) {
+    stop(ncol(results_batch), " columsn != 17")
+  } else {
+    message(ncol(results_batch), " columns detected.  Correct!\n")
+  }
+  
+  
+  
+  # results_batch %>% tab(split_num) %>% print()
+  # results_batch %>% tab(outer_split_num) %>% print()
+  # results_batch %>% tab(inner_split_num) %>% print()
+  # results_batch %>% tab(algorithm) %>% print()
+  # results_batch %>% tab(feature_set) %>% print()
+  # results_batch %>% tab(hp1) %>% print()
+  # results_batch %>% tab(hp2) %>% print()
+  # results_batch %>% tab(hp3) %>% print()
+  # results_batch %>% tab(resample) %>% print()
 
   # Add batch to all metrics
   results_all <- results_all %>% 
@@ -157,6 +173,20 @@ results_all <- results_all |>
 nrow(results_all)
 ```
 
+Final checks across all batches
+
+```{r}
+  results_all %>% tab(split_num) %>% print()
+  results_all %>% tab(outer_split_num) %>% print()
+  results_all %>% tab(inner_split_num) %>% print()
+  results_all %>% tab(algorithm) %>% print()
+  results_all %>% tab(feature_set) %>% print()
+  results_all %>% tab(hp1) %>% print()
+  results_all %>% tab(hp2) %>% print()
+  results_all %>% tab(hp3) %>% print()
+  results_all %>% tab(resample) %>% print()
+```
+
 Save raw metrics file
 ```{r}
 results_all %>% 
@@ -168,7 +198,7 @@ results_all %>%
 
 ### Average metrics across folds for model configurations
 
-Foreshadow performance.  These are simple kfold evaluations
+Foreshadow performance.  This is all inner folds.
 ```{r}
 metrics_avg <- results_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
