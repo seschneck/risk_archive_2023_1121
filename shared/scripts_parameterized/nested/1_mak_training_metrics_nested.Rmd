@@ -21,11 +21,9 @@ editor_options:
 
 In use for both kfold and nested cv, including use of batches
 
-This script aggregates all results/metrics for a batch or batches of jobs
-that train all model configurations for a specific outcome/label window.  
+This script aggregates all results/metrics for a batch or batches of jobs that train all model configurations for a specific outcome/label window.
 
-
-NEED: update hyperparameter plots.  Currently combines across ratios for resampling.   Need to disagregate into different plots.
+NEED: update hyper-parameter plots. Currently combines across ratios for resampling. Need to disaggregate into different plots.
 
 ### Set Up Environment
 
@@ -39,11 +37,13 @@ algorithms <- params$algorithms
 ```
 
 Handle conflicts
+
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
 options(conflicts.policy = "depends.ok")
 ```
 
 Packages for script
+
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(tidyverse)
 
@@ -52,6 +52,7 @@ theme_set(theme_classic())
 ```
 
 Absolute paths
+
 ```{r, absolute paths}
 switch (Sys.info()[['sysname']],
         # PC paths
@@ -72,6 +73,7 @@ switch (Sys.info()[['sysname']],
 ```
 
 Chunk Defaults
+
 ```{r defaults, include=FALSE}
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
@@ -79,15 +81,16 @@ options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
 
-
 ### Read results.csv files
 
 Set up object for results
+
 ```{r}
 results_all <- NULL
 ```
 
 Get batch_names
+
 ```{r}
 batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
   
@@ -107,8 +110,8 @@ if (algorithms == "all") {
 batch_names
 ```
 
-
 Loop over batch_names to read in files and perform checks
+
 ```{r}
 
 for (batch_name in batch_names) {
@@ -155,10 +158,10 @@ for (batch_name in batch_names) {
 }
 ```
 
-
 ### Wrap up processing of raw metrics
 
 Remove duplicate rows (e.g., same hyper-parameters across multiple batches)
+
 ```{r}
 nrow(results_all)
 
@@ -184,6 +187,7 @@ Final checks across all batches
 ```
 
 Save raw metrics file
+
 ```{r}
 results_all %>% 
   # arrange(split_num, outer_split_num, inner_split_num, algorithm, resample
@@ -192,11 +196,11 @@ results_all %>%
                                             cv, ".csv")))
 ```
 
-### Median metrics across folds for model configurations
+### Median metrics across inner folds for model configurations
 
-Inner loop performance of best config.  
-This mean performance for each configuration over inner x outer folds (e.g., 900 folds for 3x10 inner and outer).
-It is what we would get (essentially) if we just did simple k-fold but with LOTs of folds
+Inner loop performance of best config.
+This median performance for each configuration over inner x outer folds (e.g., 900 folds for 3x10 inner and outer). It is what we would get (essentially) if we just did simple k-fold but with LOTs of folds
+
 ```{r}
 metrics_avg <- results_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
@@ -229,7 +233,6 @@ results_all |>
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
 ```
-
 
 ### Plot hyperparameters
 
