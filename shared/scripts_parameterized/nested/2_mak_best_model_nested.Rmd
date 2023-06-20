@@ -278,7 +278,7 @@ metrics_out |>
   print_kbl()
 
 metrics_out |> 
-  summarize(mean(roc_auc), min(roc_auc), max(roc_auc))
+  summarize(median(roc_auc), mean(roc_auc), min(roc_auc), max(roc_auc))
 
 metrics_out |> 
   ggplot(aes(x = roc_auc)) +
