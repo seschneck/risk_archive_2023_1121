@@ -23,11 +23,13 @@
 # Batch_1: down_1; kendra
 # Batch_2: down_2; john
 # Batch_3: down_3; susan
-# Batch_4: down_4; john (current)
-# Batch_5: down_5; kendra (current)
-# Batch_6: up_1; john (pending)
-# Batch_7: up_2; kendra (pending)
+# Batch_4: down_4; john
+# Batch_5: down_5; kendra
+# Batch_6: up_1; john (current)
+# Batch_7: up_2; kendra (current)
 # Batch_8: up_3; susan (current)
+# Batch_9: up_4; john (pending)
+# Batch_9: up_5; susan (pending)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -35,7 +37,7 @@ window <- "1day"
 lead <- 0
 version <- "v4"
 algorithm <- "xgboost"
-batch <- "batch8"
+batch <- "batch10"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -48,7 +50,7 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("up_3") 
+resample <- c("up_5") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
@@ -83,7 +85,7 @@ cv_name <- if_else(cv_resample_type == "nested",
 # the name of the batch of jobs to set folder name
 name_batch <- str_c("train_", algorithm, "_", window, "_", cv_name, "_", version, "_", batch) 
 # the path to the batch of jobs to put the folder name
-path_batch <- str_c("studydata/risk/chtc/", study) 
+path_batch <- str_c("studydata/risk/chtc/", study, "/", name_batch) 
 # location of data set
 path_data <- str_c("studydata/risk/data_processed/", study) 
 

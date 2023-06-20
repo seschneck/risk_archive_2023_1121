@@ -8,11 +8,13 @@ output:
     toc_depth: 4
 params:
   study: "ema"
-  window: "1hour"
+  window: "1day"
   lead: 0
   version: "v4"
   cv: "nested"
   algorithms: "all"   # "all" or name of specific algorithm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -60,7 +62,12 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)}
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/", study)}
         )
 ```
 
@@ -125,15 +132,22 @@ for (batch_name in batch_names) {
     message(n_results_batch, " results files detected.  Correct!")
   }
   
-  results_batch %>% tab(split_num) %>% print()
-  results_batch %>% tab(outer_split_num) %>% print()
-  results_batch %>% tab(inner_split_num) %>% print()
-  results_batch %>% tab(algorithm) %>% print()
-  results_batch %>% tab(feature_set) %>% print()
-  results_batch %>% tab(hp1) %>% print()
-  results_batch %>% tab(hp2) %>% print()
-  results_batch %>% tab(hp3) %>% print()
-  results_batch %>% tab(resample) %>% print()
+  # Check col count
+  if (!(ncol(results_batch) == 17)) {
+    stop(ncol(results_batch), " columsn != 17")
+  } else {
+    message(ncol(results_batch), " columns detected.  Correct!\n")
+  }
+  
+  # results_batch %>% tab(split_num) %>% print()
+  # results_batch %>% tab(outer_split_num) %>% print()
+  # results_batch %>% tab(inner_split_num) %>% print()
+  # results_batch %>% tab(algorithm) %>% print()
+  # results_batch %>% tab(feature_set) %>% print()
+  # results_batch %>% tab(hp1) %>% print()
+  # results_batch %>% tab(hp2) %>% print()
+  # results_batch %>% tab(hp3) %>% print()
+  # results_batch %>% tab(resample) %>% print()
 
   # Add batch to all metrics
   results_all <- results_all %>% 
@@ -144,9 +158,7 @@ for (batch_name in batch_names) {
 
 ### Wrap up processing of raw metrics
 
-
-
-Remove duplicate rows (e.g., same hyperparameters across multiple batches)
+Remove duplicate rows (e.g., same hyper-parameters across multiple batches)
 ```{r}
 nrow(results_all)
 
@@ -155,6 +167,20 @@ results_all <- results_all |>
            hp1, hp2, hp3, resample, .keep_all = TRUE)
 
 nrow(results_all)
+```
+
+Final checks across all batches
+
+```{r}
+  results_all %>% tab(split_num) %>% print()
+  results_all %>% tab(outer_split_num) %>% print()
+  results_all %>% tab(inner_split_num) %>% print()
+  results_all %>% tab(algorithm) %>% print()
+  results_all %>% tab(feature_set) %>% print()
+  results_all %>% tab(hp1) %>% print()
+  results_all %>% tab(hp2) %>% print()
+  results_all %>% tab(hp3) %>% print()
+  results_all %>% tab(resample) %>% print()
 ```
 
 Save raw metrics file
@@ -166,21 +192,40 @@ results_all %>%
                                             cv, ".csv")))
 ```
 
-### Average metrics across folds for model configurations
+### Median metrics across folds for model configurations
 
-Foreshadow performance.  These are simple kfold evaluations
+Inner loop performance of best config.  
+This mean performance for each configuration over inner x outer folds (e.g., 900 folds for 3x10 inner and outer).
+It is what we would get (essentially) if we just did simple k-fold but with LOTs of folds
 ```{r}
 metrics_avg <- results_all %>% 
   group_by(algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                    mean),
+                    median),
              n_jobs = n(), .groups = "drop") %>% 
   relocate(n_jobs) %>% 
-  arrange(desc(roc_auc))
-
-metrics_avg |> print_kbl()
+  arrange(desc(roc_auc)) |> 
+  ungroup()
 
 metrics_avg |> 
+  slice(1:50) |> 
+  print_kbl()
+
+best_config <- metrics_avg |> 
+  slice(1) |> 
+  print()
+```
+
+Performance metric plot across all inner folds
+
+```{r}
+results_all |> 
+  filter(algorithm == best_config$algorithm,
+         feature_set == best_config$feature_set,
+         hp1 == best_config$hp1,
+         hp2 == best_config$hp2,
+         hp3 == best_config$hp3,
+         resample == best_config$resample) |> 
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
 ```
