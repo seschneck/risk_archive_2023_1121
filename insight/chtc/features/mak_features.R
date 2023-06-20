@@ -6,9 +6,8 @@ version <- "v1" # insight version 1
 period_durations_morning <- c(24, 48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 
-library(tidyverse)
-
 suppressWarnings(suppressPackageStartupMessages({
+  library(readr)
   library(dplyr)
   library(lubridate)
   library(vroom)

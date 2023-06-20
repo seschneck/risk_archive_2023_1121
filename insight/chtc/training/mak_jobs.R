@@ -1,8 +1,16 @@
 # setup chtc jobs & associated files/folders
 
-library(tidyverse)
-library(here)
-path_training_controls <- here("insight/chtc/training/training_controls_insight.R") 
-devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+# NOTE: this script should be run from a project on the repo (e.g., RISK, MATCH, RISK2) 
+# for the relative paths to access local copy of lab_support to work
 
+# CHANGE ME  -------------------- 
+# Set path for training_controls.R
+# location of study specific training_controls.R (can use relative path if in repo) 
+path_training_controls <- "./analysis_risk/insight/chtc/training_controls_insight.R" 
+
+# DON'T CHANGE -------------------- 
+library(tidyverse)
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/fun_make_jobs.R?raw=true")
+
+# set overwrite_jobs to TRUE if you want to overwrite existing files.  Be careful!!
 make_jobs(path_training_controls, overwrite_jobs = FALSE)
