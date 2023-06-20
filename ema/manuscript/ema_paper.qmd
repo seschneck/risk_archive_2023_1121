@@ -837,10 +837,13 @@ plot_shap_week + plot_shap_day + plot_shap_hour
 
 ## 1. Model Performance, SHAP, and Model Comparisons
 
-- Overall model performance
-* Talk about solid overall performance of three models
-- ROC, sensitivity and specificity of three models
-- Likely hit a ceiling with model performance. Can talk about low difference between inner and outer fold performance as potential support that we reached a ceiling/arent capitalizing on noise
+<!-- Overall model performance -->
+<!-- * Talk about solid overall performance of three models
+- ROC, sensitivity and specificity of three models -->
+Models across all three time windows performed exceptionally well, yielding AUC ROCs of [], [], and [] for hour level, day level, and week level models respectively. AUCs above .9 are generally described as having "excellent" performance (cite), and all three of our models perform as well as or better than existing alcohol lapse prediction models to date (Berenholtz et al,  2020). This indicates EMA data can be used to predict alcohol lapse in the next hour, next day, and next week with high levels of sensitivity and specificity.
+
+<!-- - Likely hit a ceiling with model performance. Can talk about low difference between inner and outer fold performance as potential support that we reached a ceiling/arent capitalizing on noise --> 
+
 * Likely result of benefit of using nonlinear algorithms, time baked into features, etc, discussed in methods. High dimensional data set, longitiudinal measurement. BUT our method of model selection did not include comparison to lower dimensional feature sets, consideration of other algorithms. So conclusion cannot be that this is more superior. But conclusion is our stated performance. 
 * Reminder that these are held out performance metrics in new people -- i.e. grouped nested kfold cv. So we expect these high performance estimates to generalize
 
