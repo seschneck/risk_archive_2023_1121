@@ -1,5 +1,5 @@
 ---
-title: "Selects and fits best model configuration for `r params$window` window and `r params$lead` lead and `r params$version`"
+title: "Fits and evaluates best model configs in outer loop of nested for `r params$window` window and `r params$lead` lead and `r params$version`"
 author: "John Curtin & Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -8,7 +8,7 @@ output:
     toc_depth: 4
 params:
   study: "ema"
-  window: "1week"
+  window: "1hour"
   lead: 0
   version: "v4"
   cv: "nested"
@@ -42,11 +42,11 @@ cv <- params$cv
 Function conflicts
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
 # source
-# devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
 
 # handle conflicts
-# options(conflicts.policy = "depends.ok")
-# tidymodels_conflictRules()
+options(conflicts.policy = "depends.ok")
+tidymodels_conflictRules()
 ```
 
 
@@ -137,6 +137,10 @@ configs_best <- metrics_avg |>
   relocate(roc_auc, .before = accuracy)
 
 configs_best |> print_kbl()
+
+configs_best |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
 ```
 
 
@@ -206,6 +210,10 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   preds_prob <- predict(model_best, feat_out,
                         type = "prob")[[str_c(".pred_", y_level_pos)]]
   
+  shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
+                     X_train = feat_out |> select(-y) |>  as.matrix()) |> 
+    mutate(subid = d_out$subid) |> 
+    relocate(subid)
   
   roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
       roc_auc(prob, truth = truth, event_level = "first") %>% 
@@ -232,7 +240,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
                   prob = preds_prob)
   
-  return(list(probs_out = probs, metrics_out = model_metrics))
+  return(list(probs_out = probs, metrics_out = model_metrics, shap_out = shap_raw))
 }
 ```
 
@@ -250,6 +258,7 @@ if(!file.exists(file.path(path_models, str_c("resample_metrics_best_",
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   #plan(sequential)
   
+  # pluck
   metrics_out <- all |> 
     map(\(l) pluck(l, "metrics_out")) |> 
     list_rbind()
@@ -257,16 +266,24 @@ if(!file.exists(file.path(path_models, str_c("resample_metrics_best_",
   probs_out <- all |> 
     map(\(l) pluck(l, "probs_out")) |> 
     list_rbind()
+  
+  shaps_out <- all |> 
+    map(\(l) pluck(l, "shaps_out")) |> 
+    list_rbind()
     
+  # save
   metrics_out |> 
-    saveRDS(file.path(path_models, str_c("resample_metrics_best_", 
+    write_csv(file.path(path_models, str_c("nested_outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
-                                  cv, ".rds")))
-
+                                  cv, ".csv")))
   probs_out %>%
-    saveRDS(file.path(path_models, str_c("resample_preds_best_", 
+    write_csv(file.path(path_models, str_c("nested_outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
+                                    cv, ".csv")))
+    probs_out %>%
+    write_csv(file.path(path_models, str_c("nested_outer_shaps_", 
+                                    window, "_", lead, "_", version, "_", 
+                                    cv, ".csv")))
 } else {
   message("Resampled performance from nested CV previously calculated")
 }
