@@ -8,7 +8,7 @@ output:
     toc_depth: 4
 params:
   study: "ema"
-  window: "1hour"
+  window: "1week"
   lead: 0
   version: "v4"
   cv: "nested"
@@ -158,8 +158,8 @@ batch_names <- batch_names[str_detect(batch_names, "train") &
                              str_detect(batch_names, version) &
                              str_detect(batch_names, window)]
 batch_name <- batch_names[1] # can source any batch given assumptions above
-path_batch <- file.path(path_input, batch_name, "input")
-source(file.path(path_batch, "training_controls.R"))
+path_batch <- file.path(path_input, batch_name)
+source(file.path(path_batch, "input", "training_controls.R"))
                   
                   
 chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
@@ -171,9 +171,9 @@ if (length(chunks) == 2) {
   
 # open based on file type
 if (str_detect(fn, "csv")) {
-  d <- read_delim(file.path(path_batch, fn), show_col_types = FALSE) 
+  d <- read_delim(file.path(path_batch, "input", fn), show_col_types = FALSE) 
 } else {
-  d <- readRDS(file.path(path_batch, fn))
+  d <- readRDS(file.path(path_batch, "input", fn))
 }
 
 d <- format_data(d)
