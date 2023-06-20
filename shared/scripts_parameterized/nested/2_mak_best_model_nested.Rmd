@@ -212,7 +212,8 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   
   shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
                      X_train = feat_out |> select(-y) |>  as.matrix()) |> 
-    mutate(subid = d_out$subid) |> 
+   # add subid by multiple of number of features
+    mutate(subid = rep(d_out$subid, times = ncol(feat_out) - 1)) |>  
     relocate(subid)
   
   roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
@@ -245,11 +246,11 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 ```
 
 
-future map over all outer splits to get predicted probabilities and metrics from held out outer folds.  Then save predicted probs and metrics
+future map over all outer splits to get predicted probabilities and metrics from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
-NOTE: Delete `resample_metrics_best_*` or this code chunk won't run!
+NOTE: Delete `nested_outer_metrics_*` or this code chunk won't run!
 ```{r resample_best_config_kfold}
-if(!file.exists(file.path(path_models, str_c("resample_metrics_best_", 
+if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
@@ -273,17 +274,17 @@ if(!file.exists(file.path(path_models, str_c("resample_metrics_best_",
     
   # save
   metrics_out |> 
-    write_csv(file.path(path_models, str_c("nested_outer_metrics_", 
+    saveRDS(file.path(path_models, str_c("nested_outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
-                                  cv, ".csv")))
+                                  cv, ".rds")))
   probs_out %>%
-    write_csv(file.path(path_models, str_c("nested_outer_preds_", 
+    saveRDS(file.path(path_models, str_c("nested_outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
-                                    cv, ".csv")))
+                                    cv, ".rds")))
     probs_out %>%
-    write_csv(file.path(path_models, str_c("nested_outer_shaps_", 
+    saveRDS(file.path(path_models, str_c("nested_outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
-                                    cv, ".csv")))
+                                    cv, ".rds")))
 } else {
   message("Resampled performance from nested CV previously calculated")
 }
