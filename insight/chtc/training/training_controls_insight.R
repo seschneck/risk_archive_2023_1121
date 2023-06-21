@@ -1,4 +1,4 @@
-# Training controls for EMA study
+# Training controls for Insight study
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
