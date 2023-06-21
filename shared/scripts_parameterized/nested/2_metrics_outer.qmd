@@ -18,14 +18,29 @@ editor_options:
 
 ### Code Status
 
-In (beta) use for glmnet, random forest, and xgboost
+In use for EMA study
 
 ### Notes
-This script reads in CHTC performance metrics from the inner loops of CV, selects the best model configuration for each outer loop, trains that model and predicts into the outer held-out fold.
+This script reads in CHTC performance metrics from the inner loops of CV, selects the best model configuration for each outer loop, trains those models and predicts into the outer held-out folds.  Returns metrics, predictions (probabilities) and SHAPs
 
-WHERE DO WE IDENTIFY FINAL BEST CONFIG AND THEN TRAIN THAT MODEL?
+This script creates the following files in the `models` folder
 
-WHERE DO WE DO SHAP?
+* nested_outer_metrics_*.rds
+* nested_outer_preds_*.rds
+* nested_outer_shaps_*.rds
+
+where * = window_lead_version_cv
+
+
+### To Do
+
+SHAPS
+
+* We get SHAPS in this script with 30 outer folds.   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size shaps for each feature
+* Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
+* Could train that ONE best config on full sample and use it for SHAPS in the full sample.   
+
+
 
 ### Set Up Environment
 
@@ -38,7 +53,6 @@ version <- params$version
 cv <- params$cv
 ```
 
-
 Function conflicts
 ```{r, packages_workflow, message=FALSE, warning=FALSE}
 # source
@@ -48,7 +62,6 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R
 options(conflicts.policy = "depends.ok")
 tidymodels_conflictRules()
 ```
-
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
@@ -83,13 +96,15 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
           path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
         
         # Linux paths
         Linux = {
           path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
           path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
         )
 ```
@@ -104,88 +119,62 @@ options(tibble.print_max = Inf)
 ```
 
 
-Read in aggregate CHTC metrics
+### Script Functions
+
+Function to clean up poor choices for feature names for SHAPs!!
 ```{r}
-metrics_raw <- 
-  read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
-                                   "_", lead, "_", version, "_", cv, ".csv")), 
-           col_types = "iiiiccdddcdddddddi") |> 
-  glimpse()
-```
-
-
-### Identify best config for each outer fold (i.e., across inner folds)
-
-Average metrics for each configuration across inner folds for each outer fold
-```{r best_model_1}
-metrics_avg <- metrics_raw |> 
-  group_by(algorithm, feature_set, hp1, hp2, hp3, resample, outer_split_num) |> 
-   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
-                     median),
-              n_jobs = n(), .groups = "drop") |> 
-  relocate(outer_split_num, n_jobs) |> 
-  arrange(outer_split_num, desc(roc_auc))
-```
-
-Best configuration for each outer fold
-```{r best_model_2}
-configs_best <- metrics_avg |> 
-  group_by(outer_split_num) |> 
-  arrange(desc(roc_auc)) |> 
-  slice(1) |> 
-  ungroup() |> 
-  relocate(roc_auc, .before = accuracy)
-
-configs_best |> print_kbl()
-
-configs_best |> 
-  ggplot(aes(x = roc_auc)) +
-  geom_histogram(bins = 10)
-```
-
-
-
-### Fit best model for each outer fold and get metrics and preds
-
-Get data from ANY batch (all same) and make splits
-ASSUMPTIONS: 
-
-* Data are same for all batches
-* format_data() is same for all batches
-* Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
-
-```{r}
-# can source any training control given assumptions above
-batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
-batch_names <- batch_names[str_detect(batch_names, "train") & 
-                             str_detect(batch_names, cv) &
-                             str_detect(batch_names, version) &
-                             str_detect(batch_names, window)]
-batch_name <- batch_names[1] # can source any batch given assumptions above
-path_batch <- file.path(path_input, batch_name)
-source(file.path(path_batch, "input", "training_controls.R"))
-                  
-                  
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+clean_feature_names <- function(feat_name){
+  new_name <- gsub(".l0", "", feat_name)
+  new_name <- gsub("rratecount.count", "raw_count", new_name)
+  new_name <- gsub("dratecount.count", "diff_count", new_name)
+  new_name <- gsub("drecent_response", "diff_recent", new_name)
+  new_name <- gsub("rrecent_response", "raw_recent", new_name)
+  new_name <- gsub("dmin_response", "diff_min", new_name)
+  new_name <- gsub("rmin_response", "raw_min", new_name)
+  new_name <- gsub("dmax_response", "diff_max", new_name)
+  new_name <- gsub("rmax_response", "raw_max", new_name)
+  new_name <- gsub("dmedian_response", "diff_median", new_name)
+  new_name <- gsub("rmedian_response", "raw_median", new_name)
+  new_name <- gsub("label_", "", new_name)
+  new_name <- gsub("demo_", "", new_name)
+  new_name <- gsub("High.school.or.less", "high.school", new_name)
+  new_name <- gsub("Some.college", "some.college", new_name)
+  new_name <- gsub("Mon", "mon", new_name)
+  new_name <- gsub("Tue", "tue", new_name)
+  new_name <- gsub("Wed", "wed", new_name)
+  new_name <- gsub("Thu", "thu", new_name)
+  new_name <- gsub("Fri", "fri", new_name)
+  new_name <- gsub("Sat", "sat", new_name)
+  new_name <- gsub("Sun", "sun", new_name)
+  new_name <- gsub("Never.Married", "never.married", new_name)
+  new_name <- gsub("Never.Other", "never.other", new_name)
+  new_name <- gsub("White.Caucasian", "caucasian", new_name)
+  new_name <- gsub("Male", "male", new_name)
+  new_name <- gsub("p12.raw_count.lapse", "lapse.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.lapse", "lapse.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.lapse", "lapse.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.lapse", "lapse.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.lapse", "lapse.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.lapse", "lapse.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.lapse", "lapse.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.lapse", "lapse.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.lapse", "lapse.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.lapse", "lapse.p168.diff_count", new_name)
+  new_name <- gsub("p12.raw_count.ema", "missing.p12.raw_count", new_name)
+  new_name <- gsub("p24.raw_count.ema", "missing.p24.raw_count", new_name)
+  new_name <- gsub("p48.raw_count.ema", "missing.p48.raw_count", new_name)
+  new_name <- gsub("p72.raw_count.ema", "missing.p72.raw_count", new_name)
+  new_name <- gsub("p168.raw_count.ema", "missing.p168.raw_count", new_name)
+  new_name <- gsub("p12.diff_count.ema", "missing.p12.diff_count", new_name)
+  new_name <- gsub("p24.diff_count.ema", "missing.p24.diff_count", new_name)
+  new_name <- gsub("p48.diff_count.ema", "missing.p48.diff_count", new_name)
+  new_name <- gsub("p72.diff_count.ema", "missing.p72.diff_count", new_name)
+  new_name <- gsub("p168.diff_count.ema", "missing.p168.diff_count", new_name)
+  return(new_name) 
 }
-  
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- read_delim(file.path(path_batch, "input", fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(file.path(path_batch, "input", fn))
-}
-
-d <- format_data(d)
-splits <- d %>% 
-  make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
-              cv_inner_resample, cv_group, seed_splits)
 ```
 
+Functiont to fit, predict, and calc metrics, preds, shaps
 ```{r}
 fit_predict_eval <- function(split_num, splits, configs_best){
 
@@ -245,8 +234,88 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 }
 ```
 
+### Read in aggregate CHTC metrics for inner folds
+```{r}
+metrics_raw <- 
+  read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
+                                   "_", lead, "_", version, "_", cv, ".csv")), 
+           col_types = "iiiiccdddcdddddddi") |> 
+  glimpse()
+```
 
-future map over all outer splits to get predicted probabilities and metrics from held out outer folds.  Then save predicted probs, metrics, and SHAPs
+
+### Identify best config for each outer fold (i.e., across inner folds)
+
+Average metrics for each configuration across inner folds for each outer fold
+```{r best_model_1}
+metrics_avg <- metrics_raw |> 
+  group_by(algorithm, feature_set, hp1, hp2, hp3, resample, outer_split_num) |> 
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     median),
+              n_jobs = n(), .groups = "drop") |> 
+  relocate(outer_split_num, n_jobs) |> 
+  arrange(outer_split_num, desc(roc_auc))
+```
+
+Best configuration for each outer fold
+```{r best_model_2}
+configs_best <- metrics_avg |> 
+  group_by(outer_split_num) |> 
+  arrange(desc(roc_auc)) |> 
+  slice(1) |> 
+  ungroup() |> 
+  relocate(roc_auc, .before = accuracy)
+
+configs_best |> print_kbl()
+
+configs_best |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
+```
+
+### Fit best model for each outer fold and get/save metrics, preds, SHAPs
+
+Get data from ANY batch (all same) and make splits
+
+ASSUMPTIONS: 
+
+* Data are same for all batches
+* format_data() is same for all batches
+* Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
+
+```{r}
+# can source any training control given assumptions above
+batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+batch_names <- batch_names[str_detect(batch_names, "train") & 
+                             str_detect(batch_names, cv) &
+                             str_detect(batch_names, version) &
+                             str_detect(batch_names, window)]
+batch_name <- batch_names[1] # can source any batch given assumptions above
+path_batch <- file.path(path_input, batch_name)
+source(file.path(path_batch, "input", "training_controls.R"))
+# NOTE: training controls overwrites path_batch but it matches   
+                  
+chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+if (length(chunks) == 2) {
+  fn <- str_c("data_trn.", chunks[[2]])
+} else {
+  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+}
+  
+# open based on file type
+if (str_detect(fn, "csv")) {
+  d <- read_delim(file.path(path_batch, "input", fn), show_col_types = FALSE) 
+} else {
+  d <- readRDS(file.path(path_batch, "input", fn))
+}
+
+d <- format_data(d)
+splits <- d %>% 
+  make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+              cv_inner_resample, cv_group, seed_splits)
+```
+
+future map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
 NOTE: Delete `nested_outer_metrics_*` or this code chunk won't run!
 ```{r resample_best_config_kfold}
@@ -269,8 +338,10 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     list_rbind()
   
   shaps_out <- all |> 
-    map(\(l) pluck(l, "shap_out")) |> 
-    list_rbind()
+    map(\(l) pluck(l, "shap_out")) |>   #FIX shaps_out
+    list_rbind() |> 
+    # clean feature names;  See function above
+    mutate(variable = fct_relabel(variable, clean_feature_names))
     
   # save
   metrics_out |> 
@@ -281,6 +352,7 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     saveRDS(file.path(path_models, str_c("nested_outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
+  
   shaps_out %>%
     saveRDS(file.path(path_models, str_c("nested_outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
@@ -290,7 +362,89 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
 }
 ```
 
-Review performance eval from outer loop
+Now group SHAPs
+NOTE: Delete `nested_outer_shaps_grouped_*` or this code chunk won't run!
+```{r calc_grouped_shaps}
+if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
+                                            window, "_", lead, "_", version, "_",
+                                            cv, ".rds")))){
+  message("Loading previously calculated grouped SHAPs")
+  shap_out_grouped <- readRDS(file.path(path_models, 
+                                        str_c("nested_outer_shaps_grouped_",
+                                              window, "_", lead, "_", version, "_",
+                                              cv, ".rds")))
+} else {
+  
+  message("Calculating grouped SHAPs")
+  
+  shaps_out_grouped <- shaps_out %>% 
+    mutate(group = if_else(str_detect(variable, "lapse."), 
+                           "past use (EMA item)", 
+                           variable),
+           group = if_else(str_detect(group, "ema_2"), 
+                           "craving (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_3"), 
+                           "past risky situation (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_4"), 
+                           "past stressful event (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_5"), 
+                           "past pleasant event (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_6"), 
+                           "valence (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_7"), 
+                           "arousal (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "ema_8"), 
+                           "future risky situation (EMA item)",
+                           group),
+           group = if_else(str_detect(group, "ema_9"), 
+                           "future stressful event (EMA item)",
+                           group),
+           group = if_else(str_detect(group, "ema_10"), 
+                           "future efficacy (EMA item)", 
+                           group),
+           group = if_else(str_detect(group, "missing."), 
+                           "missing surveys (other)", 
+                           group),
+           group = if_else(str_detect(group, "day"), 
+                           "lapse day (other)", 
+                           group),
+           group = if_else(str_detect(group, "hour"), 
+                           "lapse hour (other)", 
+                           group),
+           group = if_else(str_detect(group, "age"), 
+                           "age (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "sex"), 
+                           "sex (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "marital"), 
+                           "marital (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "race"), 
+                           "race (demographic)", 
+                           group),
+           group = if_else(str_detect(group, "educ"), 
+                           "education (demographic)", 
+                           group)) %>%
+    mutate(group = factor(group)) %>% 
+    group_by(ID, group) %>% 
+    summarize(shap = sum(value))
+  
+  shaps_out_grouped %>% saveRDS(file.path(path_models, 
+                                          str_c("nested_outer_shaps_grouped_",
+                                                window, "_", lead, "_", version, "_",
+                                                cv, ".rds")))
+}
+```
+
+
+### Review performance eval from outer loop
 ```{r}
 metrics_out |> 
   print_kbl()
@@ -305,7 +459,4 @@ metrics_out |>
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
 
-* Could get SHAPS in this script with 30 outer folds.   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.
-* Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
-* Could train that ONE best config on full sample and use it for SHAPS in the full sample.   
-* Consider if we do shap from held out folds in this resampling OR if we use model fit to full data with all the data in one pass.
+
