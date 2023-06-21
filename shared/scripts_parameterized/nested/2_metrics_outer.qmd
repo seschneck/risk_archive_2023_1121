@@ -54,7 +54,10 @@ cv <- params$cv
 ```
 
 Function conflicts
-```{r, packages_workflow, message=FALSE, warning=FALSE}
+```{r, packages_workflow}
+#| message: false
+#| warning: false
+
 # source
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
 
@@ -64,13 +67,16 @@ tidymodels_conflictRules()
 ```
 
 Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
+```{r, packages_script}
+#| message: false
+#| warning: false
+
 library(tidyverse)
 library(tidymodels)
 ```
 
 Source support functions
-```{r}
+```{r source_functions}
 # EDA
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
 
@@ -85,7 +91,7 @@ Parallel backend
 ```
 
 Absolute paths
-```{r, absolute paths}
+```{r, absolute_paths}
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
@@ -111,7 +117,9 @@ switch (Sys.info()[['sysname']],
 
 
 Chunk Defaults
-```{r defaults, include=FALSE}
+```{r defaults}
+#| include: false
+
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
 options(tibble.width = Inf)
@@ -122,7 +130,7 @@ options(tibble.print_max = Inf)
 ### Script Functions
 
 Function to clean up poor choices for feature names for SHAPs!!
-```{r}
+```{r function_1}
 clean_feature_names <- function(feat_name){
   new_name <- gsub(".l0", "", feat_name)
   new_name <- gsub("rratecount.count", "raw_count", new_name)
@@ -175,7 +183,7 @@ clean_feature_names <- function(feat_name){
 ```
 
 Function to fit, predict, and calc metrics, preds, shaps
-```{r}
+```{r function_2}
 fit_predict_eval <- function(split_num, splits, configs_best){
 
   d_in <- training(splits$splits[[split_num]]) |> 
@@ -237,7 +245,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 ```
 
 ### Read in aggregate CHTC metrics for inner folds
-```{r}
+```{r read_inner_metrics}
 metrics_raw <- 
   read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
                                    "_", lead, "_", version, "_", cv, ".csv")), 
@@ -285,7 +293,7 @@ ASSUMPTIONS:
 * format_data() is same for all batches
 * Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
 
-```{r}
+```{r data_and_splits}
 # can source any training control given assumptions above
 batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
 batch_names <- batch_names[str_detect(batch_names, "train") & 
@@ -323,15 +331,13 @@ splits <- d %>%
 future map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
 NOTE: Delete `nested_outer_metrics_*` or this code chunk won't run!
-```{r resample_best_config_kfold}
+```{r eval_outer_folds}
 if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
   # plan(multisession, workers = parallel::detectCores(logical = FALSE))
-  all <- configs_best$outer_split_num 
-    
-  all <- 1:2 |> 
+  all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   #plan(sequential)
   
@@ -453,7 +459,9 @@ if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
 
 
 ### Review performance eval from outer loop
-```{r}
+
+Done more in depth later but here is a quick look
+```{r print_metrics}
 metrics_out |> 
   print_kbl()
 
@@ -466,5 +474,3 @@ metrics_out |>
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
-
-
