@@ -866,12 +866,42 @@ Model comparisons
 
 ## 2. Clinical implementation
 
-- PPV
-- feedback to clinicians and people
-- recommendations 
+
+There are three ways a model like ours might be clinically implemented. 
+
+First, it might be used to communicate a patient's lapse risk to their treatment provider (e.g., therapist, primary care provider). This might look like a clinician receiving notifications about which patients are at a high risk of lapsing at the start of each shift. They could then decide if they wanted to connect with a patient or use this information to triage their availability (i.e., which patients should be seen first). While this information would likely be helpful to the clinician, it hinders much of the benefit digital therapeutics have to offer. It reduces the scalability <!--or accessibility?--> by placing an additional load on the provider (monitoring, evaluating, and taking action based on lapse risk scores for a high number of patients). It shifts the availability of treatment from being at the individuals moment of greatest need to a moment of high risk and when a treatment provider is available. Finally, it removes the benefits of acceptability in that it requires patients to share information related to their lapse risk with providers <!-- elaborate on issues/citations re: trust?-->.    
+
+Second, it might be used to communicate lapse risk directly to the individual. This removes the treatment provider as a gatekeeper of the risk information. As a result, individuals can be alerted to their lapse risk at anytime and at any threshold (i.e., not just at a threshold warranting clinician intervention). Additionally, this may allow individuals to feel they have more control over their data and alleviate potential concerns about the documentation and unauthorized use of their lapse risk information. Unfortunately, this information on its own may not be helpful to individuals monitoring their lapse risk and could even have unintended harmful consequences. One, it requires an individual to know what action to take, or what module to use in a digital therapeutic, in response to the lapse risk score. Second, being alerted to a high risk of lapsing, without any accompanying intervention, could result in a self-fulfilling prophecy due to feelings of loss of control, failure, or associating their lapse risk with internal, stable, and global factors (e.g., abstinence violation effect).     
+
+Third, it might be used to recommend an action that an individual could take to reduce their risk of a lapse. <!--consider introducing JITAI term here--> In this situation, it could tailor treatment recommendations based on top features contributing to their lapse risk (e.g., recommending an urge surfing activity in response to reported high cravings). Recommendations could be mapped onto existing therapeutic frameworks shown to be effective for alcohol use disorder (e.g., CBT, mindfulness-based relapse). A recommendation-guided digital therapeutic would reduce the risk of iatrogenic effects since suggested actions based on predicted risk would likely be helpful and positive regardless of one's actual risk. It would also share benefits of existing self-guided digital therapeutics (e.g., reaching people not connected with a treatment provider). <!--connect back to issues of affordability, accessibility, acceptability, and availability?-->
+
+<!-- other possible things to discuss here
+- recommendation algorithm likely can be adapted for other recovery goals (e.g., moderation) - needs to be tested first though.
+
+Potential drawbacks:
+- missing feedback on effectiveness/helpfulness of recommendations - this can be incorporated into the recommendation system
+- not intended to replace traditional avenues of treatment
+-->
 
 
+Additional considerations for tailoring a recommendation model include the decision threshold, prediction window (e.g., hour, day, week), and lag time. 
 
+Decision threshold
+- Adjusting the decision threshold can increase PPV (at cost of reducing sensitivity)
+- different thresholds depending on overall costs of recommendation
+<!-- Some interventions are more appropriate for low PPV, high sensitivity scenarioes (e.g. false alarms are not necessarily bad if you are just encouraging increased use of the dtx). Higher cost interventions (e.g. contacting a provider) may be better suited for higher decision thresholds to increase PPV -->
+
+Prediction window
+- broader windows have higher PPV
+- windows could offer some guidance for recommendations, but likely have limited value on their own (see lag time below)  
+
+Lag time
+- Our model had a lag time of 0. 
+<!--This means week level model could predict a lapse in the next week, or the next hour. (Potential problems for recommending a treatment that takes a lot of time if lapse can happen sooner)-->
+- interacts with prediction window for intervention recommendation
+   * narrow windows (e.g., next hour) with no lag - immediate interventions/recommendations  
+   * broader windows (e.g., next week) can be used as well but not as useful for in the moment  
+   * lagged broad windows (e.g., next week starting one week from now) could be used for incorporating interventions that may take longer.
 
 
 
