@@ -337,9 +337,7 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
                                   cv, ".rds")))){ 
   
   # plan(multisession, workers = parallel::detectCores(logical = FALSE))
-  all <- configs_best$outer_split_num 
-    
-  all <- 1:2 |> 
+  all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   #plan(sequential)
   
