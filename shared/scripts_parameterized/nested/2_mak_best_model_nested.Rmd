@@ -241,7 +241,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
                   prob = preds_prob)
   
-  return(list(probs_out = probs, metrics_out = model_metrics, shap_out = shap_raw))
+  return(list(probs_out = probs, metrics_out = model_metrics, shaps_out = shap_raw))
 }
 ```
 
@@ -269,7 +269,7 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     list_rbind()
   
   shaps_out <- all |> 
-    map(\(l) pluck(l, "shaps_out")) |> 
+    map(\(l) pluck(l, "shap_out")) |> 
     list_rbind()
     
   # save
@@ -281,7 +281,7 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     saveRDS(file.path(path_models, str_c("nested_outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
-    probs_out %>%
+  shaps_out %>%
     saveRDS(file.path(path_models, str_c("nested_outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
