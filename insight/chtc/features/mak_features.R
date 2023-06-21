@@ -216,5 +216,4 @@ features <- features %>%
 features %>%
   mutate(lapse = labels$lapse) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
-  write_csv(str_c("features_", version, "_", job_start, "_", job_stop, ".csv"), 
-            delim = ",")
+  write_csv(str_c("features_", version, "_", job_start, "_", job_stop, ".csv"))
