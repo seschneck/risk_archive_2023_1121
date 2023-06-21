@@ -174,11 +174,12 @@ clean_feature_names <- function(feat_name){
 }
 ```
 
-Functiont to fit, predict, and calc metrics, preds, shaps
+Function to fit, predict, and calc metrics, preds, shaps
 ```{r}
 fit_predict_eval <- function(split_num, splits, configs_best){
 
-  d_in <- training(splits$splits[[split_num]]) 
+  d_in <- training(splits$splits[[split_num]]) |> 
+    select(-id_obs)  # not used for training; only needed in d_out to tag SHAPs
   d_out <- testing(splits$splits[[split_num]])
   
   config_best <- configs_best |> 
@@ -193,7 +194,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   
   feat_out <- rec %>% 
     prep(training = d_in, strings_as_factors = FALSE) %>% 
-    bake(new_data = d_out)
+    bake(new_data = d_out)   # no id_obs because not included in d_in
   
   preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
   preds_prob <- predict(model_best, feat_out,
@@ -201,9 +202,10 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   
   shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
                      X_train = feat_out |> select(-y) |>  as.matrix()) |> 
-   # add subid by multiple of number of features
-    mutate(subid = rep(d_out$subid, times = ncol(feat_out) - 1)) |>  
-    relocate(subid)
+   # add id_obs by multiple of number of features
+    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
+           split_num = split_num) |>  
+    relocate(id_obs, split_num)
   
   roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
       roc_auc(prob, truth = truth, event_level = "first") %>% 
@@ -310,6 +312,9 @@ if (str_detect(fn, "csv")) {
 }
 
 d <- format_data(d)
+
+d <- d |> mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
+
 splits <- d %>% 
   make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
               cv_inner_resample, cv_group, seed_splits)
@@ -324,7 +329,9 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
                                   cv, ".rds")))){ 
   
   # plan(multisession, workers = parallel::detectCores(logical = FALSE))
-  all <- configs_best$outer_split_num |> 
+  all <- configs_best$outer_split_num 
+    
+  all <- 1:2 |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   #plan(sequential)
   
@@ -337,8 +344,9 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     map(\(l) pluck(l, "probs_out")) |> 
     list_rbind()
   
+  
   shaps_out <- all |> 
-    map(\(l) pluck(l, "shap_out")) |>   #FIX shaps_out
+    map(\(l) pluck(l, "shaps_out")) |>
     list_rbind() |> 
     # clean feature names;  See function above
     mutate(variable = fct_relabel(variable, clean_feature_names))
@@ -433,7 +441,7 @@ if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
                            "education (demographic)", 
                            group)) %>%
     mutate(group = factor(group)) %>% 
-    group_by(ID, group) %>% 
+    group_by(id_obs, split_num, group) %>% 
     summarize(shap = sum(value))
   
   shaps_out_grouped %>% saveRDS(file.path(path_models, 
