@@ -869,7 +869,7 @@ score_most_recent <- function(the_subid, the_dttm_label, x_all,
         
       raw <- x %>%
         get_x_period(the_subid, the_dttm_label, ., lead, Inf) %>%   # use Inf to get all data
-        arrange(desc(dttm_label)) %>% 
+        arrange(desc(dttm_obs)) %>% 
         slice(1) %>%   # slice to most recent (after arrange)
         pull((!!sym(col_name)))
       
