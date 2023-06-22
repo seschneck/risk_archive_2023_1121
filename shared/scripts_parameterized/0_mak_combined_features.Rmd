@@ -1,16 +1,15 @@
 ---
-title: "Combines feature jobs from CHTC for `r params$data_type` for `r params$window` window and `r params$lead` lead and `r params$version`"
+title: "Process feature jobs from CHTC for `r params$window` window and `r params$lead` lead and `r params$version`"
 date: "`r lubridate::today()`"
 output: 
   html_document:
     toc: true 
     toc_depth: 4
 params:
-  study: "tmp"
-  data_type: "tmp"
-  window: "tmp"
+  study: "ema"
+  window: "1hour"
   lead: 0
-  version: "tmp"
+  version: "v5"
 ---
 
 ### Code Status
@@ -21,77 +20,81 @@ In Use
 
 This script aggregates all CHTC features and checks for missing jobs and other EDA.
   
-
-Inputs:  
-
-Returned CHTC files: 
-
-* features
-* error
-
-Jobs input file   
-
-* jobs.csv   
-
-Output:   
-
-* features__DATA_TYPE_WINDOW_LEAD.csv 
+  
+Creates `features_WINDOW_LEAD_VERSION.csv 
 
 
 ### Set Up Environment
 
 ```{r set_params}
 study <- params$study
-data_type <- params$data_type
 window <- params$window
 lead <- params$lead 
 version <- params$version 
 ```
 
+Function conflicts
+```{r, packages_workflow}
+#| message: false
+#| warning: false
 
-Packages for lab workflow 
-```{r, packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) 
-conflict_prefer("filter", "dplyr")
-conflict_prefer("select", "dplyr")
-conflict_prefer("cols", "readr")
+# source
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
 
-library(here)
+# handle conflicts
+options(conflicts.policy = "depends.ok")
+tidymodels_conflictRules()
 ```
 
+
 Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
+```{r, packages_script}
+#| message: false
+#| warning: false
+
 library(tidyverse)  
-library(janitor) 
-library(vroom)
-library(furrr)
-library(stringr)
 library(skimr)
 ```
 
-Source for script
-```{r, source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
+Source support functions
+```{r source_functions}
+# EDA
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+
+# CHTC support functions
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
 ```
 
 Absolute paths
-```{r, absolute paths}
+```{r, absolute_paths}
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_jobs <- str_c("P:/studydata/risk/chtc/", study, "/features_", data_type, "_", window, "_", lead, "_", version)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", study)},
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
 
         # IOS paths
         Darwin = {
-          path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/", study, "/features_", data_type, "_", window, "_", lead, "_", version)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)}
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
         )
 ```
 
 
 Chunk Defaults
-```{r defaults, include=FALSE}
+```{r defaults}
+#| include: false
+
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
 options(tibble.width = Inf)
@@ -99,11 +102,11 @@ options(tibble.print_max = Inf)
 ```
 
 
-### Check raw files
+### Open and check feature file characteristics
 
 Read job file
 ```{r read_jobs}
-jobs <- vroom(here(path_jobs, "input", "jobs.csv"), 
+jobs <- read_csv(here(path_jobs, "input", "jobs.csv"), 
               show_col_types = FALSE, 
               col_names = FALSE) %>% 
   rename(job_start = X1, job_end = X2)
@@ -119,56 +122,15 @@ Get counts of jobs and labels
   pull(n_labels))
 ```
 
-Read error, out, and feature files
-
-```{r read_file_info}
-err_files <- map_dfr(list.files(here(path_jobs, "output", "error"), 
-                               full.names = TRUE), 
-                    file.info)
-n_err_files <- nrow(err_files)
-
-feature_files <- map_dfr(list.files(here(path_jobs, "output", "features"), 
-                               full.names = TRUE), 
-                    file.info)
-n_feature_files <- nrow(feature_files)
-```
-
-Check counts of error, and features
-```{r check_files}
-if (!(n_jobs == n_err_files)) {
-  stop(n_jobs, " jobs != ", n_err_files, " error files!") 
-} else {
-  message(n_err_files, " error files detected.  Correct!")
-}
-
-if (!(n_jobs == n_feature_files)) {
-  stop(n_jobs, " jobs != ", n_feature_files, " feature files!")
-} else {
-  message(n_feature_files, " feature files detected.  Correct!")
-}
-```
-
-Display path/filename of non-zero error files
-```{r print_errors}
-err_files %>%
-    filter(size > 0) %>%
-    rownames_to_column("path") %>%
-    pull(path)
-```
-
+Read feature file
 
 ### Aggregate feature files 
 
 ```{r read_features}
  
-#future_map over subids
-(n_core <- parallel::detectCores(logical = FALSE))
-plan(multisession, workers = n_core)
+features <- read_csv(INSERT FILE/PATH) |> 
+    arrange(subid, dttm_label)
 
-features <- list.files(here(path_jobs, "output", "features"), full.names = TRUE) %>% 
-  future_map_dfr(~read_csv(file = .x, col_types = cols())) %>% 
-  arrange(subid, dttm_label)
-plan(sequential)
 ```
 
 
@@ -194,18 +156,18 @@ features %>%
 ```
 
 Confirm outcome distribution
-```{r}
+```{r outcome_check}
 features %>% 
   tabyl(lapse)
 ```
 
 Confirm all subjects
-```{r}
+```{r subject_check}
 length(unique(features$subid))
 ```
 
 Count observations per subject
-```{r}
+```{r obs_check}
 features %>% 
   tabyl(subid) %>% 
   arrange(desc(n))
@@ -222,14 +184,14 @@ features %>%
 #### Descriptives
 
 Skim features
-```{r}
+```{r skim_sum}
 stats <- features %>% skim_without_charts()
 
 stats %>% summary()
 ```
 
 Missing values
-```{r}
+```{r skim_missing}
 stats %>% 
   yank("numeric") %>% 
   select(skim_variable, n_missing, complete_rate) %>% 
@@ -239,7 +201,7 @@ stats %>%
 ```
 
 Spread
-```{r}
+```{r skim_spread}
 stats %>% 
   yank("numeric") %>% 
   mutate(range = p100 - p0) %>% 
@@ -251,7 +213,7 @@ stats %>%
 ```
 
 Central tendency
-```{r}
+```{r skim_central}
 stats %>% 
   yank("numeric") %>% 
   select(skim_variable, mean, p50, p0, p100) %>% 
@@ -263,7 +225,7 @@ stats %>%
 ### Remove high missing
 
 Remove high (> 20%) NA
-```{r}
+```{r remove_high_na}
 features <- features %>% 
   discard(~sum(is.na(.x))/length(.x) >.20)
 ```
@@ -272,8 +234,6 @@ features <- features %>%
 ### Write feature file
 
 ```{r save_features}
-# NEED TO UPDATE THIS AT SOME POINT TO USE write_csv() rather than vroom_write
-# AND TO MAKE IT A CSV FILE.
 features %>% 
-  vroom_write(here(path_processed, str_c("features_", data_type, "_", window, "_", lead, "_", version, ".tsv.xz")))
+  write_csv(here(path_processed, str_c("features_", window, "_", lead, "_", version, ".csv.xz")))
 ```
