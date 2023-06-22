@@ -1,7 +1,7 @@
 # setup jobs to make EMA features on CHTC 
 
 # EDIT THESE
-window <- "1week"   # remember to edit these in make_features_chtc.R as well
+window <- "1hour"   # remember to edit these in make_features_chtc.R as well
 lead <- 0
 version <- "v5"
 
@@ -10,7 +10,7 @@ library(tidyverse)
 library(lubridate)
 
 # Paths and filenames
-path_jobs <- str_c("~/mnt/studydata/risk/chtc/ema")
+path_jobs <- str_c("~/mnt/private/studydata/risk/chtc/ema")
 name_job <- str_c("features_", window, "_", lead, "_", version)
 
 path_processed <- "~/mnt/private/studydata/risk/data_processed/ema" 
