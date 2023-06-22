@@ -13,6 +13,7 @@ period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for i
 
 suppressWarnings(suppressPackageStartupMessages({
   library(dplyr)
+  library(readr)
   library(lubridate)
   library(foreach)
   library(tidyr) # for pivot_wider.
