@@ -115,6 +115,7 @@ Read ema.csv file
 ema <- read_csv(here(path_processed, "ema.csv"),
                 show_col_types = FALSE) %>% 
   select(dttm_obs, subid, ema_10) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago")) %>% 
   glimpse()
 ```
 
@@ -123,6 +124,7 @@ Read features.csv (aggregate CHTC file)
 ```{r read_features}
 features <- read_csv(here(path_jobs, "output", "features.csv"),
                      show_col_types = FALSE) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
   glimpse()
 
 ```
