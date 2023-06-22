@@ -75,7 +75,7 @@ ema <- ema_morning %>%
   select(-response_id, -end_date, -finished, -status, -utc, 
          -send_date, -send_time, -ema_type, -ema_1, -ema_1_1, 
          -ema_1_2, -ema_1_3, -ema_1_4, -ema_1_5, -ema_1_6) %>% 
-  rename(dttm_obs = start_date) %>% 
+  rename(dttm_obs = start_date) %>% # GEF change this to be ema submission not ema start
   arrange(subid, dttm_obs) %>% 
   glimpse()
 ```
