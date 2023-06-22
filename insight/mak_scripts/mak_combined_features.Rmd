@@ -27,13 +27,13 @@ Jobs input file
 
 * jobs.csv 
 
-Raw EMA file to confirm insight question (EMA10) values
+Raw EMA file to confirm insight question (ema_10) values
 
 * ema.csv
 
 Output:
 
-* features_v1.csv (write to processed data path)
+* features_[version].csv (write to processed data path)
 
 
 ### Set Up Environment
@@ -63,7 +63,7 @@ library(skimr)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(file.path("../lab_support/print_kbl.R"))
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
 ```
 
 Absolute paths
@@ -156,6 +156,8 @@ features %>%
   filter(n > 1)
 ```
 
+(none!)
+
 Confirm outcome distribution
 ```{r eda_outcome}
 features %>% 
@@ -167,6 +169,8 @@ Confirm all subjects
 length(unique(features$subid))
 ```
 
+Should be N = 151
+
 Count observations per subject
 ```{r eda_obs_per_sub}
 features %>% 
@@ -174,7 +178,7 @@ features %>%
   arrange(desc(n))
 ```
 
-subid 193 has only 1 observation --> keep an eye on this during analyses
+Subid 193 has only 1 observation --> keep an eye on this during analyses
 
 Check for NaN.  Select only columns with NaN
 ```{r eda_nan}
@@ -184,7 +188,9 @@ features %>%
   glimpse() 
 ```
 
-#### Descriptives
+(none!)
+
+#### Descriptives on numeric variables
 
 Skim features
 ```{r eda_skim_features}
@@ -202,15 +208,9 @@ stats %>%
   arrange(complete_rate, skim_variable) %>% 
   print_kbl
 
-# ema_10 (insight) specifically
-stats %>% 
-  yank("numeric") %>% 
-  select(skim_variable, n_missing, complete_rate) %>% 
-  filter(str_detect(skim_variable, "ema_10")) %>% 
-  arrange(complete_rate, skim_variable) %>% 
-  print_kbl
-
 ```
+
+No missing values on any variables.
 
 Spread
 ```{r eda_spread}
@@ -220,6 +220,17 @@ stats %>%
   mutate(range = p100 - p0) %>% 
   select(skim_variable, sd, range, p0, p100) %>% 
   filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
+
+# just "raw" (rrecent) ema variables & demos (age) to make sure ranges seem appropriate
+# ema 2-5: valid values range from 0 to 12
+# ema 6-10: valid values range from 1 to 11
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(str_detect(skim_variable, "rrecent") | str_detect(skim_variable, "demo")) %>% 
   arrange(desc(range), skim_variable) %>% 
   print_kbl
 
@@ -252,6 +263,25 @@ stats %>%
   print_kbl
 ```
 
+#### Review character variables
+
+Unique values
+```{r}
+chr_vars <- stats %>% 
+  yank("character") %>% 
+  filter(!str_detect(skim_variable, "lapse")) %>% 
+  pull(skim_variable)
+
+for (chr_var in chr_vars) {
+  message(str_c("Unique values for ", chr_var, ":"))
+  features %>% 
+    select(all_of(chr_var)) %>% 
+    pull(chr_var) %>% 
+    unique(.) %>% 
+    print()
+}
+```
+
 ### Compare to "raw" insight values
 
 ```{r eda_compare_insight}
@@ -259,33 +289,28 @@ ema_comp <- ema %>%
   filter(!is.na(ema_10)) %>% 
   filter(subid %in% features$subid) %>% 
   rename(raw_ema_10 = ema_10) %>% 
-  mutate(dttm_date = date(dttm_obs),
-         dttm_hour = hour(dttm_obs),
-         dttm_max = dttm_obs + minutes(3))
+  mutate(dttm_label = dttm_obs + seconds(1)) 
 
 feat_comp <- features %>% 
-  mutate(dttm_date = date(dttm_label),
-         dttm_hour = hour(dttm_label)) %>% 
   select(subid, starts_with("dttm"), 
          recent_ema_10 = ema_10.p0.l0.rrecent_response)
 
 insight_comp <- feat_comp %>% 
-  left_join(., ema_comp, by = join_by(
-    "subid", "dttm_date", "dttm_hour",
-    between(x = dttm_label,
-            y_lower = dttm_obs,
-            y_upper = dttm_max)
-  )) %>% 
+  left_join(., ema_comp, by = c("subid", "dttm_label")) %>% 
   arrange(subid, dttm_label) %>% 
   select(subid, raw_ema_10, recent_ema_10, 
-         dttm_obs, dttm_label, dttm_date, dttm_hour) %>% 
-  print_kbl()
-```
+         dttm_obs, dttm_label)
 
+print_kbl(insight_comp)
+
+identical(insight_comp$raw_ema_10, insight_comp$recent_ema_10)
+
+identical(insight_comp$dttm_label, (insight_comp$dttm_obs + seconds(1)))
+```
 
 ### Write feature file
 
-```{r save_features, eval=FALSE}
+```{r save_features}
 features %>% 
   write_csv(file.path(path_processed, str_c("features_", version, ".csv")))
 ```
@@ -293,11 +318,11 @@ features %>%
 ```{r, eval = FALSE, include=FALSE}
 # Render knit file manually to different location
 
-rmarkdown::render(input =
-                    file.path("insight/mak_scripts/0_mak_combined_features.Rmd"),
-                  output_dir = "P:/studydata/risk/knits/insight",
-                  output_file = str_c("mak_combined_features_", version,
-                                      ".html"),
-                  env = new.env())
+rmarkdown::render(input = file.path(
+  "insight/mak_scripts/mak_combined_features.Rmd"),
+  output_dir = file.path("P:/studydata/risk/knits/insight"),
+  output_file = str_c("mak_combined_features_", version,
+                      ".html"),
+  env = new.env())
 ```
 
