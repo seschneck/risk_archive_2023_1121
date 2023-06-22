@@ -5,6 +5,8 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -48,8 +50,6 @@ library(conflicted)
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
 conflict_prefer("cols", "readr")
-
-library(here)
 ```
 
 Packages for script
@@ -63,7 +63,7 @@ library(skimr)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
+source(file.path("../lab_support/print_kbl.R"))
 ```
 
 Absolute paths
@@ -77,10 +77,14 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/insight/features")
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/insight")}
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/insight")},
+        
+        # Linux paths
+        Linux = {
+          path_jobs <- str_c("~/mnt/private/studydata/risk/chtc/insight/features")
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/insight")}
 )
 ```
-
 
 Chunk Defaults
 ```{r defaults, include=FALSE}
@@ -95,7 +99,7 @@ options(tibble.print_max = Inf)
 
 Read job file
 ```{r read_jobs}
-jobs <- read_csv(here(path_jobs, "input", "jobs.csv"), 
+jobs <- read_csv(file.path(path_jobs, "input", "jobs.csv"), 
                  show_col_types = FALSE, 
                  col_names = FALSE) %>% 
   rename(job_start = X1, job_end = X2) %>% 
@@ -112,7 +116,7 @@ Get counts of labels
 
 Read ema.csv file
 ```{r read_ema}
-ema <- read_csv(here(path_processed, "ema.csv"),
+ema <- read_csv(file.path(path_processed, "ema.csv"),
                 show_col_types = FALSE) %>% 
   select(dttm_obs, subid, ema_10) %>% 
   glimpse()
@@ -121,7 +125,7 @@ ema <- read_csv(here(path_processed, "ema.csv"),
 Read features.csv (aggregate CHTC file)
 
 ```{r read_features}
-features <- read_csv(here(path_jobs, "output", "features.csv"),
+features <- read_csv(file.path(path_jobs, "output", "features.csv"),
                      show_col_types = FALSE) %>% 
   glimpse()
 
@@ -167,6 +171,8 @@ features %>%
   tabyl(subid) %>% 
   arrange(desc(n))
 ```
+
+subid 193 has only 1 observation --> keep an eye on this during analyses
 
 Check for NaN.  Select only columns with NaN
 ```{r eda_nan}
@@ -279,14 +285,14 @@ insight_comp <- feat_comp %>%
 
 ```{r save_features, eval=FALSE}
 features %>% 
-  write_csv(here(path_processed, str_c("features_", version, ".csv")))
+  write_csv(file.path(path_processed, str_c("features_", version, ".csv")))
 ```
 
 ```{r, eval = FALSE, include=FALSE}
 # Render knit file manually to different location
 
 rmarkdown::render(input =
-                    here("insight/mak_scripts/0_mak_combined_features.Rmd"),
+                    file.path("insight/mak_scripts/0_mak_combined_features.Rmd"),
                   output_dir = "P:/studydata/risk/knits/insight",
                   output_file = str_c("mak_combined_features_", version,
                                       ".html"),
