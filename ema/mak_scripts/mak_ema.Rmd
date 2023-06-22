@@ -11,9 +11,11 @@ knit: (function(input, ...) {
       input,
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/ema", 
-      "/Volumes/private/studydata/risk/knits/ema")
+      "~/mnt/private/studydata/risk/knits/ema")
     )
   })
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -37,7 +39,12 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"},
+        
+        # IOS paths
+        Linux = {
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"
+          path_ema <- "~/mnt/private/studydata/risk/data_processed/ema"}
         )
 ```
 
@@ -46,23 +53,21 @@ Packages for lab workflow
 library(conflicted) 
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
-library(here) 
 ```
 
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(tidyverse)
-library(vroom)
 ```
 
 
 ### Process and save ema
 ```{r}
-ema_morning <- vroom(here(path_shared, "ema_morning.csv"), show_col_types = FALSE) %>% 
+ema_morning <- read_csv(file.path(path_shared, "ema_morning.csv"), show_col_types = FALSE) %>% 
   glimpse()
 
-ema_later <- vroom(here(path_shared, "ema_later.csv"), show_col_types = FALSE) %>% 
+ema_later <- read_csv(file.path(path_shared, "ema_later.csv"), show_col_types = FALSE) %>% 
   glimpse()
 ```
 
@@ -70,13 +75,15 @@ ema_later <- vroom(here(path_shared, "ema_later.csv"), show_col_types = FALSE) %
 ema <- ema_morning %>% 
   bind_rows(ema_later) %>% 
   mutate(subid = as.numeric(subid)) %>% 
-  select(-response_id, -end_date, -finished, -status, -utc, -send_date, -send_time) %>% 
-  rename(dttm_obs = start_date) %>% 
+  select(-response_id, -start_date, -finished, -status, -utc, -send_date, -send_time) %>% 
+  #NOTE: THIS IS A CHANGE TO MAKE SURE THE EMA IS TIMESTAMPED WHEN IT IS COMPLETED.
+  #PREVIOUSLY USED start_date
+  rename(dttm_obs = end_date) %>% 
   glimpse()
 ```
 
 
 ```{r}
 ema %>% 
-  write_csv(here(path_ema, "ema.csv"))
+  write_csv(file.path(path_ema, "ema.csv"))
 ```
