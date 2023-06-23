@@ -127,7 +127,7 @@ Get counts of jobs and labels
 
 Read feature file
 
-### Aggregate feature files 
+### Open Batch
 
 ```{r read_features}
  
@@ -239,5 +239,5 @@ features <- features %>%
 
 ```{r save_features}
 features %>% 
-  write_csv(here(path_processed, str_c("features_", window, "_", lead, "_", version, ".csv.xz")))
+  write_csv(file.path(path_processed, str_c("features_", window, "_", lead, "_", version, ".csv.xz")))
 ```
