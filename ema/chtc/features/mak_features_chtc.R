@@ -4,7 +4,7 @@
 # This is version 5 (to align with current versioning convention)
 
 # Constants: EDIT
-window <- "1day"  # window for calculating labels
+window <- "1hour"  # window for calculating labels
 lead <-  0 # feature lead time
 version <- "v5"  #matches new feature engineering with end_date for ema
 
