@@ -58,17 +58,17 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_input <- str_c("P:/studydata/risk/chtc/", study)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", study)},
+          path_models <- str_c("P:/studydata/risk/models/", study)},
 
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/", study)},
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
         
         # Linux paths
         Linux = {
           path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/", study)}
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
         )
 ```
 
@@ -191,7 +191,7 @@ Save raw metrics file
 ```{r}
 results_all %>% 
   # arrange(split_num, outer_split_num, inner_split_num, algorithm, resample
-  write_csv(file.path(path_processed, str_c("metrics_raw_train_", 
+  write_csv(file.path(path_models, str_c("inner_metrics_", 
                                             window, "_", lead, "_", version, "_", 
                                             cv, ".csv")))
 ```

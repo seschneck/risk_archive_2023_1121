@@ -247,7 +247,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 ### Read in aggregate CHTC metrics for inner folds
 ```{r read_inner_metrics}
 metrics_raw <- 
-  read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
+  read_csv(file.path(path_models, str_c("inner_metrics", window, 
                                    "_", lead, "_", version, "_", cv, ".csv")), 
            col_types = "iiiiccdddcdddddddi") |> 
   glimpse()
@@ -359,16 +359,16 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     
   # save
   metrics_out |> 
-    saveRDS(file.path(path_models, str_c("nested_outer_metrics_", 
+    saveRDS(file.path(path_models, str_c("outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
   probs_out %>%
-    saveRDS(file.path(path_models, str_c("nested_outer_preds_", 
+    saveRDS(file.path(path_models, str_c("outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
   
   shaps_out %>%
-    saveRDS(file.path(path_models, str_c("nested_outer_shaps_", 
+    saveRDS(file.path(path_models, str_c("outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
 } else {
