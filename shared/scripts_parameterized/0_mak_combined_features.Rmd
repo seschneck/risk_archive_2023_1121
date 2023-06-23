@@ -10,6 +10,8 @@ params:
   window: "1hour"
   lead: 0
   version: "v5"
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -106,7 +108,8 @@ options(tibble.print_max = Inf)
 
 Read job file
 ```{r read_jobs}
-jobs <- read_csv(here(path_jobs, "input", "jobs.csv"), 
+jobs <- read_csv(file.path(path_input, str_c("features_", window, "_", lead, "_", 
+                                             version), "input", "jobs.csv"), 
               show_col_types = FALSE, 
               col_names = FALSE) %>% 
   rename(job_start = X1, job_end = X2)
@@ -128,7 +131,9 @@ Read feature file
 
 ```{r read_features}
  
-features <- read_csv(INSERT FILE/PATH) |> 
+features <- read_csv(file.path(path_input, 
+                               str_c("features_", window, "_", lead, "_", version), 
+                               "output", "batch_features.csv")) |> 
     arrange(subid, dttm_label)
 
 ```
@@ -158,7 +163,7 @@ features %>%
 Confirm outcome distribution
 ```{r outcome_check}
 features %>% 
-  tabyl(lapse)
+  tab(lapse)
 ```
 
 Confirm all subjects
@@ -169,7 +174,7 @@ length(unique(features$subid))
 Count observations per subject
 ```{r obs_check}
 features %>% 
-  tabyl(subid) %>% 
+  tab(subid) %>% 
   arrange(desc(n))
 ```
 
@@ -197,7 +202,6 @@ stats %>%
   select(skim_variable, n_missing, complete_rate) %>% 
   arrange(desc(n_missing), skim_variable) %>% 
   print_kbl
-  
 ```
 
 Spread
