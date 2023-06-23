@@ -1,7 +1,7 @@
 # setup jobs to make EMA features on CHTC 
 
 # EDIT THESE
-window <- "1hour"   # remember to edit these in make_features_chtc.R as well
+window <- "1day"   # remember to edit these in make_features_chtc.R as well
 lead <- 0
 version <- "v5"
 
