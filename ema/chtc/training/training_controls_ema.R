@@ -2,7 +2,7 @@
 
 # NOTES------------------------------
 # Hour Batches
-# Batch1, down1, down2
+# Batch1, down_1, down_2, down_3
  
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
@@ -23,7 +23,7 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("down_1, down_2") 
+resample <- c("down_1, down_2", "downl_3") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
@@ -45,7 +45,7 @@ y_level_neg <- "no"
 # CV SETTINGS---------------------------------
 cv_resample_type <- "nested" # can be boot, kfold, or nested
 cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
-cv_inner_resample <- "3_x_10" # can also be a single number for bootstrapping (i.e., 100)
+cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
 cv_outer_resample <- "3_x_10" # outer resample will always be kfold
 cv_group <- "subid" # set to NULL if not grouping
 
