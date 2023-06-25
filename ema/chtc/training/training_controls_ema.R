@@ -23,9 +23,7 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-
 resample <- c("down_1", "down_2", "down_3") 
-
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
