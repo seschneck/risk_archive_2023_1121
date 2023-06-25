@@ -197,7 +197,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
            roc_auc_in = roc_auc, sens_in =  sens, spec_in = spec, 
            ppv_in = ppv, npv_in = npv)
     
-  rec <- build_recipe(d = d_in, job = config_best)
+  rec <- build_recipe(d = d_in, config = config_best)
   model_best <- fit_best_model(config_best, rec, d_in, "classification")
   
   feat_out <- rec %>% 
