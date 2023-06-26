@@ -238,7 +238,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
     relocate(accuracy_in, bal_accuracy_in, .after = last_col())
 
   probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
-                  prob = preds_prob)
+                  prob = preds_prob, label = d_out$y)
   
   return(list(probs_out = probs, metrics_out = model_metrics, shaps_out = shap_raw))
 }
