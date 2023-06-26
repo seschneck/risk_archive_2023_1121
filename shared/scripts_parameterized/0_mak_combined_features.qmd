@@ -1,0 +1,243 @@
+---
+title: "Process feature jobs from CHTC for `r params$window` window and `r params$lead` lead and `r params$version`"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+params:
+  study: "ema"
+  window: "1day"
+  lead: 0
+  version: "v5"
+editor_options: 
+  chunk_output_type: console
+---
+
+### Code Status
+
+In Use
+
+### Notes   
+
+This script aggregates all CHTC features and checks for missing jobs and other EDA.
+  
+  
+Creates `features_WINDOW_LEAD_VERSION.csv 
+
+
+### Set Up Environment
+
+```{r set_params}
+study <- params$study
+window <- params$window
+lead <- params$lead 
+version <- params$version 
+```
+
+Function conflicts
+```{r, packages_workflow}
+#| message: false
+#| warning: false
+
+# source
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
+
+# handle conflicts
+options(conflicts.policy = "depends.ok")
+tidymodels_conflictRules()
+```
+
+
+Packages for script
+```{r, packages_script}
+#| message: false
+#| warning: false
+
+library(tidyverse)  
+library(skimr)
+```
+
+Source support functions
+```{r source_functions}
+# EDA
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+
+# CHTC support functions
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+```
+
+Absolute paths
+```{r, absolute_paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults}
+#| include: false
+
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Open and check feature file characteristics
+
+Read job file
+```{r read_jobs}
+jobs <- read_csv(file.path(path_input, str_c("features_", window, "_", lead, "_", 
+                                             version), "input", "jobs.csv"), 
+              show_col_types = FALSE, 
+              col_names = FALSE) %>% 
+  rename(job_start = X1, job_end = X2)
+```
+
+Get counts of jobs and labels
+```{r count_jobs_labels}
+(n_jobs <- nrow(jobs))
+
+(n_labels <- jobs %>% 
+  mutate(n_bundle = job_end - job_start + 1) %>% 
+  summarise(n_labels = sum(n_bundle)) %>% 
+  pull(n_labels))
+```
+
+Read feature file
+
+### Open Batch
+
+```{r read_features}
+ 
+features <- read_csv(file.path(path_input, 
+                               str_c("features_", window, "_", lead, "_", version), 
+                               "output", "batch_features.csv")) |> 
+    arrange(subid, dttm_label)
+
+```
+
+
+### Brief EDA on Features
+
+#### Basic Checks
+
+Check for correct number of features (matches number of labels)  
+```{r eda_feature_count}
+if (nrow(features) == n_labels) {
+  message("Features detected for ", n_labels, " labels.  Correct!")
+} else {
+  stop("Missing features for label_num: \n", 
+       subset(1:n_labels, !1:n_labels %in% features$label_num))
+}
+```
+
+Check for duplicate labels
+```{r eda_labels}
+features %>% 
+  count(subid, dttm_label) %>% 
+  filter(n > 1)
+```
+
+Confirm outcome distribution
+```{r outcome_check}
+features %>% 
+  tab(lapse)
+```
+
+Confirm all subjects
+```{r subject_check}
+length(unique(features$subid))
+```
+
+Count observations per subject
+```{r obs_check}
+features %>% 
+  tab(subid) %>% 
+  arrange(desc(n))
+```
+
+Check for NaN.  Select only columns with NaN
+```{r eda_nan}
+features %>% 
+  summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
+  select(where(function(x) x < 0)) %>% 
+  glimpse() 
+```
+
+#### Descriptives
+
+Skim features
+```{r skim_sum}
+stats <- features %>% skim_without_charts()
+
+stats %>% summary()
+```
+
+Missing values
+```{r skim_missing}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, n_missing, complete_rate) %>% 
+  arrange(desc(n_missing), skim_variable) %>% 
+  print_kbl
+```
+
+Spread
+```{r skim_spread}
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
+  
+```
+
+Central tendency
+```{r skim_central}
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, mean, p50, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(mean), skim_variable) %>% 
+  print_kbl
+```
+
+### Remove high missing
+
+Remove high (> 20%) NA
+```{r remove_high_na}
+features <- features %>% 
+  discard(~sum(is.na(.x))/length(.x) >.20)
+```
+
+
+### Write feature file
+
+```{r save_features}
+features %>% 
+  write_csv(file.path(path_processed, str_c("features_", window, "_", lead, "_", version, ".csv.xz")))
+```
