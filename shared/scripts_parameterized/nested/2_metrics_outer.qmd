@@ -348,6 +348,8 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   #plan(sequential)
   
+  rm(splits)  # save a bit of memory!
+  
   # pluck
   metrics_out <- all |> 
     map(\(l) pluck(l, "metrics_out")) |> 
@@ -385,19 +387,19 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
 Now group SHAPs
 NOTE: Delete `nested_outer_shaps_grouped_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
+if(file.exists(file.path(path_models, str_c("outer_shaps_grouped_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
   message("Loading previously calculated grouped SHAPs")
   shap_out_grouped <- readRDS(file.path(path_models, 
-                                        str_c("nested_outer_shaps_grouped_",
+                                        str_c("outer_shaps_grouped_",
                                               window, "_", lead, "_", version, "_",
                                               cv, ".rds")))
 } else {
   
   message("Calculating grouped SHAPs")
   
-  shaps_out_grouped <- shaps_out %>% 
+  shaps_out_grp <- shaps_out %>% 
     mutate(group = if_else(str_detect(variable, "lapse."), 
                            "past use (EMA item)", 
                            variable),
@@ -456,8 +458,8 @@ if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
     group_by(id_obs, split_num, group) %>% 
     summarize(shap = sum(value))
   
-  shaps_out_grouped %>% saveRDS(file.path(path_models, 
-                                          str_c("nested_outer_shaps_grouped_",
+  shaps_out_grp %>% saveRDS(file.path(path_models, 
+                                          str_c("nested_outer_shaps_grp_",
                                                 window, "_", lead, "_", version, "_",
                                                 cv, ".rds")))
 }
