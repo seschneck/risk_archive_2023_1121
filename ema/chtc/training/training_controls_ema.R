@@ -4,15 +4,16 @@
 # Hour Batches
 # Batch1, down_1, down_2, down_3 - John (completed)
 # Batch2, down_4, down_5 - John (completed)
-# Batch3, up_5, up_4, up_3 - John (pending)
- 
+# Batch3, up_5, up_4, up_3 - John (running)
+# Batch4, up_1, up_2 - John (pending)
+
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
 window <- "1hour"
 lead <- 0
 version <- "v5"
 algorithm <- "xgboost"
-batch <- "batch3"
+batch <- "batch4"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -25,7 +26,7 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("up_5", "up_4", "up_3") 
+resample <- c("up_1", "up_2") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
@@ -82,9 +83,6 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 # trees = 500
 # early stopping = 20
  
-
-
-
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
