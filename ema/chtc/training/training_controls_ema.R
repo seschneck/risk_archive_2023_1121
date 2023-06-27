@@ -5,18 +5,23 @@
 # Batch1, down_1, down_2, down_3 - John (completed)
 # Batch2, down_4, down_5 - John (completed)
 # Batch3, up_5, up_4, up_3 - John (completed)
-# Batch4, up_1, up_2 - John (running)
+# Batch4, up_1, up_2 - John (completed)
 
 # Day Batches
-# Batch1, down_1 - down_5 - Kendra (assigned)
+# Batch1, down_1 - down_5 - Kendra (current)
+# Batch2, up_5 - up_1 - John (current)
+
+# Week Batches
+# # Batch1, down_1 - down_5 - Susan (pending)
+# # Batch2, up_1 - up_5 - Kendra (pending)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-window <- "1day"
+window <- "1week"
 lead <- 0
 version <- "v5"
 algorithm <- "xgboost"
-batch <- "batch1"
+batch <- "batch2"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -29,14 +34,14 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("down_5", "down_4", "down_3", "down_2", "down_1") 
+resample <- c("up_5", "up_4", "up_3", "up_2", "up_1") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "40000MB"
+request_memory <- "48000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
