@@ -25,9 +25,10 @@ This script reads in CHTC performance metrics from the inner loops of CV, select
 
 This script creates the following files in the `models` folder
 
-* nested_outer_metrics_*.rds
-* nested_outer_preds_*.rds
-* nested_outer_shaps_*.rds
+* outer_metrics_*.rds
+* outer_preds_*.rds
+* outer_shaps_*.rds
+* outer_shaps_grp_*.rds
 
 where * = window_lead_version_cv
 
@@ -37,7 +38,9 @@ where * = window_lead_version_cv
 SHAPS
 
 * We get SHAPS in this script with 30 outer folds.   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size shaps for each feature
+
 * Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
+
 * Could train that ONE best config on full sample and use it for SHAPS in the full sample.   
 
 
@@ -461,7 +464,7 @@ if(file.exists(file.path(path_models, str_c("outer_shaps_grouped_",
     summarize(shap = sum(value))
   
   shaps_out_grp %>% saveRDS(file.path(path_models, 
-                                          str_c("nested_outer_shaps_grp_",
+                                          str_c("outer_shaps_grp_",
                                                 window, "_", lead, "_", version, "_",
                                                 cv, ".rds")))
 }
