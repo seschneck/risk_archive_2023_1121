@@ -23,8 +23,8 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only") # "comparison"
-data_trn <- str_c("features_",  version, ".csv.xz") # GEF check file ending
+feature_set <- c("insight_only", "all") # 
+data_trn <- str_c("features_",  version, ".csv") # GEF check file ending
 seed_splits <- 102030
 
 ml_mode <- "classification"   # regression or classification
@@ -92,17 +92,26 @@ glide <- FALSE
 # down_3:
 
 # FORMAT DATA-----------------------------------------
-format_data <- function (df){
+format_data <- function (df) {
   
   df %>% 
     rename(y = !!y_col_name) %>% 
-    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)), # set pos class first
-           across(where(is.character), factor)) %>%
-    select(-label_num, -dttm_label)
-  # GEF ADD ONCE WE CAN SEE FEATURES FILE
-  
-  # Now include additional mutates to change classes for columns as needed
-  # see https://jjcurtin.github.io/dwt/file_and_path_management.html#using-a-separate-mutate
+    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first)
+    select(-label_num, -dttm_label) %>% 
+    mutate(label_day = factor(label_day, levels = c("Mon", "Tue", "Wed", 
+                                                    "Thu", "Fri", "Sat", 
+                                                    "Sun")),
+           label_hour = factor(label_hour, levels = c("other", "evening")),
+           demo_sex = factor(demo_sex, levels = c("Male", "Female")),
+           demo_educ = factor(demo_educ, levels = c("High school or less",
+                                                    "Some college",
+                                                    "College or more")),
+           demo_marital = factor(demo_marital, levels = c("Married",
+                                                          "Never Married",
+                                                          "Other")),
+           demo_race = factor(demo_race, levels = c("White/Caucasian",
+                                                    "Other")))
+
 }
 
 
@@ -126,9 +135,12 @@ build_recipe <- function(d, config) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     step_rm(subid) %>%
-    step_zv(all_predictors()) %>% 
-    step_impute_median(all_numeric_predictors()) %>% 
-    step_impute_mode(all_nominal_predictors()) 
+    step_zv(all_predictors()) 
+  
+  if (feature_set == "insight_only") {
+    rec <- rec %>% 
+      step_select(y, ema_10.p0.l0.rrecent_response)
+  }
   
   # algorithm specific steps
   if (algorithm == "glmnet") {
