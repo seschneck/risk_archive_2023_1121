@@ -87,12 +87,6 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
 ```
 
-Parallel backend
-```{r parallel}
-# cl <- parallel::makePSOCKcluster(parallel::detectCores(logical = FALSE))
-# doParallel::registerDoParallel(cl)
-```
-
 Absolute paths
 ```{r, absolute_paths}
 switch (Sys.info()[['sysname']],
@@ -340,18 +334,16 @@ splits <- d %>%
               cv_inner_resample, cv_group, seed_splits)
 ```
 
-future map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
+Map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
-NOTE: Delete `nested_outer_metrics_*` or this code chunk won't run!
+NOTE: Delete `outer_metrics_*` or this code chunk won't run!
 ```{r eval_outer_folds}
 if(!file.exists(file.path(path_models, str_c("outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
-  # plan(multisession, workers = parallel::detectCores(logical = FALSE))
   all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
-  #plan(sequential)
   
   rm(splits)  # save a bit of memory!
   
@@ -390,16 +382,15 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
 ```
 
 Now group SHAPs
-NOTE: Delete `nested_outer_shaps_grouped_*` or this code chunk won't run!
+NOTE: Delete `outer_shaps_grp_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("outer_shaps_grouped_",
+if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
   message("Loading previously calculated grouped SHAPs")
-  shap_out_grouped <- readRDS(file.path(path_models, 
-                                        str_c("outer_shaps_grouped_",
-                                              window, "_", lead, "_", version, "_",
-                                              cv, ".rds")))
+  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
+                                                        window, "_", lead, "_", version, "_",
+                                                        cv, ".rds")))
 } else {
   
   message("Calculating grouped SHAPs")
@@ -473,7 +464,7 @@ if(file.exists(file.path(path_models, str_c("outer_shaps_grouped_",
 
 ### Review performance eval from outer loop
 
-Done more in depth later but here is a quick look
+Done more in depth later script but here is a quick look
 ```{r print_metrics}
 metrics_out |> 
   print_kbl()
