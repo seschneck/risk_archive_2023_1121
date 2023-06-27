@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1hour"
+  window: "1day"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -323,7 +323,7 @@ if (length(chunks) == 2) {
   
 # open based on file type
 if (str_detect(fn, "csv")) {
-  d <- read_delim(file.path(path_batch, "input", fn), show_col_types = FALSE) 
+  d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
 } else {
   d <- readRDS(file.path(path_batch, "input", fn))
 }

@@ -179,7 +179,7 @@ cm %>% summary()
 ```
 
 
-### Probability Histograms
+#### Probability Histograms
 Histograms with free Y
 ```{r prob_plot_free}
 preds_out %>% 
@@ -210,7 +210,7 @@ preds_out %>%
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
-### ROC curve
+#### ROC curve
 This is single ROC by concatenating all folds.
 Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
@@ -237,7 +237,7 @@ roc_data %>%
 # ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
-### Posterior probabibilites for AUC
+#### Posterior probabibilites for AUC
 
 ```{r}
 resamples <- metrics_out |> 
@@ -285,7 +285,7 @@ pp %>%
 
 
 
-### PR Curve
+#### PR Curve
 Here is precision/recall by concatenating all folds
 Same approach as above for ROC
 ```{r pr_info}
@@ -310,38 +310,14 @@ pr_data %>%
 
 ### Feature Importance
 
+#### Grouped Features
 
-```{r read_shaps}
-shaps_out <- readRDS(file.path(path_models, str_c("outer_shaps_", window, "_", 
-                                                    lead, "_", version, "_", 
-                                                    cv, ".rds")))
-
+```{r read_shaps_grp}
 shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_", 
                                                         window, "_", lead, "_", 
                                                         version, "_", cv, ".rds")))
 ```
 
-
-Global importance Shap plot for raw features
-```{r shap_raw_plot}
-shaps_out %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   # mean for each variable is same for all rows for that variable
-  ungroup() %>% 
-  arrange(mean_value) %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  coord_flip()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
 
 Global importance Shap plot for grouped features
 ```{r shap_grouped_plot}
@@ -368,3 +344,36 @@ shaps_out_grp %>%
 # shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
 #                         top_n = 20, dilute = 10)
 ```
+
+
+
+#### Raw Features
+
+```{r read_shaps_raw}
+shaps_out <- readRDS(file.path(path_models, str_c("outer_shaps_", window, "_", 
+                                                    lead, "_", version, "_", 
+                                                    cv, ".rds")))
+```
+
+
+Global importance SHAP plot for raw features
+```{r shap_raw_plot}
+shaps_out %>% 
+  group_by(variable) %>% 
+  slice(1) %>%   # mean for each variable is same for all rows for that variable
+  ungroup() %>% 
+  arrange(mean_value) %>% 
+  slice_tail(n = 50) %>%
+  mutate(variable = factor(variable),
+         variable = forcats::fct_inorder(variable)) %>% 
+  ggplot(mapping = aes(x = variable, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  coord_flip()
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
