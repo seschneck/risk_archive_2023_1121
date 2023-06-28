@@ -61,10 +61,8 @@ library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
 
-# library(forcats)
 # library(SHAPforxgboost)
 # library(rstanarm)
-# library(tidyposterior)
 
 theme_set(theme_classic()) 
 ```
@@ -139,80 +137,41 @@ metrics_out <- readRDS(file.path(path_models, str_c("outer_metrics_", window, "_
                                                       lead, "_", version, "_", 
                                                       cv, ".rds")))
 ```
-#### Outer ROC
-Look at performance within folds
-```{r metrics_out_kbl}
-metrics_out |> 
-  print_kbl()
-```
 
-Inner overall
+#### Outer AUC
+
+
+Review performance across all inner folds
 ```{r metrics_in}
 metrics_out |> 
   summarize(median(roc_auc_in), mean(roc_auc_in))
 ```
 
+
+And now across outer folds
 Outer overall
 ```{r metrics_out}
 metrics_out |> 
   summarize(median(roc_auc), mean(roc_auc))
 ```
 
-Confusion matrix using .5 threshold
-```{r default_cm}
-preds_out <- preds_out |> 
-   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
-          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) 
-
-(cm <- preds_out |> 
-   conf_mat(truth = label, estimate = estimate))
-
-cm %>% 
-  autoplot() +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))
-
-cm %>% summary()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+Plot outer folds
+```{r plot_outer}
+metrics_out |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
 ```
 
-
-#### Probability Histograms
-Histograms with free Y
-```{r prob_plot_free}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+Table for each outer fold
+```{r metrics_out_kbl}
+metrics_out |> 
+  print_kbl()
 ```
 
-Histograms with fixed Y
-```{r prob_plot_fixed}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2) +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
 
 #### ROC curve
-This is single ROC by concatenating all folds.
-Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
+This is single ROC by concatenating all outer folds.
+Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
 preds_out %>%
@@ -283,6 +242,59 @@ pp %>%
   geom_density(aes(x = posterior))
 ```
 
+#### Probability Histograms
+Histograms with free Y
+```{r prob_plot_free}
+preds_out %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~label, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+Histograms with fixed Y
+```{r prob_plot_fixed}
+preds_out %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "white", col = "black") +
+   facet_wrap(~label, nrow = 2) +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+
+# save plot for presentations
+# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+
+#### Outer individual metrics
+
+Confusion matrix using .5 threshold
+```{r default_cm}
+preds_out <- preds_out |> 
+   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) 
+
+(cm <- preds_out |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+
+# save plot for presentations
+# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
 
 
 #### PR Curve
@@ -319,7 +331,7 @@ shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
 ```
 
 
-Global importance Shap plot for grouped features
+Global importance SHAP plot for grouped features
 ```{r shap_grouped_plot}
 shaps_out_grp %>% 
   group_by(group) %>% 
@@ -344,7 +356,6 @@ shaps_out_grp %>%
 # shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
 #                         top_n = 20, dilute = 10)
 ```
-
 
 
 #### Raw Features
