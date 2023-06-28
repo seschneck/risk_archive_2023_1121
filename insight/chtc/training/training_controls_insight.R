@@ -3,7 +3,7 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "xgboost"
+algorithm <- "glmnet"
 batch <- "batch1"
 window <- "1week"
 lead <- 0
@@ -24,7 +24,7 @@ if (algorithm == "random_forest") {
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
 feature_set <- c("insight_only")
-# feature_set <- c("all") # CHANGE CORRESPONDING HPVALUES
+# feature_set <- c("all") 
 data_trn <- str_c("features_",  version, ".csv") 
 seed_splits <- 102030
 
@@ -64,15 +64,21 @@ hp2_glmnet_out <- 200 # length of penalty grid
 
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
 
-# hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
-hp1_rf <- 1 # mtry
+if (feature_set == "insight_only") {
+  hp1_rf <- 1 # mtry
+} else {
+  hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
+}
 hp2_rf <- c(2, 15, 30, 50, 75, 100) # min_n
 hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-hp3_xgboost <- 1 # mtry
-# hp3_xgboost <- c(20, 30, 40, 50)  # mtry
+if (feature_set == "insight_only") {
+  hp3_xgboost <- 1 # mtry
+} else {
+  hp3_xgboost <- c(20, 30, 40, 50)  # mtry
+}
 # trees = 500
 # early stopping = 20
  
