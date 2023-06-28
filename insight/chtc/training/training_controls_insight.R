@@ -3,12 +3,12 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "glmnet"
-batch <- "batch1"
+algorithm <- "random_forest" # "glm" "glmnet" "random_forest" "xgboost"
+batch <- "batch2"
 window <- "1week"
 lead <- 0
 
-configs_per_job <- 100  # number of model configurations that will be fit/evaluated within each CHTC
+configs_per_job <- 300  # number of model configurations that will be fit/evaluated within each CHTC
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
@@ -23,8 +23,8 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only")
-# feature_set <- c("all") 
+# feature_set <- c("insight_only")
+feature_set <- c("all") 
 data_trn <- str_c("features_",  version, ".csv") 
 seed_splits <- 102030
 
@@ -86,14 +86,18 @@ if (feature_set == "insight_only") {
 # CHTC SPECIFIC CONTROLS----------------------------
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "25000MB"
-request_disk <- "1600MB"
+request_memory <- "5000MB"
+request_disk <- "1000MB"
 flock <- TRUE
 glide <- TRUE
 
 # Batches
-# batch1: insight_only feature_set w corresponding reduced hp values
+# batch1: 
+# insight_only feature_set w corresponding reduced hp values
+
 # batch2: all feature_set w corresponding hp values (full set)
+# request_memory <- "5000MB" request_disk <- "1000MB"
+# 300 configs per job (xgboost)
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df) {
