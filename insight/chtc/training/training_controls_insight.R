@@ -3,12 +3,12 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "random_forest" # "glm" "glmnet" "random_forest" "xgboost"
+algorithm <- "glmnet" # "glm" "glmnet" "random_forest" "xgboost"
 batch <- "batch2"
 window <- "1week"
 lead <- 0
 
-configs_per_job <- 300  # number of model configurations that will be fit/evaluated within each CHTC
+configs_per_job <- 200  # number of model configurations that will be fit/evaluated within each CHTC
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
@@ -97,7 +97,8 @@ glide <- TRUE
 
 # batch2: all feature_set w corresponding hp values (full set)
 # request_memory <- "5000MB" request_disk <- "1000MB"
-# 300 configs per job (xgboost)
+# 300 configs per job (random_forest)
+# went down to 200 configs per job (xgb, glmnet) based on RF timing
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df) {
