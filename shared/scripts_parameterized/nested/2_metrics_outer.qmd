@@ -367,24 +367,10 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
     # average SHAP metrics across repeats for same id_obs
     group_by(id_obs, variable) |> 
     summarize(value = mean(value), 
-              rfvalue =  mean(rfvalue),  # this is same across repeats but want included 
+              # rfvalue is same across repeats but want included 
+              rfvalue =  mean(rfvalue),  
               mean_value = mean(mean_value))
   
-  
-  
-  #TMP
-  shaps_out_1 <- all |> 
-    map(\(l) pluck(l, "shaps_out")) |>
-    list_rbind() 
-  
-  shaps_out_2 <- all |> 
-    map(\(l) pluck(l, "shaps_out")) |>
-    list_rbind() |> 
-    # average SHAP metrics across repeats for same id_obs
-    group_by(id_obs, variable) |> 
-    summarize(value = mean(value), 
-              rfvalue =  mean(rfvalue),  # this is same across repeats but want included 
-              mean_value = mean(mean_value))
     
   # save
   metrics_out |> 
@@ -479,14 +465,14 @@ if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
     summarize(value = sum(value))
   
   shaps_out_grp %>% saveRDS(file.path(path_models, 
-                                          str_c("outer_shaps_grp_",
-                                                window, "_", lead, "_", version, "_",
+                                          str_c("outer_shaps_grp_", window, "_", 
+                                                lead, "_", version, "_",
                                                 cv, ".rds")))
 }
 ```
 
 
-### Review performance eval from outer loop
+### Final (Re-)Review performance eval from outer loop
 
 Done more in depth later script but here is a quick look
 ```{r print_metrics}
