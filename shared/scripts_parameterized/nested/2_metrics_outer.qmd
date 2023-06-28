@@ -6,11 +6,14 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
+format:
+  html:
+    embed-resources: true
 params:
   study: "ema"
-  window: "1hour"
+  window: "1day"
   lead: 0
-  version: "v4"
+  version: "v5"
   cv: "nested"
 editor_options: 
   chunk_output_type: console
@@ -25,9 +28,10 @@ This script reads in CHTC performance metrics from the inner loops of CV, select
 
 This script creates the following files in the `models` folder
 
-* nested_outer_metrics_*.rds
-* nested_outer_preds_*.rds
-* nested_outer_shaps_*.rds
+* outer_metrics_*.rds
+* outer_preds_*.rds
+* outer_shaps_*.rds
+* outer_shaps_grp_*.rds
 
 where * = window_lead_version_cv
 
@@ -37,7 +41,9 @@ where * = window_lead_version_cv
 SHAPS
 
 * We get SHAPS in this script with 30 outer folds.   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size shaps for each feature
+
 * Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
+
 * Could train that ONE best config on full sample and use it for SHAPS in the full sample.   
 
 
@@ -54,7 +60,10 @@ cv <- params$cv
 ```
 
 Function conflicts
-```{r, packages_workflow, message=FALSE, warning=FALSE}
+```{r, packages_workflow}
+#| message: false
+#| warning: false
+
 # source
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
 
@@ -64,13 +73,16 @@ tidymodels_conflictRules()
 ```
 
 Packages for script
-```{r, packages_script, message=FALSE, warning=FALSE}
+```{r, packages_script}
+#| message: false
+#| warning: false
+
 library(tidyverse)
 library(tidymodels)
 ```
 
 Source support functions
-```{r}
+```{r source_functions}
 # EDA
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
 
@@ -78,14 +90,8 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.
 devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
 ```
 
-Parallel backend
-```{r}
-# cl <- parallel::makePSOCKcluster(parallel::detectCores(logical = FALSE))
-# doParallel::registerDoParallel(cl)
-```
-
 Absolute paths
-```{r, absolute paths}
+```{r, absolute_paths}
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
@@ -111,18 +117,20 @@ switch (Sys.info()[['sysname']],
 
 
 Chunk Defaults
-```{r defaults, include=FALSE}
+```{r defaults}
+#| include: false
+
 knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
 ```
-
+*
 
 ### Script Functions
 
 Function to clean up poor choices for feature names for SHAPs!!
-```{r}
+```{r function_1}
 clean_feature_names <- function(feat_name){
   new_name <- gsub(".l0", "", feat_name)
   new_name <- gsub("rratecount.count", "raw_count", new_name)
@@ -174,11 +182,12 @@ clean_feature_names <- function(feat_name){
 }
 ```
 
-Functiont to fit, predict, and calc metrics, preds, shaps
-```{r}
+Function to fit, predict, and calc metrics, preds, shaps
+```{r function_2}
 fit_predict_eval <- function(split_num, splits, configs_best){
 
-  d_in <- training(splits$splits[[split_num]]) 
+  d_in <- training(splits$splits[[split_num]]) |> 
+    select(-id_obs)  # not used for training; only needed in d_out to tag SHAPs
   d_out <- testing(splits$splits[[split_num]])
   
   config_best <- configs_best |> 
@@ -188,12 +197,12 @@ fit_predict_eval <- function(split_num, splits, configs_best){
            roc_auc_in = roc_auc, sens_in =  sens, spec_in = spec, 
            ppv_in = ppv, npv_in = npv)
     
-  rec <- build_recipe(d = d_in, job = config_best)
+  rec <- build_recipe(d = d_in, config = config_best)
   model_best <- fit_best_model(config_best, rec, d_in, "classification")
   
   feat_out <- rec %>% 
     prep(training = d_in, strings_as_factors = FALSE) %>% 
-    bake(new_data = d_out)
+    bake(new_data = d_out)   # no id_obs because not included in d_in
   
   preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
   preds_prob <- predict(model_best, feat_out,
@@ -201,9 +210,10 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   
   shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
                      X_train = feat_out |> select(-y) |>  as.matrix()) |> 
-   # add subid by multiple of number of features
-    mutate(subid = rep(d_out$subid, times = ncol(feat_out) - 1)) |>  
-    relocate(subid)
+   # add id_obs by multiple of number of features
+    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
+           split_num = split_num) |>  
+    relocate(id_obs, split_num)
   
   roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
       roc_auc(prob, truth = truth, event_level = "first") %>% 
@@ -228,16 +238,18 @@ fit_predict_eval <- function(split_num, splits, configs_best){
     relocate(accuracy_in, bal_accuracy_in, .after = last_col())
 
   probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
-                  prob = preds_prob)
+                  prob = preds_prob, label = d_out$y) |> 
+    mutate(label = fct_recode(label, "No lapse" = "no",
+                              "Lapse" = "yes"))
   
   return(list(probs_out = probs, metrics_out = model_metrics, shaps_out = shap_raw))
 }
 ```
 
 ### Read in aggregate CHTC metrics for inner folds
-```{r}
+```{r read_inner_metrics}
 metrics_raw <- 
-  read_csv(file.path(path_processed, str_c("metrics_raw_train_", window, 
+  read_csv(file.path(path_models, str_c("inner_metrics_", window, 
                                    "_", lead, "_", version, "_", cv, ".csv")), 
            col_types = "iiiiccdddcdddddddi") |> 
   glimpse()
@@ -267,7 +279,14 @@ configs_best <- metrics_avg |>
   relocate(roc_auc, .before = accuracy)
 
 configs_best |> print_kbl()
+```
 
+```{r}
+configs_best |> pull(roc_auc) |> mean()
+configs_best |> pull(roc_auc) |> median()
+```
+
+```{r}
 configs_best |> 
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
@@ -283,7 +302,7 @@ ASSUMPTIONS:
 * format_data() is same for all batches
 * Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
 
-```{r}
+```{r data_and_splits}
 # can source any training control given assumptions above
 batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
 batch_names <- batch_names[str_detect(batch_names, "train") & 
@@ -304,29 +323,32 @@ if (length(chunks) == 2) {
   
 # open based on file type
 if (str_detect(fn, "csv")) {
-  d <- read_delim(file.path(path_batch, "input", fn), show_col_types = FALSE) 
+  d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
 } else {
   d <- readRDS(file.path(path_batch, "input", fn))
 }
 
 d <- format_data(d)
+
+d <- d |> mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
+
 splits <- d %>% 
   make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
               cv_inner_resample, cv_group, seed_splits)
 ```
 
-future map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
+Map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
-NOTE: Delete `nested_outer_metrics_*` or this code chunk won't run!
-```{r resample_best_config_kfold}
-if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_", 
+NOTE: Delete `outer_metrics_*` or this code chunk won't run!
+```{r eval_outer_folds}
+if(!file.exists(file.path(path_models, str_c("outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
-  # plan(multisession, workers = parallel::detectCores(logical = FALSE))
   all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
-  #plan(sequential)
+  
+  rm(splits)  # save a bit of memory!
   
   # pluck
   metrics_out <- all |> 
@@ -338,23 +360,23 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
     list_rbind()
   
   shaps_out <- all |> 
-    map(\(l) pluck(l, "shap_out")) |>   #FIX shaps_out
+    map(\(l) pluck(l, "shaps_out")) |>
     list_rbind() |> 
     # clean feature names;  See function above
     mutate(variable = fct_relabel(variable, clean_feature_names))
     
   # save
   metrics_out |> 
-    saveRDS(file.path(path_models, str_c("nested_outer_metrics_", 
+    saveRDS(file.path(path_models, str_c("outer_metrics_", 
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))
   probs_out %>%
-    saveRDS(file.path(path_models, str_c("nested_outer_preds_", 
+    saveRDS(file.path(path_models, str_c("outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
   
   shaps_out %>%
-    saveRDS(file.path(path_models, str_c("nested_outer_shaps_", 
+    saveRDS(file.path(path_models, str_c("outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
 } else {
@@ -363,21 +385,20 @@ if(!file.exists(file.path(path_models, str_c("nested_outer_metrics_",
 ```
 
 Now group SHAPs
-NOTE: Delete `nested_outer_shaps_grouped_*` or this code chunk won't run!
+NOTE: Delete `outer_shaps_grp_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
+if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
   message("Loading previously calculated grouped SHAPs")
-  shap_out_grouped <- readRDS(file.path(path_models, 
-                                        str_c("nested_outer_shaps_grouped_",
-                                              window, "_", lead, "_", version, "_",
-                                              cv, ".rds")))
+  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
+                                                        window, "_", lead, "_", version, "_",
+                                                        cv, ".rds")))
 } else {
   
   message("Calculating grouped SHAPs")
   
-  shaps_out_grouped <- shaps_out %>% 
+  shaps_out_grp <- shaps_out %>% 
     mutate(group = if_else(str_detect(variable, "lapse."), 
                            "past use (EMA item)", 
                            variable),
@@ -433,11 +454,11 @@ if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
                            "education (demographic)", 
                            group)) %>%
     mutate(group = factor(group)) %>% 
-    group_by(ID, group) %>% 
+    group_by(id_obs, split_num, group) %>% 
     summarize(shap = sum(value))
   
-  shaps_out_grouped %>% saveRDS(file.path(path_models, 
-                                          str_c("nested_outer_shaps_grouped_",
+  shaps_out_grp %>% saveRDS(file.path(path_models, 
+                                          str_c("outer_shaps_grp_",
                                                 window, "_", lead, "_", version, "_",
                                                 cv, ".rds")))
 }
@@ -445,7 +466,9 @@ if(file.exists(file.path(path_models, str_c("nested_outer_shaps_grouped_",
 
 
 ### Review performance eval from outer loop
-```{r}
+
+Done more in depth later script but here is a quick look
+```{r print_metrics}
 metrics_out |> 
   print_kbl()
 
@@ -458,5 +481,3 @@ metrics_out |>
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
-
-

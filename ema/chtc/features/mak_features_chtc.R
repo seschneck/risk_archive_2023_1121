@@ -1,23 +1,22 @@
 # Script to engineer EMA features on CHTC
 # Version 1 was for CBIT
 # Version 2 was for Nowak group
-# This is version 3
+# This is version 5 (to align with current versioning convention)
 
 # Constants: EDIT
 window <- "1week"  # window for calculating labels
 lead <-  0 # feature lead time
-version <- "v4"
+version <- "v5"  #matches new feature engineering with end_date for ema
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
 
-
 suppressWarnings(suppressPackageStartupMessages({
   library(dplyr)
+  library(readr)
   library(lubridate)
-  library(vroom)
   library(foreach)
-  library(tidyr) # for pivot_wider.  Using train.tar as kludge b/c it currently contains tidyr
+  library(tidyr) # for pivot_wider.
   source("fun_features.R")
 }))
 
@@ -29,7 +28,7 @@ job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in 
 job_stop <- as.numeric(args[2])
 
 # read in ema
-ema <- vroom("ema.csv", show_col_types = FALSE) %>% 
+ema <- read_csv("ema.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"),
          ema_2 = ema_2,  
          ema_3 = ema_3,
@@ -50,19 +49,19 @@ ema_long <- ema %>%
     names_to = "ema_num",
     values_to = "response")
 
-lapses <- vroom("lapses.csv", show_col_types = FALSE) %>% 
+lapses <- read_csv("lapses.csv", show_col_types = FALSE) %>% 
   mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago"))
   
-labels <- vroom("labels.csv", show_col_types = FALSE) %>% 
+labels <- read_csv("labels.csv", show_col_types = FALSE) %>% 
   mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
   slice(job_start:job_stop) %>% 
   mutate(label_num = seq(job_start, job_stop, by = 1))
 
-dates <- vroom("study_dates.csv", show_col_types = FALSE) %>% 
+dates <- read_csv("study_dates.csv", show_col_types = FALSE) %>% 
   select(subid, data_start = study_start) %>% 
   mutate(data_start = with_tz(data_start, tz = "America/Chicago"))
 
-demos <- vroom("screen.csv", show_col_types = FALSE) %>% 
+demos <- read_csv("screen.csv", show_col_types = FALSE) %>% 
   select(subid,
          demo_age = dem_1,
          demo_sex = dem_2,
@@ -232,5 +231,5 @@ features <- features %>%
 features %>%
   mutate(lapse = labels$lapse) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
-  vroom_write(str_c("features_", window, "_", lead, "_", version, "_", 
-                    job_start, "_", job_stop, ".csv"), delim = ",")
+  write_csv(str_c("features_", window, "_", lead, "_", version, "_", 
+                    job_start, "_", job_stop, ".csv"))

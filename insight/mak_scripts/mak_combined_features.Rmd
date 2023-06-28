@@ -1,0 +1,328 @@
+---
+title: "Opens & reviews combined feature file from CHTC"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Code Status
+
+In Use
+
+### Notes   
+
+This script opens the aggregate features.csv file from CHTC, checks for missing jobs, and completes other EDA.
+
+Inputs:  
+
+Returned CHTC files: 
+
+* features.csv
+
+Jobs input file   
+
+* jobs.csv 
+
+Raw EMA file to confirm insight question (ema_10) values
+
+* ema.csv
+
+Output:
+
+* features_[version].csv (write to processed data path)
+
+
+### Set Up Environment
+
+Version
+```{r}
+version <- "v1"
+```
+
+
+Packages for lab workflow 
+```{r, packages_workflow, message=FALSE, warning=FALSE}
+library(conflicted) 
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("cols", "readr")
+```
+
+Packages for script
+```{r, packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)  
+library(janitor) 
+library(lubridate)
+library(stringr)
+library(skimr)
+```
+
+Source for script
+```{r, source_script, message=FALSE, warning=FALSE}
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+```
+
+Absolute paths
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_jobs <- str_c("P:/studydata/risk/chtc/insight/features")
+          path_processed <- str_c("P:/studydata/risk/data_processed/insight")},
+        
+        # IOS paths
+        Darwin = {
+          path_jobs <- str_c("/Volumes/private/studydata/risk/chtc/insight/features")
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/insight")},
+        
+        # Linux paths
+        Linux = {
+          path_jobs <- str_c("~/mnt/private/studydata/risk/chtc/insight/features")
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/insight")}
+)
+```
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Check raw files
+
+Read job file
+```{r read_jobs}
+jobs <- read_csv(file.path(path_jobs, "input", "jobs.csv"), 
+                 show_col_types = FALSE, 
+                 col_names = FALSE) %>% 
+  rename(job_start = X1, job_end = X2) %>% 
+  glimpse()
+```
+
+Get counts of labels
+```{r count_labels}
+(n_labels <- jobs %>% 
+   mutate(n_bundle = job_end - job_start + 1) %>% 
+   summarise(n_labels = sum(n_bundle)) %>% 
+   pull(n_labels))
+```
+
+Read ema.csv file
+```{r read_ema}
+ema <- read_csv(file.path(path_processed, "ema.csv"),
+                show_col_types = FALSE) %>% 
+  select(dttm_obs, subid, ema_10) %>% 
+  mutate(dttm_obs = with_tz(dttm_obs, tz = "America/Chicago")) %>% 
+  glimpse()
+```
+
+Read features.csv (aggregate CHTC file)
+
+```{r read_features}
+features <- read_csv(file.path(path_jobs, "output", "features.csv"),
+                     show_col_types = FALSE) %>% 
+  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago")) %>% 
+  glimpse()
+
+```
+
+Have already confirmed no non-zero error files at CHTC.
+
+### Brief EDA on Features
+
+#### Basic Checks
+
+Check for correct number of features (matches number of labels)  
+```{r eda_feature_count}
+if (nrow(features) == n_labels) {
+  message("Features detected for ", n_labels, " labels.  Correct!")
+} else {
+  stop("Missing features for label_num: \n", 
+       subset(1:n_labels, !1:n_labels %in% features$label_num))
+}
+```
+
+Check for duplicate labels
+```{r eda_labels}
+features %>% 
+  count(subid, dttm_label) %>% 
+  filter(n > 1)
+```
+
+(none!)
+
+Confirm outcome distribution
+```{r eda_outcome}
+features %>% 
+  tabyl(lapse)
+```
+
+Confirm all subjects
+```{r eda_sample}
+length(unique(features$subid))
+```
+
+Should be N = 151
+
+Count observations per subject
+```{r eda_obs_per_sub}
+features %>% 
+  tabyl(subid) %>% 
+  arrange(desc(n))
+```
+
+Subid 193 has only 1 observation --> keep an eye on this during analyses
+
+Check for NaN.  Select only columns with NaN
+```{r eda_nan}
+features %>% 
+  summarise(across(everything(), ~ sum(is.nan(.x)))) %>% 
+  select(where(function(x) x < 0)) %>% 
+  glimpse() 
+```
+
+(none!)
+
+#### Descriptives on numeric variables
+
+Skim features
+```{r eda_skim_features}
+stats <- features %>% skim_without_charts()
+
+stats %>% summary()
+```
+
+Missing values
+```{r eda_missing}
+# all
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, n_missing, complete_rate) %>% 
+  arrange(complete_rate, skim_variable) %>% 
+  print_kbl
+
+```
+
+No missing values on any variables.
+
+Spread
+```{r eda_spread}
+#  all
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
+
+# just "raw" (rrecent) ema variables & demos (age) to make sure ranges seem appropriate
+# ema 2-5: valid values range from 0 to 12
+# ema 6-10: valid values range from 1 to 11
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(str_detect(skim_variable, "rrecent") | str_detect(skim_variable, "demo")) %>% 
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
+
+# ema_10 (insight) specifically
+stats %>% 
+  yank("numeric") %>% 
+  mutate(range = p100 - p0) %>% 
+  select(skim_variable, sd, range, p0, p100) %>% 
+  filter(str_detect(skim_variable, "ema_10")) %>% 
+  arrange(desc(range), skim_variable) %>% 
+  print_kbl
+```
+
+Central tendency
+```{r eda_central_tendency}
+# all
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, mean, p50, p0, p100) %>% 
+  filter(!skim_variable == "subid" & !skim_variable == "label_num") %>% 
+  arrange(desc(mean), skim_variable) %>% 
+  print_kbl
+
+# ema_10 (insight) specifically
+stats %>% 
+  yank("numeric") %>% 
+  select(skim_variable, mean, p50, p0, p100) %>% 
+  filter(str_detect(skim_variable, "ema_10")) %>% 
+  arrange(desc(mean), skim_variable) %>% 
+  print_kbl
+```
+
+#### Review character variables
+
+Unique values
+```{r}
+chr_vars <- stats %>% 
+  yank("character") %>% 
+  filter(!str_detect(skim_variable, "lapse")) %>% 
+  pull(skim_variable)
+
+for (chr_var in chr_vars) {
+  message(str_c("Unique values for ", chr_var, ":"))
+  features %>% 
+    select(all_of(chr_var)) %>% 
+    pull(chr_var) %>% 
+    unique(.) %>% 
+    print()
+}
+```
+
+### Compare to "raw" insight values
+
+```{r eda_compare_insight}
+ema_comp <- ema %>% 
+  filter(!is.na(ema_10)) %>% 
+  filter(subid %in% features$subid) %>% 
+  rename(raw_ema_10 = ema_10) %>% 
+  mutate(dttm_label = dttm_obs + seconds(1)) 
+
+feat_comp <- features %>% 
+  select(subid, starts_with("dttm"), 
+         recent_ema_10 = ema_10.p0.l0.rrecent_response)
+
+insight_comp <- feat_comp %>% 
+  left_join(., ema_comp, by = c("subid", "dttm_label")) %>% 
+  arrange(subid, dttm_label) %>% 
+  select(subid, raw_ema_10, recent_ema_10, 
+         dttm_obs, dttm_label)
+
+print_kbl(insight_comp)
+
+identical(insight_comp$raw_ema_10, insight_comp$recent_ema_10)
+
+identical(insight_comp$dttm_label, (insight_comp$dttm_obs + seconds(1)))
+```
+
+### Write feature file
+
+```{r save_features}
+features %>% 
+  write_csv(file.path(path_processed, str_c("features_", version, ".csv")))
+```
+
+```{r, eval = FALSE, include=FALSE}
+# Render knit file manually to different location
+
+rmarkdown::render(input = file.path(
+  "insight/mak_scripts/mak_combined_features.Rmd"),
+  output_dir = file.path("P:/studydata/risk/knits/insight"),
+  output_file = str_c("mak_combined_features_", version,
+                      ".html"),
+  env = new.env())
+```
+

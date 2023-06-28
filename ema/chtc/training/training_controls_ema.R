@@ -2,42 +2,26 @@
 
 # NOTES------------------------------
 # Hour Batches
-# Batch_1: down_1; request_memory <- "24000MB", request_disk <- "1600MB" john
-# Batch_2: down_2; request_memory <- "24000MB", request_disk <- "1600MB" susan
-# Batch_3: up_2; request_memory <- "40000MB", request_disk <- "1600MB" susan
-# Batch_4: up_1; request_memory <- "30000MB", request_disk <- "1600MB" kendra
-# Batch_5: down_3; request_memory <- "30000MB", request_disk <- "1600MB" john
-# Batch_6: up_3; request_memory <- "34000MB", request_disk <- "1600MB" kendra
-# Batch_7: down_4; request_memory <- "30000MB", request_disk <- "1600MB" john
-# Batch_8: down_5; request_memory <- "32000MB", request_disk <- "1600MB" john
-# Batch_9: up_4; request_memory <- "42000MB", request_disk <- "1600MB" john
-# Batch_10: up_5; request_memory <- "42000MB", request_disk <- "1600MB" sarah
-
-# Week Batches
-# Batch_1: down_1; request_memory <- "36000MB", request_disk <- "1600MB" john
-# Batch_2: down_2; request_memory <- "36000MB", request_disk <- "1600MB" john
-# Batch_3: up_2; susan
-# Batch_4: up_1; sarah (current)
+# Batch1, down_1, down_2, down_3 - John (completed)
+# Batch2, down_4, down_5 - John (completed)
+# Batch3, up_5, up_4, up_3 - John (completed)
+# Batch4, up_1, up_2 - John (completed)
 
 # Day Batches
-# Batch_1: down_1; kendra
-# Batch_2: down_2; john
-# Batch_3: down_3; susan
-# Batch_4: down_4; john
-# Batch_5: down_5; kendra
-# Batch_6: up_1; john (current)
-# Batch_7: up_2; kendra (current)
-# Batch_8: up_3; susan (current)
-# Batch_9: up_4; john (pending)
-# Batch_9: up_5; susan (pending)
+# Batch1, down_1 - down_5 - Kendra (current)
+# Batch2, up_5 - up_1 - John (current)
+
+# Week Batches
+# # Batch1, down_1 - down_5 - Susan (pending)
+# # Batch2, up_1 - up_5 - Kendra (pending)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-window <- "1day"
+window <- "1week"
 lead <- 0
-version <- "v4"
+version <- "v5"
 algorithm <- "xgboost"
-batch <- "batch10"
+batch <- "batch2"
 
 feature_set <- c("all") # EMA Features set names
 data_trn <- str_c("features_",  window, "_", lead, "_", version, ".csv.xz") 
@@ -50,14 +34,14 @@ configs_per_job <- 50  # number of model configurations that will be fit/evaluat
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
 # It is converted to  overratio (1/ratio) for up and smote
-resample <- c("up_5") 
+resample <- c("up_5", "up_4", "up_3", "up_2", "up_1") 
 
 
 # CHTC SPECIFIC CONTROLS----------------------------
 tar <- c("train.tar.gz") # name of tar packages for submit file - does not transfer these anywhere 
 max_idle <- 1000
 request_cpus <- 1 
-request_memory <- "45000MB"
+request_memory <- "48000MB"
 request_disk <- "1600MB"
 flock <- TRUE
 glide <- TRUE
@@ -72,7 +56,7 @@ y_level_neg <- "no"
 # CV SETTINGS---------------------------------
 cv_resample_type <- "nested" # can be boot, kfold, or nested
 cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
-cv_inner_resample <- "3_x_10" # can also be a single number for bootstrapping (i.e., 100)
+cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
 cv_outer_resample <- "3_x_10" # outer resample will always be kfold
 cv_group <- "subid" # set to NULL if not grouping
 
@@ -108,9 +92,6 @@ hp3_xgboost <- c(20, 30, 40, 50)  # mtry
 # early stopping = 20
  
 
-
-
-
 # FORMAT DATA-----------------------------------------
 format_data <- function (df){
   
@@ -143,7 +124,7 @@ build_recipe <- function(d, config) {
   
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
-    step_rm(subid) %>%
+    step_rm(subid) %>%  # needed to retain until now for grouped CV in splits
     step_zv(all_predictors()) %>% 
     step_impute_median(all_numeric_predictors()) %>% 
     step_impute_mode(all_nominal_predictors()) 

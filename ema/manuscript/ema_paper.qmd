@@ -47,27 +47,40 @@ theme_set(theme_classic())
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_models <- "P:/studydata/risk/models/ema"
-          path_data_shared <- "P:/studydata/risk/data_processed/shared"
-          path_data_ema <- "P:/studydata/risk/data_processed/ema"},
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
         # IOS paths
         Darwin = {
-          path_models <- "/Volumes/private/studydata/risk/models/ema"
-          path_data_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_data_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
-       )
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
+        )
 ```
 
 ```{r load_data}
 # Table data
 disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
-screen <- read_csv(file.path(path_data_shared, "screen.csv"), col_types = vroom::cols()) %>% 
+screen <- read_csv(file.path(path_data_shared, "screen.csv"), 
+                   col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
 # Predictions data
-preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+preds_week<- readRDS(file.path(path_models, 
+                               "resample_preds_best_all_1week_0_v4_kfold.rds"))
+preds_day<- readRDS(file.path(path_models, 
+                              "resample_preds_best_all_1day_0_v4_kfold.rds"))
+preds_hour<- readRDS(file.path(path_models, 
+                               "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
 
 # posterior probabilites
 pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
@@ -906,6 +919,7 @@ Our model has a lag time of 0. This means that a predicted lapse might occur any
   * mapping recommendations onto risk predictors (acknowledge this might be difficult as factors are complex/there likely will not be a single emerging factor)
   * questions about burden/sustainability for indefinite or lifelong monitoring (mention possibility of adaptive EMA and integration of other passive methods)
 
+
 - SS:
 
 
@@ -1015,4 +1029,5 @@ Decision thresholds we choose will impact the types of feedback participants are
 
 
 \clearpage
+
 # References

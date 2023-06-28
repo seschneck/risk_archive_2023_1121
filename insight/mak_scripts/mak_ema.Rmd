@@ -47,24 +47,28 @@ Packages for lab workflow
 library(conflicted) 
 conflict_prefer("filter", "dplyr")
 conflict_prefer("select", "dplyr")
-library(here) 
 ```
 
 
 Packages for script
 ```{r, packages_script, message=FALSE, warning=FALSE}
 library(tidyverse)
+library(lubridate)
 ```
 
 
 ### Process and save ema
 ```{r}
-ema_morning <- read_csv(here(path_shared, "ema_morning.csv"), 
+ema_morning <- read_csv(file.path(path_shared, "ema_morning.csv"), 
                         show_col_types = FALSE) %>% 
+  mutate(start_date = with_tz(start_date, tz = "America/Chicago"),
+         end_date = with_tz(end_date, tz = "America/Chicago")) %>% 
   glimpse()
 
-ema_later <- read_csv(here(path_shared, "ema_later.csv"), 
+ema_later <- read_csv(file.path(path_shared, "ema_later.csv"), 
                       show_col_types = FALSE) %>% 
+  mutate(start_date = with_tz(start_date, tz = "America/Chicago"),
+         end_date = with_tz(end_date, tz = "America/Chicago")) %>%
   glimpse()
 ```
 
@@ -72,10 +76,10 @@ ema_later <- read_csv(here(path_shared, "ema_later.csv"),
 ema <- ema_morning %>% 
   bind_rows(ema_later) %>% 
   mutate(subid = as.numeric(subid)) %>% 
-  select(-response_id, -end_date, -finished, -status, -utc, 
+  select(-response_id, -start_date, -finished, -status, -utc, 
          -send_date, -send_time, -ema_type, -ema_1, -ema_1_1, 
          -ema_1_2, -ema_1_3, -ema_1_4, -ema_1_5, -ema_1_6) %>% 
-  rename(dttm_obs = start_date) %>% 
+  rename(dttm_obs = end_date) %>% 
   arrange(subid, dttm_obs) %>% 
   glimpse()
 ```
@@ -83,5 +87,5 @@ ema <- ema_morning %>%
 
 ```{r}
 ema %>% 
-  write_csv(here(path_insight, "ema.csv"))
+  write_csv(file.path(path_insight, "ema.csv"))
 ```

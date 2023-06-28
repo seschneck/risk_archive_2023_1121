@@ -15,16 +15,17 @@ configs_per_job <- 100  # number of model configurations that will be fit/evalua
 # It is converted to  overratio (1/ratio) for up and smote
 
 if (algorithm == "random_forest") {
-  resample <- c("none", "up_1", "down_1", "up_.5", "down_2") 
+  resample <- c("none", "up_1", "down_1", "up_2", "down_2") 
 } else {
   resample <- c("none", "up_1", "down_1", "smote_1",
-                "up_.5", "down_2", "smote_.5") 
+                "up_2", "down_2", "smote_2") 
 }
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only") # "comparison"
-data_trn <- str_c("features_",  version, ".csv.xz") # GEF check file ending
+feature_set <- c("insight_only")
+# feature_set <- c("all") # CHANGE CORRESPONDING HPVALUES
+data_trn <- str_c("features_",  version, ".csv") 
 seed_splits <- 102030
 
 ml_mode <- "classification"   # regression or classification
@@ -50,7 +51,7 @@ cv_name <- if_else(cv_resample_type == "nested",
 name_batch <- str_c("train_", algorithm, "_", window, "_", 
                     cv_name, "_", version, "_", batch) 
 # the path to the batch of jobs
-path_batch <- str_c("studydata/risk/chtc/", study, "/", name_batch) 
+path_batch <- str_c("studydata/risk/chtc/", study, "/training/", name_batch) 
 # location of data set
 path_data <- str_c("studydata/risk/data_processed/", study) 
 
@@ -81,28 +82,34 @@ max_idle <- 1000
 request_cpus <- 1 
 request_memory <- "25000MB"
 request_disk <- "1600MB"
-flock <- FALSE
-glide <- FALSE
+flock <- TRUE
+glide <- TRUE
 
 # Batches
-# down_1: request_memory <- "24000MB", request_disk <- "1600MB" john
-# down_2: request_memory <- "24000MB", request_disk <- "1600MB" susan
-# up_.5: request_memory <- "28000MB", request_disk <- "1600MB" john (not complete)
-# up_1: request_memory <- "30000MB", request_disk <- "1600MB" kendra (not complete)
-# down_3:
+# batch1: insight_only feature_set w corresponding reduced hp values
+# batch2: all feature_set w corresponding hp values (full set)
 
 # FORMAT DATA-----------------------------------------
-format_data <- function (df){
+format_data <- function (df) {
   
   df %>% 
     rename(y = !!y_col_name) %>% 
-    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg)), # set pos class first
-           across(where(is.character), factor)) %>%
-    select(-label_num, -dttm_label)
-  # GEF ADD ONCE WE CAN SEE FEATURES FILE
-  
-  # Now include additional mutates to change classes for columns as needed
-  # see https://jjcurtin.github.io/dwt/file_and_path_management.html#using-a-separate-mutate
+    mutate(y = factor(y, levels = c(!!y_level_pos, !!y_level_neg))) %>%  # set pos class first
+    select(-label_num, -dttm_label) %>% 
+    mutate(label_day = factor(label_day, levels = c("Mon", "Tue", "Wed", 
+                                                    "Thu", "Fri", "Sat", 
+                                                    "Sun")),
+           label_hour = factor(label_hour, levels = c("other", "evening")),
+           demo_sex = factor(demo_sex, levels = c("Male", "Female")),
+           demo_educ = factor(demo_educ, levels = c("High school or less",
+                                                    "Some college",
+                                                    "College or more")),
+           demo_marital = factor(demo_marital, levels = c("Married",
+                                                          "Never Married",
+                                                          "Other")),
+           demo_race = factor(demo_race, levels = c("White/Caucasian",
+                                                    "Other")))
+
 }
 
 
@@ -126,9 +133,12 @@ build_recipe <- function(d, config) {
   # Set recipe steps generalizable to all model configurations
   rec <- recipe(y ~ ., data = d) %>%
     step_rm(subid) %>%
-    step_zv(all_predictors()) %>% 
-    step_impute_median(all_numeric_predictors()) %>% 
-    step_impute_mode(all_nominal_predictors()) 
+    step_zv(all_predictors()) 
+  
+  if (feature_set == "insight_only") {
+    rec <- rec %>% 
+      step_select(y, ema_10.p0.l0.rrecent_response)
+  }
   
   # algorithm specific steps
   if (algorithm == "glmnet") {

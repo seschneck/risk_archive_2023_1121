@@ -861,15 +861,17 @@ score_most_recent <- function(the_subid, the_dttm_label, x_all,
       
       # get baseline mean using all data before label dttm
       baseline <- x %>% 
-        get_x_period(the_subid, the_dttm_label, x_all = ., lead, period_duration = Inf) %>% # Inf gives all data back to first obs
+        get_x_period(the_subid, the_dttm_label, x_all = ., lead, 
+                     period_duration = Inf) %>% # Inf gives all data back to first obs
         summarise("base" := period_mean(.data[[col_name]])) %>% 
         pull(base)
       
 
         
-      raw <- x %>%
+       raw <- x %>%
         get_x_period(the_subid, the_dttm_label, ., lead, Inf) %>%   # use Inf to get all data
-        arrange(desc(dttm_label)) %>% 
+        arrange(desc(dttm_obs)) %>% 
+        filter(!is.na(response)) %>% # so we get the most recent non-missing response
         slice(1) %>%   # slice to most recent (after arrange)
         pull((!!sym(col_name)))
       
