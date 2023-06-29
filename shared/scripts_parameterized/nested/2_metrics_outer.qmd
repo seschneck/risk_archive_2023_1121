@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1hour"
+  window: "1day"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -388,6 +388,16 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
                                     cv, ".rds")))
 } else {
   message("Resampled performance from nested CV previously calculated")
+  metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", 
+                                  window, "_", lead, "_", version, "_", 
+                                  cv, ".rds")))
+  probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
+                                    window, "_", lead, "_", version, "_", 
+                                    cv, ".rds")))
+  
+  shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
+                                    window, "_", lead, "_", version, "_", 
+                                    cv, ".rds")))
 }
 ```
 
@@ -473,7 +483,7 @@ if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
 ```
 
 
-### Final (Re-)Review performance eval from outer loop
+### Final Review performance eval from outer loop
 
 Done more in depth later script but here is a quick look
 ```{r print_metrics}
