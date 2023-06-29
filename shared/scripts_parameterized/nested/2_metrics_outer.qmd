@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1day"
+  window: "1hour"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -302,41 +302,6 @@ ASSUMPTIONS:
 * format_data() is same for all batches
 * Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
 
-```{r data_and_splits}
-# can source any training control given assumptions above
-batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
-batch_names <- batch_names[str_detect(batch_names, "train") & 
-                             str_detect(batch_names, cv) &
-                             str_detect(batch_names, version) &
-                             str_detect(batch_names, window)]
-batch_name <- batch_names[1] # can source any batch given assumptions above
-path_batch <- file.path(path_input, batch_name)
-source(file.path(path_batch, "input", "training_controls.R"))
-# NOTE: training controls overwrites path_batch but it matches   
-                  
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
-  
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(file.path(path_batch, "input", fn))
-}
-
-d <- format_data(d)
-
-d <- d |> mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
-
-splits <- d %>% 
-  make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
-              cv_inner_resample, cv_group, seed_splits)
-```
-
 Map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
 NOTE: Delete `outer_metrics_*` or this code chunk won't run!
@@ -345,6 +310,38 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
+  # can source any training control given assumptions above
+  batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                               str_detect(batch_names, cv) &
+                               str_detect(batch_names, version) &
+                               str_detect(batch_names, window)]
+  batch_name <- batch_names[1] # can source any batch given assumptions above
+  path_batch <- file.path(path_input, batch_name)
+  source(file.path(path_batch, "input", "training_controls.R"))
+  # NOTE: training controls overwrites path_batch but it matches   
+                    
+  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+  if (length(chunks) == 2) {
+    fn <- str_c("data_trn.", chunks[[2]])
+  } else {
+    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+  }
+    
+  # open based on file type
+  if (str_detect(fn, "csv")) {
+    d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
+  } else {
+    d <- read_rds(file.path(path_batch, "input", fn))
+  }
+  
+  d <- format_data(d) |> 
+    mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
+  
+  splits <- d %>% 
+    make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+                cv_inner_resample, cv_group, seed_splits)
+    
   all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   
@@ -403,16 +400,10 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
 Now group SHAPs
 NOTE: Delete `outer_shapsgrp_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("outer_shapsgrp_",
+if(!file.exists(file.path(path_models, str_c("outer_shapsgrp_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
-  message("Loading previously calculated grouped SHAPs")
-  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shapsgrp_",
-                                                        window, "_", lead, "_",
-                                                        version, "_",
-                                                        cv, ".rds")))
-} else {
-  
+
   message("Calculating grouped SHAPs")
   
   shaps_out_grp <- shaps_out %>% 
@@ -474,7 +465,7 @@ if(file.exists(file.path(path_models, str_c("outer_shapsgrp_",
     group_by(id_obs, variable_grp) %>% # values are already averaged across repeats
     summarize(value = sum(value))
   
-  shaps_out_grp %>% saveRDS(file.path(path_models, 
+  shaps_out_grp %>% read_rds(file.path(path_models, 
                                           str_c("outer_shapsgrp_", window, "_", 
                                                 lead, "_", version, "_",
                                                 cv, ".rds")))
