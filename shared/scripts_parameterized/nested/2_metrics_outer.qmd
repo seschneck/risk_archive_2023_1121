@@ -465,7 +465,7 @@ if(!file.exists(file.path(path_models, str_c("outer_shapsgrp_",
     group_by(id_obs, variable_grp) %>% # values are already averaged across repeats
     summarize(value = sum(value))
   
-  shaps_out_grp %>% read_rds(file.path(path_models, 
+  shaps_out_grp %>% write_rds(file.path(path_models, 
                                           str_c("outer_shapsgrp_", window, "_", 
                                                 lead, "_", version, "_",
                                                 cv, ".rds")))

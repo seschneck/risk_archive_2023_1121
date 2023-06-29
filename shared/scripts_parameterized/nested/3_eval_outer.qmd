@@ -130,10 +130,10 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R
 ### Model Performance Metrics
 
 ```{r read_metrics_preds}
-preds_out <- readRDS(file.path(path_models, str_c("outer_preds_", window, "_", 
+preds_out <- read_rds(file.path(path_models, str_c("outer_preds_", window, "_", 
                                                     lead, "_", version, "_", 
                                                     cv, ".rds")))
-metrics_out <- readRDS(file.path(path_models, str_c("outer_metrics_", window, "_", 
+metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", window, "_", 
                                                       lead, "_", version, "_", 
                                                       cv, ".rds")))
 ```
@@ -191,9 +191,6 @@ roc_data %>%
     labels = sprintf("%.2f", seq(1,0,-.25))) +
   theme(axis.text = element_text(size = rel(1.50)), 
         axis.title = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 #### Posterior probabibilites for AUC
@@ -217,12 +214,12 @@ resamples %>%
 set.seed(101)
 pp <- resamples %>% 
   perf_mod(formula = statistic ~ 1 + (1 | id2/id),
-           iter = 5000, chains = 4,  
-           transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+           iter = 4300, chains = 4,  
+           #transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
            family = gaussian, 
-           adapt_delta = .9999)  
+           adapt_delta = .999999999999)  
 
-pp %>%  saveRDS(file.path(path_models, str_c("posteriors_", window, "_", lead, "_", 
+pp %>%  write_rds(file.path(path_models, str_c("posteriors_", window, "_", lead, "_", 
                                              version, "_", cv, ".rds")))
 ```
 
@@ -242,8 +239,16 @@ pp %>%
   geom_density(aes(x = posterior))
 ```
 
+95% credible interval
+```{r}
+pp %>% 
+  tidy(seed = 123) |> 
+  pull(posterior) |> 
+  quantile(probs = c(0.025, 0.975))
+```
+
 #### Probability Histograms
-Histograms with free Y
+Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance
 ```{r prob_plot_free}
 preds_out %>% 
   ggplot(data = ., aes(x = prob)) + 
@@ -253,24 +258,6 @@ preds_out %>%
   theme(axis.text = element_text(size = rel(1.00)), 
         axis.title.x = element_text(size = rel(1.25)),
         strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
-
-Histograms with fixed Y
-```{r prob_plot_fixed}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2) +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
 
@@ -278,11 +265,9 @@ preds_out %>%
 
 Confusion matrix using .5 threshold
 ```{r default_cm}
-preds_out <- preds_out |> 
-   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
-          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) 
-
 (cm <- preds_out |> 
+   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
 
 cm %>% 
@@ -295,6 +280,33 @@ cm %>% summary()
 # save plot for presentations
 # ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
+
+
+Confusion matrix at optimal cut-point (based on Youdens J index)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
+https://pubmed.ncbi.nlm.nih.gov/15405679/
+
+```{r youden_cm}
+j_thres_roc <- roc_data |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+  print() |> 
+  pull(.threshold)
+
+(cm <- preds_out |> 
+   mutate(estimate = if_else(prob > j_thres_roc, "Lapse", "No lapse"),
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+```
+
 
 
 #### PR Curve
@@ -314,9 +326,15 @@ pr_data %>%
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Recall (Sensitivity)",
        y = "Precision (PPV)")
+```
 
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+Sensitivity at min PPV of .7
+```{r}
+pr_data |> 
+  filter(precision >= .7) |> 
+  arrange(desc(recall)) |> 
+  slice(1) |> 
+  print()
 ```
 
 
@@ -325,7 +343,7 @@ pr_data %>%
 #### Grouped Features
 
 ```{r read_shaps_grp}
-shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_", 
+shapsgrp_out <- readRDS(file.path(path_models, str_c("outer_shapsgrp_", 
                                                         window, "_", lead, "_", 
                                                         version, "_", cv, ".rds")))
 ```
@@ -333,58 +351,16 @@ shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
 
 Global importance SHAP plot for grouped features
 ```{r shap_grouped_plot}
-shaps_out_grp %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+shapsgrp_out %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
   arrange(mean_value) %>% 
-  mutate(group = factor(group),
-         group = fct_inorder(group)) %>% 
-  ggplot(mapping = aes(x = group, y = mean_value)) +
+  mutate(variable_grp = factor(variable_grp),
+         variable_grp = fct_inorder(variable_grp)) %>% 
+  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
   geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = group, y = mean_value, xend = group), 
+  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
                yend = 0, colour = "grey50")  +
   ylab("Mean |SHAP| value") +
   coord_flip()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-
-# shaps <- shap.values(xgb_model = extract_fit_engine(model_fit_best),
-#                      X_train = x %>% as.matrix())
-
- 
-# shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
-#                         top_n = 20, dilute = 10)
 ```
-
-
-#### Raw Features
-
-```{r read_shaps_raw}
-shaps_out <- readRDS(file.path(path_models, str_c("outer_shaps_", window, "_", 
-                                                    lead, "_", version, "_", 
-                                                    cv, ".rds")))
-```
-
-
-Global importance SHAP plot for raw features
-```{r shap_raw_plot}
-shaps_out %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   # mean for each variable is same for all rows for that variable
-  ungroup() %>% 
-  arrange(mean_value) %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  coord_flip()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
-
