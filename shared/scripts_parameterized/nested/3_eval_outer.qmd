@@ -60,7 +60,6 @@ Packages for script
 library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
-
 # library(SHAPforxgboost)
 # library(rstanarm)
 
@@ -204,13 +203,6 @@ resamples <- metrics_out |>
 ```
 
 ```{r}
-resamples %>% 
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), bins = 10)
-```
-
-
-```{r}
 set.seed(101)
 pp <- resamples %>% 
   perf_mod(formula = statistic ~ 1 + (1 | id2/id),
@@ -239,7 +231,22 @@ pp %>%
   geom_density(aes(x = posterior))
 ```
 
-95% credible interval
+Mean/Median/Mode of posterior for AUC
+```{r}
+
+get_mode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> mean()
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> median()
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> get_mode()
+```
+
+95% credible interval for AUC
 ```{r}
 pp %>% 
   tidy(seed = 123) |> 
@@ -310,8 +317,7 @@ cm %>% summary()
 
 
 #### PR Curve
-Here is precision/recall by concatenating all folds
-Same approach as above for ROC
+Here is precision/recall by concatenating all folds.  Same approach as above for ROC
 ```{r pr_info}
 preds_out %>%
   pr_auc(prob, truth = label)
