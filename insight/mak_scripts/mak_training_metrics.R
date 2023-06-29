@@ -1,13 +1,13 @@
 library(here)
 library(stringr)
 
-study <- "ema"
+study <- "insight"
 data_type <- "all"
 # windows <- c("1hour", "1day", "1week")
-windows <- c("1hour", "1day", "1week")
+windows <- c("1week")
 lead <- 0
-version <- "v4"
-cv <- "kfold"
+version <- "v1"
+cv <- "nested"
 algorithms <- "all"  # "all" or algorithm name
 
 for (window in windows) {
