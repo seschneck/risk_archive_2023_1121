@@ -1,0 +1,34 @@
+---
+title: "Explore Calibration"
+author: "John Curtin"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(probably)
+```
+
+\\
+```{r}
+#make features from d_in without resample
+feat <- rec %>% 
+    prep(training = d_in, strings_as_factors = FALSE) %>% 
+    bake(new_data = d_in) 
+
+preds_prob <- predict(model_best, feat,
+                        type = "prob") |> 
+  mutate(truth = feat$y) |> 
+  select(-.pred_no)
+
+
+preds_prob |> 
+  cal_plot_breaks(truth = truth, estimate = dplyr::starts_with(".pred"),
+                  num_breaks = 10, 
+                  conf_level = 0.9, 
+                  include_ribbon = TRUE, 
+                  include_rug = TRUE, 
+                  include_points = TRUE, 
+                  event_level = "first")
+```
