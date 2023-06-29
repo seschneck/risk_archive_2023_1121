@@ -394,7 +394,6 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
   probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
-  
   shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
                                     window, "_", lead, "_", version, "_", 
                                     cv, ".rds")))
@@ -402,13 +401,13 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
 ```
 
 Now group SHAPs
-NOTE: Delete `outer_shaps_grp_*` or this code chunk won't run!
+NOTE: Delete `outer_shapsgrp_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
+if(file.exists(file.path(path_models, str_c("outer_shapsgrp_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
   message("Loading previously calculated grouped SHAPs")
-  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
+  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shapsgrp_",
                                                         window, "_", lead, "_",
                                                         version, "_",
                                                         cv, ".rds")))
@@ -476,7 +475,7 @@ if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
     summarize(value = sum(value))
   
   shaps_out_grp %>% saveRDS(file.path(path_models, 
-                                          str_c("outer_shaps_grp_", window, "_", 
+                                          str_c("outer_shapsgrp_", window, "_", 
                                                 lead, "_", version, "_",
                                                 cv, ".rds")))
 }
