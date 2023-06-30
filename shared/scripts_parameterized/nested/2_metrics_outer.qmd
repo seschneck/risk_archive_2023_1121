@@ -262,7 +262,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   preds_prob_iso <- preds_prob |> 
     cal_apply(iso)
   
-  # logisitc calibration
+  # logistic calibration
   logi <- predict(model_cal, feat_cal_out,
                  type = "prob") |> 
     mutate(truth = feat_cal_out$y) |> 
@@ -276,7 +276,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   beta <- predict(model_cal, feat_cal_out,
                  type = "prob") |> 
     mutate(truth = feat_cal_out$y) |> 
-    cal_estimate_logistic(truth = truth,
+    cal_estimate_beta(truth = truth,
                            estimate = dplyr::starts_with(".pred_"),
                            smooth = TRUE)
   preds_prob_beta <- preds_prob |> 
