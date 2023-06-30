@@ -1,19 +1,116 @@
 ---
 title: "Explore Calibration"
 author: "John Curtin"
-format: html
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+format:
+  html:
+    embed-resources: true
+params:
+  study: "ema"
+  window: "1day"
+  lead: 0
+  version: "v5"
+  cv: "nested"
 editor_options: 
   chunk_output_type: console
 ---
 
+## Setup
+```{r set_params}
+study <- params$study
+data_type <- params$data_type
+window <- params$window
+lead <- params$lead 
+version <- params$version
+cv <- params$cv
+```
 
+Function conflicts
+```{r, packages_workflow}
+#| message: false
+#| warning: false
 
-```{r}
+# source
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
+
+# handle conflicts
+options(conflicts.policy = "depends.ok")
+tidymodels_conflictRules()
+```
+
+Packages for script
+```{r, packages_script}
+#| message: false
+#| warning: false
+
 library(tidyverse)
+library(tidymodels)
 library(probably)
 ```
 
-Explore and play
+Source support functions
+```{r source_functions}
+# EDA
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+
+# CHTC support functions
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+```
+
+Absolute paths
+```{r, absolute_paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
+        )
+```
+
+
+## Plots
+
+```{r}
+probs <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested_cal.rds")) |> 
+  pivot_longer(cols = starts_with("prob"), 
+               names_to = "method", 
+               values_to = ".pred_Lapse") |>
+  filter(outer_split_num == 7) |> 
+  select(-outer_split_num) |> 
+  glimpse()
+
+
+probs |> 
+  cal_plot_breaks(truth = label,
+                  estimate = .pred_Lapse,
+                  .by = method)
+
+                      
+```
+
+
+
+
+## Explore and play
 ```{r}
 
 #make features from d_in without resample
@@ -72,10 +169,4 @@ preds_prob_cal |>
 
 ```
 
-
-# Plots
-
-```{r}
-probs <- read_rds()
-```
 
