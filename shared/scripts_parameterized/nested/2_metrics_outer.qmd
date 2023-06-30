@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1hour"
+  window: "1week"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -79,6 +79,7 @@ Packages for script
 
 library(tidyverse)
 library(tidymodels)
+library(probably)
 ```
 
 Source support functions
@@ -204,18 +205,13 @@ fit_predict_eval <- function(split_num, splits, configs_best){
     prep(training = d_in, strings_as_factors = FALSE) %>% 
     bake(new_data = d_out)   # no id_obs because not included in d_in
   
-  preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
+  # metrics from raw (uncalibrated) predictions for held out fold
   preds_prob <- predict(model_best, feat_out,
-                        type = "prob")[[str_c(".pred_", y_level_pos)]]
-  
-  shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
-                     X_train = feat_out |> select(-y) |>  as.matrix()) |> 
-   # add id_obs by multiple of number of features
-    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
-           split_num = split_num) |>  
-    relocate(id_obs, split_num)
-  
-  roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
+                        type = "prob")
+  preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
+
+  roc <- tibble(truth = feat_out$y, 
+                prob = preds_prob[[str_c(".pred_", y_level_pos)]]) %>% 
       roc_auc(prob, truth = truth, event_level = "first") %>% 
       select(metric = .metric, 
              estimate = .estimate)
@@ -223,7 +219,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   cm <- tibble(truth = feat_out$y, estimate = preds_class) %>% 
     conf_mat(truth, estimate)
     
-  model_metrics <- cm |> 
+  metrics_out <- cm |> 
     summary(event_level = "first") |>   
     select(metric = .metric,
            estimate = .estimate) |> 
@@ -237,12 +233,54 @@ fit_predict_eval <- function(split_num, splits, configs_best){
              resample) |> 
     relocate(accuracy_in, bal_accuracy_in, .after = last_col())
 
-  probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
-                  prob = preds_prob, label = d_out$y) |> 
+  # train calibration model (platt) train/test split on held in data
+  set.seed(2468)
+  cal_split <- d_in |> 
+    group_initial_split(group = all_of(cv_group), prop = 3/4)
+  d_cal_in <- training(cal_split)
+  d_cal_out <- testing(cal_split)
+  
+  feat_cal_out <- rec %>% 
+    prep(training = d_cal_in, strings_as_factors = FALSE) %>% 
+    bake(new_data = d_cal_out) 
+
+  model_cal <- fit_best_model(config_best, rec, d_cal_in, "classification")
+  
+  # cal <- predict(model_cal, feat_cal_out,
+  #                type = "prob") |>
+  #   mutate(truth = feat_cal_out$y) |>
+  #   cal_estimate_logistic(truth = truth,
+  #                         estimate = dplyr::starts_with(".pred_"),
+  #                         smooth = TRUE)
+  
+  cal <- predict(model_cal, feat_cal_out,
+                 type = "prob") |> 
+    mutate(truth = feat_cal_out$y) |> 
+    cal_estimate_isotonic(truth = truth,
+                          estimate = dplyr::starts_with(".pred_"))
+  
+  preds_prob_cal <- preds_prob |> 
+    cal_apply(cal)
+  
+  # combine raw and calibrated probs
+  probs_out <- tibble(outer_split_num = rep(split_num, nrow(preds_prob)),
+                  prob_raw = preds_prob[[str_c(".pred_", y_level_pos)]],
+                  prob_cal = preds_prob_cal[[str_c(".pred_", y_level_pos)]],
+                  label = d_out$y) |> 
     mutate(label = fct_recode(label, "No lapse" = "no",
                               "Lapse" = "yes"))
   
-  return(list(probs_out = probs, metrics_out = model_metrics, shaps_out = shap_raw))
+  #SHAP in held out fold
+  shaps_out <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
+                     X_train = feat_out |> select(-y) |>  as.matrix()) |> 
+   # add id_obs by multiple of number of features
+    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
+           split_num = split_num) |>  
+    relocate(id_obs, split_num)
+  
+  return(list(probs_out = probs_out, 
+              metrics_out = metrics_out, 
+              shaps_out = shaps_out))
 }
 ```
 
