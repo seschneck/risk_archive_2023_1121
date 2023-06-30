@@ -190,7 +190,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   # write tmp file to repo to track progress through loop
   # delete this file when script is complete.  
   # Don't commit to repo!
-  write_csv(tibble(outer_split_num = split_num, start_time = Sys.time(), end_time = NA),
+  write_csv(tibble(outer_split_num = split_num, start_time = Sys.time()),
             str_c("tmp_metrics_outer_progress_", window),
             append = TRUE)
   
@@ -299,13 +299,6 @@ fit_predict_eval <- function(split_num, splits, configs_best){
     mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
            split_num = split_num) |>  
     relocate(id_obs, split_num)
-  
-  # write tmp file to repo to track progress through loop
-  # delete this file when script is complete.  
-  # Don't commit to repo!
-  write_csv(tibble(outer_split_num = split_num, start_time = NA, end_time = Sys.time()),
-            str_c("tmp_metrics_outer_progress_", window),
-            append = TRUE)
   
   return(list(probs_out = probs_out, 
               metrics_out = metrics_out, 
