@@ -278,6 +278,13 @@ fit_predict_eval <- function(split_num, splits, configs_best){
            split_num = split_num) |>  
     relocate(id_obs, split_num)
   
+  # write tmp file to repo to track progress through loop
+  # delete this file when script is complete.  
+  # Don't commit to repo!
+  write_csv(tibble(completed = split_num, time = Sys.time()),
+            str_c("tmp_metrics_outer_progress_", window),
+            append = TRUE)
+  
   return(list(probs_out = probs_out, 
               metrics_out = metrics_out, 
               shaps_out = shaps_out))
@@ -388,11 +395,17 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
   # pluck
   metrics_out <- all |> 
     map(\(l) pluck(l, "metrics_out")) |> 
-    list_rbind()
+    list_rbind() |> 
+    write_rds(file.path(path_models, str_c("outer_metrics_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
   
   probs_out <- all |> 
     map(\(l) pluck(l, "probs_out")) |> 
-    list_rbind()
+    list_rbind() |> 
+    write_rds(file.path(path_models, str_c("outer_preds_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
   
   shaps_out <- all |> 
     map(\(l) pluck(l, "shaps_out")) |>
@@ -404,23 +417,11 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
     summarize(value = mean(value), 
               # rfvalue is same across repeats but want included 
               rfvalue =  mean(rfvalue),  
-              mean_value = mean(mean_value))
-  
+              mean_value = mean(mean_value)) |> 
+    write_rds(file.path(path_models, str_c("outer_shaps_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
     
-  # save
-  metrics_out |> 
-    saveRDS(file.path(path_models, str_c("outer_metrics_", 
-                                  window, "_", lead, "_", version, "_", 
-                                  cv, ".rds")))
-  probs_out %>%
-    saveRDS(file.path(path_models, str_c("outer_preds_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
-  
-  shaps_out %>%
-    saveRDS(file.path(path_models, str_c("outer_shaps_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
 } else {
   message("Resampled performance from nested CV previously calculated")
   metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", 
