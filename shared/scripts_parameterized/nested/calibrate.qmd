@@ -1,0 +1,69 @@
+---
+title: "Explore Calibration"
+author: "John Curtin"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r}
+library(probably)
+
+
+#make features from d_in without resample
+feat <- rec %>% 
+    prep(training = d_in, strings_as_factors = FALSE) %>% 
+    bake(new_data = d_in) 
+
+preds_prob_1 <- predict(model_best, feat,
+                        type = "prob") |> 
+  mutate(truth = feat$y)
+
+
+preds_prob_1 |> 
+  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
+                  num_breaks = 10, 
+                  conf_level = 0.9, 
+                  include_ribbon = TRUE, 
+                  include_rug = TRUE, 
+                  include_points = TRUE, 
+                  event_level = "first")
+
+cal <- preds_prob |> 
+  cal_estimate_logistic(truth = truth,
+                        estimate = dplyr::starts_with(".pred_"),
+                        smooth = TRUE)
+
+preds_prob_cal <- preds_prob |> 
+  cal_apply(cal)
+
+preds_prob_cal |> 
+  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
+                  num_breaks = 10, 
+                  conf_level = 0.9, 
+                  include_ribbon = TRUE, 
+                  include_rug = TRUE, 
+                  include_points = TRUE, 
+                  event_level = "first")
+
+
+# from updated code
+preds_prob_cal |> 
+  mutate(truth = feat_out$y) |> 
+  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
+                  num_breaks = 10, 
+                  conf_level = 0.9, 
+                  include_ribbon = TRUE, 
+                  include_rug = TRUE, 
+                  include_points = TRUE, 
+                  event_level = "first")
+
+preds_prob_cal |> 
+  mutate(truth = feat_out$y) |> 
+  cal_plot_windowed(truth = truth, estimate = ".pred_yes",
+                    event_level = "first")
+
+
+```
