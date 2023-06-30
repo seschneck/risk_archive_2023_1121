@@ -202,6 +202,15 @@ roc_folds <- preds_out %>%
   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
                                              truth = label)))
 
+avg_roc <-
+  roc_folds |> 
+  select(-preds) |> 
+  unnest(roc) |> 
+  mutate(specificity = round(specificity, digits = 3)) |> 
+  group_by(specificity) |> 
+  summarize(.threshold = mean(.threshold),
+            sensitivity = mean(sensitivity)) |> glimpse()
+
 fig_roc_folds <- roc_data %>%  # plot region from full concatenated data 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
   geom_abline(lty = 3) +
@@ -222,11 +231,25 @@ for (i in 1:nrow(roc_folds)) {
 }
 
 #add full concatenated curve
-fig_roc_folds +
+fig_roc_folds <- fig_roc_folds +
      geom_path(data = roc_data,
                mapping = aes(x = 1 - specificity, y = sensitivity),
                color = "black", size = 1)
+
+fig_roc_folds +
+     geom_path(data = avg_roc,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "red", size = 1)
 ```
+
+Check out averaging the individual roc fold curves rather than concatenate
+```{r}
+roc_folds |> glimpse()
+
+
+
+```
+
 
 #### Posterior probabibilites for AUC
 
