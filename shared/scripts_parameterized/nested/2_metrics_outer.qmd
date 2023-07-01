@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1hour"
+  window: "1day"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -189,7 +189,6 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 
   # write tmp file to repo to track progress through loop
   # delete this file when script is complete.  
-  # Don't commit to repo!
   write_csv(tibble(stage = "eval",
                    outer_split_num = split_num, 
                    start_time = Sys.time()),
@@ -410,21 +409,34 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
   
   rm(splits)  # save a bit of memory!
   
-  # pluck
+  write_csv(tibble(stage = "metrics_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)
   metrics_out <- all |> 
     map(\(l) pluck(l, "metrics_out")) |> 
     list_rbind() |> 
     write_rds(file.path(path_models, str_c("outer_metrics_", 
                                            window, "_", lead, "_", version, "_", 
                                            cv, ".rds")))
-  
+  write_csv(tibble(stage = "probs_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
+            append = TRUE)  
   probs_out <- all |> 
     map(\(l) pluck(l, "probs_out")) |> 
     list_rbind() |> 
     write_rds(file.path(path_models, str_c("outer_preds_", 
                                            window, "_", lead, "_", version, "_", 
                                            cv, ".rds")))
-  
+
+    write_csv(tibble(stage = "shaps_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)    
   shaps_out <- all |> 
     map(\(l) pluck(l, "shaps_out")) |>
     list_rbind() |> 
@@ -443,31 +455,16 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
 } else {
   message("Resampled performance from nested CV previously calculated")
   
-  write_csv(tibble(stage = "metrics_save",
-                   outer_split_num = NA, 
-                   start_time = Sys.time()),
-            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
-            append = TRUE)
   metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", 
                                                        window, "_", lead, "_", 
                                                        version, "_", 
                                                        cv, ".rds")))
   
-  write_csv(tibble(stage = "probs_save",
-                   outer_split_num = NA, 
-                   start_time = Sys.time()),
-            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
-            append = TRUE)
   probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
                                                      window, "_", lead, "_", 
                                                      version, "_", 
                                                      cv, ".rds")))
 
-  write_csv(tibble(stage = "shaps_save",
-                   outer_split_num = NA, 
-                   start_time = Sys.time()),
-            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
-            append = TRUE)  
   shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
                                                      window, "_", lead, "_", 
                                                      version, "_", 
