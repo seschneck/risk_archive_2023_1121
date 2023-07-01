@@ -12,7 +12,7 @@ format:
 params:
   study: "ema"
   cv: "nested"
-  window: "1hour"
+  window: "1day"
   lead: 0
   version: "v5"
 editor_options: 
@@ -143,10 +143,10 @@ Could consider reporting this AUC though likely average of outer fold AUCs is mo
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
 preds_out %>%
-  roc_auc(prob, truth = label)
+  roc_auc(prob_beta, truth = label)
 
 roc_data <- preds_out %>% 
-  roc_curve(prob, truth = label)
+  roc_curve(prob_beta, truth = label)
   
 roc_data %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
@@ -168,17 +168,17 @@ And these are the curves for each outer fold
 # rocs per fold
 roc_folds <- preds_out %>%
   nest(.by = outer_split_num, .key = "preds") |> 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob_beta, 
                                              truth = label)))
-
-avg_roc <-
-  roc_folds |> 
-  select(-preds) |> 
-  unnest(roc) |> 
-  mutate(specificity = round(specificity, digits = 3)) |> 
-  group_by(specificity) |> 
-  summarize(.threshold = mean(.threshold),
-            sensitivity = mean(sensitivity)) |> glimpse()
+# 
+# avg_roc <-
+#   roc_folds |> 
+#   select(-preds) |> 
+#   unnest(roc) |> 
+#   mutate(specificity = round(specificity, digits = 3)) |> 
+#   group_by(specificity) |> 
+#   summarize(.threshold = mean(.threshold),
+#             sensitivity = mean(sensitivity)) |> glimpse()
 
 fig_roc_folds <- roc_data %>%  # plot region from full concatenated data 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
@@ -203,21 +203,15 @@ for (i in 1:nrow(roc_folds)) {
 fig_roc_folds <- fig_roc_folds +
      geom_path(data = roc_data,
                mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "black", size = 1)
+               color = "black", linewidth = 1)
 
-fig_roc_folds +
-     geom_path(data = avg_roc,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "red", size = 1)
+fig_roc_folds
+
+# fig_roc_folds +
+#      geom_path(data = avg_roc,
+#                mapping = aes(x = 1 - specificity, y = sensitivity),
+#                color = "red", size = 1)
 ```
-
-Check out averaging the individual roc fold curves rather than concatenate
-```{r}
-roc_folds |> glimpse()
-```
-
-
-
 
 #### Outer AUC
 
@@ -251,7 +245,7 @@ metrics_out |>
 
 
 
-#### Posterior probabibilites for AUC
+#### Posterior probabilites for AUC
 
 ```{r}
 resamples <- metrics_out |> 
@@ -317,7 +311,7 @@ pp %>%
 Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance
 ```{r prob_plot_free}
 preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
+  ggplot(data = ., aes(x = prob_beta)) + 
    geom_histogram(bins = 15, fill = "white", col = "black") +
    facet_wrap(~label, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
@@ -332,7 +326,7 @@ preds_out %>%
 Confusion matrix using .5 threshold
 ```{r default_cm}
 (cm <- preds_out |> 
-   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
+   mutate(estimate = if_else(prob_beta > .5, "Lapse", "No lapse"),
           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
 
@@ -361,7 +355,7 @@ j_thres_roc <- roc_data |>
   pull(.threshold)
 
 (cm <- preds_out |> 
-   mutate(estimate = if_else(prob > j_thres_roc, "Lapse", "No lapse"),
+   mutate(estimate = if_else(prob_beta > j_thres_roc, "Lapse", "No lapse"),
           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
 
@@ -379,10 +373,10 @@ cm %>% summary()
 Here is precision/recall by concatenating all folds.  Same approach as above for ROC
 ```{r pr_info}
 preds_out %>%
-  pr_auc(prob, truth = label)
+  pr_auc(prob_beta, truth = label)
 
 pr_data <- preds_out %>% 
-  pr_curve(prob, truth = label)
+  pr_curve(prob_beta, truth = label)
 
 pr_data %>% 
   ggplot(aes(x = recall, y = precision)) +
