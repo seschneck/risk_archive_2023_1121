@@ -122,7 +122,7 @@ get_brier <- function(split_num, df){
 ## Get Probs
 
 ```{r}
-probs <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
+probs <- read_rds(file.path(path_models, str_c("outer_preds_", window, "_0_v5_nested.rds"))) |> 
   pivot_longer(cols = starts_with("prob"), 
                names_to = "method", 
                values_to = ".pred_Lapse") |>
