@@ -137,37 +137,6 @@ metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", window, "
                                                       cv, ".rds")))
 ```
 
-#### Outer AUC
-
-
-Review performance across all inner folds
-```{r metrics_in}
-metrics_out |> 
-  summarize(median(roc_auc_in), mean(roc_auc_in))
-```
-
-
-And now across outer folds
-Outer overall
-```{r metrics_out}
-metrics_out |> 
-  summarize(median(roc_auc), mean(roc_auc))
-```
-
-Plot outer folds
-```{r plot_outer}
-metrics_out |> 
-  ggplot(aes(x = roc_auc)) +
-  geom_histogram(bins = 10)
-```
-
-Table for each outer fold
-```{r metrics_out_kbl}
-metrics_out |> 
-  print_kbl()
-```
-
-
 #### ROC curve
 This is single ROC by concatenating all outer folds.
 Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
@@ -245,10 +214,41 @@ fig_roc_folds +
 Check out averaging the individual roc fold curves rather than concatenate
 ```{r}
 roc_folds |> glimpse()
-
-
-
 ```
+
+
+
+
+#### Outer AUC
+
+
+Review performance across all inner folds
+```{r metrics_in}
+metrics_out |> 
+  summarize(median(roc_auc_in), mean(roc_auc_in))
+```
+
+
+And now across outer folds
+Outer overall
+```{r metrics_out}
+metrics_out |> 
+  summarize(median(roc_auc), mean(roc_auc))
+```
+
+Plot outer folds
+```{r plot_outer}
+metrics_out |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
+```
+
+Table for each outer fold
+```{r metrics_out_kbl}
+metrics_out |> 
+  print_kbl()
+```
+
 
 
 #### Posterior probabibilites for AUC
