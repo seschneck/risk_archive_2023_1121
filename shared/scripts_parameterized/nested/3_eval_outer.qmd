@@ -396,6 +396,14 @@ pr_data |>
   print()
 ```
 
+Sensitivity at best F
+```{r}
+f <- pr_data |> 
+  mutate(f =  (2 * precision * recall) / (precision + recall)) |> 
+  slice_max(f) |> 
+  print()
+```
+
 
 ### Feature Importance
 
