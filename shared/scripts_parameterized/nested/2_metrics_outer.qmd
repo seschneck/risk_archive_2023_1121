@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1day"
+  window: "1hour"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -190,8 +190,10 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   # write tmp file to repo to track progress through loop
   # delete this file when script is complete.  
   # Don't commit to repo!
-  write_csv(tibble(outer_split_num = split_num, start_time = Sys.time()),
-            str_c("tmp_metrics_outer_progress_", window),
+  write_csv(tibble(stage = "eval",
+                   outer_split_num = split_num, 
+                   start_time = Sys.time()),
+            file.path(str_c("tmp_metrics_outer_progress_", study, "_",window)),
             append = TRUE)
   
   d_in <- training(splits$splits[[split_num]]) |> 
@@ -405,6 +407,7 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
   all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   
+  
   rm(splits)  # save a bit of memory!
   
   # pluck
@@ -439,15 +442,36 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
     
 } else {
   message("Resampled performance from nested CV previously calculated")
+  
+  write_csv(tibble(stage = "metrics_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)
   metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", 
-                                  window, "_", lead, "_", version, "_", 
-                                  cv, ".rds")))
+                                                       window, "_", lead, "_", 
+                                                       version, "_", 
+                                                       cv, ".rds")))
+  
+  write_csv(tibble(stage = "probs_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
+            append = TRUE)
   probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
+                                                     window, "_", lead, "_", 
+                                                     version, "_", 
+                                                     cv, ".rds")))
+
+  write_csv(tibble(stage = "shaps_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)  
   shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
+                                                     window, "_", lead, "_", 
+                                                     version, "_", 
+                                                     cv, ".rds")))
 }
 ```
 
@@ -459,6 +483,11 @@ if(!file.exists(file.path(path_models, str_c("outer_shapsgrp_",
                                             cv, ".rds")))){
 
   message("Calculating grouped SHAPs")
+  write_csv(tibble(stage = "shapsgrp_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
+            append = TRUE)
   
   shaps_out_grp <- shaps_out %>% 
     mutate(variable_grp = if_else(str_detect(variable, "lapse."), 
@@ -540,6 +569,9 @@ metrics_out |>
 metrics_out |> 
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
+
+# delete tracking file
+file.remove(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
