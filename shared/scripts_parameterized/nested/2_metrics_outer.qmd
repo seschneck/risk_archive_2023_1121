@@ -31,7 +31,7 @@ This script creates the following files in the `models` folder
 * outer_metrics_*.rds
 * outer_preds_*.rds
 * outer_shaps_*.rds
-* outer_shaps_grp_*.rds
+* outer_shapsgrp_*.rds
 
 where * = window_lead_version_cv
 
@@ -459,11 +459,11 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
                                                        window, "_", lead, "_", 
                                                        version, "_", 
                                                        cv, ".rds")))
-  
-  probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
-                                                     window, "_", lead, "_", 
-                                                     version, "_", 
-                                                     cv, ".rds")))
+  # not needed for remainder of script
+  # probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
+  #                                                    window, "_", lead, "_", 
+  #                                                    version, "_", 
+  #                                                    cv, ".rds")))
 
   shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
                                                      window, "_", lead, "_", 
@@ -549,6 +549,8 @@ if(!file.exists(file.path(path_models, str_c("outer_shapsgrp_",
                                           str_c("outer_shapsgrp_", window, "_", 
                                                 lead, "_", version, "_",
                                                 cv, ".rds")))
+} else {
+   message("Grouped SHAPs previously calculated")
 }
 ```
 

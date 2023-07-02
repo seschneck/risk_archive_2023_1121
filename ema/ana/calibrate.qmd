@@ -86,86 +86,81 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
+## Functions
+```{r}
+get_brier <- function(split_num, df){
+  
+  #filter to split
+  probs_split <- df |> 
+  filter(outer_split_num == split_num)
 
-## Plots
+  raw <- probs_split |>
+    filter(method == "prob_raw") |> 
+    brier_class(label, .pred_Lapse)
+  
+  logi <- probs_split |>
+    filter(method == "prob_logi") |> 
+    brier_class(label, .pred_Lapse)
+  
+  iso <- probs_split |>
+    filter(method == "prob_iso") |> 
+    brier_class(label, .pred_Lapse)
+  
+  beta <- probs_split |>
+    filter(method == "prob_beta") |> 
+    brier_class(label, .pred_Lapse)
+  
+  brier <- tibble(raw = raw$.estimate, 
+                logi = logi$.estimate, 
+                iso = iso$.estimate, 
+                beta = beta$.estimate)
+  return(brier)
+}
+
+```
+
+## Get Probs
 
 ```{r}
-probs <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested_cal.rds")) |> 
+probs <- read_rds(file.path(path_models, str_c("outer_preds_", window, "_0_v5_nested.rds"))) |> 
   pivot_longer(cols = starts_with("prob"), 
                names_to = "method", 
                values_to = ".pred_Lapse") |>
-  filter(outer_split_num == 7) |> 
-  select(-outer_split_num) |> 
   glimpse()
+```
 
 
-probs |> 
-  cal_plot_breaks(truth = label,
-                  estimate = .pred_Lapse,
-                  .by = method)
+## Brier Scores
 
+```{r}
+
+brier <- 1:30 |> 
+  map(\(split_num) get_brier(split_num, probs)) |> 
+  list_rbind()
+
+brier |> head()
+
+brier |> summarize(across(everything(), list(mean, median)))
                       
 ```
 
 
 
 
-## Explore and play
+## Explore Plots
 ```{r}
 
-#make features from d_in without resample
-feat <- rec %>% 
-    prep(training = d_in, strings_as_factors = FALSE) %>% 
-    bake(new_data = d_in) 
-
-preds_prob_1 <- predict(model_best, feat,
-                        type = "prob") |> 
-  mutate(truth = feat$y)
-
-
-preds_prob_1 |> 
-  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
-                  num_breaks = 10, 
-                  conf_level = 0.9, 
-                  include_ribbon = TRUE, 
-                  include_rug = TRUE, 
-                  include_points = TRUE, 
-                  event_level = "first")
-
-cal <- preds_prob |> 
-  cal_estimate_logistic(truth = truth,
-                        estimate = dplyr::starts_with(".pred_"),
-                        smooth = TRUE)
-
-preds_prob_cal <- preds_prob |> 
-  cal_apply(cal)
-
-preds_prob_cal |> 
-  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
-                  num_breaks = 10, 
-                  conf_level = 0.9, 
-                  include_ribbon = TRUE, 
-                  include_rug = TRUE, 
-                  include_points = TRUE, 
-                  event_level = "first")
-
-
-# from updated code
-preds_prob_cal |> 
-  mutate(truth = feat_out$y) |> 
-  cal_plot_breaks(truth = truth, estimate = ".pred_yes",
-                  num_breaks = 10, 
-                  conf_level = 0.9, 
-                  include_ribbon = TRUE, 
-                  include_rug = TRUE, 
-                  include_points = TRUE, 
-                  event_level = "first")
-
-preds_prob_cal |> 
-  mutate(truth = feat_out$y) |> 
-  cal_plot_windowed(truth = truth, estimate = ".pred_yes",
-                    event_level = "first")
-
+probs |> 
+  filter(outer_split_num == 1) |> 
+  cal_plot_breaks(truth = label, 
+                  estimate = .pred_Lapse,
+                  .by = method)
+  
+probs |> 
+  filter(outer_split_num == 1) |> 
+  cal_plot_windowed(truth = label, 
+                  estimate = .pred_Lapse,
+                  .by = method)
 
 ```
 
