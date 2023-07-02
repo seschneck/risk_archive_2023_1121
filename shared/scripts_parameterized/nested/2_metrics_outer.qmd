@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1day"
+  window: "1week"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -192,7 +192,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   write_csv(tibble(stage = "eval",
                    outer_split_num = split_num, 
                    start_time = Sys.time()),
-            file.path(str_c("tmp_metrics_outer_progress_", study, "_",window)),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
             append = TRUE)
   
   d_in <- training(splits$splits[[split_num]]) |> 
@@ -566,9 +566,13 @@ metrics_out |>
 metrics_out |> 
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
+```
 
+```{r}
 # delete tracking file
-file.remove(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))
+if(file.exists(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))) {
+  file.remove(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))
+}
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
