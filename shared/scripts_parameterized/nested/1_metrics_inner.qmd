@@ -326,13 +326,12 @@ for (k in algorithms) {
           geom_line() +
           facet_grid(resample ~ hp2) +
           scale_color_discrete(name = "mtry") +
-          labs(title = plot_title, x = "learning rate", y = "ROC AUC")
+          labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
       
        print(plot_i)
        
       plot_title <- str_c("Plotting XGBoost hyperparameters for ", i, " feature set and UPSAMPLE")
       plot_i <- results_i %>%
-        filter(!hp3 == 2) %>% 
         mutate(log_hp1 = log10(hp1),
                hp2 = factor(hp2, ordered = TRUE),
                hp3 = factor(hp3, ordered = TRUE),
