@@ -11,7 +11,7 @@ format:
     embed-resources: true
 params:
   study: "ema"
-  window: "1day"
+  window: "1week"
   lead: 0
   version: "v5"
   cv: "nested"
@@ -31,7 +31,7 @@ This script creates the following files in the `models` folder
 * outer_metrics_*.rds
 * outer_preds_*.rds
 * outer_shaps_*.rds
-* outer_shaps_grp_*.rds
+* outer_shapsgrp_*.rds
 
 where * = window_lead_version_cv
 
@@ -40,7 +40,7 @@ where * = window_lead_version_cv
 
 SHAPS
 
-* We get SHAPS in this script with 30 outer folds.   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size shaps for each feature
+* We get SHAPS in this script with 30 outer folds (3x10fold).   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size SHAPs for each feature.  We choose to **average across repeats**.  
 
 * Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
 
@@ -79,6 +79,7 @@ Packages for script
 
 library(tidyverse)
 library(tidymodels)
+library(probably)
 ```
 
 Source support functions
@@ -186,6 +187,14 @@ Function to fit, predict, and calc metrics, preds, shaps
 ```{r function_2}
 fit_predict_eval <- function(split_num, splits, configs_best){
 
+  # write tmp file to repo to track progress through loop
+  # delete this file when script is complete.  
+  write_csv(tibble(stage = "eval",
+                   outer_split_num = split_num, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)
+  
   d_in <- training(splits$splits[[split_num]]) |> 
     select(-id_obs)  # not used for training; only needed in d_out to tag SHAPs
   d_out <- testing(splits$splits[[split_num]])
@@ -204,18 +213,13 @@ fit_predict_eval <- function(split_num, splits, configs_best){
     prep(training = d_in, strings_as_factors = FALSE) %>% 
     bake(new_data = d_out)   # no id_obs because not included in d_in
   
-  preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
+  # metrics from raw (uncalibrated) predictions for held out fold
   preds_prob <- predict(model_best, feat_out,
-                        type = "prob")[[str_c(".pred_", y_level_pos)]]
-  
-  shap_raw <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
-                     X_train = feat_out |> select(-y) |>  as.matrix()) |> 
-   # add id_obs by multiple of number of features
-    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
-           split_num = split_num) |>  
-    relocate(id_obs, split_num)
-  
-  roc <- tibble(truth = feat_out$y, prob = preds_prob) %>% 
+                        type = "prob")
+  preds_class <- predict(model_best, feat_out, type = "class")$.pred_class
+
+  roc <- tibble(truth = feat_out$y, 
+                prob = preds_prob[[str_c(".pred_", y_level_pos)]]) %>% 
       roc_auc(prob, truth = truth, event_level = "first") %>% 
       select(metric = .metric, 
              estimate = .estimate)
@@ -223,7 +227,7 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   cm <- tibble(truth = feat_out$y, estimate = preds_class) %>% 
     conf_mat(truth, estimate)
     
-  model_metrics <- cm |> 
+  metrics_out <- cm |> 
     summary(event_level = "first") |>   
     select(metric = .metric,
            estimate = .estimate) |> 
@@ -237,12 +241,69 @@ fit_predict_eval <- function(split_num, splits, configs_best){
              resample) |> 
     relocate(accuracy_in, bal_accuracy_in, .after = last_col())
 
-  probs <- tibble(outer_split_num = rep(split_num, length(preds_prob)),
-                  prob = preds_prob, label = d_out$y) |> 
+  # train calibration model train/test split on held in data
+  set.seed(2468)
+  cal_split <- d_in |> 
+    group_initial_split(group = all_of(cv_group), prop = 3/4)
+  d_cal_in <- training(cal_split)
+  d_cal_out <- testing(cal_split)
+  
+  feat_cal_out <- rec %>% 
+    prep(training = d_cal_in, strings_as_factors = FALSE) %>% 
+    bake(new_data = d_cal_out) 
+
+  model_cal <- fit_best_model(config_best, rec, d_cal_in, "classification")
+  
+  # iso calibration
+  iso <- predict(model_cal, feat_cal_out,
+                 type = "prob") |> 
+    mutate(truth = feat_cal_out$y) |> 
+    cal_estimate_isotonic(truth = truth,
+                          estimate = dplyr::starts_with(".pred_"))
+  preds_prob_iso <- preds_prob |> 
+    cal_apply(iso)
+  
+  # logistic calibration
+  logi <- predict(model_cal, feat_cal_out,
+                 type = "prob") |> 
+    mutate(truth = feat_cal_out$y) |> 
+    cal_estimate_logistic(truth = truth,
+                           estimate = dplyr::starts_with(".pred_"),
+                           smooth = TRUE)
+  preds_prob_logi <- preds_prob |> 
+    cal_apply(logi)
+  
+  # beta calibration
+  beta <- predict(model_cal, feat_cal_out,
+                 type = "prob") |> 
+    mutate(truth = feat_cal_out$y) |> 
+    cal_estimate_beta(truth = truth,
+                           estimate = dplyr::starts_with(".pred_"),
+                           smooth = TRUE)
+  preds_prob_beta <- preds_prob |> 
+    cal_apply(beta)
+  
+  # combine raw and calibrated probs
+  probs_out <- tibble(outer_split_num = rep(split_num, nrow(preds_prob)),
+                  prob_raw = preds_prob[[str_c(".pred_", y_level_pos)]],
+                  prob_iso = preds_prob_iso[[str_c(".pred_", y_level_pos)]],
+                  prob_logi = preds_prob_logi[[str_c(".pred_", y_level_pos)]],
+                  prob_beta = preds_prob_beta[[str_c(".pred_", y_level_pos)]],
+                  label = d_out$y) |> 
     mutate(label = fct_recode(label, "No lapse" = "no",
                               "Lapse" = "yes"))
   
-  return(list(probs_out = probs, metrics_out = model_metrics, shaps_out = shap_raw))
+  #SHAP in held out fold
+  shaps_out <- SHAPforxgboost::shap.prep(xgb_model = extract_fit_engine(model_best),
+                     X_train = feat_out |> select(-y) |>  as.matrix()) |> 
+   # add id_obs by multiple of number of features
+    mutate(id_obs = rep(d_out$id_obs, times = ncol(feat_out) - 1),
+           split_num = split_num) |>  
+    relocate(id_obs, split_num)
+  
+  return(list(probs_out = probs_out, 
+              metrics_out = metrics_out, 
+              shaps_out = shaps_out))
 }
 ```
 
@@ -302,41 +363,6 @@ ASSUMPTIONS:
 * format_data() is same for all batches
 * Assumes full recipe is for all algorithms is present in all training controls with branches/ifs to select proper algorithm specific steps
 
-```{r data_and_splits}
-# can source any training control given assumptions above
-batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
-batch_names <- batch_names[str_detect(batch_names, "train") & 
-                             str_detect(batch_names, cv) &
-                             str_detect(batch_names, version) &
-                             str_detect(batch_names, window)]
-batch_name <- batch_names[1] # can source any batch given assumptions above
-path_batch <- file.path(path_input, batch_name)
-source(file.path(path_batch, "input", "training_controls.R"))
-# NOTE: training controls overwrites path_batch but it matches   
-                  
-chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
-if (length(chunks) == 2) {
-  fn <- str_c("data_trn.", chunks[[2]])
-} else {
-  fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
-}
-  
-# open based on file type
-if (str_detect(fn, "csv")) {
-  d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
-} else {
-  d <- readRDS(file.path(path_batch, "input", fn))
-}
-
-d <- format_data(d)
-
-d <- d |> mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
-
-splits <- d %>% 
-  make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
-              cv_inner_resample, cv_group, seed_splits)
-```
-
 Map over all outer splits to get predicted probabilities, metrics, and SHAPs from held out outer folds.  Then save predicted probs, metrics, and SHAPs
 
 NOTE: Delete `outer_metrics_*` or this code chunk won't run!
@@ -345,127 +371,191 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_",
                                   window, "_", lead, "_", version, "_", 
                                   cv, ".rds")))){ 
   
+  # can source any training control given assumptions above
+  batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                               str_detect(batch_names, cv) &
+                               str_detect(batch_names, version) &
+                               str_detect(batch_names, window)]
+  batch_name <- batch_names[1] # can source any batch given assumptions above
+  path_batch <- file.path(path_input, batch_name)
+  source(file.path(path_batch, "input", "training_controls.R"))
+  # NOTE: training controls overwrites path_batch but it matches   
+                    
+  chunks <- str_split_fixed(data_trn, "\\.", n = Inf) # parse name from extensions
+  if (length(chunks) == 2) {
+    fn <- str_c("data_trn.", chunks[[2]])
+  } else {
+    fn <- str_c("data_trn.", chunks[[2]], ".", chunks[[3]])
+  }
+    
+  # open based on file type
+  if (str_detect(fn, "csv")) {
+    d <- read_csv(file.path(path_batch, "input", fn), show_col_types = FALSE) 
+  } else {
+    d <- read_rds(file.path(path_batch, "input", fn))
+  }
+  
+  d <- format_data(d) |> 
+    mutate(id_obs = 1:nrow(d))  # tmp add for linking obs to SHAPs
+  
+  splits <- d %>% 
+    make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+                cv_inner_resample, cv_group, seed_splits)
+    
   all <- configs_best$outer_split_num |> 
     map(\(split_num) fit_predict_eval(split_num, splits, configs_best))  
   
+  
   rm(splits)  # save a bit of memory!
   
-  # pluck
+  write_csv(tibble(stage = "metrics_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)
   metrics_out <- all |> 
     map(\(l) pluck(l, "metrics_out")) |> 
-    list_rbind()
-  
+    list_rbind() |> 
+    write_rds(file.path(path_models, str_c("outer_metrics_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
+  write_csv(tibble(stage = "probs_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
+            append = TRUE)  
   probs_out <- all |> 
     map(\(l) pluck(l, "probs_out")) |> 
-    list_rbind()
-  
+    list_rbind() |> 
+    write_rds(file.path(path_models, str_c("outer_preds_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
+
+    write_csv(tibble(stage = "shaps_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_", window)),
+            append = TRUE)    
   shaps_out <- all |> 
     map(\(l) pluck(l, "shaps_out")) |>
     list_rbind() |> 
     # clean feature names;  See function above
-    mutate(variable = fct_relabel(variable, clean_feature_names))
+    mutate(variable = fct_relabel(variable, clean_feature_names)) |> 
+    # average SHAP metrics across repeats for same id_obs
+    group_by(id_obs, variable) |> 
+    summarize(value = mean(value), 
+              # rfvalue is same across repeats but want included 
+              rfvalue =  mean(rfvalue),  
+              mean_value = mean(mean_value)) |> 
+    write_rds(file.path(path_models, str_c("outer_shaps_", 
+                                           window, "_", lead, "_", version, "_", 
+                                           cv, ".rds")))
     
-  # save
-  metrics_out |> 
-    saveRDS(file.path(path_models, str_c("outer_metrics_", 
-                                  window, "_", lead, "_", version, "_", 
-                                  cv, ".rds")))
-  probs_out %>%
-    saveRDS(file.path(path_models, str_c("outer_preds_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
-  
-  shaps_out %>%
-    saveRDS(file.path(path_models, str_c("outer_shaps_", 
-                                    window, "_", lead, "_", version, "_", 
-                                    cv, ".rds")))
 } else {
   message("Resampled performance from nested CV previously calculated")
+  
+  metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", 
+                                                       window, "_", lead, "_", 
+                                                       version, "_", 
+                                                       cv, ".rds")))
+  # not needed for remainder of script
+  # probs_out <- read_rds(file.path(path_models, str_c("outer_preds_", 
+  #                                                    window, "_", lead, "_", 
+  #                                                    version, "_", 
+  #                                                    cv, ".rds")))
+
+  shaps_out <- read_rds(file.path(path_models, str_c("outer_shaps_", 
+                                                     window, "_", lead, "_", 
+                                                     version, "_", 
+                                                     cv, ".rds")))
 }
 ```
 
 Now group SHAPs
-NOTE: Delete `outer_shaps_grp_*` or this code chunk won't run!
+NOTE: Delete `outer_shapsgrp_*` or this code chunk won't run!
 ```{r calc_grouped_shaps}
-if(file.exists(file.path(path_models, str_c("outer_shaps_grp_",
+if(!file.exists(file.path(path_models, str_c("outer_shapsgrp_",
                                             window, "_", lead, "_", version, "_",
                                             cv, ".rds")))){
-  message("Loading previously calculated grouped SHAPs")
-  shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_",
-                                                        window, "_", lead, "_", version, "_",
-                                                        cv, ".rds")))
-} else {
-  
+
   message("Calculating grouped SHAPs")
+  write_csv(tibble(stage = "shapsgrp_save",
+                   outer_split_num = NA, 
+                   start_time = Sys.time()),
+            file.path(path_models, str_c("tmp_metrics_outer_progress_",window)),
+            append = TRUE)
   
   shaps_out_grp <- shaps_out %>% 
-    mutate(group = if_else(str_detect(variable, "lapse."), 
+    mutate(variable_grp = if_else(str_detect(variable, "lapse."), 
                            "past use (EMA item)", 
                            variable),
-           group = if_else(str_detect(group, "ema_2"), 
+           variable_grp = if_else(str_detect(variable_grp, "ema_2"), 
                            "craving (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_3"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_3"), 
                            "past risky situation (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_4"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_4"), 
                            "past stressful event (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_5"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_5"), 
                            "past pleasant event (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_6"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_6"), 
                            "valence (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_7"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_7"), 
                            "arousal (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "ema_8"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_8"), 
                            "future risky situation (EMA item)",
-                           group),
-           group = if_else(str_detect(group, "ema_9"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_9"), 
                            "future stressful event (EMA item)",
-                           group),
-           group = if_else(str_detect(group, "ema_10"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "ema_10"), 
                            "future efficacy (EMA item)", 
-                           group),
-           group = if_else(str_detect(group, "missing."), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "missing."), 
                            "missing surveys (other)", 
-                           group),
-           group = if_else(str_detect(group, "day"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "day"), 
                            "lapse day (other)", 
-                           group),
-           group = if_else(str_detect(group, "hour"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "hour"), 
                            "lapse hour (other)", 
-                           group),
-           group = if_else(str_detect(group, "age"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "age"), 
                            "age (demographic)", 
-                           group),
-           group = if_else(str_detect(group, "sex"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "sex"), 
                            "sex (demographic)", 
-                           group),
-           group = if_else(str_detect(group, "marital"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "marital"), 
                            "marital (demographic)", 
-                           group),
-           group = if_else(str_detect(group, "race"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "race"), 
                            "race (demographic)", 
-                           group),
-           group = if_else(str_detect(group, "educ"), 
+                           variable_grp),
+           variable_grp = if_else(str_detect(variable_grp, "educ"), 
                            "education (demographic)", 
-                           group)) %>%
-    mutate(group = factor(group)) %>% 
-    group_by(id_obs, split_num, group) %>% 
-    summarize(shap = sum(value))
+                           variable_grp)) %>%
+    mutate(variable_grp = factor(variable_grp)) %>% 
+    group_by(id_obs, variable_grp) %>% # values are already averaged across repeats
+    summarize(value = sum(value))
   
-  shaps_out_grp %>% saveRDS(file.path(path_models, 
-                                          str_c("outer_shaps_grp_",
-                                                window, "_", lead, "_", version, "_",
+  shaps_out_grp %>% write_rds(file.path(path_models, 
+                                          str_c("outer_shapsgrp_", window, "_", 
+                                                lead, "_", version, "_",
                                                 cv, ".rds")))
+} else {
+   message("Grouped SHAPs previously calculated")
 }
 ```
 
 
-### Review performance eval from outer loop
+### Final Review performance eval from outer loop
 
 Done more in depth later script but here is a quick look
 ```{r print_metrics}
@@ -478,6 +568,13 @@ metrics_out |>
 metrics_out |> 
   ggplot(aes(x = roc_auc)) +
   geom_histogram(bins = 10)
+```
+
+```{r}
+# delete tracking file
+if(file.exists(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))) {
+  file.remove(file.path(path_models, str_c("tmp_metrics_outer_progress_", window)))
+}
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.

@@ -3,12 +3,12 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "random_forest" # "glm" "glmnet" "random_forest" "xgboost"
-batch <- "batch2"
+algorithm <- "glm" # "glm" "glmnet" "random_forest" "xgboost"
+batch <- "batch1"
 window <- "1week"
 lead <- 0
 
-configs_per_job <- 300  # number of model configurations that will be fit/evaluated within each CHTC
+configs_per_job <- 200  # number of model configurations that will be fit/evaluated within each CHTC
 
 # RESAMPLING FOR OUTCOME-----------------------------------
 # note that ratio is under_ratio, which is used by downsampling as is
@@ -23,8 +23,8 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-# feature_set <- c("insight_only")
-feature_set <- c("all") 
+feature_set <- c("insight_only")
+# feature_set <- c("all") 
 data_trn <- str_c("features_",  version, ".csv") 
 seed_splits <- 102030
 
@@ -97,7 +97,8 @@ glide <- TRUE
 
 # batch2: all feature_set w corresponding hp values (full set)
 # request_memory <- "5000MB" request_disk <- "1000MB"
-# 300 configs per job (xgboost)
+# 300 configs per job (random_forest)
+# went down to 200 configs per job (xgb, glmnet) based on RF timing
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df) {
@@ -156,7 +157,11 @@ build_recipe <- function(d, config) {
         step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
         step_zv(all_predictors()) %>% 
         step_normalize(all_predictors())
-  } 
+  }
+  
+  if (algorithm == "glm") {
+    # no algorithm specific steps
+  }
   
   if (algorithm == "random_forest") {
     # no algorithm specific steps

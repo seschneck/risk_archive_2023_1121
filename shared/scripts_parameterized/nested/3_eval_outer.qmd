@@ -12,7 +12,7 @@ format:
 params:
   study: "ema"
   cv: "nested"
-  window: "1hour"
+  window: "1week"
   lead: 0
   version: "v5"
 editor_options: 
@@ -60,11 +60,8 @@ Packages for script
 library(tidyverse)
 library(tidymodels)
 library(tidyposterior)
-
-# library(forcats)
 # library(SHAPforxgboost)
 # library(rstanarm)
-# library(tidyposterior)
 
 theme_set(theme_classic()) 
 ```
@@ -132,112 +129,106 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R
 ### Model Performance Metrics
 
 ```{r read_metrics_preds}
-preds_out <- readRDS(file.path(path_models, str_c("outer_preds_", window, "_", 
+preds_out <- read_rds(file.path(path_models, str_c("outer_preds_", window, "_", 
                                                     lead, "_", version, "_", 
                                                     cv, ".rds")))
-metrics_out <- readRDS(file.path(path_models, str_c("outer_metrics_", window, "_", 
+metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", window, "_", 
                                                       lead, "_", version, "_", 
                                                       cv, ".rds")))
 ```
-#### Outer ROC
-Look at performance within folds
-```{r metrics_out_kbl}
-metrics_out |> 
-  print_kbl()
-```
-
-Inner overall
-```{r metrics_in}
-metrics_out |> 
-  summarize(median(roc_auc_in), mean(roc_auc_in))
-```
-
-Outer overall
-```{r metrics_out}
-metrics_out |> 
-  summarize(median(roc_auc), mean(roc_auc))
-```
-
-Confusion matrix using .5 threshold
-```{r default_cm}
-preds_out <- preds_out |> 
-   mutate(estimate = if_else(prob > .5, "Lapse", "No lapse"),
-          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) 
-
-(cm <- preds_out |> 
-   conf_mat(truth = label, estimate = estimate))
-
-cm %>% 
-  autoplot() +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))
-
-cm %>% summary()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
-
-
-#### Probability Histograms
-Histograms with free Y
-```{r prob_plot_free}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
-
-Histograms with fixed Y
-```{r prob_plot_fixed}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2) +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
 
 #### ROC curve
-This is single ROC by concatenating all folds.
-Could consider reporting this AUC though likely average of resample AUCs is more appropriate?
+This is single ROC by concatenating all outer folds.
+Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
 preds_out %>%
-  roc_auc(prob, truth = label)
+  roc_auc(prob_beta, truth = label)
 
 roc_data <- preds_out %>% 
-  roc_curve(prob, truth = label)
+  roc_curve(prob_beta, truth = label)
   
 roc_data %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_path() +
+  ggplot(aes(x = 1 - specificity, y = sensitivity, color = .threshold)) +
+  geom_path(linewidth = 2) +
   geom_abline(lty = 3) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
     labels = sprintf("%.2f", seq(1,0,-.25))) +
+  scale_color_gradient(low="blue", high="red") +
   theme(axis.text = element_text(size = rel(1.50)), 
         axis.title = element_text(size = rel(1.75)))
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
 
-#### Posterior probabibilites for AUC
+And these are the curves for each outer fold
+
+```{r}
+
+# rocs per fold
+roc_folds <- preds_out %>%
+  nest(.by = outer_split_num, .key = "preds") |> 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob_beta, 
+                                             truth = label)))
+
+fig_roc_folds <- roc_data %>%  # plot region from full concatenated data 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+  
+for (i in 1:nrow(roc_folds)) {
+  fig_roc_folds <- fig_roc_folds +
+     geom_path(data = roc_folds$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "gray")
+}
+
+#add full concatenated curve
+fig_roc_folds +
+     geom_path(data = roc_data,
+               mapping = aes(x = 1 - specificity, y = sensitivity, color = .threshold),
+               linewidth = 2) +
+    scale_color_gradient(low="blue", high="red")
+```
+
+#### Outer AUC
+
+Review performance across all inner folds
+```{r metrics_in}
+metrics_out |> 
+  summarize(median(roc_auc_in), mean(roc_auc_in))
+```
+
+
+And now across outer folds
+Outer overall
+```{r metrics_out}
+metrics_out |> 
+  summarize(median(roc_auc), mean(roc_auc))
+```
+
+Plot outer folds
+```{r plot_outer}
+metrics_out |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10)
+```
+
+Table for each outer fold
+```{r metrics_out_kbl}
+metrics_out |> 
+  print_kbl()
+```
+
+#### Posterior probabilites for AUC
 
 ```{r}
 resamples <- metrics_out |> 
@@ -248,22 +239,15 @@ resamples <- metrics_out |>
 ```
 
 ```{r}
-resamples %>% 
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), bins = 10)
-```
-
-
-```{r}
 set.seed(101)
 pp <- resamples %>% 
   perf_mod(formula = statistic ~ 1 + (1 | id2/id),
-           iter = 5000, chains = 4,  
-           transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+           iter = 4300, chains = 4,  
+           #transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
            family = gaussian, 
-           adapt_delta = .9999)  
+           adapt_delta = .999999999999)  
 
-pp %>%  saveRDS(file.path(path_models, str_c("posteriors_", window, "_", lead, "_", 
+pp %>%  write_rds(file.path(path_models, str_c("posteriors_", window, "_", lead, "_", 
                                              version, "_", cv, ".rds")))
 ```
 
@@ -283,28 +267,125 @@ pp %>%
   geom_density(aes(x = posterior))
 ```
 
+Mean/Median/Mode of posterior for AUC
+```{r}
+
+get_mode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> mean()
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> median()
+pp %>% 
+  tidy(seed = 123) |> pull(posterior) |> get_mode()
+```
+
+95% credible interval for AUC
+```{r}
+pp %>% 
+  tidy(seed = 123) |> 
+  pull(posterior) |> 
+  quantile(probs = c(0.025, 0.975))
+```
+
+#### Probability Histograms
+Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance
+```{r prob_plot_free}
+preds_out %>% 
+  ggplot(data = ., aes(x = prob_beta)) + 
+   geom_histogram(bins = 100, fill = "white", col = "black") +
+   facet_wrap(~label, nrow = 2, scales = "free_y") +
+   xlab("Pr(Lapse)") +
+  theme(axis.text = element_text(size = rel(1.00)), 
+        axis.title.x = element_text(size = rel(1.25)),
+        strip.text = element_text(size = rel(1.75)))
+```
+
+
+#### Outer individual metrics
+
+Confusion matrix using .5 threshold
+```{r default_cm}
+(cm <- preds_out |> 
+   mutate(estimate = if_else(prob_beta > .5, "Lapse", "No lapse"),
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+
+# save plot for presentations
+# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+```
+
+
+Confusion matrix at optimal cut-point (based on Youdens J index)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
+https://pubmed.ncbi.nlm.nih.gov/15405679/
+
+```{r youden_cm}
+j_thres_roc <- roc_data |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+  print() |> 
+  pull(.threshold)
+
+(cm <- preds_out |> 
+   mutate(estimate = if_else(prob_beta > j_thres_roc, "Lapse", "No lapse"),
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+```
+
 
 
 #### PR Curve
-Here is precision/recall by concatenating all folds
-Same approach as above for ROC
+Here is precision/recall by concatenating all folds.  Same approach as above for ROC
 ```{r pr_info}
 preds_out %>%
-  pr_auc(prob, truth = label)
+  pr_auc(prob_beta, truth = label)
 
 pr_data <- preds_out %>% 
-  pr_curve(prob, truth = label)
+  pr_curve(prob_beta, truth = label)
 
 pr_data %>% 
-  ggplot(aes(x = recall, y = precision)) +
-  geom_path() +
+  ggplot(aes(x = recall, y = precision, color = .threshold)) +
+  geom_path(linewidth = 2) +
   geom_hline(lty = 3, yintercept = mean(preds_out$label == "Lapse")) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  scale_color_gradient(low="blue", high="red") +
   labs(x = "Recall (Sensitivity)",
        y = "Precision (PPV)")
+```
 
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
+Sensitivity at min PPV of .7
+```{r}
+pr_data |> 
+  filter(precision >= .7) |> 
+  arrange(desc(recall)) |> 
+  slice(1) |> 
+  print()
+```
+
+Sensitivity at best F
+```{r}
+f <- pr_data |> 
+  mutate(f =  (2 * precision * recall) / (precision + recall)) |> 
+  slice_max(f) |> 
+  print()
 ```
 
 
@@ -313,67 +394,24 @@ pr_data %>%
 #### Grouped Features
 
 ```{r read_shaps_grp}
-shaps_out_grp <- readRDS(file.path(path_models, str_c("outer_shaps_grp_", 
+shapsgrp_out <- readRDS(file.path(path_models, str_c("outer_shapsgrp_", 
                                                         window, "_", lead, "_", 
                                                         version, "_", cv, ".rds")))
 ```
 
 
-Global importance Shap plot for grouped features
+Global importance SHAP plot for grouped features
 ```{r shap_grouped_plot}
-shaps_out_grp %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
+shapsgrp_out %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
   arrange(mean_value) %>% 
-  mutate(group = factor(group),
-         group = fct_inorder(group)) %>% 
-  ggplot(mapping = aes(x = group, y = mean_value)) +
+  mutate(variable_grp = factor(variable_grp),
+         variable_grp = fct_inorder(variable_grp)) %>% 
+  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
   geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = group, y = mean_value, xend = group), 
+  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
                yend = 0, colour = "grey50")  +
   ylab("Mean |SHAP| value") +
   coord_flip()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-
-# shaps <- shap.values(xgb_model = extract_fit_engine(model_fit_best),
-#                      X_train = x %>% as.matrix())
-
- 
-# shap.plot.summary.wrap1(extract_fit_engine(model_fit_best), x %>% as.matrix(), 
-#                         top_n = 20, dilute = 10)
 ```
-
-
-
-#### Raw Features
-
-```{r read_shaps_raw}
-shaps_out <- readRDS(file.path(path_models, str_c("outer_shaps_", window, "_", 
-                                                    lead, "_", version, "_", 
-                                                    cv, ".rds")))
-```
-
-
-Global importance SHAP plot for raw features
-```{r shap_raw_plot}
-shaps_out %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   # mean for each variable is same for all rows for that variable
-  ungroup() %>% 
-  arrange(mean_value) %>% 
-  slice_tail(n = 50) %>%
-  mutate(variable = factor(variable),
-         variable = forcats::fct_inorder(variable)) %>% 
-  ggplot(mapping = aes(x = variable, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable, y = mean_value, xend = variable), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  coord_flip()
-
-# save plot for presentations
-# ggsave(file.choose(), width = 6.5, height = 6.5, units = "in", device = "png",  dpi = 100)
-```
-
