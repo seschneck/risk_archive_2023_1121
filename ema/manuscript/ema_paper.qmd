@@ -5,6 +5,8 @@ csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/c
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -27,9 +29,9 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
 
 ```{r setup, include = FALSE}
 library(knitr)
-library(yardstick) # for roc_curve
+# library(yardstick) # for roc_curve
 library(kableExtra)
-library(janitor)
+# library(janitor)
 library(corx)
 library(patchwork)
 library(ggtext)
@@ -44,6 +46,8 @@ theme_set(theme_classic())
 
 
 ```{r paths}
+study <- "ema"
+
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
@@ -69,33 +73,36 @@ switch (Sys.info()[['sysname']],
 
 ```{r load_data}
 # Table data
-disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), 
+                        col_types = "ccDDcccccccccc")
 screen <- read_csv(file.path(path_data_shared, "screen.csv"), 
                    col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
 # Predictions data
-preds_week<- readRDS(file.path(path_models, 
-                               "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(file.path(path_models, 
-                              "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(file.path(path_models, 
-                               "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, prob = prob_beta, label)
+preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, prob = prob_beta, label)
+preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
+  select(outer_split_num, prob = prob_beta, label)
 
 # posterior probabilites
-pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+pp_week <- read_rds(file.path(path_models, "posteriors_1week_0_v5_nested.rds"))
+pp_day <- read_rds(file.path(path_models, "posteriors_1day_0_v5_nested.rds"))
+pp_hour <- read_rds(file.path(path_models, "posteriors_1hour_0_v5_nested.rds"))
 
 # ROC curves
 roc_week <- preds_week %>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 roc_day <- preds_day %>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 roc_hour <- preds_hour%>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 roc_all <- roc_week %>% 
@@ -104,15 +111,15 @@ roc_all <- roc_week %>%
 
 # PR curves
 pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 pr_all <- pr_week %>% 
