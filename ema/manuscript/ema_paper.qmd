@@ -762,7 +762,7 @@ shap_global_all <- shap_global_week %>%
                                           "marital (demographic)",
                                           "education (demographic)")))
 
-shap_grouped_all %>% 
+shap_global_all %>% 
   mutate(group = reorder(group, mean_value, sum)) %>% 
   ggplot() +
   geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
@@ -851,29 +851,30 @@ plot_shap_week + plot_shap_day + plot_shap_hour
 ## 1. Model Performance, SHAP, and Model Comparisons
 
 <!-- Overall model performance -->
-<!-- * Talk about solid overall performance of three models
-- ROC, sensitivity and specificity of three models -->
-Models across all three time windows performed exceptionally well, yielding AUC ROCs of [], [], and [] for hour level, day level, and week level models respectively. AUCs above .9 are generally described as having "excellent" performance (cite), and all three of our models perform as well as or better than existing alcohol lapse prediction models to date (Berenholtz et al,  2020). This indicates EMA data can be used to predict alcohol lapse in the next hour, next day, and next week with high levels of sensitivity and specificity.
 
-<!-- - Likely hit a ceiling with model performance. Can talk about low difference between inner and outer fold performance as potential support that we reached a ceiling/arent capitalizing on noise --> 
+Models across all three time windows performed exceptionally well, yielding AUC ROCs of [], [], and [] for hour level, day level, and week level models respectively. AUC ROCs summarize the model's ability to distinguish positive and negative classes over all possible decision thresholds.  AUCs above .9 are generally described as having "excellent" performance, meaning that the model will correctly assign a larger probability to a positive case than a negative case 90% of the time (Jayawant, 2010). All three of our models perform as well as or better than existing alcohol lapse prediction models to date (Berenholtz et al,  2020). This indicates EMA data can be used to predict alcohol lapse in the next hour, next day, and next week with high levels of sensitivity and specificity. [reference graph with specific sensitivity specificity values at certain cut-points?]
 
-* Likely result of benefit of using nonlinear algorithms, time baked into features, etc, discussed in methods. High dimensional data set, longitiudinal measurement. BUT our method of model selection did not include comparison to lower dimensional feature sets, consideration of other algorithms. So conclusion cannot be that this is more superior. But conclusion is our stated performance. 
-* Reminder that these are held out performance metrics in new people -- i.e. grouped nested kfold cv. So we expect these high performance estimates to generalize
+Importantly, we build upon previous EMA lapse prediction work by more clearly defining the population and lapse characteristics our models are predicting. Our models were trained on a large treatment seeking sample of adults in early recovery from AUD, predicting specifically episodes of unintentional alcohol use. Additionally, we collected data from participants with high frequency (4x perday) over a clinically meaningful period of time. These specifications likely increase both the predictive ability of our model (due to a more homogeneous prediction outcome) as well as the eventual clinical utility of our predictions. 
+
+Other aspects of the analytic design that likely contributed to overall high model performance were the use of nonlinear algorithms, inclusion of change scores in predictors over time within participants, and our choice to use a high dimensional feature feature space (see Methods).However, it is important to note that our method of model selection did not consider other types of algorithms or lower dimensional feature sets. Therefore, we cannot conclude that these algorithms and features exclusively are required for the reported performance estimates, but that they are sufficient for producing reported results.
+
+Our study was also unique in its use of grouped nested cross fold validation for generating our reported model performances. This is the most rigorous test of generalizability of EMA lapse prediction models in the literature to date. Nested cross validation provides an unbiased estimate of model performance due to its separation of hyperparameter tuning and model selection processes from model performance estimation. Additionally, our approach grouped all observations from each participant within folds, meaning that lapse predictions were not generated using other data from the same participant. This results in a more realistic assessment of how our models are expected to perform in unseen data from new participants.
+
+<!--SHAPs-->
+
+We further examine the performance of our models via analysis of SHAP values. SHAP values are a method for interpreting the predictions of machine learning models. They provide insights into the contribution of each feature or variable in a prediction, allowing us to understand the importance of individual features in the model's decision-making process. Global importance measures provide information about which features are the most useful to the model as a whole, while local importance measures evaluate the contribution of each feature within a certain context or prediction. The direction and magnitude of SHAP values correspond to the influence of that feature in generating a positive prediction.
+
+Figure [X] displays the global importance values for features across our best performing day, week, and hour level models. Unsurprisingly, the largest contribution to prediction of a lapse is frequency of previously reported lapses. An individual who reports lapsing frequently is more likely to lapse at any given observation in the future.  Additionally, the likelihood of a lapse increases when participants report lower ratings of confidence in their ability to maintain their goal of abstinence. Congruent with relapse prevention literature, we also see increased likelihood of lapse when participants report higher levels of craving, increased magnitude of stressful events experienced in the past 24 hours, and increased exposure to situations described as "risky for [your] recovery."
+
+However, these features alone are not enough to obtain high predictive performance. As displayed in Figure [X], over 15 features contribute to any individual prediction of lapse. Additionally, we see in Figure [local shaps] that some features with low global importance yield high importance scores at the local level.[Explain some shaps with high local importance on graph...etc]
+
+Our included demographic variables did yield high global or local importance scores across models. However, these conclusions are dependent on the representatives of the sample. Despite our data having wide representation off SES, gender, and age characteristics, these features did not typically emerge in SHAP values as significantly contributing the lapse prediction. This suggests that other EMA variables (craving, past use) are more relevant for lapse prediction than these characteristics. However, while race and ethnicity also did not emerge in global or local SHAPs, the limited representation of black and brown populations in the current sample warrants caution in drawing conclusions about the predictive utility of race and ethnicity.
+
+<!-- Model comparisons -->
+
+SHAP values also assist in contextualizing the comparative performance of our week, day, and hour level models. While predicting lapse in the next week may intuitively seem less complex than predicting lapse in the next hour, Bayseian model comparisons demonstrate all three of our models to have comparable predictive utility. In fact, prediction of lapse within the next hour yields slightly better performance than predicting lapse in the next day or week. Shifting SHAP values of temporally based features (e.g. hour of day, day of week) across models identify a possible source of added predictive utility. Individuals were more likely to report lapsing in evening hours and on weekends, which resulted in day and hour related features having greater importance and predictive utility in finer grained prediction windows. Additionally, hour level models may benefit from features occurring closer in time to the lapse event.
 
 
-SHAP
-* Describe enough so people know what it is
-* Difference between global and local importance
-* Even features with low overall global importance can be significant if they have high local importance -- indicating these things can be very important for some people at some times
-*Demographic variables not really important, but conclusions are dependent on representativeness of our sample. Despite having wide representation of SES, gender, and age, these did not typically emerge in SHAPs. While race/ethnicity did not emerge, we had a limimted representation of black and brown populations so we should be cautious of drawing conclusion of the lack of race as a highly predictive feature.
-
-
-Model comparisons
-* Reasons why hour level models are the best -- closest to lapse event, inclusion of temporally based features (day and hour)
-* While sensitivity, specificity, and balanced accuracy are encouragingly high, PPV is low
-    * PPV and NPC are significantly effected by outcome distribution, often not reported in ML models.
-    * Adjusting the decision threshold can increase PPV (at cost of reducing sensitivity)
-    * Some interventions are more appropriate for low PPV, high sensitivity scenarioes (e.g. false alarms are not necessarily bad if you are just encouraging increased use of the dtx). Higher cost interventions (e.g. contacting a provider) may be better suited for higher decision thresholds to increase PPV
 
 
 
