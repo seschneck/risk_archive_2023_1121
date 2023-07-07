@@ -92,20 +92,7 @@ preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds
   select(outer_split_num, prob = prob_beta, label)
 
 # posterior probabilites
-pp_week <- read_rds(file.path(path_models, "posteriors_1week_0_v5_nested.rds")) |> 
-  tidy(seed = 123) |> 
-  mutate(model = "1week")
-pp_day <- read_rds(file.path(path_models, "posteriors_1day_0_v5_nested.rds")) |> 
-  tidy(seed = 123) |> 
-  mutate(model = "1day")
-pp_hour <- read_rds(file.path(path_models, "posteriors_1hour_0_v5_nested.rds")) |> 
-  tidy(seed = 123) |> 
-  mutate(model = "1hour")
-
-pp <- pp_week |> 
-  bind_rows(pp_day) |> 
-  bind_rows(pp_hour)
-
+pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
 # ROC curves
 roc_week <- preds_week |> 
@@ -707,36 +694,35 @@ roc_plot <- roc_all |>
   scale_x_continuous(breaks = seq(0, 1, .25),
     labels = sprintf("%.2f", seq(1, 0, -.25))) 
 
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
 
-ci <- pp |> 
-  group_by(model) |> 
-  summarize(quantile(c(.025, .5, .975)))
-  summary() |> # UPDATE TO QUANTILES quantile(c(.025, .5. .975))
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+ci <- pp_tidy |> 
+  summary() |>   # UPDATE TO QUANTILES quantile(c(.025, .5. .975))
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
                         labels = c("Week", "Day", "Hour")),
          y = 1000)
 
-pp_plot <- pp |> 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+pp_tidy %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
                         labels = c("Week", "Day", "Hour"))) |>
   ggplot() + 
   geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
                  bins = 30) +
-  # geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-  #                          color = model),
-  #              show.legend = FALSE,
-  #              data = ci) +
-  # geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
-  #             show.legend = FALSE,
-  #              data = ci) +
-  # geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
-  #           label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                           color = model),
+               data = ci) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
+                             color = model),
+                data = ci) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  # ylab("Posterior Probability Density") +
   xlab("Area Under ROC Curve") +
   theme(strip.background = element_blank(),
         strip.text.x = element_blank())
 
+# combine plots
 roc_plot + pp_plot +
   plot_layout (guides = "collect") &
   theme(legend.position = "bottom")
