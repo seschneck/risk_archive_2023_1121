@@ -228,67 +228,6 @@ metrics_out |>
   print_kbl()
 ```
 
-#### Posterior probabilites for AUC
-
-```{r}
-resamples <- metrics_out |> 
-  mutate(id = rep(str_c("repeat", 1:3), each = 10),
-         id2 = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
-  select(id, id2, roc_auc) %>% 
-  print(n = 5)
-```
-
-```{r}
-set.seed(101)
-pp <- resamples %>% 
-  perf_mod(formula = statistic ~ 1 + (1 | id2/id),
-           iter = 4300, chains = 4,  
-           #transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-           family = gaussian, 
-           adapt_delta = .999999999999)  
-
-pp %>%  write_rds(file.path(path_models, str_c("posteriors_", window, "_", lead, "_", 
-                                             version, "_", cv, ".rds")))
-```
-
-```{r}
-# get shinystan package
-# launch_shinystan(pp$stan)
-pp$stan
-
-rstanarm::prior_summary(pp$stan)
-```
-
-
-```{r}
-pp %>% 
-  tidy(seed = 123) %>% 
-  ggplot() + 
-  geom_density(aes(x = posterior))
-```
-
-Mean/Median/Mode of posterior for AUC
-```{r}
-
-get_mode <- function(v) {
-   uniqv <- unique(v)
-   uniqv[which.max(tabulate(match(v, uniqv)))]
-}
-pp %>% 
-  tidy(seed = 123) |> pull(posterior) |> mean()
-pp %>% 
-  tidy(seed = 123) |> pull(posterior) |> median()
-pp %>% 
-  tidy(seed = 123) |> pull(posterior) |> get_mode()
-```
-
-95% credible interval for AUC
-```{r}
-pp %>% 
-  tidy(seed = 123) |> 
-  pull(posterior) |> 
-  quantile(probs = c(0.025, 0.975))
-```
 
 #### Probability Histograms
 Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance

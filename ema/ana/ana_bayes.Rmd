@@ -7,13 +7,14 @@ output:
     toc: true 
     toc_depth: 4
 knit: (function(input, ...) {
+    )
     rmarkdown::render(
       input,
+      "/Volumes/private/studydata/risk/knits/ema")
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/ema", 
-      "/Volumes/private/studydata/risk/knits/ema")
-    )
-  })
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -31,16 +32,7 @@ In use with iterative improvement
  
 ### Set Up Environment
 
-Packages for lab workflow 
-```{r packages_workflow, message=FALSE, warning=FALSE}
-library(conflicted) # detect and warn about function conflicts
-conflict_prefer("filter", "dplyr")
-conflict_prefer("select", "dplyr")
-conflict_prefer("slice", "dplyr")
-conflict_prefer("spec", "yardstick")
-conflicts_prefer(shiny::observe)
-conflicts_prefer(ggplot2::`%+%`)
-```
+
 
 Packages for script
 ```{r packages_script, message=FALSE, warning=FALSE}
@@ -52,19 +44,26 @@ theme_set(theme_classic())
 ```
 
 Absolute paths
-```{r absolute paths}
+```{r absolute_paths}
+
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_input <- str_c("P:/studydata/risk/chtc/ema")
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
           path_processed <- str_c("P:/studydata/risk/data_processed/ema")
           path_models <- str_c("P:/studydata/risk/models/ema")},
 
         # IOS paths
         Darwin = {
-          path_input <- str_c("/Volumes/private/studydata/risk/chtc/ema")
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
           path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
-          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")}
+          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")},
+        
+        # Linux paths
+        Linux = {
+          path_shared <- str_c("~/mnt/private/studydata/risk/data_processed/shared")
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/")
+          path_models <- str_c("~/mnt/private/studydata/risk/models/ema")}
         )
 ```
 
@@ -89,14 +88,24 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.
 
 ```{r load_preds_metrics}
 
-auc_week <- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds")) %>% 
+auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+  arrange(outer_split_num) |> 
+  mutate(id = rep(str_c("repeat", 1:3), each = 10),
+         id2 = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(id, id2, roc_auc)
 
-auc_day <- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_kfold.rds")) %>% 
+auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+  arrange(outer_split_num) |> 
+  mutate(id = rep(str_c("repeat", 1:3), each = 10),
+         id2 = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(id, id2, roc_auc)
 
-auc_hour <- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) %>% 
+auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+  arrange(outer_split_num) |> 
+  mutate(id = rep(str_c("repeat", 1:3), each = 10),
+         id2 = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(id, id2, roc_auc)
+
 
 auc <- auc_week %>% 
   rename(week = roc_auc) %>% 
@@ -122,6 +131,7 @@ auc_hour %>%
 ### All models
 
 ```{r}
+set.seed(101)
 pp <- auc %>% 
   perf_mod(formula = statistic ~ model + (1 | id2/id),
          # prior_intercept = rstanarm::student_t(autoscale = TRUE),
@@ -129,7 +139,7 @@ pp <- auc %>%
          transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
          # iter = 6000, chains = 4,  
          adapt_delta = .99,
-         cores = 4, seed = 12345,
+         # cores = 4, seed = 12345,
          family = gaussian, 
 )  
 ```
@@ -147,7 +157,7 @@ summary(pp$stan)
 ```
 
 ```{r}
-pp %>%  saveRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+pp %>%  write_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 ```
 
 
@@ -197,8 +207,12 @@ ci <- pp %>%
                 list("week", "day", "week")) %>% 
   summary(size = .01) %>% 
   mutate(contrast = factor(contrast, 
-                           levels = c("hour vs week", "hour vs day", "day vs week"),
-                           labels = c("hour vs. week", "hour vs. day", "day vs. week")),
+                           levels = c("hour vs week", 
+                                      "hour vs day", 
+                                      "day vs week"),
+                           labels = c("hour vs. week", 
+                                      "hour vs. day", 
+                                      "day vs. week")),
          y = 700)
 
 pp %>% 
@@ -214,8 +228,12 @@ pp %>%
                names_to = "contrast",
                values_to = "posterior") %>% 
   mutate(contrast = factor(contrast, 
-                           levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
-                           labels = c("hour vs. week", "hour vs. day", "day vs. week"))) %>% 
+                           levels = c("hour_vs_week", 
+                                      "hour_vs_day", 
+                                      "day_vs_week"),
+                           labels = c("hour vs. week", 
+                                      "hour vs. day", 
+                                      "day vs. week"))) %>% 
   ggplot() +
   geom_histogram(aes(x = posterior, fill = contrast), 
                  color = "black", alpha = .4, bins = 30) +
