@@ -40,7 +40,7 @@ Purpose: This file is the supplemental analysis script for *Acceptability of Per
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 ```
 
 
@@ -136,8 +136,8 @@ wrist_int <- wristband_descr %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", linewidth = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", linewidth = .4, color = "#787575")
 
 wrist_dis <- wristband_descr %>% 
   filter(measure == "Dislike") %>% 
@@ -156,8 +156,8 @@ wrist_dis <- wristband_descr %>%
         axis.ticks.y=element_blank(),
         axis.line.y = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", linewidth = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", linewidth = .4,  color = "#787575")
 
 wrist_1yr <- wristband_descr %>% 
   filter(measure == "Willingness to Continue") %>% 
@@ -176,8 +176,8 @@ wrist_1yr <- wristband_descr %>%
         axis.line.y = element_blank(),
         axis.ticks.y=element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4,  color = "#787575")
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", linewidth = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", linewidth = .4,  color = "#787575")
 
 
 p_wrist <- wrap_plots(wrist_int, wrist_dis, wrist_1yr) 
@@ -219,36 +219,36 @@ acceptability_time <- data %>%
 # create grouping variables to use for figure
 dislike <- acceptability_time %>% 
   select(contains("dislike")) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 interfere <- acceptability_time %>% 
   select(contains("interfere")) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 oneyear <- acceptability_time %>% 
   select(contains("1year")) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 logs <- acceptability_time %>% 
   select(contains("all_logs")) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 sleep <- acceptability_time %>% 
   select(contains("sleep")) %>% 
   keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 audio_checkin <- acceptability_time %>% 
   select(contains("audio")) %>% 
   keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 ema <- acceptability_time %>% 
   select(contains("daily_survey"), -daily_survey_1_1year) %>% 
   keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 geolocation <- acceptability_time %>% 
   select(contains("location")) %>% 
   keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 text_content <- acceptability_time %>% 
   select(contains("sms")) %>% 
   keep(~is.numeric(.x)) %>% 
-  pivot_longer(everything(), "measure")
+  pivot_longer(everything(), names_to = "measure")
 
 # prepare data for plot
 time_plot <- acceptability_time %>% 
@@ -257,11 +257,11 @@ time_plot <- acceptability_time %>%
          contains("dislike"),
          contains("1year"),
          -daily_survey_1_1year) %>% 
-  pivot_longer(sleep_interfere:all_logs_1year, "measure") %>% 
+  pivot_longer(sleep_interfere:all_logs_1year, names_to = "measure") %>% 
   mutate(acceptability = case_when(measure %in% dislike$measure ~ "Dislike",
                              measure %in% interfere$measure ~ "Interference",
                              measure %in% oneyear$measure ~ "Willingness to Continue"),
-         acceptability = factor(acceptability, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>% 
+         acceptability = factor(acceptability, levels = c("Interference", "Dislike", "Willingness to Continue"))) %>%
   mutate(method = case_when(measure %in% logs$measure ~ "Cellular Communication Logs",
                                   measure %in% sleep$measure ~ "Sleep Quality",
                                   measure %in% audio_checkin$measure ~ "Audio Check-in",
@@ -508,7 +508,7 @@ week_compliance_all %>%
   geom_point(size = 2) +
   geom_line() +
   geom_errorbar(aes(ymin = mean_compliance - se, ymax = mean_compliance + se), 
-                width = .3, size = .3) +
+                width = .3, linewidth = .3) +
   theme_classic() +
   scale_x_continuous(name = "Week", 
                      breaks = seq(1, 12, 1)) +
@@ -519,7 +519,7 @@ week_compliance_all %>%
   geom_hline(aes(yintercept = mean_compliance), week_compliance_all %>% 
                group_by(signal) %>% 
                summarize(mean_compliance = mean(mean_compliance)),
-             linetype = "dashed", size = .3) +
+             linetype = "dashed", linewidth = .3) +
   theme(legend.title = element_blank(),
         legend.text = element_markdown(),
         legend.position = "bottom",
@@ -631,7 +631,7 @@ plot_audio_fu1 <- dates_fu1 %>%
   geom_histogram(color = "black", fill = "#FFDEDE", binwidth = .2, center = .5) +
   scale_x_continuous(breaks = c(0, 0.20, 0.40, 0.60, 0.80, 1.0)) +
   labs(y = "Frequency", x = "Proportion of audio check-in's completed") +
-  geom_vline(aes(xintercept = mean_audio$mean), linetype = "solid", size = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = mean_audio$mean), linetype = "solid", linewidth = .705, color = "#b44343") +
   theme_classic()
 
 plot_audio_fu1 +
@@ -703,8 +703,8 @@ plot_ema_1x <- ema_1x %>%
     theme(legend.position = "none",
         text = element_text(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", size = .705, color = "#b44343") +
-  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
+  geom_vline(aes(xintercept = mean(as.numeric(value))), linetype = "solid", linewidth = .705, color = "#b44343") +
+  geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", linewidth = .4, color = "#787575")
 
 plot_ema_1x +
   theme(plot.caption = element_markdown(hjust = 0, size = 10, lineheight = 1),
@@ -1084,9 +1084,36 @@ a %>%
 
 \newpage
 
+### Sample participant free-responses mapped onto each theme
+
+Table S4 presents 5 themes that emerged in participants' free-response feedback about each personal sensing data stream: acceptability, sustainability, benefits, trust, and usability.
+
+```{r}
+comments <- read.csv(file.path(path_data, "sample_comments.csv")) %>% 
+  rename(`Sample Comments` = Sample.Comment)
+
+pos_row_nums <- which(comments$valence == "pos")
+neg_row_nums <- which(comments$valence == "neg")
+
+comments %>% 
+  select(-valence) %>% 
+  kbl(booktabs = TRUE,
+      caption = "Table S4: Sample Participant Comments",
+      linesep = "",
+      longtable = TRUE) %>% 
+  kable_styling(font_size = 10, latex_options = c("HOLD_position")) %>% 
+  column_spec(2, width = "40em") %>% 
+  row_spec(pos_row_nums, color = "#057600") %>% 
+  row_spec(neg_row_nums, color = "#B6050D") %>% 
+  column_spec(1, bold = TRUE, color = "black") %>% 
+  footnote("Green text indicates positive comments about sensing method. Red text indicates negative comments and black text indicates neutral or mixed comments.", threeparttable = TRUE, escape = FALSE)
+```
+
+\newpage
+
 ### Participant free-responses to each personal sensing measure
 
-We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Tables S3-S7).
+We obtained participant's free-response comments for each personal sensing method as a qualitative index of acceptability. Below are the raw participant responses for each method (Tables S5-S9).
 
 ```{r}
 # read in comments
@@ -1114,7 +1141,7 @@ comments_audio_neg <- which(comments_audio$Positive == "" & comments_audio$Negat
 comments_audio %>% 
   select(Comment = text) %>% 
   kbl(booktabs = TRUE,
-      caption = "Table S3: Participant Free Response Comments about Audio Check-in ($N$ = 154)",
+      caption = "Table S5: Participant Free Response Comments about Audio Check-in ($N$ = 154)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
@@ -1140,7 +1167,7 @@ comments_location_neg <- which(comments_location$Positive == "" & comments_locat
 comments_location %>% 
   select(Comment = text) %>% 
   kbl(booktabs = TRUE,
-      caption = "Table S4: Participant Free Response Comments about Geolocation ($N$ = 153)",
+      caption = "Table S6: Participant Free Response Comments about Geolocation ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position"))%>% 
@@ -1164,7 +1191,7 @@ comments_phone_neg <- which(comments_phone$Positive == "" & comments_phone$Negat
 comments_phone %>% 
   select(Comment = text) %>% 
   kbl(booktabs = TRUE,
-      caption = "Table S5: Participant Free Response Comments about Cellular Communication Logs and Text Message Content ($N$ = 153)",
+      caption = "Table S7: Participant Free Response Comments about Cellular Communication Logs and Text Message Content ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
@@ -1188,7 +1215,7 @@ comments_sleep_neg <- which(comments_sleep$Positive == "" & comments_sleep$Negat
 comments_sleep %>% 
   select(Comment = text) %>% 
   kbl(booktabs = TRUE,
-      caption = "Table S6: Participant Free Response Comments about Sleep Quality ($N$ = 78)",
+      caption = "Table S8: Participant Free Response Comments about Sleep Quality ($N$ = 78)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
@@ -1212,7 +1239,7 @@ comments_survey_neg <- which(comments_survey$Positive == "" & comments_survey$Ne
 comments_survey %>% 
   select(Comment = text) %>% 
   kbl(booktabs = TRUE,
-      caption = "Table S7: Participant Free Response Comments about 4X Daily EMA ($N$ = 153)",
+      caption = "Table S9: Participant Free Response Comments about 4X Daily EMA ($N$ = 153)",
       longtable = TRUE,
       linesep = "\\addlinespace") %>% 
   kable_styling(latex_options = c("HOLD_position")) %>% 
