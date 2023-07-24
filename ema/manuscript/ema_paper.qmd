@@ -659,7 +659,6 @@ metrics_hour <- preds_hour |>
          metric = .metric) |> 
   select(-.estimator)
 
-
 metrics <- metrics_week %>% 
   full_join(metrics_day, by = "metric") %>% 
   full_join(metrics_hour, by = "metric") %>% 
@@ -700,6 +699,7 @@ metrics %>%
 fig_caption_roc_pp <- "Insert note here"
 ```
 
+<!--JJC HERE line width and mean/median-->
 ```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
 
 roc_plot <- roc_all %>% 
