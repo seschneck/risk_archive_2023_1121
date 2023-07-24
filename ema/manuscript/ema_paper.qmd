@@ -5,6 +5,8 @@ csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/c
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -47,55 +49,57 @@ theme_set(theme_classic())
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_input <- str_c("P:/studydata/risk/chtc/", study)
-          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
-          path_models <- str_c("P:/studydata/risk/models/", study)},
+          path_input <- "P:/studydata/risk/chtc/ema"
+          path_processed <- "P:/studydata/risk/data_processed/ema"
+          path_models <- "P:/studydata/risk/models/ema"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
 
         # IOS paths
         Darwin = {
-          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
-                                  study)
-          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)},
+          path_input <- "/Volumes/private/studydata/risk/chtc/ema"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/ema"
+          path_models <- "/Volumes/private/studydata/risk/models/ema"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"},
         
         # Linux paths
         Linux = {
-          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
-          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
-                                  study)
-          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)}
+          path_input <- "~/mnt/private/studydata/risk/chtc/ema"
+          path_processed <- "~/mnt/private/studydata/risk/data_processed/ema"
+          path_models <- "~/mnt/private/studydata/risk/models/ema"
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
         )
 ```
 
 ```{r load_data}
 # Table data
-disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
-screen <- read_csv(file.path(path_data_shared, "screen.csv"), 
+disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
+                        col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_shared, "screen.csv"), 
                    col_types = vroom::cols()) %>% 
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
 # Predictions data
-preds_week<- readRDS(file.path(path_models, 
-                               "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(file.path(path_models, 
-                              "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(file.path(path_models, 
-                               "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+preds_week<- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_day<- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_hour<- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
 
 # posterior probabilites
-pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
+pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
 # ROC curves
 roc_week <- preds_week %>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 roc_day <- preds_day %>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 roc_hour <- preds_hour%>% 
-  roc_curve(prob, truth = truth) %>% 
+  roc_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 roc_all <- roc_week %>% 
@@ -104,15 +108,15 @@ roc_all <- roc_week %>%
 
 # PR curves
 pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 pr_all <- pr_week %>% 
@@ -120,9 +124,9 @@ pr_all <- pr_week %>%
   bind_rows(pr_hour)
 
 # Local and Global Grouped SHAPS
-shap_local_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
-shap_local_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
-shap_local_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+shap_local_week <- read_rds(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+shap_local_day <- read_rds(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+shap_local_hour <- read_rds(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
 
 shap_global_week <- shap_local_week %>% 
   group_by(group) %>% 
@@ -602,33 +606,59 @@ dem %>%
 \newpage
 
 ```{r}
-footnote_table_perf_metrics <- "Insert footnote"
+footnote_table_metrics <- "Insert footnote"
 ```
 
 ```{r table_metrics}
-metrics_week <- preds_week %>%   
-  conf_mat(truth, estimate) %>% 
-  summary() %>% 
-  mutate(.estimate = round(.estimate, 3)) %>% 
+j_thres_week <- roc_week |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_day <- roc_day |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_hour <- roc_hour |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+
+metrics_week <- preds_week |> 
+  mutate(estimate = if_else(prob > j_thres_week, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
   rename(week = .estimate,
-         metric = .metric) %>% 
+         metric = .metric) |> 
   select(-.estimator)
 
-metrics_day <- preds_day %>%   
-  conf_mat(truth, estimate) %>% 
-  summary() %>% 
-  mutate(.estimate = round(.estimate, 3)) %>% 
+metrics_day <- preds_day |> 
+  mutate(estimate = if_else(prob > j_thres_day, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
   rename(day = .estimate,
-         metric = .metric) %>% 
+         metric = .metric) |> 
   select(-.estimator)
 
-metrics_hour <- preds_hour %>%   
-  conf_mat(truth, estimate) %>% 
-  summary() %>% 
-  mutate(.estimate = round(.estimate, 3)) %>% 
+metrics_hour <- preds_hour |> 
+  mutate(estimate = if_else(prob > j_thres_hour, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
   rename(hour = .estimate,
-         metric = .metric) %>% 
+         metric = .metric) |> 
   select(-.estimator)
+
 
 metrics <- metrics_week %>% 
   full_join(metrics_day, by = "metric") %>% 
@@ -636,11 +666,11 @@ metrics <- metrics_week %>%
   filter(metric %in% c("accuracy", "sens", "spec", "ppv", "npv"))
 
 auc <- tibble(metric = "auc", 
-              week = preds_week %>% roc_auc(prob, truth = truth) %>%  
+              week = preds_week %>% roc_auc(prob, truth = label) %>%  
                 pull(.estimate) %>% round(3), 
-              day = preds_day %>% roc_auc(prob, truth = truth) %>%  
+              day = preds_day %>% roc_auc(prob, truth = label) %>%  
                 pull(.estimate) %>% round(3),
-              hour = preds_hour %>% roc_auc(prob, truth = truth) %>%  
+              hour = preds_hour %>% roc_auc(prob, truth = label) %>%  
                 pull(.estimate) %>% round(3))
 
 metrics <- metrics %>% 
@@ -657,7 +687,7 @@ metrics %>%
      linesep = "") %>% 
   row_spec(row = 0, align = "c") %>% 
   kable_styling(position = "left") %>% 
-  footnote(general=footnote_table_perf_metrics)
+  footnote(general=footnote_table_metrics)
 ```
 
 \clearpage
