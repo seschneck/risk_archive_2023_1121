@@ -123,6 +123,7 @@ pr_all <- pr_week %>%
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
 
+# NEED TO UPDATE SHAPS - JJC
 # Local and Global Grouped SHAPS
 shap_local_week <- read_rds(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
 shap_local_day <- read_rds(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
@@ -706,13 +707,13 @@ roc_plot <- roc_all %>%
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("Week", "Day", "Hour"))) %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
-  geom_path(show.legend = FALSE) +
+  geom_path(linewidth = 1.25, show.legend = FALSE) +
   geom_abline(lty = 3) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) 
+                     labels = sprintf("%.2f", seq(1,0,-.25))) 
 
 pp_tidy <- pp %>% 
   tidy(seed = 123)
