@@ -48,39 +48,50 @@ theme_set(theme_classic())
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_models <- "P:/studydata/risk/models/ema"
-          path_data_shared <- "P:/studydata/risk/data_processed/shared"
-          path_data_ema <- "P:/studydata/risk/data_processed/ema"},
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
+          path_processed <- str_c("P:/studydata/risk/data_processed/ema")
+          path_models <- str_c("P:/studydata/risk/models/ema")},
+
         # IOS paths
         Darwin = {
-          path_models <- "/Volumes/private/studydata/risk/models/ema"
-          path_data_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_data_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
-       )
-
-# for use on posit cloud
-# path_models <- "/cloud/project/posit_data"
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
+          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")},
+        
+        # Linux paths
+        Linux = {
+          path_shared <- str_c("~/mnt/private/studydata/risk/data_processed/shared")
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/")
+          path_models <- str_c("~/mnt/private/studydata/risk/models/ema")}
+        )
+```
 ```
 
 ```{r load_consort_data}
-disposition <- read_csv(file.path(path_data_ema, "disposition.csv"), col_types = "ccDDcccccccccc")
+disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
+                        col_types = "ccDDcccccccccc")
 ```
 
 
 ```{r load_model_data}
 # AUCs for 10x10 folds data
-auc_folds_week<- readRDS(file.path(path_models, "resample_metrics_best_all_1week_0_v4_kfold.rds"))
-auc_folds_day<- readRDS(file.path(path_models, "resample_metrics_best_all_1day_0_v4_kfold.rds"))
-auc_folds_hour<- readRDS(file.path(path_models, "resample_metrics_best_all_1hour_0_v4_kfold.rds")) 
+auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, roc_auc)
+auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, roc_auc)
+auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, roc_auc)
 
 # posterior probabilites
-pp <- readRDS(file.path(path_models, "posteriors_all_allwindows_0_v4_kfold.rds"))
-
+pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
 # Predictions data
-preds_week<- readRDS(file.path(path_models, "resample_preds_best_all_1week_0_v4_kfold.rds"))
-preds_day<- readRDS(file.path(path_models, "resample_preds_best_all_1day_0_v4_kfold.rds"))
-preds_hour<- readRDS(file.path(path_models, "resample_preds_best_all_1hour_0_v4_kfold.rds")) 
+preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, prob = prob_beta, label)
+preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, prob = prob_beta, label)
+preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
+  select(outer_split_num, prob = prob_beta, label) 
 
 # roc overall
 roc_week_full <- preds_week %>% 
