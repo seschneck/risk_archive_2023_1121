@@ -307,6 +307,7 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 
 \newpage
 
+
 # Results
 <!--Information for results: Participants were on study for an average of 85 days out of the possible 90 days. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 symptom criteria for alcohol use disorder. Generally, scores of 2-3 are considered mild, 4-5 are considered moderate, and 6+ considered severe alcohol use disorder.-->
 
@@ -727,13 +728,13 @@ roc_plot <- roc_all %>%
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("Week", "Day", "Hour"))) %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
-  geom_path(show.legend = FALSE) +
+  geom_path(linewidth = 1.25, show.legend = FALSE) +
   geom_abline(lty = 3) +
   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) 
+                     labels = sprintf("%.2f", seq(1,0,-.25))) 
 
 pp_tidy <- pp %>% 
   tidy(seed = 123)
@@ -977,5 +978,6 @@ Several future directions for research may help investigate and address this con
 
 
 \clearpage
+
 
 # References
