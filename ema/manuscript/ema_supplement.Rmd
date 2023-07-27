@@ -29,10 +29,10 @@ options(scipen = 999) #removes scientific notation
 
 ```{r setup, include = FALSE}
 library(knitr)
-library(yardstick) # for roc_curve and pr_curve
+# library(yardstick) # for roc_curve and pr_curve
 library(kableExtra)
 library(janitor)
-library(corx)
+# library(corx)
 library(patchwork)
 library(ggtext)
 library(consort)
@@ -48,21 +48,24 @@ theme_set(theme_classic())
 switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
-          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
-          path_processed <- str_c("P:/studydata/risk/data_processed/ema")
-          path_models <- str_c("P:/studydata/risk/models/ema")},
+          path_input <- "P:/studydata/risk/chtc/ema"
+          path_processed <- "P:/studydata/risk/data_processed/ema"
+          path_models <- "P:/studydata/risk/models/ema"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
 
         # IOS paths
         Darwin = {
-          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
-          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")},
+          path_input <- "/Volumes/private/studydata/risk/chtc/ema"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/ema"
+          path_models <- "/Volumes/private/studydata/risk/models/ema"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"},
         
         # Linux paths
         Linux = {
-          path_shared <- str_c("~/mnt/private/studydata/risk/data_processed/shared")
-          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/")
-          path_models <- str_c("~/mnt/private/studydata/risk/models/ema")}
+          path_input <- "~/mnt/private/studydata/risk/chtc/ema"
+          path_processed <- "~/mnt/private/studydata/risk/data_processed/ema"
+          path_models <- "~/mnt/private/studydata/risk/models/ema"
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
         )
 ```
 ```
