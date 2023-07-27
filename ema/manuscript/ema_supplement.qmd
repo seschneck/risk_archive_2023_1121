@@ -16,6 +16,8 @@ csl: "national-library-of-medicine-grant-proposals.csl"
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r knitr_settings, include = FALSE}
@@ -67,7 +69,6 @@ switch (Sys.info()[['sysname']],
           path_models <- "~/mnt/private/studydata/risk/models/ema"
           path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
         )
-```
 ```
 
 ```{r load_consort_data}
@@ -180,7 +181,8 @@ labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = 
 labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
 ```
 
-<!-- Consort Diagram-->
+
+<!-- THIS WILL BE FIGURE S1-->
 ```{r caption_consort}
 fig_caption_consort <- "Consort Diagram"
 ```
@@ -203,6 +205,9 @@ consort_plot(data = disposition,
              cex = .9,
              text_width = 45)
 ```
+
+
+
 
 <!-- Supp figure: ROC curves and AUCs for each held out fold-->
 ```{r}
@@ -478,49 +483,6 @@ pp %>%
   
 ```
 
-<!-- PR curves-->
-
-```{r caption_pr}
-fig_caption_pr <- "Precision-Recall Curves for models."
-```
-
-```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
-pr_.75_cutoff <- pr_all %>% 
-  mutate(recall = round(recall, 3),
-         precision = round(precision, 3),
-         .threshold = round(.threshold, 3),
-         model = factor(model,
-                        levels = c("1week", "1day", "1hour"),
-                        labels = c("Week", "Day", "Hour"))) %>% 
-  filter(precision == .75) %>% 
-  group_by(model, precision) %>% 
-  summarise(recall = mean(recall),
-            threshold = mean(.threshold),
-            .groups = "drop")
-
-pr_all %>% 
-  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
-                        labels = c("Week", "Day", "Hour"))) %>%
-  ggplot(aes(x = recall, y = precision, color = model)) +
-  geom_path() +
-  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
-                           color = model),
-               linetype = "dashed",
-               alpha = .8,
-               show.legend = FALSE,
-               data = pr_.75_cutoff) +
-  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
-                           color = model),
-               linetype = "dashed",
-               alpha = .8,
-               show.legend = FALSE,
-               data = pr_.75_cutoff) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Sensitivity (Recall)",
-       y = "Positive Predictive Value (Precision)")
-```
-
-
 
 <!-- Supp figure: mean lapse rates per subid and overall mean lapse rate per model -->
 
@@ -628,6 +590,82 @@ labels_all %>%
     group_by(window, subid) %>% 
     summarise(lapse_mean = mean(lapse), .groups = "drop_last") %>% 
     summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
+```
+
+
+
+<!-- Local SHAP values -->
+```{r caption_shap_local}
+fig_caption_shap_local <- "Insert Note here."
+```
+
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
+
+shap_levels <- shap_global_all |> 
+  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
+  pull(variable_grp) |> 
+  levels()
+
+# downsample to 2% of observations for each plot (COULD INCREASE?)
+ids_week <- shap_local_week |> 
+  pull(id_obs) |> 
+  unique()
+ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
+ids_day <- shap_local_day |> 
+  pull(id_obs) |> 
+  unique()
+ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
+ids_hour <- shap_local_hour |> 
+  pull(id_obs) |> 
+  unique()
+ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
+
+plot_shap_week <- shap_local_week |> 
+  filter(id_obs %in% ids_week) |> 
+  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = variable_grp, y = value)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "red") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(model == "Week"),
+            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
+            color = "red") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_day <- shap_local_day |> 
+  filter(ID %in% ids_day) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "green") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(window == "day"),
+            aes(x = group, y = -2, label = round(mean_value, 2)),
+            color = "green") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_hour <- shap_local_hour |> 
+  filter(ID %in% ids_hour) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "blue") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(window == "hour"),
+            aes(x = group, y = -1.75, label = round(mean_value, 2)),
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_week + plot_shap_day + plot_shap_hour
 ```
 
 

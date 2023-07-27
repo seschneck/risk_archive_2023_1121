@@ -1,7 +1,7 @@
 ---
 title: "Untitled"
 format: pdf
-csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/national-library-of-medicine-grant-proposals.csl
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
@@ -255,7 +255,7 @@ We recruited participants in early recovery (1-8 weeks of abstinence) from AUD i
 
 We also excluded participants if they exhibited severe symptoms of psychosis or paranoia^[Psychosis and paranoia were defined as scores greater than 2.2 or 2.8, respectively, on the psychosis or paranoia scales of the on the Symptom Checklist – 90 (SCL-90) [@derogatisSCL90OutpatientPsychiatric1973].]. 
 
-One hundred ninety-two participants were eligible for enrollment (<!--see Figure X in supplemental materials-->). Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Fifteen participants discontinued prior to the first monthly follow-up visit. <!--GEF: i'm left wondering why these people didn't enroll - though not sure if we have that information. would maybe be answered in consort diagram--> 
+One hundred ninety-two participants were eligible for enrollment (<!--see Figure X in supplemental materials-->). Of these participants, 191 consented to participate in the study at the screening session and 169 subsequently enrolled in the study at the enrollment visit which occurred approximately one week later. Fifteen participants discontinued prior to the first monthly follow-up visit. Figure S1 presents a CONSORT diagram that displays more detail on enrollment and disposition for all eligible participants.  <!--GEF: i'm left wondering why these people didn't enroll - though not sure if we have that information. would maybe be answered in consort diagram--> 
 <!--KW: Here is some info (although it is pretty vague). We can disuss if we want to parenthetically include any of this information here or in the supplemental materials.
 
 Reasons for not enrolling:
@@ -344,6 +344,10 @@ We calculated Shapley Additive Explanations (SHAP) scores to provide a global (i
 <!--Citation for ROC cutoffs - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
 
 <!--From methods: Participants were mostly white (87%), roughly half were male (51%), and the mean age was 41 years (SD = 12). -->
+
+## Demographic and Clinical Characteristics
+
+The final sample of 151 participants included approximately equal numbers of men (N=77; 49%) and women (N=74; 51%) who ranged in age from 21 - 72 years old.  The sample was majority white (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of alcohol use disorder (SD=5.8; range=4-11), a mean of 5.5 previous quit attempts (SD=5.8, range=0-30), and many reported using medications for AUD (N=59; 39%).  The majority of participants (N=85; 56%) reported one or more alcohol lapses during the study period.  The mean number of lapses per participant during the study period was XX (SD; range). <!--JJC will update previous with table data-->  Table 1 provides more detail on demographic and clinical characteristics of the sample.
 
 
 <!-- Demographics table-->
@@ -635,7 +639,7 @@ dem %>%
       col.names = c("", "N", "%", "M", "SD", "Range"),
       align = c("l", "c", "c", "c", "c", "c"),
       digits = 1,
-      caption = "Demographics and Alcohol Use Information") %>%
+      caption = "Demographics and Clinical Characteristics for the Sample") %>%
   kable_styling() %>% 
   row_spec(row = 0, align = "c", italic = TRUE) %>% 
   pack_rows("Sex", 2, 3, bold = FALSE) %>% 
@@ -832,6 +836,37 @@ ppv_70 <- pr_all %>%
 
 
 
+<!-- PR curves-->
+
+```{r caption_pr}
+fig_caption_pr <- "Precision-Recall Curves for models."
+```
+
+```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
+pr_all %>% 
+  mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
+                        labels = c("Week", "Day", "Hour"))) %>%
+  ggplot(aes(x = recall, y = precision, color = model)) +
+  geom_path(linewidth = 1.25) +
+  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = ppv_70) +
+  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
+                           color = model),
+               linetype = "dashed",
+               alpha = .8,
+               show.legend = FALSE,
+               data = ppv_70) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Sensitivity (Recall)",
+       y = "Positive Predictive Value (Precision)")
+```
+
+
+
 <!-- SHAP Importance figure-->
 ```{r caption_shap}
 fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
@@ -846,81 +881,6 @@ shap_global_all %>%
   xlab("") +
   coord_flip()
 ```
-
-<!-- Local SHAP values -->
-```{r caption_shap_local}
-fig_caption_shap_local <- "Insert Note here."
-```
-
-```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
-
-shap_levels <- shap_global_all |> 
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
-  pull(variable_grp) |> 
-  levels()
-
-# downsample to 2% of observations for each plot (COULD INCREASE?)
-ids_week <- shap_local_week |> 
-  pull(id_obs) |> 
-  unique()
-ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
-ids_day <- shap_local_day |> 
-  pull(id_obs) |> 
-  unique()
-ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
-ids_hour <- shap_local_hour |> 
-  pull(id_obs) |> 
-  unique()
-ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
-
-plot_shap_week <- shap_local_week |> 
-  filter(id_obs %in% ids_week) |> 
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "red") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(model == "Week"),
-            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
-            color = "red") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_day <- shap_local_day |> 
-  filter(ID %in% ids_day) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "green") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "day"),
-            aes(x = group, y = -2, label = round(mean_value, 2)),
-            color = "green") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_hour <- shap_local_hour |> 
-  filter(ID %in% ids_hour) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "blue") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "hour"),
-            aes(x = group, y = -1.75, label = round(mean_value, 2)),
-            color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_week + plot_shap_day + plot_shap_hour
-```
-
 
 # Discussion
 
