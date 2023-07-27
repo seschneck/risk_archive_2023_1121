@@ -29,7 +29,7 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
 
 ```{r setup, include = FALSE}
 library(knitr)
-library(yardstick) # for roc_curve
+# library(yardstick) # for roc_curve
 library(kableExtra)
 library(janitor)
 # library(corx)
@@ -86,7 +86,7 @@ preds_day<- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds"))
 preds_hour<- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
   select(outer_split_num, label, prob = prob_beta)
 
-# posterior probabilites
+# posterior probabilities
 pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
 # ROC curves
@@ -123,23 +123,51 @@ pr_all <- pr_week %>%
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
 
+# UPDATE - JJC
 # Local and Global Grouped SHAPS
-shap_local_week <- read_rds(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
-shap_local_day <- read_rds(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
-shap_local_hour <- read_rds(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+shap_local_week <- read_rds(file.path(path_models, "outer_shapsgrp_1week_0_v5_nested.rds")) 
+shap_local_day <- read_rds(file.path(path_models, "outer_shapsgrp_1day_0_v5_nested.rds"))
+shap_local_hour <- read_rds(file.path(path_models, "outer_shapsgrp_1hour_0_v5_nested.rds")) 
 
 shap_global_week <- shap_local_week %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Week")
 shap_global_day <- shap_local_day %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Day")
 shap_global_hour <- shap_local_hour %>% 
-  group_by(group) %>% 
-  summarize(mean_value = mean(abs(shap)), .groups = "drop") %>% 
-  arrange(mean_value)
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Hour")
+
+shap_global_all <- shap_global_week |> 
+  bind_rows(shap_global_day) |> 
+  bind_rows(shap_global_hour) |> 
+  mutate(model = factor(model, levels = c("Week", "Day", "Hour"))) %>% 
+  mutate(variable_grp = factor(variable_grp, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)",
+                                          "lapse day (other)",
+                                          "lapse hour (other)",
+                                          "missing surveys (other)",
+                                          "age (demographic)",
+                                          "sex (demographic)",
+                                          "race (demographic)",
+                                          "marital (demographic)",
+                                          "education (demographic)")))
+
 ```
 
 # Introduction
@@ -593,7 +621,7 @@ auh <- screen %>%
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) 
 ```
 
-
+<!--UPDATE -JJC handle description of outliers for quit attempts-->
 ```{r}
 # display and format table
 dem %>% 
@@ -702,11 +730,11 @@ metrics <- metrics[c(6,1,2,3,4,5),]
 metrics %>%
  kbl(col.names = c("Metric", "Week", "Day", "Hour"),
       booktabs = TRUE,
-      digits = 3,
-      align = c("l", "c", "c", "c"),
+      digits = 2,
+      align = c("r"),
       caption = "Performance Metrics by Model",
      linesep = "") %>% 
-  row_spec(row = 0, align = "c") %>% 
+  row_spec(row = 0, align ="r") %>% 
   kable_styling(position = "left") %>% 
   footnote(general=footnote_table_metrics)
 ```
@@ -721,7 +749,6 @@ metrics %>%
 fig_caption_roc_pp <- "Insert note here"
 ```
 
-<!--JJC HERE line width and mean/median-->
 ```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
 
 roc_plot <- roc_all %>% 
@@ -739,11 +766,16 @@ roc_plot <- roc_all %>%
 pp_tidy <- pp %>% 
   tidy(seed = 123)
 
+q = c(.025, .5, .975)
 ci <- pp_tidy %>% 
-  summary() %>% 
+  group_by(model) %>% 
+  summarize(median = quantile(posterior, probs = q[2]),
+            lower = quantile(posterior, probs = q[1]), 
+            upper = quantile(posterior, probs = q[3])) %>% 
   mutate(model = factor(model, levels = c("week", "day", "hour"),
                         labels = c("Week", "Day", "Hour")),
-         y = 1000)
+         y = 1000) |> 
+  arrange(model)
 
 pp_plot <- pp_tidy %>% 
   mutate(model = factor(model, levels = c("week", "day", "hour"),
@@ -751,15 +783,12 @@ pp_plot <- pp_tidy %>%
   ggplot() + 
   geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
                  bins = 30) +
-  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-                           color = model),
-               show.legend = FALSE,
-               data = ci) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = median, xend = median,
+                           color = model), show.legend = FALSE, data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
-              show.legend = FALSE,
-               data = ci) +
-  geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
-            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+              show.legend = FALSE, data = ci) +
+  # geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
+  #           label = str_c(round(ci$median, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
   xlab("Area Under ROC Curve") +
@@ -776,26 +805,30 @@ roc_plot + pp_plot +
 
 <!-- PR-->
 <!-- get exact sensitivity at .75 PPV -->
+<!-- no output-->
 ```{r}
-pr_.75_cutoff <- pr_all %>% 
+
+#| output: false
+
+ppv_70 <- pr_all %>% 
   mutate(recall = round(recall, 3),
          precision = round(precision, 3),
          .threshold = round(.threshold, 3),
          model = factor(model,
                         levels = c("1week", "1day", "1hour"),
                         labels = c("Week", "Day", "Hour"))) %>% 
-  filter(precision == .75) %>% 
+  filter(precision == .70) %>% 
   group_by(model, precision) %>% 
   summarise(recall = mean(recall),
             threshold = mean(.threshold),
             .groups = "drop")
 ```
 
-<!-- Week sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "week"), recall), 3)` -->
+<!-- Week sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Week"), recall), 3)` -->
 
-<!-- Day sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "day"), recall), 3)` -->
+<!-- Day sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Day"), recall), 3)` -->
 
-<!-- Hour sensitivity at .75 PPV =  `r round(pull(subset(pr_.75_cutoff, model == "hour"), recall), 3)` -->
+<!-- Hour sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Hour"), recall), 3)` -->
 
 
 
@@ -805,36 +838,10 @@ fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  R
 ```
 
 ```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
-shap_global_all <- shap_global_week %>% 
-  mutate(window = "Week") %>% 
-  bind_rows(shap_global_day %>% 
-              mutate(window = "Day")) %>% 
-  bind_rows(shap_global_hour %>% 
-              mutate(window = "Hour")) %>% 
-  mutate(window = factor(window, levels = c("Week", "Day", "Hour"))) %>% 
-  mutate(group = factor(group, levels = c("past use (EMA item)", 
-                                          "craving (EMA item)", 
-                                          "past risky situation (EMA item)", 
-                                          "past stressful event (EMA item)", 
-                                          "past pleasant event (EMA item)", 
-                                          "valence (EMA item)", 
-                                          "arousal (EMA item)", 
-                                          "future risky situation (EMA item)", 
-                                          "future stressful event (EMA item)", 
-                                          "future efficacy (EMA item)",
-                                          "lapse day (other)",
-                                          "lapse hour (other)",
-                                          "missing surveys (other)",
-                                          "age (demographic)",
-                                          "sex (demographic)",
-                                          "race (demographic)",
-                                          "marital (demographic)",
-                                          "education (demographic)")))
-
 shap_global_all %>% 
-  mutate(group = reorder(group, mean_value, sum)) %>% 
+  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) %>% 
   ggplot() +
-  geom_bar(aes(x = group, y = mean_value, fill = window), stat = "identity", alpha = .4) +
+  geom_bar(aes(x = variable_grp, y = mean_value, fill = model), stat = "identity", alpha = .4) +
   ylab("Mean |SHAP| value") +
   xlab("") +
   coord_flip()
@@ -848,34 +855,34 @@ fig_caption_shap_local <- "Insert Note here."
 ```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
 
 shap_levels <- shap_global_all |> 
-  mutate(group = reorder(group, mean_value, sum)) |> 
-  pull(group) |> 
+  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
+  pull(variable_grp) |> 
   levels()
 
 # downsample to 2% of observations for each plot (COULD INCREASE?)
 ids_week <- shap_local_week |> 
-  pull(ID) |> 
+  pull(id_obs) |> 
   unique()
 ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
 ids_day <- shap_local_day |> 
-  pull(ID) |> 
+  pull(id_obs) |> 
   unique()
 ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
 ids_hour <- shap_local_hour |> 
-  pull(ID) |> 
+  pull(id_obs) |> 
   unique()
 ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
 
 plot_shap_week <- shap_local_week |> 
-  filter(ID %in% ids_week) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
+  filter(id_obs %in% ids_week) |> 
+  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = variable_grp, y = value)) +
   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "orange") +
+                     color = "red") +
   geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "week"),
-            aes(x = group, y = -1.75, label = round(mean_value, 2)),
-            color = "orange") +
+  geom_text(data = shap_global_all |> filter(model == "Week"),
+            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
+            color = "red") +
   scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
   ylab("SHAP value") +
   xlab("") +
