@@ -75,8 +75,11 @@ switch (Sys.info()[['sysname']],
 disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
                         col_types = "ccDDcccccccccc")
 screen <- read_csv(file.path(path_shared, "screen.csv"), 
-                   col_types = vroom::cols()) %>% 
+                   col_types = vroom::cols()) |>
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
+
+lapses <- read_csv(file.path(path_shared, "lapses.csv"), col_types = cols()) |>
+  filter(exclude == FALSE)
 
 # Predictions data
 preds_week<- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
@@ -623,6 +626,32 @@ auh <- screen %>%
   drop_na() %>% 
   summarise(n = n()) %>% 
   mutate(perc = (n / 154) * 100), by = c("var", "n", "perc")) 
+
+lapses_per_subid <- screen %>% 
+  select(subid) %>% 
+  left_join(lapses %>% 
+  tabyl(subid) %>% 
+  select(-percent), by = "subid") %>% 
+  mutate(n = if_else(is.na(n), 0, n),
+         lapse = if_else(n > 0, "yes", "no")) 
+
+lapse_info <- lapses_per_subid %>% 
+  group_by(lapse) %>% 
+  rename(var = lapse) %>% 
+  mutate(var = factor(var, levels = c("yes", "no"), labels = c("Yes", "No"))) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100,
+         mean = NA_real_,
+         SD = NA_real_,
+         min = NA_real_,
+         max = NA_real_) %>% 
+  full_join(lapses_per_subid %>% 
+  summarise(mean = mean(n),
+            SD = sd(n),
+            min = min(n),
+            max = max(n)) %>% 
+  mutate(var = "Number of reported lapses"), 
+  by = c("var", "mean", "SD", "min", "max"))
 ```
 
 <!--UPDATE -JJC handle description of outliers for quit attempts-->
@@ -630,6 +659,9 @@ auh <- screen %>%
 # display and format table
 dem %>% 
   bind_rows(auh %>% 
+              mutate(across(mean:max, ~round(.x, 1))) %>% 
+              mutate(across(mean:max, ~as.character(.x)))) %>% 
+  bind_rows(lapse_info %>% 
               mutate(across(mean:max, ~round(.x, 1))) %>% 
               mutate(across(mean:max, ~as.character(.x)))) %>% 
   mutate(range = str_c(min, "-", max)) %>%
@@ -652,6 +684,7 @@ dem %>%
   pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) %>% 
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) %>% 
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) %>% 
+  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) %>% 
   footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
            threeparttable = TRUE)
 ```

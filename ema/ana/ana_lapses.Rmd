@@ -1,0 +1,123 @@
+---
+title: "Descriptive analyses of lapses"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
+      "P:/studydata/risk/knits/ema", 
+      "/Volumes/private/studydata/risk/knits/ema")
+    )
+  })
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+
+ 
+### Set Up Environment
+
+Packages for script
+```{r packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(janitor)
+```
+
+Absolute paths
+```{r absolute_paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
+          path_processed <- str_c("P:/studydata/risk/data_processed/ema")
+          path_models <- str_c("P:/studydata/risk/models/ema")},
+
+        # IOS paths
+        Darwin = {
+          path_shared <- str_c("P:/studydata/risk/data_processed/shared")
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
+          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")},
+        
+        # Linux paths
+        Linux = {
+          path_shared <- str_c("~/mnt/private/studydata/risk/data_processed/shared")
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/")
+          path_models <- str_c("~/mnt/private/studydata/risk/models/ema")}
+        )
+```
+
+
+Chunk Defaults
+```{r defaults, include=FALSE}
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+
+### Read in lapses and labels
+
+```{r}
+disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
+                        col_types = "ccDDcccccccccc")
+screen <- read_csv(file.path(path_shared, "screen.csv"), 
+                   col_types = vroom::cols()) |>
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
+
+lapses <- read_csv(file.path(path_shared, "lapses.csv"), col_types = cols()) %>% 
+  filter(exclude == FALSE)
+```
+
+### Summary stats
+`r nrow(lapses)` lapses from `r length(unique(lapses$subid))` unique participants.  
+
+Lapse Summary
+```{r}
+lapses_per_subid <- screen %>% 
+  select(subid) %>% 
+  left_join(lapses %>% 
+  tabyl(subid) %>% 
+  select(-percent), by = "subid") %>% 
+  mutate(n = if_else(is.na(n), 0, n),
+         lapse = if_else(n > 0, "yes", "no")) 
+
+lapses_per_subid %>% 
+  group_by(lapse) %>% 
+  rename(var = lapse) %>% 
+  mutate(var = factor(var, levels = c("yes", "no"), labels = c("Yes", "No"))) %>% 
+  summarise(n = n()) %>% 
+  mutate(perc = (n / 154) * 100,
+         mean = NA_real_,
+         SD = NA_real_,
+         min = NA_real_,
+         max = NA_real_) %>% 
+  full_join(lapses_per_subid %>% 
+  summarise(mean = mean(n),
+            SD = sd(n),
+            min = min(n),
+            max = max(n)) %>% 
+  mutate(var = "Number of reported lapses"), 
+  by = c("var", "mean", "SD", "min", "max"))
+```
+
+
+Lapses per participant.     
+```{r}
+lapses_per_subid %>% 
+  tabyl(n) %>% 
+  rename(n_lapses = n)
+
+lapses_per_subid %>% 
+  tabyl(n) %>% 
+  pull(n_n) %>% 
+  hist(main = "Number of lapses", breaks = 20)
+```
+
+
+
