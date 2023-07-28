@@ -692,6 +692,31 @@ dem %>%
 
 \newpage
 
+
+## Model Performance
+
+We developed and evaluated separate classification models to predict future lapses in three windows: the next week, the next day, and the next hour.  We used grouped (by participant), nested cross-validation for each of these prediction windows to train models, select best models, and evaluate those best models  This nested cross-validation resampling strategy used 1 repeat of 10-fold cross validation for the inner loop, and 3 repeats of 10-fold cross validation for the outer loop.  Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC).  Given this, best models were selected based on the median <!--insert note about why median--> auROC across 10 held-out validation folds in the inner loop.  These best models were evaluated using the median auROC across 30 held-out test folds in the outer loop. Of course, consistent with the nested cross-validation resampling method, validation and test sets were completely independent to remove optimization bias from the performance metrics.
+
+We developed classification models for these three prediction windows using separate datasets that contained XX, XX, and XX <!--get numbers--> labeled lapse observations (lapse vs. no lapse) and associated features for the week, day, and hour prediction windows, respectively.  Each of these datasets was unbalanced with respect to the lapse outcome such that lapses were observed in XX (%) week windows, XX (%) day windows, and XX (%) hour windows.  As noted previously, we addressed this outcome class imbalance using up-sampling and down-sampling of the outcome during model training.  
+
+### auROC
+
+The median auROC across the 30 test folds was high for the week (<!--AUC; range-->), day (<!--AUC; range-->), and hour (<!--AUC; range-->) prediction windows.  The left panel of figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predictions across the 30 held-out test folds.  Figure S2 presents the individual ROC curves for each of the 30 test folds.  
+
+We used the auROCs for the week, day and hour models across the 30 test folds to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  
+
+
+### Other Performance Metrics
+
+
+### Feature Importance
+
+
+
+
+
+
+
 ```{r}
 footnote_table_metrics <- "Insert footnote"
 ```
