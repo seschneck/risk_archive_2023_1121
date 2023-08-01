@@ -1,0 +1,160 @@
+---
+title: "Feature and Observation Count"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+
+
+### Setup
+
+Paths 
+```{r}
+path_chtc <- "P:/studydata/risk/chtc/ema"
+path_processed <- "P:/studydata/risk/data_processed/ema"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(tidymodels)
+
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+```
+
+Chunk options
+```{r}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+
+### Read in Data
+
+data (chtc features)   
+
+*FIX: warning with day features*
+```{r}
+d_hour <- read_csv(file.path(path_processed, "features_1hour_0_v5.csv.xz"), col_types = cols())
+
+d_day <- read_csv(file.path(path_processed, "features_1day_0_v5.csv.xz"), col_types = cols())
+
+d_week <- read_csv(file.path(path_processed, "features_1week_0_v5.csv.xz"), col_types = cols())
+```
+
+labels   
+```{r}
+lab_hour <- read_csv(file.path(path_processed, "labels_1hour.csv"), col_types = cols())
+
+lab_day <- read_csv(file.path(path_processed, "labels_1day.csv"), col_types = cols())
+
+lab_week <- read_csv(file.path(path_processed, "labels_1week.csv"), col_types = cols())
+```
+
+training controls (nested V5)
+```{r}
+source(file.path(path_chtc, "train_xgboost_1day_nested_1_x_10_3_x_10_v5_batch1/input/training_controls.R")) 
+```
+
+
+### Number of observations
+
+hour    
+
+`r nrow(lab_hour)` labels.    
+`r nrow(d_hour)` observations in data file. 
+
+```{r}
+if (nrow(lab_hour) != nrow(d_hour)) message("Number of labels and data observations do not match!")
+```
+
+day    
+
+*FIX: labels and feature observations not matching - due to read in error?*   
+
+`r nrow(lab_day)` labels.    
+`r nrow(d_day)` observations in data file 
+
+```{r}
+if (nrow(lab_day) != nrow(d_day)) message("Number of labels and data observations do not match!")
+```
+
+week   
+
+`r nrow(lab_week)` labels.    
+`r nrow(d_week)` observations in data file 
+
+```{r}
+if (nrow(lab_week) != nrow(d_week)) message("Number of labels and data observations do not match!")
+```
+
+
+### Number of features
+
+
+hour    
+
+*FIX: label_num and dttm_label showing up again?*
+```{r}
+d_hour <- d_hour %>% 
+  rename(y = {{y_col_name}})
+    
+# build recipe
+rec <- build_recipe(d = d_hour, config = tibble(algorithm = "xgboost", 
+                                                   feature_set = "all", 
+                                                   resample = "none"))
+
+feat_hour <- rec %>%  
+  prep(training = d_hour) %>%
+  bake(new_data = d_hour)  %>% 
+  select(-y) %>% 
+  glimpse()
+```
+
+`r ncol(feat_hour)` features in hour window width.    
+
+
+day
+```{r}
+d_day <- d_day %>% 
+  rename(y = {{y_col_name}})
+    
+# build recipe
+rec <- build_recipe(d = d_day, config = tibble(algorithm = "xgboost", 
+                                                   feature_set = "all", 
+                                                   resample = "none"))
+
+feat_day <- rec %>%  
+  prep(training = d_day) %>%
+  bake(new_data = d_day)  %>% 
+  select(-y) %>% 
+  glimpse()
+```
+
+`r ncol(feat_day)` features in day window width. 
+
+week
+```{r}
+d_week <- d_week %>% 
+  rename(y = {{y_col_name}})
+    
+# build recipe
+rec <- build_recipe(d = d_week, config = tibble(algorithm = "xgboost", 
+                                                   feature_set = "all", 
+                                                   resample = "none"))
+
+feat_week <- rec %>%  
+  prep(training = d_week) %>%
+  bake(new_data = d_week)  %>% 
+  select(-y) %>% 
+  glimpse()
+```
+
+`r ncol(feat_week)` features in week window width. 
