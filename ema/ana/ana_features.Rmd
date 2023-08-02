@@ -17,8 +17,26 @@ editor_options:
 
 Paths 
 ```{r}
-path_chtc <- "P:/studydata/risk/chtc/ema"
-path_processed <- "P:/studydata/risk/data_processed/ema"
+study <- "ema"
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_chtc <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)},
+
+        # IOS paths
+        Darwin = {
+          path_chtc <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)},
+        
+        # Linux paths
+        Linux = {
+          path_chtc <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)}
+        )
 ```
 
 Packages and Source
