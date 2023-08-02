@@ -77,7 +77,7 @@ if (nrow(lab_hour) != nrow(d_hour)) message("Number of labels and data observati
 
 day    
 
-*FIX: labels and feature observations not matching - due to read in error?*   
+*FIX: labels and feature observations not matching - due to read in error? Features processed as 1 hour window?*   
 
 `r nrow(lab_day)` labels.    
 `r nrow(d_day)` observations in data file 
@@ -99,12 +99,13 @@ if (nrow(lab_week) != nrow(d_week)) message("Number of labels and data observati
 ### Number of features
 
 
+*All feature sets have same number of features. Is this an error on how I am calculating?*
+
 hour    
 
-*FIX: label_num and dttm_label showing up again?*
 ```{r}
 d_hour <- d_hour %>% 
-  rename(y = {{y_col_name}})
+  format_data(.)
     
 # build recipe
 rec <- build_recipe(d = d_hour, config = tibble(algorithm = "xgboost", 
@@ -112,7 +113,7 @@ rec <- build_recipe(d = d_hour, config = tibble(algorithm = "xgboost",
                                                    resample = "none"))
 
 feat_hour <- rec %>%  
-  prep(training = d_hour) %>%
+  prep(training = d_hour, strings_as_factors = FALSE) %>%
   bake(new_data = d_hour)  %>% 
   select(-y) %>% 
   glimpse()
@@ -124,7 +125,7 @@ feat_hour <- rec %>%
 day
 ```{r}
 d_day <- d_day %>% 
-  rename(y = {{y_col_name}})
+  format_data(.)
     
 # build recipe
 rec <- build_recipe(d = d_day, config = tibble(algorithm = "xgboost", 
@@ -132,7 +133,7 @@ rec <- build_recipe(d = d_day, config = tibble(algorithm = "xgboost",
                                                    resample = "none"))
 
 feat_day <- rec %>%  
-  prep(training = d_day) %>%
+  prep(training = d_day, strings_as_factors = FALSE) %>%
   bake(new_data = d_day)  %>% 
   select(-y) %>% 
   glimpse()
@@ -143,7 +144,7 @@ feat_day <- rec %>%
 week
 ```{r}
 d_week <- d_week %>% 
-  rename(y = {{y_col_name}})
+  format_data(.)
     
 # build recipe
 rec <- build_recipe(d = d_week, config = tibble(algorithm = "xgboost", 
@@ -151,7 +152,7 @@ rec <- build_recipe(d = d_week, config = tibble(algorithm = "xgboost",
                                                    resample = "none"))
 
 feat_week <- rec %>%  
-  prep(training = d_week) %>%
+  prep(training = d_week, strings_as_factors = FALSE) %>%
   bake(new_data = d_week)  %>% 
   select(-y) %>% 
   glimpse()
