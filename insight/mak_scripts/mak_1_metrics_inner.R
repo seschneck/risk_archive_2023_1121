@@ -1,4 +1,3 @@
-library(here)
 library(stringr)
 
 study <- "insight"
@@ -8,11 +7,11 @@ windows <- c("1week")
 lead <- 0
 version <- "v1"
 cv <- "nested"
-algorithms <- "all"  # "all" or algorithm name
+algorithms <- "xgboost"  # "all" or algorithm name
 
 for (window in windows) {
-  rmarkdown::render(input = here("shared/scripts_parameterized/mak_training_metrics.Rmd"), 
-                    output_file = str_c("mak_training_metrics_", data_type, "_", 
+  rmarkdown::render(input = file.path("shared/scripts_parameterized/nested/1_mak_metrics_inner.Rmd"), 
+                    output_file = str_c("1_mak_metrics_inner_", data_type, "_", 
                                         window, "_", lead, "_", version, "_", cv, ".html"), 
                     output_dir = str_c("P:/studydata/risk/knits/", study),
                     params = list(window = window, study = study, data_type = data_type, 
