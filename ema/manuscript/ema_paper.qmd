@@ -303,68 +303,9 @@ We used grouped (by participant), nested cross-validation to train models, selec
 
 ### Bayesian Estimation of auROC and Model Comparisons 
 
-https://www.tmwr.org/compare.html#tidyposterior
- * [how to use rstanarm](https://cran.r-project.org/web/packages/rstanarm/vignettes/rstanarm.html)
- * [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
- * [warnings](https://mc-stan.org/misc/warnings.html)
- * [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
- * [R Bloggers on perf_mod](https://www.r-bloggers.com/2019/12/tidyposteriors-bayesian-approach-to-model-comparison/)
- 
- https://tidyposterior.tidymodels.org/articles/Getting_Started.html
+We used a Bayesian hierarchical generalized linear model [<!--McElreath, R. 2020. Statistical Rethinking: A Bayesian Course with Examples in R and Stan. CRC press. 
+-->] to estimate the posterior probability distributions for auROC for the best models for each prediction window width.  These analyses allowed us to calculate 95% credible intervals for the auROC for the three best models and to determine the probability that these models' performance differed systematically from each other with respect to their auROCs.  These analyses were accomplished using the tidyposterior [<!--ref-->] and rstanarm [<!--Gabry, J. & Goodrich, B. (2017b). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.15.3. Retrieved from http://mc-stan.org/rstanarm/-->] packages in R.  We regressed the auROCs (logit transformed to address bounded, skewed distribution) from the 30 test sets for each model as a function of window width.  Following recommendations from the tidymodels team[<!--https://tidyposterior.tidymodels.org/reference/perf_mod.html-->], we set two random intercepts; one for the repeat and another for the fold within repeat (folds are nested with repeats for auROCs collected with 3x 10-fold CV).  Following recommendations from the rstanarm team and others [<!--Gelman, J; rstanrarm vignette-->], we used the rstanarm default autoscaled, weakly informative, data-dependent priors that take into account the order of magnitude of the variables to provide some regularization to stabilize computation and avoid overfitting.  Specifically, the priors were set as follows: residual standard deviation ~ normal(location=0, scale=exp(2)), intercept (after centering predictors) ~ normal(location=2.3, scale=1.3), the two coefficients for window width contrasts ~ normal (location=0, scale=2.69), and covariance ~ decov(regularization=1, concentration=1, shape=1, scale=1).  We report the 95% (equal-tailed) credible intervals from the posterior probability distributions for auROC for models for each window width.  We also report 95% (equal-tailed) credible intervals for the differences in performance among the three models.  
 
-
-
-using random effects and Bayesian statistics (McElreath 2020). 
-McElreath, R. 2020. Statistical Rethinking: A Bayesian Course with Examples in R and Stan. CRC press. 
-
-a simple set of prior distributions for our model might be:
-
-ϵij∼N(0,σ)
-βj∼N(0,10)
-σ∼exponential(1)
-
-Intercept (after predictors centered)
-  Specified prior:
-    ~ normal(location = 2.3, scale = 2.5)
-  Adjusted prior:
-    ~ normal(location = 2.3, scale = 1.3)
-
-Coefficients
-  Specified prior:
-    ~ normal(location = [0,0], scale = [2.5,2.5])
-  Adjusted prior:
-    ~ normal(location = [0,0], scale = [2.69,2.69])
-
-Auxiliary (sigma)
-  Specified prior:
-    ~ exponential(rate = 1)
-  Adjusted prior:
-    ~ exponential(rate = 2)
-
-Covariance
- ~ decov(reg. = 1, conc. = 1, shape = 1, scale = 1)
-
-rstanarm (Gabry & Goodrich, 2017b) 
-Gabry, J. & Goodrich, B. (2017b). rstanarm: Bayesian ap-
-plied regression modeling via Stan. R package version
-2.15.3. Retrieved from http://mc-stan.org/rstanarm/
-
-
-The default priors in rstanarm are intended to be
-weakly informative and, in general, unless a lot of prior
-information is available, we recommend weakly informa-
-tive priors for the parameters of a regression model. A
-weakly informative prior that reflects the expected magni-
-tude of the parameters based on the scales of the variables
-will not strongly impact the posterior, but will provide
-regularization to stabilize computation and avoid overfit-
-ting, while still allowing for extreme values when war-
-ranted by the data (Gelman, Jakulin, Pittau, & Su, 2008;
-Stan Development Team, 2017). 
-
-Rather, the defaults are intended to be weakly informative. That is, they are designed to provide moderate regularization and help stabilize computation. 
-Because the scaling is based on the scales of the predictors (and possibly the outcome) these are technically data-dependent priors. However, since these priors are quite wide (and in most cases rather conservative), the amount of information used is weak and mainly takes into account the order of magnitude of the variables. This enables rstanarm to offer defaults that are reasonable for many models.
-https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html
 
 ### Shapley Additive Explanations (SHAP) for Feature Importance
 
