@@ -3,8 +3,8 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "xgboost" # "glm" "glmnet" "random_forest" "xgboost"
-batch <- "batch1"
+algorithm <- "xgboost" # keep as "xgboost"
+batch <- "batch3"
 window <- "1week"
 lead <- 0
 
@@ -23,7 +23,7 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only")
+feature_set <- c("aase_only")
 # feature_set <- c("all") 
 data_trn <- str_c("features_",  version, ".csv") 
 seed_splits <- 102030
@@ -51,7 +51,7 @@ cv_name <- if_else(cv_resample_type == "nested",
 name_batch <- str_c("train_", algorithm, "_", window, "_", 
                     cv_name, "_", version, "_", batch) 
 # the path to the batch of jobs
-path_batch <- str_c("studydata/risk/chtc/", study, "/training/", name_batch) 
+path_batch <- str_c("studydata/risk/chtc/", study, "/", name_batch) 
 # location of data set
 path_data <- str_c("studydata/risk/data_processed/", study) 
 
@@ -64,7 +64,7 @@ hp2_glmnet_out <- 200 # length of penalty grid
 
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
 
-if (feature_set == "insight_only") {
+if (str_detect(feature_set, "only")) {
   hp1_rf <- 1 # mtry
 } else {
   hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
@@ -74,7 +74,7 @@ hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-if (feature_set == "insight_only") {
+if (str_detect(feature_set, "only")) {
   hp3_xgboost <- 1 # mtry
 } else {
   hp3_xgboost <- c(20, 30, 40, 50)  # mtry
