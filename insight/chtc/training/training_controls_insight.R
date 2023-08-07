@@ -151,6 +151,11 @@ build_recipe <- function(d, config) {
       step_select(y, ema_10.p0.l0.rrecent_response)
   }
   
+  if (feature_set == "aase_only") {
+    rec <- rec %>% 
+      step_select(y, aase_total)
+  }
+  
   # algorithm specific steps
   if (algorithm == "glmnet") {
       rec <- rec  %>%
