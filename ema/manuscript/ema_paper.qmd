@@ -275,7 +275,7 @@ The first and last EMAs of the day were scheduled within one hour of participant
 ### Individual Differences
 At the screening visit we collected self-report information about demographics (age, sex, race, ethnicity, education, employment, personal income, and marital status) and clinical characteristics (AUD milestones, number of quit attempts, lifetime history of treatment for AUD, lifetime receipt of medication for AUD, DSM-5 AUD symptom count, and current drug use [@whoassistworkinggroupAlcoholSmokingSubstance2002]) to describe our sample. Only age, sex, race, education, and marital status are used as features for our analyses. A full description of all measures collected as part the larger grant are available on the study's OSF page [<!--Insert link here-->].
 
-## Machine Learning Methods
+## Data Analytic Strategy
 Data preprocessing and modeling were done in RStudio, using the tidyverse and tidymodels ecosystems. <!--KW: Will add version numbers and references-->
 
 ### Lapse Labels
@@ -303,13 +303,9 @@ We used grouped (by participant), nested cross-validation to train models, selec
 
 ### Bayesian Estimation of auROC and Model Comparisons 
 
-https://www.tmwr.org/compare.html#tidyposterior
- * [how to use rstanarm](https://cran.r-project.org/web/packages/rstanarm/vignettes/rstanarm.html)
- * [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
- * [warnings](https://mc-stan.org/misc/warnings.html)
- * [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
- * [R Bloggers on perf_mod](https://www.r-bloggers.com/2019/12/tidyposteriors-bayesian-approach-to-model-comparison/)
-<!--KW: bayesian analyses for model comparisons.-->
+We used a Bayesian hierarchical generalized linear model [<!--McElreath, R. 2020. Statistical Rethinking: A Bayesian Course with Examples in R and Stan. CRC press. 
+-->] to estimate the posterior probability distributions for auROC for the best models for each prediction window width.  These analyses allowed us to calculate 95% credible intervals for the auROC for the three best models and to determine the probability that these models' performance differed systematically from each other with respect to their auROCs.  These analyses were accomplished using the tidyposterior [<!--ref-->] and rstanarm [<!--Gabry, J. & Goodrich, B. (2017b). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.15.3. Retrieved from http://mc-stan.org/rstanarm/-->] packages in R.  We regressed the auROCs (logit transformed to address bounded, skewed distribution) from the 30 test sets for each model as a function of window width.  Following recommendations from the tidymodels team[<!--https://tidyposterior.tidymodels.org/reference/perf_mod.html-->], we set two random intercepts; one for the repeat and another for the fold within repeat (folds are nested with repeats for auROCs collected with 3x 10-fold CV).  Following recommendations from the rstanarm team and others [<!--Gelman, J; rstanrarm vignette-->], we used the rstanarm default autoscaled, weakly informative, data-dependent priors that take into account the order of magnitude of the variables to provide some regularization to stabilize computation and avoid overfitting.  Specifically, the priors were set as follows: residual standard deviation ~ normal(location=0, scale=exp(2)), intercept (after centering predictors) ~ normal(location=2.3, scale=1.3), the two coefficients for window width contrasts ~ normal (location=0, scale=2.69), and covariance ~ decov(regularization=1, concentration=1, shape=1, scale=1).  We report the 95% (equal-tailed) credible intervals from the posterior probability distributions for auROC for models for each window width.  We also report 95% (equal-tailed) credible intervals for the differences in performance among the three models.  
+
 
 ### Shapley Additive Explanations (SHAP) for Feature Importance
 

@@ -3,7 +3,7 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "glm" # "glm" "glmnet" "random_forest" "xgboost"
+algorithm <- "xgboost" # "glm" "glmnet" "random_forest" "xgboost"
 batch <- "batch1"
 window <- "1week"
 lead <- 0

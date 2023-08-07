@@ -115,7 +115,7 @@ if (algorithms == "all") {
                              str_detect(batch_names, cv) &
                              str_detect(batch_names, version) &
                              str_detect(batch_names, window) &
-                             str(detect(batch_names, algorithms))]
+                             str_detect(batch_names, algorithms)]
 }
 
 batch_names
@@ -148,7 +148,7 @@ for (batch_name in batch_names) {
   
   # Check col count
   if (!(ncol(results_batch) == 17)) {
-    stop(ncol(results_batch), " columsn != 17")
+    stop(ncol(results_batch), " columns != 17")
   } else {
     message(ncol(results_batch), " columns detected.  Correct!\n")
   }
