@@ -15,6 +15,21 @@ editor_options:
 
 ### Setup
 
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(tidymodels)
+
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+```
+
+Chunk options
+```{r}
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+
 Paths 
 ```{r}
 study <- "ema"
@@ -39,26 +54,12 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-Packages and Source
-```{r, message = FALSE, warning = FALSE}
-library(tidyverse)
-library(lubridate)
-library(tidymodels)
-
-devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
-```
-
-Chunk options
-```{r}
-knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
-```
 
 
 ### Read in Data
 
 data (chtc features)   
 
-*FIX: warning with day features*
 ```{r}
 d_hour <- read_csv(file.path(path_processed, "features_1hour_0_v5.csv.xz"), col_types = cols())
 
@@ -95,8 +96,6 @@ if (nrow(lab_hour) != nrow(d_hour)) message("Number of labels and data observati
 
 day    
 
-*FIX: labels and feature observations not matching - due to read in error? Features processed as 1 hour window?*   
-
 `r nrow(lab_day)` labels.    
 `r nrow(d_day)` observations in data file 
 
@@ -116,8 +115,6 @@ if (nrow(lab_week) != nrow(d_week)) message("Number of labels and data observati
 
 ### Number of features
 
-
-*All feature sets have same number of features. Is this an error on how I am calculating?*
 
 hour    
 
