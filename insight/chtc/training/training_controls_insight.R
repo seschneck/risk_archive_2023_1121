@@ -3,9 +3,9 @@
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
 version <- "v1"
-algorithm <- "xgboost" # "glm" "glmnet" "random_forest" "xgboost"
-batch <- "batch1"
-window <- "1week"
+algorithm <- "xgboost" # keep as "xgboost"
+batch <- "batch3"
+window <- "dichotomous"
 lead <- 0
 
 configs_per_job <- 200  # number of model configurations that will be fit/evaluated within each CHTC
@@ -23,9 +23,14 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only")
+feature_set <- c("aase_only")
 # feature_set <- c("all") 
-data_trn <- str_c("features_",  version, ".csv") 
+if (window == "dichotomous") {
+  data_trn <- str_c("aase_dich_", version, ".csv")
+} else {
+  data_trn <- str_c("features_",  version, ".csv")
+}
+ 
 seed_splits <- 102030
 
 ml_mode <- "classification"   # regression or classification
@@ -39,7 +44,7 @@ cv_resample_type <- "nested" # can be boot, kfold, or nested
 cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
 cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
 cv_outer_resample <- "1_x_10" # outer resample will always be kfold
-cv_group <- "subid" # set to NULL if not grouping
+cv_group <- NULL # set to NULL if not grouping
 
 cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_inner_resample, "_",
@@ -51,7 +56,7 @@ cv_name <- if_else(cv_resample_type == "nested",
 name_batch <- str_c("train_", algorithm, "_", window, "_", 
                     cv_name, "_", version, "_", batch) 
 # the path to the batch of jobs
-path_batch <- str_c("studydata/risk/chtc/", study, "/training/", name_batch) 
+path_batch <- str_c("studydata/risk/chtc/", study, "/", name_batch) 
 # location of data set
 path_data <- str_c("studydata/risk/data_processed/", study) 
 
@@ -64,7 +69,7 @@ hp2_glmnet_out <- 200 # length of penalty grid
 
 hp1_knn <- seq(5, 255, length.out = 26) # neighbors (must be integer)
 
-if (feature_set == "insight_only") {
+if (str_detect(feature_set, "only")) {
   hp1_rf <- 1 # mtry
 } else {
   hp1_rf <- c(2, 10, 20, 30, 40) # mtry (p/3 for reg or square root of p for class)
@@ -74,7 +79,7 @@ hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors)
 
 hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
-if (feature_set == "insight_only") {
+if (str_detect(feature_set, "only")) {
   hp3_xgboost <- 1 # mtry
 } else {
   hp3_xgboost <- c(20, 30, 40, 50)  # mtry
@@ -99,6 +104,8 @@ glide <- TRUE
 # request_memory <- "5000MB" request_disk <- "1000MB"
 # 300 configs per job (random_forest)
 # went down to 200 configs per job (xgb, glmnet) based on RF timing
+
+# batch3: aase -> 1 week labels
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df) {
@@ -149,6 +156,11 @@ build_recipe <- function(d, config) {
   if (feature_set == "insight_only") {
     rec <- rec %>% 
       step_select(y, ema_10.p0.l0.rrecent_response)
+  }
+  
+  if (feature_set == "aase_only") {
+    rec <- rec %>% 
+      step_select(y, aase_total)
   }
   
   # algorithm specific steps

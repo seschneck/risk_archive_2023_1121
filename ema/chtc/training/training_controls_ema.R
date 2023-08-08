@@ -17,7 +17,7 @@
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
-window <- "1week"
+window <- "1day"
 lead <- 0
 version <- "v5"
 algorithm <- "xgboost"
