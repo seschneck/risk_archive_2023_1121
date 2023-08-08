@@ -5,7 +5,7 @@ study <- "insight"
 version <- "v1"
 algorithm <- "xgboost" # keep as "xgboost"
 batch <- "batch3"
-window <- "1week"
+window <- "dichotomous"
 lead <- 0
 
 configs_per_job <- 200  # number of model configurations that will be fit/evaluated within each CHTC
@@ -25,7 +25,12 @@ if (algorithm == "random_forest") {
 # DATA, SPLITS AND OUTCOME-------------------------------------
 feature_set <- c("aase_only")
 # feature_set <- c("all") 
-data_trn <- str_c("features_",  version, ".csv") 
+if (window == "dichotomous") {
+  data_trn <- str_c("aase_dich_", version, ".csv")
+} else {
+  data_trn <- str_c("features_",  version, ".csv")
+}
+ 
 seed_splits <- 102030
 
 ml_mode <- "classification"   # regression or classification
@@ -39,7 +44,7 @@ cv_resample_type <- "nested" # can be boot, kfold, or nested
 cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
 cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
 cv_outer_resample <- "1_x_10" # outer resample will always be kfold
-cv_group <- "subid" # set to NULL if not grouping
+cv_group <- NULL # set to NULL if not grouping
 
 cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_inner_resample, "_",
@@ -99,6 +104,8 @@ glide <- TRUE
 # request_memory <- "5000MB" request_disk <- "1000MB"
 # 300 configs per job (random_forest)
 # went down to 200 configs per job (xgb, glmnet) based on RF timing
+
+# batch3: aase -> 1 week labels
 
 # FORMAT DATA-----------------------------------------
 format_data <- function (df) {
