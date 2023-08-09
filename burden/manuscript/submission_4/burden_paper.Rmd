@@ -877,24 +877,31 @@ footnote_table_3a <- "$P$ < .05"
 ```{r}
 corrplot_int <- data_last %>% 
   select(`Audio Check-in` = audio_checkin_interfere,
-         `EMA` = daily_survey_interfere,
+         EMA = daily_survey_interfere,
          `Sleep Quality` = sleep_interfere) %>% 
-  cor(use = "pairwise.complete.obs") %>% 
-  corx(triangle = "lower",
-       stars = c(0.05),
-       method = "pearson",
-       describe = c(`$M$` = mean, `$SD$` = sd))
+  cor(use = "pairwise.complete.obs")
+
+corrplot_int_summary <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_interfere,
+         EMA = daily_survey_interfere,
+         `Sleep Quality` = sleep_interfere) %>% 
+  summarize(mean_audio = mean(`Audio Check-in`),
+            sd_audio = sd(`Audio Check-in`),
+            mean_ema = mean(EMA),
+            sd_ema = sd(EMA),
+            mean_sleep = mean(`Sleep Quality`, na.rm = TRUE),
+            sd_sleep = sd(`Sleep Quality`, na.rm = TRUE))
 
 corrplot_int <- as_tibble(corrplot_int, rownames = " ")
-corrplot_int[corrplot_int == " - " ] <- "--"
 
 corrplot_int <- corrplot_int %>% 
   mutate(`$N$` = c(154, 154, 87)) %>% 
+  mutate(`$M$`= c(.78, .91, 1.38)) %>% 
+  mutate(`$SD$`= c(1.07, .99, .87)) %>% 
   mutate(`$t$` = c(str_c(round(int_audio$statistic, 2), "*"), 
                    str_c(round(int_ema$statistic, 2), "*"), 
                    str_c(round(int_sleep$statistic, 2), "*"))) %>% 
-  mutate(`$d$` = (c(round(int_audio$d, 2), round(int_ema$d, 2), round(int_sleep$d, 2)))) %>% 
-  select(` `, `1`, `2`, `$N$`, `$M$`, `$SD$`, everything())
+  mutate(`$d$` = (c(round(int_audio$d, 2), round(int_ema$d, 2), round(int_sleep$d, 2)))) 
 ```
 
 
@@ -907,17 +914,35 @@ corrplot_dis <- data_last %>%
          `Geolocation` = location_dislike,
          `Cellular Communication Logs` = all_logs_dislike,
          `Text Message Content` = sms_content_dislike) %>%
-  cor(use = "pairwise.complete.obs") %>% 
-  corx(triangle = "lower",
-       stars = c(0.05),
-       method = "pearson",
-       describe = c(`$M$` = mean, `$SD$` = sd))
+  cor(use = "pairwise.complete.obs")
 
 corrplot_dis <- as_tibble(corrplot_dis, rownames = " ")
-corrplot_dis[corrplot_dis== " - " ] <- "--"
+
+corrplot_dis_summary <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_dislike,
+         `EMA` = daily_survey_dislike,
+         `Sleep Quality` = sleep_dislike,
+         `Geolocation` = location_dislike,
+         `Cellular Communication Logs` = all_logs_dislike,
+         `Text Message Content` = sms_content_dislike) %>% 
+  summarize(mean_audio = mean(`Audio Check-in`),
+            sd_audio = sd(`Audio Check-in`),
+            mean_ema = mean(EMA),
+            sd_ema = sd(EMA),
+            mean_sleep = mean(`Sleep Quality`, na.rm = TRUE),
+            sd_sleep = sd(`Sleep Quality`, na.rm = TRUE),
+            mean_geo = mean(Geolocation),
+            sd_geo = sd(Geolocation),
+            mean_cell = mean(`Cellular Communication Logs`),
+            sd_cell = sd(`Cellular Communication Logs`),
+            mean_text = mean(`Text Message Content`),
+            sd_text = sd(`Text Message Content`))
+
 
 corrplot_dis <- corrplot_dis %>% 
   mutate(`$N$` = c(154, 154, 87, 154, 154, 154)) %>% 
+  mutate(`$M$` = c(.51, .95, 1.10, 1.03, .90, .58),
+         `$SD$` = c(1.28, .92, 1.09, .94, .97, 1.18)) %>% 
   mutate(`$t$` = c(str_c(round(dis_audio$statistic, 2), "*"), 
                    str_c(round(dis_ema$statistic, 2), "*"), 
                    str_c(round(dis_sleep$statistic, 2), "*"),
@@ -925,8 +950,7 @@ corrplot_dis <- corrplot_dis %>%
                    str_c(round(dis_logs$statistic, 2), "*"), 
                    str_c(round(dis_text_content$statistic, 2), "*"))) %>% 
   mutate(`$d$` = (c(round(dis_audio$d, 2), round(dis_ema$d, 2), round(dis_sleep$d, 2),
-                    round(dis_geolocation$d, 2), round(dis_logs$d, 2), round(dis_text_content$d, 2)))) %>% 
-  select(` `, `1`, `2`, `3`, `4`, `5`, `$N$`, `$M$`, `$SD$`, everything())
+                    round(dis_geolocation$d, 2), round(dis_logs$d, 2), round(dis_text_content$d, 2))))
 ```
 
 ```{r}
@@ -937,17 +961,35 @@ corrplot_will <- data_last %>%
          `Geolocation` = location_1year,
          `Cellular Communication Logs` = all_logs_1year,
          `Text Message Content` = sms_content_1year) %>% 
-  cor(use = "pairwise.complete.obs") %>% 
-  corx(triangle = "lower",
-       stars = c(0.05),
-       method = "pearson",
-       describe = c(`$M$` = mean, `$SD$` = sd))
+  cor(use = "pairwise.complete.obs") 
 
 corrplot_will <- as_tibble(corrplot_will, rownames = " ")
-corrplot_will[corrplot_will== " - " ] <- "--"
+
+
+corrplot_will_summary <- data_last %>% 
+  select(`Audio Check-in` = audio_checkin_1year,
+         `EMA` = daily_survey_4_1year,
+         `Sleep Quality` = sleep_1year,
+         `Geolocation` = location_1year,
+         `Cellular Communication Logs` = all_logs_1year,
+         `Text Message Content` = sms_content_1year) %>% 
+  summarize(mean_audio = mean(`Audio Check-in`),
+            sd_audio = sd(`Audio Check-in`),
+            mean_ema = mean(EMA),
+            sd_ema = sd(EMA),
+            mean_sleep = mean(`Sleep Quality`, na.rm = TRUE),
+            sd_sleep = sd(`Sleep Quality`, na.rm = TRUE),
+            mean_geo = mean(Geolocation),
+            sd_geo = sd(Geolocation),
+            mean_cell = mean(`Cellular Communication Logs`),
+            sd_cell = sd(`Cellular Communication Logs`),
+            mean_text = mean(`Text Message Content`),
+            sd_text = sd(`Text Message Content`))
 
 corrplot_will <- corrplot_will %>% 
-  mutate(`$N$` = c(154, 154, 87, 154, 154, 154)) %>% 
+  mutate(`$N$` = c(154, 154, 87, 154, 154, 154),
+         `$M$` = c(.73, .64, .85, .94, .84, .74),
+         `$SD$` = c(1.28, 1.22, 1.28, 1.18, 1.07, 1.12)) %>% 
   mutate(`$t$` = c(str_c(round(use_audio$statistic, 2), "*"),
                    str_c(round(use_ema$statistic, 2), "*"), 
                    str_c(round(use_sleep$statistic, 2), "*"),
@@ -955,20 +997,14 @@ corrplot_will <- corrplot_will %>%
                    str_c(round(use_logs$statistic, 2), "*"), 
                    str_c(round(use_text_content$statistic, 2), "*"))) %>% 
   mutate(`$d$` = (c(round(use_audio$d, 2), round(use_ema$d, 2), round(use_sleep$d, 2),
-                    round(use_geolocation$d, 2), round(use_logs$d, 2), round(use_text_content$d, 2)))) %>% 
-  select(` `, `1`, `2`, `3`, `4`, `5`, `$N$`, `$M$`, `$SD$`, everything())
+                    round(use_geolocation$d, 2), round(use_logs$d, 2), round(use_text_content$d, 2)))) 
 ```
 
-```{r table-3}
+```{r table-3, message = FALSE}
 corrplot_int %>% 
-  full_join(corrplot_dis, 
-            by = c(" ", "1", "2", "$N$", "$M$", "$SD$", "$t$", "$d$")) %>% 
-  full_join(corrplot_will,
-            by = c(" ", "1", "2", "$N$", "$M$", "$SD$", "$t$", "$d$", "3", "4", "5")) %>% 
-  select(` `, `1`, `2`, `3`, `4`, `5`, everything()) %>% 
-  mutate(`3` = if_else(is.na(`3`), "", `3`)) %>% 
-  mutate(`4` = if_else(is.na(`4`), "", `4`)) %>% 
-  mutate(`5` = if_else(is.na(`5`), "", `5`)) %>% 
+  full_join(corrplot_dis) %>% 
+  full_join(corrplot_will) %>% 
+  select(1:4, 10:12, everything()) %>%  
   kbl(align = c("l", "c", "c", "c", "c", "c", "c", "c", "c", "c"),
       caption = "Bivariate and Univariate Statistics by Acceptability and Personal Sensing Data Stream",
       booktabs = TRUE,
@@ -1330,17 +1366,17 @@ week_compliance_all <- audio_week_compliance %>%
                         n = n(),
                         sd = sd(compliance)) %>% 
               mutate(se = sd/sqrt(n),
-                     signal = "EMA (4x Daily)")) %>% 
+                     signal = "EMA (4\u00D7 Daily)")) %>% 
   bind_rows(ema_1_week_compliance %>% 
               group_by(week) %>% 
               summarize(mean_compliance = mean(compliance),
                         n = n(),
                         sd = sd(compliance)) %>% 
               mutate(se = sd/sqrt(n),
-                     signal = "EMA (1x Daily)"))
+                     signal = "EMA (1\u00D7 Daily)"))
 
 week_compliance_all %>% 
-  mutate(signal = factor(signal, levels = c("EMA (1x Daily)", "EMA (4x Daily)", "Audio Check-in"))) %>% 
+  mutate(signal = factor(signal, levels = c("EMA (1\u00D7 Daily)", "EMA (4\u00D7 Daily)", "Audio Check-in"))) %>% 
   group_by(week, signal) %>% 
   ggplot(aes(x = week, y = mean_compliance, group = signal, shape = signal)) +
   geom_point(size = 2) +
