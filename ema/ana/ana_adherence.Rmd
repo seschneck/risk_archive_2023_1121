@@ -17,9 +17,25 @@ editor_options:
 
 Paths 
 ```{r}
-path_shared <- "P:/studydata/risk/data_processed/shared"
-path_ema <- "P:/studydata/risk/data_processed/ema"
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_ema <- "P:/studydata/risk/data_processed/ema"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"},
+        
+        # Linux paths
+        Linux = {
+          path_ema <- "~/mnt/private/studydata/risk/data_processed/ema"
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
+        )
 ```
+
 
 Packages and Source
 ```{r, message = FALSE, warning = FALSE}
@@ -94,7 +110,10 @@ mean_ema_4x <- ema_study_dates %>%
          mean_n_emas = n_total/(prompt_total/4)) %>% 
   ungroup() %>% 
   summarize(compliance = mean(compliance),
-         mean_n_emas = mean(mean_n_emas))
+         mean_emas = mean(mean_n_emas),
+         sd_emas = sd(mean_n_emas))
+
+mean_ema_4x
 
 ```
 
@@ -219,7 +238,10 @@ mean_ema_1x <- ema_study_dates_1x %>%
   summarize(n_total = sum(n), prompt_total = sum(n_prompts)) %>% 
   mutate(mean_1ema = n_total/prompt_total) %>% 
   ungroup %>% 
-  summarize(mean = mean(mean_1ema))
+  summarize(mean = mean(mean_1ema),
+            sd = sd(mean_1ema))
+
+mean_ema_1x
 ```
 
 mean compliance for one daily survey is `r mean_ema_1x$mean`
