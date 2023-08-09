@@ -2,9 +2,9 @@
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "insight"
-version <- "v1"
+version <- "v2"
 algorithm <- "xgboost" # keep as "xgboost"
-batch <- "batch3"
+batch <- "batch1"
 window <- "dichotomous"
 lead <- 0
 
@@ -23,12 +23,12 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("aase_only")
-# feature_set <- c("all") 
+feature_set <- c("aase_only") # all # insight_only # aase_only
+ 
 if (window == "dichotomous") {
-  data_trn <- str_c("aase_dich_", version, ".csv")
+  data_trn <- "aase_dich_v1.csv"
 } else {
-  data_trn <- str_c("features_",  version, ".csv")
+  data_trn <- "features_v1.csv"
 }
  
 seed_splits <- 102030
@@ -43,8 +43,12 @@ y_level_neg <- "no"
 cv_resample_type <- "nested" # can be boot, kfold, or nested
 cv_resample = NULL # can be repeats_x_folds (e.g., 1_x_10, 10_x_10) or number of bootstraps (e.g., 100)
 cv_inner_resample <- "1_x_10" # can also be a single number for bootstrapping (i.e., 100)
-cv_outer_resample <- "1_x_10" # outer resample will always be kfold
-cv_group <- NULL # set to NULL if not grouping
+cv_outer_resample <- "3_x_10" # outer resample will always be kfold
+if (window == "dichotomous") {
+  cv_group <- NULL
+} else {
+  cv_group <- "subid"
+}
 
 cv_name <- if_else(cv_resample_type == "nested",
                    str_c(cv_resample_type, "_", cv_inner_resample, "_",
@@ -77,7 +81,12 @@ if (str_detect(feature_set, "only")) {
 hp2_rf <- c(2, 15, 30, 50, 75, 100) # min_n
 hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors)
 
-hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, .4)  # learn_rate
+if (feature_set == "all" | window == "dichotomous") {
+  hp1_xgboost <- c(0.00001, 0.00005, 0.0001, 0.001, 0.01, 0.1, 0.2)  # learn_rate
+} else {
+  hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4)
+}
+
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
 if (str_detect(feature_set, "only")) {
   hp3_xgboost <- 1 # mtry
