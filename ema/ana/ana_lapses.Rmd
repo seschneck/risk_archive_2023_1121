@@ -92,7 +92,7 @@ lapses_per_subid %>%
   rename(var = lapse) %>% 
   mutate(var = factor(var, levels = c("yes", "no"), labels = c("Yes", "No"))) %>% 
   summarise(n = n()) %>% 
-  mutate(perc = (n / 154) * 100,
+  mutate(perc = n / 151 * 100,
          mean = NA_real_,
          SD = NA_real_,
          min = NA_real_,

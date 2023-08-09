@@ -22,14 +22,7 @@ Purpose: This file is the primary analysis script for the self-report acceptabil
 
 
 ### Setup
-```{css, echo = FALSE}
-pre, code {
-  max-height: 500px;
-  overflow-y: auto;
-  white-space: pre !important; 
-  overflow-x: auto
-}
-```
+
 
 Paths   
 *NOTE: Change path to location of acceptability.csv file*
@@ -121,18 +114,18 @@ The plot below is Figure 2 from the manuscript. It shows the distribution of par
 ```{r fig.height = 3.5}
 interference_plot_data <- data_last %>% 
   select(contains("interfere"), -carrying_phone_interfere) %>%   
-  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  pivot_longer(everything(), names_to = "measure", values_drop_na = TRUE) %>% 
   mutate(measure = factor(measure, 
                           levels = c("audio_checkin_interfere", "daily_survey_interfere", 
                                      "sleep_interfere"),
-                          labels = c("Audio Check-in", "EMA", "Sleep Quality"))) %>% 
+                          labels = c("Audio check-in", "EMA", "Sleep quality"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
-  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "EMA" ~ "Active",
-                            measure == "Sleep Quality" ~ "Active")) 
+  mutate(active = case_when(measure == "Audio check-in" ~ "Active methods",
+                            measure == "EMA" ~ "Active methods",
+                            measure == "Sleep quality" ~ "Active methods")) 
 
 interference_plot <- interference_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -145,7 +138,7 @@ interference_plot <- interference_plot_data %>%
   ylim(0, .6) +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
   geom_vline(aes(xintercept = means), interference_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") 
 
@@ -236,22 +229,22 @@ The plot below is Figure 3 from the manuscript. It shows the distribution of par
 ```{r fig.height = 6}
 dislike_plot_data <- data_last %>% 
   select(contains("dislike")) %>%  
-  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  pivot_longer(everything(), names_to = "measure", values_drop_na = TRUE) %>% 
    mutate(measure = factor(measure, 
                           levels = c("audio_checkin_dislike", "daily_survey_dislike", "sleep_dislike",
                                      "location_dislike", "all_logs_dislike", "sms_content_dislike"),
-                          labels = c("Audio Check-in", "EMA", "Sleep Quality",
-                                     "Geolocation", "Cellular Communication Logs", "Text Message Content"))) %>% 
+                          labels = c("Audio check-in", "EMA", "Sleep quality",
+                                     "Geolocation", "Cellular communication logs", "Text message content"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly agree", "Agree", "Undecided", "Disagree", "Strongly disagree"))) %>% 
-  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "EMA" ~ "Active",
-                            measure == "Sleep Quality" ~ "Active",
-                            measure == "Geolocation" ~ "Passive",
-                            measure == "Cellular Communication Logs" ~ "Passive",
-                            measure == "Text Message Content" ~ "Passive")) 
+  mutate(active = case_when(measure == "Audio check-in" ~ "Active methods",
+                            measure == "EMA" ~ "Active methods",
+                            measure == "Sleep quality" ~ "Active methods",
+                            measure == "Geolocation" ~ "Passive methods",
+                            measure == "Cellular communication logs" ~ "Passive methods",
+                            measure == "Text message content" ~ "Passive methods")) 
 
 active_dis <- dislike_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -264,7 +257,7 @@ active_dis <- dislike_plot_data %>%
         text = element_text(size = 12)) +
   ylim(0, .65) +
   geom_vline(aes(xintercept = means), dislike_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") +
@@ -272,7 +265,7 @@ active_dis <- dislike_plot_data %>%
 
 
 passive_dis <- dislike_plot_data %>% 
-  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  filter(measure == "Geolocation" | measure == "Cellular communication logs" | measure == "Text message content") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#DBF8FF") +
   facet_grid(active ~ measure) +
@@ -284,7 +277,7 @@ passive_dis <- dislike_plot_data %>%
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), dislike_plot_data %>% 
-  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  filter(measure == "Geolocation" | measure == "Cellular communication logs" | measure == "Text message content") %>%  
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575") 
@@ -401,24 +394,24 @@ The plot below is Figure 5 from the manuscript. It shows the distribution of par
 ```{r message = FALSE, warning = FALSE, fig.height = 6}
 willingness_plot_data <- data_last %>% 
   select(contains("1year")) %>%  
-  pivot_longer(everything(), "measure", values_drop_na = TRUE) %>% 
+  pivot_longer(everything(), names_to = "measure", values_drop_na = TRUE) %>% 
   mutate(measure = factor(measure, 
                           levels = c("audio_checkin_1year", "daily_survey_4_1year", 
                                      "daily_survey_1_1year", "sleep_1year", "location_1year", 
                                      "all_logs_1year", "sms_content_1year"),
-                          labels = c("Audio Check-in", "EMA", "Daily Survey (x1)<i><sup>a</sup></i>",
-                                     "Sleep Quality", "Geolocation", "Cellular Communication Logs", 
-                                     "Text Message Content"))) %>% 
+                          labels = c("Audio check-in", "EMA", "Daily Survey (x1)<i><sup>a</sup></i>",
+                                     "Sleep quality", "Geolocation", "Cellular communication logs", 
+                                     "Text message content"))) %>% 
   mutate(value = factor(value, levels = c(-2:2), labels = c("Strongly disagree", "Disagree", "Undecided", "Agree", "Strongly agree"))) %>% 
-  mutate(active = case_when(measure == "Audio Check-in" ~ "Active",
-                            measure == "EMA" ~ "Active",
-                            measure == "Sleep Quality" ~ "Active",
-                            measure == "Geolocation" ~ "Passive",
-                            measure == "Cellular Communication Logs" ~ "Passive",
-                            measure == "Text Message Content" ~ "Passive")) 
+  mutate(active = case_when(measure == "Audio check-in" ~ "Active methods",
+                            measure == "EMA" ~ "Active methods",
+                            measure == "Sleep quality" ~ "Active methods",
+                            measure == "Geolocation" ~ "Passive methods",
+                            measure == "Cellular communication logs" ~ "Passive methods",
+                            measure == "Text message content" ~ "Passive methods")) 
 
 willingness_active <- willingness_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#FFDEDE") +
   facet_grid(active ~ measure) +
@@ -432,14 +425,14 @@ willingness_active <- willingness_plot_data %>%
         strip.text = element_markdown()) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), willingness_plot_data %>% 
-  filter(measure == "Audio Check-in" | measure == "EMA" | measure == "Sleep Quality") %>% 
+  filter(measure == "Audio check-in" | measure == "EMA" | measure == "Sleep quality") %>% 
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#b44343") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")
 
 
 willingness_passive <- willingness_plot_data %>% 
-  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>% 
+  filter(measure == "Geolocation" | measure == "Cellular communication logs" | measure == "Text message content") %>% 
   ggplot(aes(x = value, y = ..prop.., group = measure)) +
   geom_bar(color = "black", fill = "#DBF8FF") +
   facet_grid(active ~ measure) +
@@ -451,7 +444,7 @@ willingness_passive <- willingness_plot_data %>%
         axis.text.x = element_text(angle = 45, hjust = 1)) +
   ylim(0, .6) +
   geom_vline(aes(xintercept = means), willingness_plot_data %>% 
-  filter(measure == "Geolocation" | measure == "Cellular Communication Logs" | measure == "Text Message Content") %>%  
+  filter(measure == "Geolocation" | measure == "Cellular communication logs" | measure == "Text message content") %>%  
   group_by(measure) %>% 
   summarise(means = mean(as.numeric(value), na.rm = TRUE)), size = .705, color = "#05667b") +
   geom_vline(aes(xintercept = "Undecided"), linetype = "dashed", size = .4, color = "#787575")

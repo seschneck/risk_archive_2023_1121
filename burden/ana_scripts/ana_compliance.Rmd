@@ -464,13 +464,14 @@ mean_ema_4 <- ema_study_dates %>%
          mean_n_emas = n_total/(prompt_total/4)) %>% 
   ungroup() %>% 
   summarize(compliance = mean(compliance),
-         mean_n_emas = mean(mean_n_emas))
+         mean_n_overall = mean(mean_n_emas),
+         sd_n_overall = sd(mean_n_emas))
 
 ```
 
 compliance = `r mean_ema_4$compliance`   
 
-avg emas = `r mean_ema_4$mean_n_emas`  
+avg emas = `r mean_ema_4$mean_n_overall`  (SD = `r mean_ema_4$sd_n_overall`)
 
 
 
