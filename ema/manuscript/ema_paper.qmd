@@ -89,6 +89,13 @@ preds_day<- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds"))
 preds_hour<- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
   select(outer_split_num, label, prob = prob_beta)
 
+auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+
 # posterior probabilities
 pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
@@ -298,7 +305,7 @@ We trained candidate XGBoost model configurations that differed across sensible 
 
 Our primary performance metric for selecting and evaluating best model configurations was the area under the Receiver Operating Characteristic Curve (auROC)[@kuhnAppliedPredictiveModeling2018]. auROC indexes the probability that the model will predict a higher score for a randomly selected positive case relative to a randomly selected negative case.  An auROC of 0.5 indicates chance performance; an AUC of 1.0 perfectly discriminates between positive and negative outcome classes.  This metric was selected because it 1) combines both sensitivity and specificity, which are both important characteristics to consider for clinical implementation, 2) it is an aggregate metric across all possible decision thresholds, which is important because the optimal decision threshold may differ depending on setting and goals, 3) it is not affected by class imbalance, which is important when comparing models across the three different prediction window widths that have difference levels of imbalance.  
 
-We used grouped (by participant), nested cross-validation to train models, select best models, and evaluate those best models on auROC.  With grouped cross-validation, all of a participant's data is either held-in or held-out to avoid bias that is introduced when predicting a participants data from their own data[<!--ref?-->].  In nested cross validation, there are two nested loops for dividing and holding out folds: an outer loop with k<sub>outer</sub> folds, where held-out folds serve as test sets for model evaluation; and inner loops with k<sub>inner</sub> folds, where held-out folds serve as validation sets for model selection. The full dataset is divided into k<sub>outer</sub> approximately equal-sized, non-overlapping folds. Each k<sub>outer</sub> fold serves once as an independent test set to evaluate the model configuration trained and selected using the remaining data (i.e., the k<sub>outer</sub> - 1 outer folds). The model configurations are trained and selected by dividing that remaining data into k<sub>inner</sub> folds and performing simple k-fold cross validation. Nested cross validation maintains separation between training sets (k<sub>inner</sub> - 1 folds), validation sets (k<sub>inner</sub>th held-out fold), and test sets (k<sub>outer</sub>th held-out fold). This separation removes optimization bias from the evaluation of model performance and can also yield lower variance performance estimates than when a single independent test set is used [@jonathanUseCrossvalidationAssess2000].  In this study, we used 1 repeat of 10-fold cross validation for the inner loop and 3 repeats of 10-fold cross validation.  Therefore, best model configurations were selected based on the median auROC across the 10 held-out folds from the inner loop.  Final evaluation of the performance of those best model configurations was based on the median <!--consider footnote for why median--> auROC across the 30 held-out folders in the outer loop.  For completeness, we report both inner loop and outer loop median auROC for each of the three window widths (week, day, and hour).  In addition, we report key additional performance metrics for each window width from the outer loop including sensitivity, specificity, accuracy, positive predictive value and negative predictive value. We also display the Receiver Operating Characteristic curves and Precision-Recall Curves by window width.
+We used grouped (by participant), nested cross-validation to train models, select best models, and evaluate those best models on auROC.  With grouped cross-validation, all of a participant's data is either held-in or held-out to avoid bias that is introduced when predicting a participants data from their own data[<!--ref?-->].  In nested cross validation, there are two nested loops for dividing and holding out folds: an outer loop with k<sub>outer</sub> folds, where held-out folds serve as test sets for model evaluation; and inner loops with k<sub>inner</sub> folds, where held-out folds serve as validation sets for model selection. The full dataset is divided into k<sub>outer</sub> approximately equal-sized, non-overlapping folds. Each k<sub>outer</sub> fold serves once as an independent test set to evaluate the model configuration trained and selected using the remaining data (i.e., the k<sub>outer</sub> - 1 outer folds). The model configurations are trained and selected by dividing that remaining data into k<sub>inner</sub> folds and performing simple k-fold cross validation. Nested cross validation maintains separation between training sets (k<sub>inner</sub> - 1 folds), validation sets (k<sub>inner</sub>th held-out fold), and test sets (k<sub>outer</sub>th held-out fold). This separation removes optimization bias from the evaluation of model performance and can also yield lower variance performance estimates than when a single independent test set is used [@jonathanUseCrossvalidationAssess2000].  In this study, we used 1 repeat of 10-fold cross validation for the inner loop and 3 repeats of 10-fold cross validation.  Therefore, best model configurations were selected based on the median auROC across the 10 held-out folds from the inner loop.  Final evaluation of the performance of those best model configurations was based on the median <!--consider footnote for why median--> auROC across the 30 held-out folders in the outer loop.  For completeness, we report both inner loop and outer loop median auROC for each of the three window widths (week, day, and hour) for our best configurations.  In addition, we report key additional performance metrics for each window width from the outer loop including sensitivity, specificity, accuracy, positive predictive value and negative predictive value. We also display the Receiver Operating Characteristic curves and Precision-Recall Curves by window width.
 <!--KW: will cite source for these metrics - tidymodels reference or IAML;  JC says we need only one source - likely ISL because we have to keep our citations to <= 30-->.
 
 ### Bayesian Estimation of auROC and Model Comparisons 
@@ -317,21 +324,6 @@ We used Shapley Additive Explanations (SHAP) method [@lundbergUnifiedApproachInt
 
 
 # Results
-<!--Information for results: Participants were on study for an average of 85 days out of the possible 90 days. Participants had endorsed using on average 4 other types of drugs (not including alcohol) over their lifetime. Additionally, participants on average scored a 9 on a self-report version of the DSM-5 symptom criteria for alcohol use disorder. Generally, scores of 2-3 are considered mild, 4-5 are considered moderate, and 6+ considered severe alcohol use disorder.-->
-
-<!--Move to results: Across participants there were a total of 1029 unique lapses. There was variation in the frequency of lapses, ranging from 0-75 lapses per participant (M = 6.8, SD = 12.0). Only 56% of participants (N = 84) reported a lapse. However, this was expected since our participants all had a goal of abstinence from alcohol.-->
-
-<!--Citation for ROC cutoffs - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
-
-
-
-<!--
-This process resulted in a total of 267,283 features for 1-hour lapse windows, 274,175 features for 24-hour lapse windows, and 270,077 features for 168-hour lapse windows.-->
-
-
-Hour - 267287 observations, 286 features
-Day - 274179 observations, 286 features
-Week - 270081 observations, 286 features
 
 ## Demographic and Clinical Characteristics
 
@@ -684,23 +676,27 @@ dem %>%
 \newpage
 
 
-## EMA compliance, features (predictors), and lapse labels (outcome)
+## EMA compliance, features (predictors), and prediction window labels (outcome)
 
-We used reports from participants' 4x daily EMAs to create datasets of features and lapse labels to develop and evaluate three separate classification models to predict future lapses the next week, the next day, and the next hour, respectively.  EMA compliance over the study was generally good, with participants completing an average of 3.1 (sd = 0.6) of the 4 daily reports per day or 78% compliance overall.  Participants completed at least 1 EMA report on 95% of days.  Across weeks in the study, the compliance percentages ranged from 75% - 87% for 4x daily and from 92% - 99% for at least 1 daily EMA.  Figure <!--insert number--> displays compliance percentages over time (by week).    
+We used responses from participants' 4x daily EMAs to create datasets of features and labeled outcomes to develop and evaluate three separate classification models to predict future lapses in the next week, the next day, and the next hour, respectively.  EMA compliance over the study was generally good, with participants completing an average of 3.1 (SD=0.6) of the 4 daily EMAs per day or 78% compliance overall.  Participants completed at least 1 EMA on 95% of days.  Across weeks in the study, EMA compliance percentages ranged from 75% - 87% for 4x daily and from 92% - 99% for at least 1 daily EMA.  Figure <!--insert number--> displays compliance percentages over time (by week) across the study period for both 4x daily and at least one daily report.  
+
+Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 future prediction windows for the outcome that were labeled as lapse or no lapse for the week, day, and hour window widths, respectively.  Each of these datasets also contained 286 features that were derived from EMAs that were completed prior to the start of the associated prediction window, baseline demographic characteristics, and prediction window start dates/times as described earlier in the method. Each of these datasets was unbalanced with respect to the outcome such that lapses were observed in 68467 (25.3%) week windows, 21107 (7.7%) day windows, and 1017 (0.3%) hour windows.  As noted previously, we addressed this outcome class imbalance using up-sampling and down-sampling of the outcome during model training.  
+
  
-
 ## Model Performance
 
 We developed and evaluated separate classification models to predict future lapses in three windows: the next week, the next day, and the next hour.  We used grouped (by participant), nested cross-validation for each of these prediction windows to train models, select best models, and evaluate those best models  This nested cross-validation resampling strategy used 1 repeat of 10-fold cross validation for the inner loop, and 3 repeats of 10-fold cross validation for the outer loop.  Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC).  Given this, best models were selected based on the median <!--insert note about why median--> auROC across 10 held-out validation folds in the inner loop.  These best models were evaluated using the median auROC across 30 held-out test folds in the outer loop. Of course, consistent with the nested cross-validation resampling method, validation and test sets were completely independent to remove optimization bias from the performance metrics.
 
-We developed classification models for these three prediction windows using separate datasets that contained XX, XX, and XX <!--get numbers--> labeled lapse observations (lapse vs. no lapse) and associated features for the week, day, and hour prediction windows, respectively.  Each of these datasets was unbalanced with respect to the lapse outcome such that lapses were observed in XX (%) week windows, XX (%) day windows, and XX (%) hour windows.  As noted previously, we addressed this outcome class imbalance using up-sampling and down-sampling of the outcome during model training.  
 
 ### auROC
+
+Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC). Best model configurations were selected using median auROCs from the validation folds in the inner loop of the nested cross-validation.  The median auROCs for the best configurations were `round(auc_week |> pull(roc_auc_in) |> median(), 3)`, `round(auc_day |> pull(roc_auc_in) |> median(), 3)`, and `round(auc_hour |> pull(roc_auc_in) |> median(), 3)`
 
 The median auROC across the 30 test folds was high for the week (<!--AUC; range-->), day (<!--AUC; range-->), and hour (<!--AUC; range-->) prediction windows.  The left panel of figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predictions across the 30 held-out test folds.  Figure S2 presents the individual ROC curves for each of the 30 test folds.  
 
 We used the auROCs for the week, day and hour models across the 30 test folds to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  
 
+<!--Citation for ROC effect size conversion - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
 
 ### Other Performance Metrics
 
