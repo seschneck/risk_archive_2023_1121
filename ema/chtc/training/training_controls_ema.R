@@ -8,12 +8,12 @@
 # Batch4, up_1, up_2 - John (completed)
 
 # Day Batches
-# Batch1, down_1 - down_5 - Kendra (current)
-# Batch2, up_5 - up_1 - John (current)
+# Batch1, down_1 - down_5 - Kendra (completed)
+# Batch2, up_5 - up_1 - John (comnpleted)
 
 # Week Batches
-# # Batch1, down_1 - down_5 - Susan (pending)
-# # Batch2, up_1 - up_5 - Kendra (pending)
+# # Batch1, down_1 - down_5 - Susan (completed)
+# # Batch2, up_1 - up_5 - Kendra (completed)
 
 # SET GLOBAL PARAMETERS--------------------
 study <- "ema"
