@@ -6,13 +6,6 @@ output:
   html_document:
     toc: true 
     toc_depth: 4
-knit: (function(input, ...) {
-    )
-    rmarkdown::render(
-      input,
-      "/Volumes/private/studydata/risk/knits/ema")
-      output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
-      "P:/studydata/risk/knits/ema", 
 editor_options: 
   chunk_output_type: console
 ---
@@ -114,7 +107,7 @@ auc <- auc_week %>%
   glimpse
 ```
 
-```{r}
+```{r auc_plots}
 auc_week %>% 
   ggplot() + 
   geom_histogram(aes(x = roc_auc), bins = 10)
@@ -130,14 +123,19 @@ auc_hour %>%
 
 ### All models
 
-```{r}
+```{r bayes}
+# from ?perf_mod()
+# Repeated CV (id = repeat, id2 = fold within repeat)
+# with a common variance:  statistic ~ model + (model | id2/id)
 set.seed(101)
-pp <- auc %>% 
-  perf_mod(formula = statistic ~ model + (1 | fold_num/repeat_num),
+pp <- auc |> 
+  rename(id = repeat_num,
+         id2 = fold_num) |> 
+  perf_mod(formula = statistic ~ model + (1 | id2/id),
          # prior_intercept = rstanarm::student_t(autoscale = TRUE),
          # prior = rstanarm::student_t(autoscale = TRUE),
          transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-         # iter = 6000, chains = 4,  
+         # iter = 2000, chains = 4,  
          adapt_delta = .99,
          # cores = 4, seed = 12345,
          family = gaussian, 
@@ -160,6 +158,25 @@ summary(pp$stan)
 pp %>%  write_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 ```
 
+### Model posterier CIs
+
+```{r}
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
+
+q = c(.025, .5, .975)
+pp_tidy %>% 
+  group_by(model) %>% 
+  summarize(median = quantile(posterior, probs = q[2]),
+            lower = quantile(posterior, probs = q[1]), 
+            upper = quantile(posterior, probs = q[3])) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
+                        labels = c("Week", "Day", "Hour")),
+         y = 1000) |> 
+  arrange(model)
+
+```
+
 
 ### Model contrasts
 
@@ -167,7 +184,7 @@ pp %>%  write_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 pp_contrasts <- contrast_models(pp, 
                                 list("hour","hour", "day"), 
                                 list("week", "day", "week"))
-summary(pp_contrasts, size = .01)
+summary(pp_contrasts, size = .01, prob = 0.95)
 pp_contrasts %>% autoplot(size = .01)
 ```
 
@@ -237,8 +254,8 @@ pp %>%
   ggplot() +
   geom_histogram(aes(x = posterior, fill = contrast), 
                  color = "black", alpha = .4, bins = 30) +
-  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", linewidth = 1) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
                              color = contrast), data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
