@@ -1,6 +1,6 @@
 ---
-title: "Fits and evaluates best model configs in outer loop of nested for `r params$window` window and `r params$lead` lead and `r params$version`"
-author: "John Curtin & Kendra Wyant"
+title: "Fits and evaluates best model configs in outer loop of nested for the Insight study"
+author: "Gaylen Fronk, John Curtin, & Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
   html_document:
@@ -9,19 +9,13 @@ output:
 format:
   html:
     embed-resources: true
-params:
-  study: "ema"
-  window: "1week"
-  lead: 0
-  version: "v5"
-  cv: "nested"
 editor_options: 
   chunk_output_type: console
 ---
 
 ### Code Status
 
-In use for EMA study
+In use for Insight study
 
 ### Notes
 This script reads in CHTC performance metrics from the inner loops of CV, selects the best model configuration for each outer loop, trains those models and predicts into the outer held-out folds.  Returns metrics, predictions (probabilities) and SHAPs
@@ -35,28 +29,24 @@ This script creates the following files in the `models` folder
 
 where * = window_lead_version_cv
 
-
 ### To Do
 
 SHAPS
 
-* We get SHAPS in this script with 30 outer folds (3x10fold).   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size SHAPs for each feature.  We choose to **average across repeats**.  
+* We get SHAPS in this script with 30 outer folds (3x10fold).   It will be SHAPS from different models BUT they are currently all XGBoost and regardless, SHAP could work with any algorithm.  We could ALSO average across same person for 3 repeats or just have 3x sample size SHAPs for each feature.  We choose to **average across repeats**.
 
 * Could get SHAPS when we did simple 3x10-fold on full sample to figure out the ONE best configuration.  First run on CHTC to get best config.  Then use that best config to predict into 30  held out folds and combine.
 
 * Could train that ONE best config on full sample and use it for SHAPS in the full sample.   
 
-
-
 ### Set Up Environment
 
 ```{r set_params}
-study <- params$study
-data_type <- params$data_type
-window <- params$window
-lead <- params$lead 
-version <- params$version
-cv <- params$cv
+study <- "insight"
+window <- "all"
+version <- "v2"
+cv <- "nested"
+algorithms <- "xgboost"
 ```
 
 Function conflicts
@@ -310,9 +300,8 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 ### Read in aggregate CHTC metrics for inner folds
 ```{r read_inner_metrics}
 metrics_raw <- 
-  read_csv(file.path(path_models, str_c("inner_metrics_", window, 
-                                   "_", lead, "_", version, "_", cv, ".csv")), 
-           col_types = "iiiiccdddcdddddddi") |> 
+  read_csv(file.path(path_models, str_c("inner_metrics_", version, "_", cv, ".csv")), 
+           col_types = "iiiiccdddcdddddddc") |> 
   glimpse()
 ```
 
@@ -578,3 +567,14 @@ if(file.exists(file.path(path_models, str_c("tmp_metrics_outer_progress_", windo
 ```
 
 IMPORTANT:  We still need to select ONE final best config using the inner resampling approach AND then we need to fit that best config to ALL the data.
+
+```{r, eval = FALSE, include=FALSE}
+# Render knit file manually to different location
+
+rmarkdown::render(input = file.path(
+  "insight/mak_scripts/2_metrics_outer.qmd"),
+  output_dir = file.path(path_knit),
+  output_file = str_c("2_metrics_outer_", version,
+                      ".html"),
+  env = new.env())
+```
