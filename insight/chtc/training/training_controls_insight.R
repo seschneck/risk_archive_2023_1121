@@ -4,8 +4,8 @@
 study <- "insight"
 version <- "v2"
 algorithm <- "xgboost" # keep as "xgboost"
-batch <- "batch1"
-window <- "dichotomous"
+batch <- "batch4"
+window <- "1week"
 lead <- 0
 
 configs_per_job <- 200  # number of model configurations that will be fit/evaluated within each CHTC
@@ -23,7 +23,7 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("aase_only") # all # insight_only # aase_only
+feature_set <- c("insight_only") # all # insight_only # aase_only
  
 if (window == "dichotomous") {
   data_trn <- "aase_dich_v1.csv"
@@ -86,6 +86,9 @@ if (feature_set == "all" | window == "dichotomous") {
 } else {
   hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4)
 }
+
+# manual override
+hp1_xgboost <- c(.6, .8, .95)
 
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
 if (str_detect(feature_set, "only")) {
