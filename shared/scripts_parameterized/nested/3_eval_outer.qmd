@@ -137,6 +137,20 @@ metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", window, "
                                                       cv, ".rds")))
 ```
 
+#### Inner AUC
+
+Best model configurations were selected using the median AUCs across 10 inner folds.  30 (3x10) models were selected.  
+
+
+```{r}
+metrics_out |> glimpse()
+
+metrics_out |> 
+  summarize(median(roc_auc_in), mean(roc_auc_in), min(roc_auc_in), max(roc_auc_in), sd(roc_auc_in))
+```
+
+
+
 #### ROC curve
 This is single ROC by concatenating all outer folds.
 Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
@@ -201,11 +215,7 @@ fig_roc_folds +
 
 #### Outer AUC
 
-Review performance across all inner folds
-```{r metrics_in}
-metrics_out |> 
-  summarize(median(roc_auc_in), mean(roc_auc_in))
-```
+
 
 
 And now across outer folds
