@@ -99,10 +99,14 @@ auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds
 # posterior probabilities
 pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
+
 # ROC curves
 roc_week <- preds_week %>% 
   roc_curve(prob, truth = label) %>% 
   mutate(model = "1week")
+
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
 
 roc_day <- preds_day %>% 
   roc_curve(prob, truth = label) %>% 
@@ -341,7 +345,7 @@ One hundred ninety-two participants were eligible for enrollment. Of these parti
 
 We excluded data from one participant who did not maintain a goal of abstinence during their participation (i.e., they reported they were uncertain if their goal was abstinence on the daily EMA and monthly follow-up surveys). We also excluded data from two participants who showed evidence of careless responding and unusually low compliance, rendering their lapse labels unusable. Our final sample consisted of 151 participants. These participants provided study measures for one (N = 14), two (N = 6) or three (N = 131) months. Figure S1 presents a CONSORT diagram that displays more detail on enrollment and disposition for all eligible participants. 
 
-The final sample of 151 participants included approximately equal numbers of men (N=77; 49%) and women (N=74; 51%) who ranged in age from 21 - 72 years old.  The sample was majority white (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of alcohol use disorder (SD=5.8; range=4-11), a mean of 5.5 previous quit attempts (SD=5.8, range=0-30), and many reported using medications for AUD (N=59; 39%).  The majority of participants (N=84; 56%) reported one or more alcohol lapses during the study period.  The mean number of lapses per participant during the study period was XX (SD; range). <!--JJC will update previous with table data-->  Table 1 provides more detail on demographic and clinical characteristics of the sample.
+The final sample of 151 participants included approximately equal numbers of men (N=77; 49%) and women (N=74; 51%) who ranged in age from 21 - 72 years old.  The sample was majority white (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of alcohol use disorder (SD=5.8; range=4-11), a mean of 5.5 previous quit attempts (SD=5.8, range=0-30), and many reported using medications for AUD (N=59; 39%).  The majority of participants (N=84; 56%) reported one or more alcohol lapses during the study period.  The mean number of lapses per participant during the study period was 6.8 (SD=12.0; range=0-75).  Table 1 provides more detail on demographic and clinical characteristics of the sample.
 
 
 <!-- Demographics table-->
@@ -688,30 +692,30 @@ dem %>%
 
 ## EMA compliance, features (predictors), and prediction window labels (outcome)
 
-We used responses from participants' 4x daily EMAs to create datasets of features and labeled outcomes to develop and evaluate three separate classification models to predict future lapses in the next week, the next day, and the next hour, respectively.  EMA compliance over the study was generally good, with participants completing an average of 3.1 (SD=0.6) of the 4 daily EMAs per day or 78% compliance overall.  Participants completed at least 1 EMA on 95% of days.  Across weeks in the study, EMA compliance percentages ranged from 75% - 87% for 4x daily and from 92% - 99% for at least 1 daily EMA.  Figure <!--insert number--> displays compliance percentages over time (by week) across the study period for both 4x daily and at least one daily report.  
+We used responses from participants' 4x daily EMAs to create datasets of features and labeled outcomes to develop and evaluate three separate classification models to predict future lapses in the next week, the next day, and the next hour, respectively.  EMA compliance over the study was generally good, with participants completing an average of 3.1 (SD=0.6) of the 4 daily EMAs per day or 78% compliance overall.  Participants completed at least 1 EMA on 95% of days.  Across individual weeks in the study, EMA compliance percentages ranged from 75% - 87% for 4x daily and from 92% - 99% for at least 1 daily EMA.  Figure S<!--insert number--> displays compliance percentages over time (by week) across the study period for both 4x daily and at least one daily report.  
 
-Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 future prediction windows for the outcome that were labeled as lapse or no lapse for the week, day, and hour window widths, respectively.  Each of these datasets also contained 286 features that were derived from EMAs that were completed prior to the start of the associated prediction window, baseline demographic characteristics, and prediction window start dates/times as described earlier in the method. Each of these datasets was unbalanced with respect to the outcome such that lapses were observed in 68467 (25.3%) week windows, 21107 (7.7%) day windows, and 1017 (0.3%) hour windows.  As noted previously, we addressed this outcome class imbalance using up-sampling and down-sampling of the outcome during model training.  
+Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 future prediction windows for the outcome that were labeled as lapse or no lapse for the week, day, and hour window widths, respectively.  Each of these datasets also contained 286 features that were derived from 1) EMAs that were completed prior to the start of the associated prediction window, 2) baseline demographic characteristics, and 3) prediction window start dates/times as described earlier in the method. Each of these datasets was unbalanced with respect to the outcome such that lapses were observed in 68,467 (25.3%) week windows, 21,107 (7.7%) day windows, and 1,017 (0.3%) hour windows.  As noted previously, we addressed this outcome class imbalance using up-sampling and down-sampling of the outcome during model training.  
 
  
 ## Model Performance
 
-We developed and evaluated separate classification models to predict future lapses in three windows: the next week, the next day, and the next hour.  We used grouped (by participant), nested cross-validation for each of these prediction windows to train models, select best models, and evaluate those best models  This nested cross-validation resampling strategy used 1 repeat of 10-fold cross validation for the inner loop, and 3 repeats of 10-fold cross validation for the outer loop.  Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC).  Given this, best models were selected based on the median <!--insert note about why median--> auROC across 10 held-out validation folds in the inner loop.  These best models were evaluated using the median auROC across 30 held-out test folds in the outer loop. Of course, consistent with the nested cross-validation resampling method, validation and test sets were completely independent to remove optimization bias from the performance metrics.
+<!--We developed and evaluated separate classification models to predict future lapses in three windows: the next week, the next day, and the next hour.  We used grouped (by participant), nested cross-validation (10-fold cross validation for the inner loop, and 3 repeats of 10-fold cross validation for the outer loop) for each of these prediction windows to train models, select best models, and evaluate those best models.    Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC).  Given this, best models were selected based on the median  auROC across 10 held-out validation folds in the inner loop.  These best models were evaluated using the median auROC across 30 held-out test folds in the outer loop. Of course, consistent with the nested cross-validation resampling method, validation and test sets were completely independent to remove optimization bias from the performance metrics. -->
 
 
 ### auROC
 
-Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC). Best model configurations were selected using median auROCs from the validation folds in the inner loop of the nested cross-validation.  The median auROCs for the best configurations were `round(auc_week |> pull(roc_auc_in) |> median(), 3)`, `round(auc_day |> pull(roc_auc_in) |> median(), 3)`, and `round(auc_hour |> pull(roc_auc_in) |> median(), 3)`
+Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC). Best model configurations were selected using median auROCs from the validation folds in the inner loop of the nested cross-validation.  The median auROCs from these validation folds for the best configurations were high for the week (median=`round(auc_week |> pull(roc_auc_in) |> median(), 3)`, IQR=`round(auc_week |> pull(roc_auc_in) |> IQR(), 3)`, range=`round(auc_week |> pull(roc_auc_in) |> min(), 3)`-`round(auc_week |> pull(roc_auc_in) |> max(), 3)`), day (median=`round(auc_day |> pull(roc_auc_in) |> median(), 3)`, IQR=`round(auc_day |> pull(roc_auc_in) |> IQR(), 3)`, range=`round(auc_day |> pull(roc_auc_in) |> min(), 3)`-`round(auc_day |> pull(roc_auc_in) |> max(), 3)`), and hour (median=`round(auc_hour |> pull(roc_auc_in) |> median(), 3)`, IQR=`round(auc_hour |> pull(roc_auc_in) |> IQR(), 3)`, range=`round(auc_hour |> pull(roc_auc_in) |> min(), 3)`-`round(auc_hour |> pull(roc_auc_in) |> max(), 3)`) prediction windows.
 
-The median auROC across the 30 test folds was high for the week (<!--AUC; range-->), day (<!--AUC; range-->), and hour (<!--AUC; range-->) prediction windows.  The left panel of figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predictions across the 30 held-out test folds.  Figure S2 presents the individual ROC curves for each of the 30 test folds.  
+Model performance metrics from the validation sets (from the inner loop) may contain some optimization bias when used to evaluate best model configurations because they are first used to select those best configurations.  Performance metrics from the test sets (from the outer loop) do not contain this optimization bias.  However, the median auROC across the 30 test folds remained high for the week (median=`round(auc_week |> pull(roc_auc) |> median(), 3)`, IQR=`round(auc_week |> pull(roc_auc) |> IQR(), 3)`, range=`round(auc_week |> pull(roc_auc) |> min(), 3)`-`round(auc_week |> pull(roc_auc) |> max(), 3)`), day (median=`round(auc_day |> pull(roc_auc) |> median(), 3)`, IQR=`round(auc_day |> pull(roc_auc) |> IQR(), 3)`, range=`round(auc_day |> pull(roc_auc) |> min(), 3)`-`round(auc_day |> pull(roc_auc) |> max(), 3)`), and hour (median=`round(auc_hour |> pull(roc_auc) |> median(), 3)`, IQR=`round(auc_hour |> pull(roc_auc) |> IQR(), 3)`, range=`round(auc_hour |> pull(roc_auc) |> min(), 3)`-`round(auc_hour |> pull(roc_auc) |> max(), 3)`) prediction windows.The left panel of figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predictions across these same 30 held-out test folds.  Figure S<!--insert number--> presents the individual ROC curves from each of the 30 test folds.  
 
-We used the auROCs for the week, day and hour models across the 30 test folds to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  
+We used the auROCs across the 30 test folds for the week, day and hour models to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  The median auROCs from  these postierio distributins were    The 95% Bayesian Confidence Intervals (i.e., intervals that have 0.95 probability of containing the true population value for the parameter) for the models were relatively narrow and did not contain 0.5 for any of the three window widths: week [], day [], hour []within which an unobserved parameter value falls with a particular probability. )
 
-<!--Citation for ROC effect size conversion - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
+<!--NOT USED- Citation for ROC effect size conversion - https://journals.copmadrid.org/ejpalc/art/ejpalc2018a5 (.58 = small effect size, .69 = medium effect size, .79 = large effect size, corresponding to Cohen's d of .2, .5, .8 respectively).-->
 
 ### Other Performance Metrics
 
 
-### Feature Importance
+## Feature Importance
 
 
 
@@ -827,8 +831,7 @@ roc_plot <- roc_all %>%
   scale_x_continuous(breaks = seq(0,1,.25),
                      labels = sprintf("%.2f", seq(1,0,-.25))) 
 
-pp_tidy <- pp %>% 
-  tidy(seed = 123)
+
 
 q = c(.025, .5, .975)
 ci <- pp_tidy %>% 
