@@ -7,6 +7,11 @@ fontsize: 11pt
 bibliography: paper_ema.bib
 editor_options: 
   chunk_output_type: console
+execute:
+  echo: false
+  warning: false
+  message: false
+  output: false
 ---
 
 
@@ -19,15 +24,12 @@ ARTICLES
 Articles are reports of original work that embodies scientific excellence in psychiatric medicine and advances in clinical research. Typically, articles will contain new data derived from a sizable series of patients or subjects. The text is usually within 3,500 words, which does not include an abstract of no more than 250 words, a maximum of 5 tables and figures (total), and up to 40 references. Word count includes only the main body of text (i.e., not tables, figures, abstracts or references). Additional tables can be submitted in a separate file as supplemental data for posting online. (See Supplemental Data for what types of data and formats are acceptable for posting online.)
 -->
 
-```{r knitr_settings, include = FALSE}
-# settings
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
-                      message = FALSE)
+```{r knitr_settings}
 options(knitr.kable.NA = '')
 knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
 ```
 
-```{r setup, include = FALSE}
+```{r setup}
 library(knitr)
 # library(yardstick) # for roc_curve
 library(kableExtra)
@@ -71,15 +73,22 @@ switch (Sys.info()[['sysname']],
 ```
 
 ```{r load_data}
-# Table data
+# For table 1
 disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
                         col_types = "ccDDcccccccccc")
+# For table 1
 screen <- read_csv(file.path(path_shared, "screen.csv"), 
                    col_types = cols()) |>
   filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
 lapses <- read_csv(file.path(path_shared, "lapses.csv"), col_types = cols()) |>
   filter(exclude == FALSE)
+
+# lapse labels
+labels_week <- read_csv(file.path(path_processed, "labels_1week.csv"), col_types = cols())
+labels_day <- read_csv(file.path(path_processed, "labels_1day.csv"), col_types = cols())
+labels_hour <- read_csv(file.path(path_processed, "labels_1hour.csv"), col_types = cols())
+
 
 # Predictions data
 preds_week<- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
@@ -96,66 +105,69 @@ auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")
 auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
   select(outer_split_num, contains("auc"))
 
+# ROC curves
+roc_week <- preds_week |>  
+  roc_curve(prob, truth = label) |>  
+  mutate(model = "1week")
+
+roc_day <- preds_day |>  
+  roc_curve(prob, truth = label) |>  
+  mutate(model = "1day")
+
+roc_hour <- preds_hour|>  
+  roc_curve(prob, truth = label) |>  
+  mutate(model = "1hour")
+
+roc_all <- roc_week |>  
+  bind_rows(roc_day) |>  
+  bind_rows(roc_hour)
+
+# PR curves
+pr_week <- preds_week |>  
+  pr_curve(prob, truth = label) |>  
+  mutate(model = "1week")
+
+pr_day <- preds_day |>  
+  pr_curve(prob, truth = label) |>  
+  mutate(model = "1day")
+
+pr_hour <- preds_hour|>  
+  pr_curve(prob, truth = label) |>  
+  mutate(model = "1hour")
+
+pr_all <- pr_week |>  
+  bind_rows(pr_day) |>  
+  bind_rows(pr_hour)
+
+
 # posterior probabilities
 pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
-pp_tidy <- pp %>% 
+pp_tidy <- pp |>  
   tidy(seed = 123)
 
 q = c(.025, .5, .975)
-ci <- pp_tidy %>% 
-  group_by(model) %>% 
+ci <- pp_tidy |>  
+  group_by(model) |>  
   summarize(median = quantile(posterior, probs = q[2]),
             lower = quantile(posterior, probs = q[1]), 
-            upper = quantile(posterior, probs = q[3])) %>% 
+            upper = quantile(posterior, probs = q[3])) |>  
   mutate(model = factor(model, levels = c("week", "day", "hour"),
                         labels = c("Week", "Day", "Hour")),
          y = 1000) |> 
   arrange(model)
 
-pp_diffs <- pp %>% 
+pp_diffs <- pp |>  
   contrast_models(list("hour","hour", "day"), 
                 list("week", "day", "week"))
 
 ci_diffs <- pp_diffs |> 
-  group_by(contrast) %>% 
+  group_by(contrast) |>  
   summarize(median = quantile(difference, probs = q[2]),
             lower = quantile(difference, probs = q[1]), 
             upper = quantile(difference, probs = q[3]))
 
-# ROC curves
-roc_week <- preds_week %>% 
-  roc_curve(prob, truth = label) %>% 
-  mutate(model = "1week")
 
-roc_day <- preds_day %>% 
-  roc_curve(prob, truth = label) %>% 
-  mutate(model = "1day")
-
-roc_hour <- preds_hour%>% 
-  roc_curve(prob, truth = label) %>% 
-  mutate(model = "1hour")
-
-roc_all <- roc_week %>% 
-  bind_rows(roc_day) %>% 
-  bind_rows(roc_hour)
-
-# PR curves
-pr_week <- preds_week %>% 
-  pr_curve(prob, truth = label) %>% 
-  mutate(model = "1week")
-
-pr_day <- preds_day %>% 
-  pr_curve(prob, truth = label) %>% 
-  mutate(model = "1day")
-
-pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = label) %>% 
-  mutate(model = "1hour")
-
-pr_all <- pr_week %>% 
-  bind_rows(pr_day) %>% 
-  bind_rows(pr_hour)
 
 # UPDATE - JJC
 # Local and Global Grouped SHAPS
@@ -163,26 +175,26 @@ shap_local_week <- read_rds(file.path(path_models, "outer_shapsgrp_1week_0_v5_ne
 shap_local_day <- read_rds(file.path(path_models, "outer_shapsgrp_1day_0_v5_nested.rds"))
 shap_local_hour <- read_rds(file.path(path_models, "outer_shapsgrp_1hour_0_v5_nested.rds")) 
 
-shap_global_week <- shap_local_week %>% 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+shap_global_week <- shap_local_week |>  
+  group_by(variable_grp) |>  
+  summarize(mean_value = mean(abs(value)), .groups = "drop") |>  
   arrange(mean_value) |> 
   mutate(model = "Week")
-shap_global_day <- shap_local_day %>% 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+shap_global_day <- shap_local_day |>  
+  group_by(variable_grp) |>  
+  summarize(mean_value = mean(abs(value)), .groups = "drop") |>  
   arrange(mean_value) |> 
   mutate(model = "Day")
-shap_global_hour <- shap_local_hour %>% 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+shap_global_hour <- shap_local_hour |>  
+  group_by(variable_grp) |>  
+  summarize(mean_value = mean(abs(value)), .groups = "drop") |>  
   arrange(mean_value) |> 
   mutate(model = "Hour")
 
 shap_global_all <- shap_global_week |> 
   bind_rows(shap_global_day) |> 
   bind_rows(shap_global_hour) |> 
-  mutate(model = factor(model, levels = c("Week", "Day", "Hour"))) %>% 
+  mutate(model = factor(model, levels = c("Week", "Day", "Hour"))) |>  
   mutate(variable_grp = factor(variable_grp, levels = c("past use (EMA item)", 
                                           "craving (EMA item)", 
                                           "past risky situation (EMA item)", 
@@ -202,8 +214,393 @@ shap_global_all <- shap_global_week |>
                                           "marital (demographic)",
                                           "education (demographic)")))
 
+
 ```
 
+```{r table_1_calcs}
+
+# Calcs to make df for table 1 (demographics and clinical characteristics)
+n_total <- 151
+
+dem <- screen |>  
+  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
+            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1)),
+            min = as.character(min(dem_1, na.rm = TRUE)),
+            max = as.character(max(dem_1, na.rm = TRUE))) |>  
+  mutate(var = "Age",
+         n = as.numeric(""),
+         perc = as.numeric("")) |>  
+  select(var, n, perc, everything()) |>  
+  full_join(screen |>  
+  select(var = dem_2) |>  
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = dem_3) |>  
+  mutate(var = fct_relevel(factor(var, 
+                         c("American Indian/Alaska Native", "Asian", "Black/African American",
+                           "White/Caucasian", "Other/Multiracial")))) |> 
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = dem_4) |>  
+  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
+                         TRUE ~ "Yes"),
+         var = fct_relevel(factor(var, c("Yes", "No")))) |>  
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = dem_5) |>  
+  mutate(var = fct_relevel(factor(var, 
+                         c("Less than high school or GED degree", "High school or GED", 
+                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) |> 
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = dem_6, dem_6_1) |>  
+  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
+                         dem_6_1 == "Part-time" ~ "Employed part-time",
+                         TRUE ~ var)) |>  
+  mutate(var = fct_relevel(factor(var, 
+                         c("Employed full-time", "Employed part-time", "Full-time student",
+                           "Homemaker", "Disabled", "Retired", "Unemployed", 
+                           "Temporarily laid off, sick leave, or maternity leave",
+                           "Other, not otherwise specified")))) |> 
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  summarise(mean = format(round(mean(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            SD = format(round(sd(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            min =format(round(min(dem_7, na.rm = TRUE), 0), big.mark = ","),
+            max = format(round(max(dem_7, na.rm = TRUE), 0), scientific = FALSE, big.mark = ",")) |>  
+  mutate(var = "Personal Income",
+        n = as.numeric(""),
+        perc = as.numeric(""),
+        mean = str_c("$", as.character(mean)),
+        SD = str_c("$", as.character(SD)),
+        min = str_c("$", as.character(min)),
+        max = as.character(max)) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", "min", "max")) |>  
+  full_join(screen |>  
+  select(var = dem_8) |>  
+  mutate(var = case_when(var == "Never Married" ~ "Never married",
+                         TRUE ~ var)) |>  
+  mutate(var = fct_relevel(factor(var, 
+                         c("Never married", "Married", "Divorced", "Separated",
+                           "Widowed")))) |> 
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
+
+auh <- screen |>  
+  summarise(mean = mean(auh_1, na.rm = TRUE),
+            SD = sd(auh_1, na.rm = TRUE),
+            min = min(auh_1, na.rm = TRUE),
+            max = max(auh_1, na.rm = TRUE)) |>  
+  mutate(var = "Age of first drink",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()) |>  
+  full_join(screen |>  
+  summarise(mean = mean(auh_2, na.rm = TRUE),
+            SD = sd(auh_2, na.rm = TRUE),
+            min = min(auh_2, na.rm = TRUE),
+            max = max(auh_2, na.rm = TRUE)) |>  
+  mutate(var = "Age of regular drinking",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", 
+                                             "min", "max")) |>  
+  full_join(screen |>  
+  summarise(mean = mean(auh_3, na.rm = TRUE),
+            SD = sd(auh_3, na.rm = TRUE),
+            min = min(auh_3, na.rm = TRUE),
+            max = max(auh_3, na.rm = TRUE)) |>  
+  mutate(var = "Age at which drinking became problematic",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) |>  
+  full_join(screen |>  
+  summarise(mean = mean(auh_4, na.rm = TRUE),
+            SD = sd(auh_4, na.rm = TRUE),
+            min = min(auh_4, na.rm = TRUE),
+            max = max(auh_4, na.rm = TRUE)) |>  
+  mutate(var = "Age of first quit attempt",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) |>  
+  full_join(screen |>  
+  # filter out 2 people with 100 and 365 reported quit attempts - will make footnote in table
+  filter(auh_5 < 100) |>  
+  summarise(mean = mean(auh_5, na.rm = TRUE),
+            SD = sd(auh_5, na.rm = TRUE),
+            min = min(auh_5, na.rm = TRUE),
+            max = max(auh_5, na.rm = TRUE)) |>  
+  mutate(var = "Number of Quit Attempts*",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) |>  
+  full_join(screen |>  
+  select(var = auh_6_1) |> 
+  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ months)",
+                         TRUE ~ var)) |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_2) |> 
+  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 months)",
+                         TRUE ~ var)) |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_3) |> 
+  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
+                         TRUE ~ var)) |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_4) |> 
+  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
+                         TRUE ~ var)) |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_5) |> 
+  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
+                         TRUE ~ var)) |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_6) |> 
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_6_7) |> 
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = auh_7) |>  
+  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) |> 
+  group_by(var) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) |>  
+  rowwise() |>  
+  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
+  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
+                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) |>  
+  ungroup() |>  
+  summarise(mean = mean(dsm5_total),
+            SD = sd(dsm5_total),
+            min = min(dsm5_total, na.rm = TRUE),
+            max = max(dsm5_total, na.rm = TRUE)) |>  
+  mutate(var = "DSM-5 Alcohol Use Disorder Symptom Count",
+        n = as.numeric(""),
+        perc = as.numeric("")) |>  
+  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
+                                             "min", "max")) |>  
+  full_join(screen |>  
+  select(var = assist_2_1) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_2) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Cannabis (marijuana, pot, grass, hash, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_3) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Cocaine (coke, crack, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_4) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_5) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Inhalants (nitrous, glue, petrol, paint thinner, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_6) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_7) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) |>  
+  full_join(screen |>  
+  select(var = assist_2_8) |> 
+  filter(var != "Never" & !is.na(var)) |>  
+  mutate(var = "Opioids (heroin, morphine, methadone, codeine, etc.)") |>  
+  group_by(var) |>  
+  drop_na() |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) 
+
+lapses_per_subid <- screen |>  
+  select(subid) |>  
+  left_join(lapses |>  
+  tabyl(subid) |>  
+  select(-percent), by = "subid") |>  
+  mutate(n = if_else(is.na(n), 0, n),
+         lapse = if_else(n > 0, "yes", "no")) 
+
+lapse_info <- lapses_per_subid |>  
+  group_by(lapse) |>  
+  rename(var = lapse) |>  
+  mutate(var = factor(var, levels = c("yes", "no"), labels = c("Yes", "No"))) |>  
+  summarise(n = n()) |>  
+  mutate(perc = (n / n_total) * 100,
+         mean = NA_real_,
+         SD = NA_real_,
+         min = NA_real_,
+         max = NA_real_) |>  
+  full_join(lapses_per_subid |>  
+  summarise(mean = mean(n),
+            SD = sd(n),
+            min = min(n),
+            max = max(n)) |>  
+  mutate(var = "Number of reported lapses"), 
+  by = c("var", "mean", "SD", "min", "max"))
+```
+
+```{r table_2_calcs}
+
+# Calcs to create df for table 2 (performance metrics at Youden's Index)
+j_thres_week <- roc_week |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_day <- roc_day |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_hour <- roc_hour |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+
+metrics_week <- preds_week |> 
+  mutate(estimate = if_else(prob > j_thres_week, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
+  rename(week = .estimate,
+         metric = .metric) |> 
+  select(-.estimator)
+
+metrics_day <- preds_day |> 
+  mutate(estimate = if_else(prob > j_thres_day, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
+  rename(day = .estimate,
+         metric = .metric) |> 
+  select(-.estimator)
+
+metrics_hour <- preds_hour |> 
+  mutate(estimate = if_else(prob > j_thres_hour, "Lapse", "No lapse"),
+         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+  conf_mat(truth = label, estimate = estimate) |> 
+  summary() |>
+  mutate(.estimate = round(.estimate, 3)) |> 
+  rename(hour = .estimate,
+         metric = .metric) |> 
+  select(-.estimator)
+
+metrics <- metrics_week |>  
+  full_join(metrics_day, by = "metric") |>  
+  full_join(metrics_hour, by = "metric") |>  
+  filter(metric %in% c("bal_accuracy", "sens", "spec", "ppv", "npv"))
+
+auc <- tibble(metric = "auROC", 
+              week = preds_week |>  roc_auc(prob, truth = label) |>   
+                pull(.estimate) |>  round(3), 
+              day = preds_day |>  roc_auc(prob, truth = label) |>   
+                pull(.estimate) |>  round(3),
+              hour = preds_hour |>  roc_auc(prob, truth = label) |>   
+                pull(.estimate) |>  round(3))
+
+metrics <- metrics |>  
+  bind_rows(auc)
+
+metrics <- metrics[c(6,1,2,5,3,4),]
+```
+
+
+```{r ppv_70_values}
+# PPV and sens values at ppv = .70
+ppv_70 <- pr_all |>  
+  mutate(recall = round(recall, 3),
+         precision = round(precision, 3),
+         .threshold = round(.threshold, 3),
+         model = factor(model,
+                        levels = c("1week", "1day", "1hour"),
+                        labels = c("Week", "Day", "Hour"))) |>  
+  filter(precision == .70) |>  
+  group_by(model, precision) |>  
+  summarise(recall = mean(recall),
+            threshold = mean(.threshold),
+            .groups = "drop")
+```
 # Introduction
 
 <!--GEF overarching notes
@@ -367,341 +764,46 @@ We excluded data from one participant who did not maintain a goal of abstinence 
 
 The final sample of 151 participants included approximately equal numbers of men (N=77; 49%) and women (N=74; 51%) who ranged in age from 21 - 72 years old.  The sample was majority white (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of alcohol use disorder (SD=5.8; range=4-11), a mean of 5.5 previous quit attempts (SD=5.8, range=0-30), and many reported using medications for AUD (N=59; 39%).  The majority of participants (N=84; 56%) reported one or more alcohol lapses during the study period.  The mean number of lapses per participant during the study period was 6.8 (SD=12.0; range=0-75).  Table 1 provides more detail on demographic and clinical characteristics of the sample.  Figure S2 displays a histogram of the number of discrete lapses per participant during their study period. 
 
-
-<!-- Demographics table-->
-```{r}
-footnote_table_dem_a <- "N = 151"
-footnote_table_dem_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior to calculating the mean (M), standard deviation (SD), and range."
-```
-
-```{r table_demo}
-options(knitr.kable.NA = "")
-
-n_total <- 151
-
-dem <- screen %>% 
-  summarise(mean = as.character(round(mean(dem_1, na.rm = TRUE), 1)),
-            SD = as.character(round(sd(dem_1, na.rm = TRUE), 1)),
-            min = as.character(min(dem_1, na.rm = TRUE)),
-            max = as.character(max(dem_1, na.rm = TRUE))) %>% 
-  mutate(var = "Age",
-         n = as.numeric(""),
-         perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()) %>% 
-  full_join(screen %>% 
-  select(var = dem_2) %>% 
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = dem_3) %>% 
-  mutate(var = fct_relevel(factor(var, 
-                         c("American Indian/Alaska Native", "Asian", "Black/African American",
-                           "White/Caucasian", "Other/Multiracial")))) %>%
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = dem_4) %>% 
-  mutate(var = case_when(var == "No, I am not of Hispanic, Latino, or Spanish origin" ~ "No",
-                         TRUE ~ "Yes"),
-         var = fct_relevel(factor(var, c("Yes", "No")))) %>% 
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = dem_5) %>% 
-  mutate(var = fct_relevel(factor(var, 
-                         c("Less than high school or GED degree", "High school or GED", 
-                           "Some college", "2-Year degree", "College degree", "Advanced degree")))) %>%
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = dem_6, dem_6_1) %>% 
-  mutate(var = case_when(dem_6_1 == "Full-time" ~ "Employed full-time",
-                         dem_6_1 == "Part-time" ~ "Employed part-time",
-                         TRUE ~ var)) %>% 
-  mutate(var = fct_relevel(factor(var, 
-                         c("Employed full-time", "Employed part-time", "Full-time student",
-                           "Homemaker", "Disabled", "Retired", "Unemployed", 
-                           "Temporarily laid off, sick leave, or maternity leave",
-                           "Other, not otherwise specified")))) %>%
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  summarise(mean = format(round(mean(dem_7, na.rm = TRUE), 0), big.mark = ","),
-            SD = format(round(sd(dem_7, na.rm = TRUE), 0), big.mark = ","),
-            min =format(round(min(dem_7, na.rm = TRUE), 0), big.mark = ","),
-            max = format(round(max(dem_7, na.rm = TRUE), 0), scientific = FALSE, big.mark = ",")) %>% 
-  mutate(var = "Personal Income",
-        n = as.numeric(""),
-        perc = as.numeric(""),
-        mean = str_c("$", as.character(mean)),
-        SD = str_c("$", as.character(SD)),
-        min = str_c("$", as.character(min)),
-        max = as.character(max)) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", "min", "max")) %>% 
-  full_join(screen %>% 
-  select(var = dem_8) %>% 
-  mutate(var = case_when(var == "Never Married" ~ "Never married",
-                         TRUE ~ var)) %>% 
-  mutate(var = fct_relevel(factor(var, 
-                         c("Never married", "Married", "Divorced", "Separated",
-                           "Widowed")))) %>%
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc"))
-
-auh <- screen %>% 
-  summarise(mean = mean(auh_1, na.rm = TRUE),
-            SD = sd(auh_1, na.rm = TRUE),
-            min = min(auh_1, na.rm = TRUE),
-            max = max(auh_1, na.rm = TRUE)) %>% 
-  mutate(var = "Age of first drink",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()) %>% 
-  full_join(screen %>% 
-  summarise(mean = mean(auh_2, na.rm = TRUE),
-            SD = sd(auh_2, na.rm = TRUE),
-            min = min(auh_2, na.rm = TRUE),
-            max = max(auh_2, na.rm = TRUE)) %>% 
-  mutate(var = "Age of regular drinking",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD", 
-                                             "min", "max")) %>% 
-  full_join(screen %>% 
-  summarise(mean = mean(auh_3, na.rm = TRUE),
-            SD = sd(auh_3, na.rm = TRUE),
-            min = min(auh_3, na.rm = TRUE),
-            max = max(auh_3, na.rm = TRUE)) %>% 
-  mutate(var = "Age at which drinking became problematic",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
-                                             "min", "max")) %>% 
-  full_join(screen %>% 
-  summarise(mean = mean(auh_4, na.rm = TRUE),
-            SD = sd(auh_4, na.rm = TRUE),
-            min = min(auh_4, na.rm = TRUE),
-            max = max(auh_4, na.rm = TRUE)) %>% 
-  mutate(var = "Age of first quit attempt",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
-                                             "min", "max")) %>% 
-  full_join(screen %>% 
-  # filter out 2 people with 100 and 365 reported quit attempts - will make footnote in table
-  filter(auh_5 < 100) %>% 
-  summarise(mean = mean(auh_5, na.rm = TRUE),
-            SD = sd(auh_5, na.rm = TRUE),
-            min = min(auh_5, na.rm = TRUE),
-            max = max(auh_5, na.rm = TRUE)) %>% 
-  mutate(var = "Number of Quit Attempts*",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
-                                             "min", "max")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_1) %>%
-  mutate(var = case_when(var == "Long-Term Residential Treatment (more than 6 months)" ~ "Long-term residential (6+ months)",
-                         TRUE ~ var)) %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_2) %>%
-  mutate(var = case_when(var == "Short-Term Residential Treatment (less than 6 months)" ~ "Short-term residential (< 6 months)",
-                         TRUE ~ var)) %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_3) %>%
-  mutate(var = case_when(var == "Outpatient Treatment" ~ "Outpatient",
-                         TRUE ~ var)) %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_4) %>%
-  mutate(var = case_when(var == "Individual Counseling" ~ "Individual counseling",
-                         TRUE ~ var)) %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_5) %>%
-  mutate(var = case_when(var == "Group Counseling" ~ "Group counseling",
-                         TRUE ~ var)) %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_6) %>%
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_6_7) %>%
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = auh_7) %>% 
-  mutate(var = fct_relevel(factor(var, c("Yes", "No")))) %>%
-  group_by(var) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / sum(n)) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  mutate(across(dsm5_1:dsm5_11, ~ recode(., "No" = 0, "Yes" = 1))) %>% 
-  rowwise() %>% 
-  # calculate dsm5 score by adding up dsm5_1 through dsm5_11
-  mutate(dsm5_total = sum(c(dsm5_1, dsm5_2, dsm5_3, dsm5_4, dsm5_5, dsm5_6, dsm5_7, 
-                            dsm5_8, dsm5_9, dsm5_10, dsm5_11))) %>% 
-  ungroup() %>% 
-  summarise(mean = mean(dsm5_total),
-            SD = sd(dsm5_total),
-            min = min(dsm5_total, na.rm = TRUE),
-            max = max(dsm5_total, na.rm = TRUE)) %>% 
-  mutate(var = "DSM-5 Alcohol Use Disorder Symptom Count",
-        n = as.numeric(""),
-        perc = as.numeric("")) %>% 
-  select(var, n, perc, everything()), by = c("var", "n", "perc", "mean", "SD",
-                                             "min", "max")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_1) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Tobacco products (cigarettes, chewing tobacco, cigars, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_2) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Cannabis (marijuana, pot, grass, hash, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_3) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Cocaine (coke, crack, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_4) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Amphetamine type stimulants (speed, diet pills, ecstasy, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_5) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Inhalants (nitrous, glue, petrol, paint thinner, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_6) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Sedatives or sleeping pills (Valium, Serepax, Rohypnol, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_7) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Hallucinogens (LSD, acid, mushrooms, PCP, Special K, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) %>% 
-  full_join(screen %>% 
-  select(var = assist_2_8) %>%
-  filter(var != "Never" & !is.na(var)) %>% 
-  mutate(var = "Opioids (heroin, morphine, methadone, codeine, etc.)") %>% 
-  group_by(var) %>% 
-  drop_na() %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100), by = c("var", "n", "perc")) 
-
-lapses_per_subid <- screen %>% 
-  select(subid) %>% 
-  left_join(lapses %>% 
-  tabyl(subid) %>% 
-  select(-percent), by = "subid") %>% 
-  mutate(n = if_else(is.na(n), 0, n),
-         lapse = if_else(n > 0, "yes", "no")) 
-
-lapse_info <- lapses_per_subid %>% 
-  group_by(lapse) %>% 
-  rename(var = lapse) %>% 
-  mutate(var = factor(var, levels = c("yes", "no"), labels = c("Yes", "No"))) %>% 
-  summarise(n = n()) %>% 
-  mutate(perc = (n / n_total) * 100,
-         mean = NA_real_,
-         SD = NA_real_,
-         min = NA_real_,
-         max = NA_real_) %>% 
-  full_join(lapses_per_subid %>% 
-  summarise(mean = mean(n),
-            SD = sd(n),
-            min = min(n),
-            max = max(n)) %>% 
-  mutate(var = "Number of reported lapses"), 
-  by = c("var", "mean", "SD", "min", "max"))
-```
+\newpage
+<!--************************************************************************-->
+<!-- Table 1: Demographics and clinical characteristics-->
 
 <!--UPDATE -JJC handle description of outliers for quit attempts-->
-```{r}
-# display and format table
-dem %>% 
-  bind_rows(auh %>% 
-              mutate(across(mean:max, ~round(.x, 1))) %>% 
-              mutate(across(mean:max, ~as.character(.x)))) %>% 
-  bind_rows(lapse_info %>% 
-              mutate(across(mean:max, ~round(.x, 1))) %>% 
-              mutate(across(mean:max, ~as.character(.x)))) %>% 
-  mutate(range = str_c(min, "-", max)) %>%
-  select(-c(min, max)) %>% 
+```{r dem_table}
+#| output: true
+
+footnote_table_dem_a <- "N = 151"
+
+footnote_table_dem_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior to calculating the mean (M), standard deviation (SD), and range."
+
+dem  |>  
+  bind_rows(auh |>  
+              mutate(across(mean:max, ~round(.x, 1))) |>  
+              mutate(across(mean:max, ~as.character(.x)))) |>  
+  bind_rows(lapse_info |>  
+              mutate(across(mean:max, ~round(.x, 1))) |>  
+              mutate(across(mean:max, ~as.character(.x)))) |>  
+  mutate(range = str_c(min, "-", max)) |> 
+  select(-c(min, max)) |>  
   kbl(longtable = TRUE,
       booktabs = TRUE,
       col.names = c("", "N", "%", "M", "SD", "Range"),
       align = c("l", "c", "c", "c", "c", "c"),
       digits = 1,
-      caption = "Demographics and Clinical Characteristics for the Sample") %>%
-  kable_styling() %>% 
-  row_spec(row = 0, align = "c", italic = TRUE) %>% 
-  pack_rows("Sex", 2, 3, bold = FALSE) %>% 
-  pack_rows("Race", 4, 8, bold = FALSE) %>% 
-  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) %>% 
-  pack_rows("Education", 11, 16, bold = FALSE) %>% 
-  pack_rows("Employment", 17, 25, bold = FALSE) %>% 
-  pack_rows("Marital Status", 27, 31, bold = FALSE) %>% 
-  pack_rows("Alcohol Use Disorder Milestones", 32, 35, bold = FALSE) %>% 
-  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) %>% 
-  pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) %>% 
-  pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) %>% 
-  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) %>% 
+      caption = "Demographics and Clinical Characteristics for the Sample") |> 
+  kable_styling() |>  
+  row_spec(row = 0, align = "c", italic = TRUE) |>  
+  pack_rows("Sex", 2, 3, bold = FALSE) |>  
+  pack_rows("Race", 4, 8, bold = FALSE) |>  
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) |>  
+  pack_rows("Education", 11, 16, bold = FALSE) |>  
+  pack_rows("Employment", 17, 25, bold = FALSE) |>  
+  pack_rows("Marital Status", 27, 31, bold = FALSE) |>  
+  pack_rows("Alcohol Use Disorder Milestones", 32, 35, bold = FALSE) |>  
+  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) |>  
+  pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
+  pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
+  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |>  
   footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
            threeparttable = TRUE)
 ```
@@ -723,124 +825,24 @@ Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 
 
 Our primary performance metric for model selection and evaluation was the area on the Receiver Operating Characteristic Curve (auROC). Best model configurations were selected using median auROCs from the validation folds in the inner loop of the nested cross-validation.  The median auROCs from these validation folds for the best configurations were high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> max())`) prediction windows.
 
-Model performance metrics from the validation sets (from the inner loop) may contain some optimization bias when used to evaluate best model configurations because they are first used to select those best configurations.  Performance metrics from the test sets (from the outer loop) do not contain this optimization bias and therefore serve as our primary performance evaluation.  The median auROC across the 30 test folds remained high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> max())`) prediction windows.  The left panel of Figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predictions across these same 30 held-out test folds.  Figure S4 presents the individual ROC curves from each of the 30 test folds.  
+Model performance metrics from the validation sets (from the inner loop) may contain some optimization bias when used to evaluate best model configurations because they are first used to select those best configurations.  Performance metrics from the test sets (from the outer loop) do not contain this optimization bias and therefore serve as our primary performance evaluation.  The median auROC across the 30 test folds remained high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> max())`) prediction windows.  The left panel of Figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predicted lapse probabilities across these same 30 held-out test folds.  Figure S4 presents the individual ROC curves from each of the 30 test folds.  
 
 We used the auROCs across the 30 test folds for the week, day and hour models to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  The median auROCs from these posterior distributions were `r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(median) |> as.numeric())`,  `r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(median) |> as.numeric())`, and `r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(median) |> as.numeric())` for the week, day, and hour prediction windows.  These median values from the Bayesian posterior distributions represent our best estimates for magnitude of the auROC parameter for the models for these three prediction windows.  The 95% Bayesian Confidence Intervals (95% CI; i.e., intervals that have 0.95 posterior probability of containing the true population value for the parameter) for the auROCs for these models were relatively narrow and did not contain 0.5 for any of the three window widths: week [`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(upper) |> as.numeric())`], day [`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(upper) |> as.numeric())`], hour [`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(upper) |> as.numeric())`].  The right panel of Figure 1 displays histograms (and 95% CIs) of the posterior probability distribution for the auROC by prediction window.  
 
-We also used these posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models.  The median increase in auROC for the hour vs. the day model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. day") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the day model.  The median increase in auROC for the hour vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the week model.  The median increase in auROC for the day vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="day vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the day model had superior performance relative to the week model.  We present histograms (and 95% CIs) of the posterior probability distributions for these model contrasts on auROC in figure S5<!--insert number-->.
+We also used these posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models.  The median increase in auROC for the hour vs. the day model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. day") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the day model.  The median increase in auROC for the hour vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the week model.  The median increase in auROC for the day vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="day vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the day model had superior performance relative to the week model.  We present histograms (and 95% CIs) of the posterior probability distributions for these model contrasts on auROC in Figure S5.
 
-### Other Performance Metrics
-
-To rigorously evaluate the performance of these three prediction models, we calculated additional performance metrics beyond the auROC using the same 30 held-out test folds from the nested .  Specifically, we evaluated the sensitivity, specificity, balanced accuracy (i.e., mean of sensitivity and specificity), positive predictive value, and negative predictive value when predicting categorical labels (lapse vs. no lapse) using decision thresholds identified by Youden's Index <!--ref--> to balance the tradeoff between sensitivity and specificity for each of the three models.  Table 2 presents these additional performance metrics by model.  Figure S
-
-
-## Feature Importance
-
-
-
-
-
-
-
-```{r}
-footnote_table_metrics <- "Insert footnote"
-```
-
-```{r table_metrics}
-j_thres_week <- roc_week |> 
-  mutate(j = sensitivity + specificity - 1) |> 
-  slice_max(j) |> 
-#  print() |> 
-  pull(.threshold)
-
-j_thres_day <- roc_day |> 
-  mutate(j = sensitivity + specificity - 1) |> 
-  slice_max(j) |> 
-#  print() |> 
-  pull(.threshold)
-
-j_thres_hour <- roc_hour |> 
-  mutate(j = sensitivity + specificity - 1) |> 
-  slice_max(j) |> 
-#  print() |> 
-  pull(.threshold)
-
-
-metrics_week <- preds_week |> 
-  mutate(estimate = if_else(prob > j_thres_week, "Lapse", "No lapse"),
-         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
-  conf_mat(truth = label, estimate = estimate) |> 
-  summary() |>
-  mutate(.estimate = round(.estimate, 3)) |> 
-  rename(week = .estimate,
-         metric = .metric) |> 
-  select(-.estimator)
-
-metrics_day <- preds_day |> 
-  mutate(estimate = if_else(prob > j_thres_day, "Lapse", "No lapse"),
-         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
-  conf_mat(truth = label, estimate = estimate) |> 
-  summary() |>
-  mutate(.estimate = round(.estimate, 3)) |> 
-  rename(day = .estimate,
-         metric = .metric) |> 
-  select(-.estimator)
-
-metrics_hour <- preds_hour |> 
-  mutate(estimate = if_else(prob > j_thres_hour, "Lapse", "No lapse"),
-         estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
-  conf_mat(truth = label, estimate = estimate) |> 
-  summary() |>
-  mutate(.estimate = round(.estimate, 3)) |> 
-  rename(hour = .estimate,
-         metric = .metric) |> 
-  select(-.estimator)
-
-metrics <- metrics_week %>% 
-  full_join(metrics_day, by = "metric") %>% 
-  full_join(metrics_hour, by = "metric") %>% 
-  filter(metric %in% c("bal_accuracy", "sens", "spec", "ppv", "npv"))
-
-auc <- tibble(metric = "auROC", 
-              week = preds_week %>% roc_auc(prob, truth = label) %>%  
-                pull(.estimate) %>% round(3), 
-              day = preds_day %>% roc_auc(prob, truth = label) %>%  
-                pull(.estimate) %>% round(3),
-              hour = preds_hour %>% roc_auc(prob, truth = label) %>%  
-                pull(.estimate) %>% round(3))
-
-metrics <- metrics %>% 
-  bind_rows(auc)
-
-metrics <- metrics[c(6,1,2,5,3,4),]
-
-metrics %>%
- kbl(col.names = c("Metric", "Week", "Day", "Hour"),
-      booktabs = TRUE,
-      digits = 2,
-      align = c("r"),
-      caption = "Performance Metrics by Model",
-     linesep = "") %>% 
-  row_spec(row = 0, align ="r") %>% 
-  kable_styling(position = "left") %>% 
-  footnote(general=footnote_table_metrics)
-```
-
-\clearpage
-
-
-
-
-<!-- AUC figure by model w/posterior probabilities-->  
-```{r caption_roc_pp}
-fig_caption_roc_pp <- "Insert note here"
-```
+\newpage
+<!--************************************************************************-->
+<!-- Figure 1: ROC and Posterier probability histograms for auROC by model-->  
 
 ```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
+#| output: true
 
-roc_plot <- roc_all %>% 
+fig_caption_roc_pp <- "Insert note here"
+
+roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
-                        labels = c("Week", "Day", "Hour"))) %>% 
+                        labels = c("Week", "Day", "Hour"))) |>  
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = model)) +
   geom_path(linewidth = 1.25, show.legend = FALSE) +
   geom_abline(lty = 3) +
@@ -850,9 +852,9 @@ roc_plot <- roc_all %>%
   scale_x_continuous(breaks = seq(0,1,.25),
                      labels = sprintf("%.2f", seq(1,0,-.25))) 
 
-pp_plot <- pp_tidy %>% 
+pp_plot <- pp_tidy |>  
   mutate(model = factor(model, levels = c("week", "day", "hour"),
-                        labels = c("Week", "Day", "Hour"))) %>%
+                        labels = c("Week", "Day", "Hour"))) |> 
   ggplot() + 
   geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
                  bins = 30) +
@@ -873,48 +875,49 @@ roc_plot + pp_plot +
   theme(legend.position = "bottom")
 ```
 
+\newpage
+
+### Other Performance Metrics
+
+To rigorously evaluate the performance of these three prediction models, we calculated additional performance metrics beyond the auROC using the same 30 held-out test folds from the nested .  Figure S6 displays histograms for the predicted probabilities of lapse for all observations in these test folds separately for each model.  We evaluated the sensitivity, specificity, balanced accuracy (i.e., mean of sensitivity and specificity), positive predictive value, and negative predictive value when these predicted lapse probabilities were used for binary classification (lapse vs. no lapse) with decision thresholds (i.e., the probability cut-point above which an observation is classified as a lapse) identified by Youden's Index <!--ref--> to balance the trade-off between sensitivity and specificity for each of the three models.  Table 2 presents these additional performance metrics by model.    
+
+We also created Precision-Recall curves by aggregating predicted lapse probabilities across the 30 held-out test folds to evaluate the trade-off between positive predictive value (i.e., precision) and sensitivity (i.e., recall) across decision thresholds.   Figure 2 displays these Precision-Recall curves for each of the three models.  The positive predictive value of any model can be increased by increasing the decision threshold for classifying an observation as a lapse.  However, increasing the decision threshold will also lower the model's sensitivity.  Table 2 reported performance metrics (including sensitivity and positive predictive values) at decision thresholds selected with respect to Youden's Index.  However, other thresholds can be considered depending on the intended application for the model and these curves depict the tra
+
+Figure 2 displays Precision-Recall curves for each of the three models that were created by aggregating predicted lapse probabilities across the 30 held-out test folds.  The positive predictive value (i.e., precision) of any model can be increased by increasing the decision threshold for classifying an observation as a lapse.  However, increasing the decision threshold will also lower the model's sensitivity (i.e., recall).  Table 2 reported performance metrics (including sensitivity and positive predictive values) at decision thresholds selected with respect to Youden's Index.  However, other thresholds can be considered depending on the intended application for the model and these Precision-Recall curves depict the trade-off between positive predicitve value and sensitivity across decision thresholds.   For example, the dotted lines in Figure 2 depict the sensitivities (##, ##, and ## for week, day, and hour models) associated with decision thresholds that yield 0.75 positive predictive value for each of those models.  
+
+<!--************************************************************************-->
+<!-- Table 2: Performance metrics-->
+
+```{r table_2}
+#| output: true
 
 
+footnote_table_metrics <- "Insert footnote"
 
-<!-- PR-->
-<!-- get exact sensitivity at .75 PPV -->
-<!-- no output-->
-```{r}
-
-#| output: false
-
-ppv_70 <- pr_all %>% 
-  mutate(recall = round(recall, 3),
-         precision = round(precision, 3),
-         .threshold = round(.threshold, 3),
-         model = factor(model,
-                        levels = c("1week", "1day", "1hour"),
-                        labels = c("Week", "Day", "Hour"))) %>% 
-  filter(precision == .70) %>% 
-  group_by(model, precision) %>% 
-  summarise(recall = mean(recall),
-            threshold = mean(.threshold),
-            .groups = "drop")
+metrics |> 
+ kbl(col.names = c("Metric", "Week", "Day", "Hour"),
+      booktabs = TRUE,
+      digits = 2,
+      align = c("r"),
+      caption = "Performance Metrics by Model",
+     linesep = "") |>  
+  row_spec(row = 0, align ="r") |>  
+  kable_styling(position = "left") |>  
+  footnote(general=footnote_table_metrics)
 ```
 
-<!-- Week sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Week"), recall), 3)` -->
-
-<!-- Day sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Day"), recall), 3)` -->
-
-<!-- Hour sensitivity at .70 PPV =  `r round(pull(filter(ppv_70, model == "Hour"), recall), 3)` -->
-
-
-
-<!-- PR curves-->
-
-```{r caption_pr}
-fig_caption_pr <- "Precision-Recall Curves for models."
-```
+\newpage
+<!--************************************************************************-->
+<!-- Figure 2: PR curves by model-->
 
 ```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
-pr_all %>% 
+#| output: true
+
+fig_caption_pr <- "Precision-Recall Curves for models."
+
+pr_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
-                        labels = c("Week", "Day", "Hour"))) %>%
+                        labels = c("Week", "Day", "Hour"))) |> 
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path(linewidth = 1.25) +
   geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
@@ -934,16 +937,31 @@ pr_all %>%
        y = "Positive Predictive Value (Precision)")
 ```
 
+\newpage
 
 
-<!-- SHAP Importance figure-->
-```{r caption_shap}
-fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
-```
+## Feature Importance
+
+
+<!--
+#| fig-cap: 
+#|   - "Speed and Stopping Distances of Cars"
+
+https://quarto.org/docs/authoring/figures.html
+-->
+
+<!--************************************************************************-->
+<!-- Figure 3: SHAP Importance figure-->
 
 ```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
-shap_global_all %>% 
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) %>% 
+#| output: true
+
+
+fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+
+
+shap_global_all |>  
+  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
   ggplot() +
   geom_bar(aes(x = variable_grp, y = mean_value, fill = model), stat = "identity", alpha = .4) +
   ylab("Mean |SHAP| value") +

@@ -1,18 +1,7 @@
 ---
-output:
-  pdf_document:
-    includes:
-      in_header: !expr file.path("..", "lab_support", "rmd_templates", "latex", "header.tex")
-    template: !expr file.path"..", "lab_support", "rmd_templates", "latex", "nih_latex_template.tex")
-    keep_tex: no
-    number_sections: no
-    latex_engine: xelatex
-    citation_package: default
-header-includes:
-  - \usepackage{helvet}
-  - \usepackage[T1]{fontenc}
-  - \renewcommand\familydefault{\sfdefault}
-csl: "national-library-of-medicine-grant-proposals.csl"
+title: "Supplemental Materials"
+format: pdf
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
@@ -71,114 +60,251 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-```{r load_consort_data}
+```{r load_model_data}
+# Table data
 disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
                         col_types = "ccDDcccccccccc")
-```
+screen <- read_csv(file.path(path_shared, "screen.csv"), 
+                   col_types = cols()) |>
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
-
-```{r load_model_data}
-# AUCs for 10x10 folds data
-auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-
-# posterior probabilites
-pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
+lapses <- read_csv(file.path(path_shared, "lapses.csv"), col_types = cols()) |>
+  filter(exclude == FALSE)
 
 # Predictions data
-preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
-  select(outer_split_num, prob = prob_beta, label)
-preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
-  select(outer_split_num, prob = prob_beta, label)
-preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
-  select(outer_split_num, prob = prob_beta, label) 
+preds_week<- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_day<- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_hour<- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
 
-# roc overall
-roc_week_full <- preds_week %>% 
-  roc_curve(prob, truth = truth)
+auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
 
-roc_day_full <- preds_day %>% 
-  roc_curve(prob, truth = truth)
+# posterior probabilities
+pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
-roc_hour_full <- preds_hour%>% 
-  roc_curve(prob, truth = truth)
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
 
-# rocs per fold
-roc_week <- preds_week %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+q = c(.025, .5, .975)
+ci <- pp_tidy %>% 
+  group_by(model) %>% 
+  summarize(median = quantile(posterior, probs = q[2]),
+            lower = quantile(posterior, probs = q[1]), 
+            upper = quantile(posterior, probs = q[3])) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
+                        labels = c("Week", "Day", "Hour")),
+         y = 1000) |> 
+  arrange(model)
 
-roc_day <- preds_day %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "day")
+pp_diffs <- pp %>% 
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week"))
 
-roc_hour <- preds_hour %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+ci_diffs <- pp_diffs |> 
+  group_by(contrast) %>% 
+  summarize(median = quantile(difference, probs = q[2]),
+            lower = quantile(difference, probs = q[1]), 
+            upper = quantile(difference, probs = q[3]))
 
-# pr overall
-pr_week_full <- preds_week %>% 
-  pr_curve(prob, truth = truth)
+# ROC curves
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1week")
 
-pr_day_full <- preds_day %>% 
-  pr_curve(prob, truth = truth)
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1day")
 
-pr_hour_full <- preds_hour%>% 
-  pr_curve(prob, truth = truth)
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1hour")
 
-# prs per fold
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+# PR curves
 pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 pr_all <- pr_week %>% 
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
 
-#raw SHAPs
-shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
+# UPDATE - JJC
+# Local and Global Grouped SHAPS
+shap_local_week <- read_rds(file.path(path_models, "outer_shapsgrp_1week_0_v5_nested.rds")) 
+shap_local_day <- read_rds(file.path(path_models, "outer_shapsgrp_1day_0_v5_nested.rds"))
+shap_local_hour <- read_rds(file.path(path_models, "outer_shapsgrp_1hour_0_v5_nested.rds")) 
 
-# Grouped SHAPS
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
-shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+shap_global_week <- shap_local_week %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Week")
+shap_global_day <- shap_local_day %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Day")
+shap_global_hour <- shap_local_hour %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Hour")
+
+shap_global_all <- shap_global_week |> 
+  bind_rows(shap_global_day) |> 
+  bind_rows(shap_global_hour) |> 
+  mutate(model = factor(model, levels = c("Week", "Day", "Hour"))) %>% 
+  mutate(variable_grp = factor(variable_grp, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)",
+                                          "lapse day (other)",
+                                          "lapse hour (other)",
+                                          "missing surveys (other)",
+                                          "age (demographic)",
+                                          "sex (demographic)",
+                                          "race (demographic)",
+                                          "marital (demographic)",
+                                          "education (demographic)")))
 
 # lapse labels
-labels_week <- read_csv(file.path(path_data_ema, "labels_1week.csv"), col_types = cols())
-labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = cols())
-labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
+labels_week <- read_csv(file.path(path_processed, "labels_1week.csv"), col_types = cols())
+labels_day <- read_csv(file.path(path_processed, "labels_1day.csv"), col_types = cols())
+labels_hour <- read_csv(file.path(path_processed, "labels_1hour.csv"), col_types = cols())
+
+```
+
+
+
+
+```{r }
+# OLD version
+# AUCs for 10x10 folds data
+# auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# 
+# # posterior probabilites
+# pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
+# 
+# # Predictions data
+# preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+#   select(outer_split_num, prob = prob_beta, label)
+# preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+#   select(outer_split_num, prob = prob_beta, label)
+# preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
+#   select(outer_split_num, prob = prob_beta, label) 
+# 
+# # roc overall
+# roc_week_full <- preds_week %>% 
+#   roc_curve(prob, truth = truth)
+# 
+# roc_day_full <- preds_day %>% 
+#   roc_curve(prob, truth = truth)
+# 
+# roc_hour_full <- preds_hour%>% 
+#   roc_curve(prob, truth = truth)
+# 
+# # rocs per fold
+# roc_week <- preds_week %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "week")
+# 
+# roc_day <- preds_day %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "day")
+# 
+# roc_hour <- preds_hour %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "week")
+# 
+# # pr overall
+# pr_week_full <- preds_week %>% 
+#   pr_curve(prob, truth = truth)
+# 
+# pr_day_full <- preds_day %>% 
+#   pr_curve(prob, truth = truth)
+# 
+# pr_hour_full <- preds_hour%>% 
+#   pr_curve(prob, truth = truth)
+# 
+# # prs per fold
+# pr_week <- preds_week %>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1week")
+# 
+# pr_day <- preds_day %>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1day")
+# 
+# pr_hour <- preds_hour%>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1hour")
+# 
+# pr_all <- pr_week %>% 
+#   bind_rows(pr_day) %>% 
+#   bind_rows(pr_hour)
+# 
+# #raw SHAPs
+# shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# 
+# # Grouped SHAPS
+# shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+# shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+# shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+# 
+# # lapse labels
+# labels_week <- read_csv(file.path(path_data_ema, "labels_1week.csv"), col_types = cols())
+# labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = cols())
+# labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
 ```
 
 <!--***************************************************************************-->
@@ -503,6 +629,8 @@ pp %>%
 
 
 
+<!--***************************************************************************-->
+<!-- THIS WILL BE FIGURE S6-->
 <!--lapse predictions faceted by model-->
 
 ```{r}
