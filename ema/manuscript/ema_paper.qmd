@@ -16,6 +16,7 @@ execute:
 
 
 
+
 <!--General notes
 Considering American Journal of Psychiatry
 https://ajp.psychiatryonline.org/ajp_ifora
@@ -23,11 +24,6 @@ https://ajp.psychiatryonline.org/ajp_ifora
 ARTICLES
 Articles are reports of original work that embodies scientific excellence in psychiatric medicine and advances in clinical research. Typically, articles will contain new data derived from a sizable series of patients or subjects. The text is usually within 3,500 words, which does not include an abstract of no more than 250 words, a maximum of 5 tables and figures (total), and up to 40 references. Word count includes only the main body of text (i.e., not tables, figures, abstracts or references). Additional tables can be submitted in a separate file as supplemental data for posting online. (See Supplemental Data for what types of data and formats are acceptable for posting online.)
 -->
-
-```{r knitr_settings}
-options(knitr.kable.NA = '')
-knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
-```
 
 ```{r setup}
 library(knitr)
@@ -46,6 +42,10 @@ library(cowplot)
 theme_set(theme_classic()) 
 ```
 
+```{r knitr_settings}
+options(knitr.kable.NA = '')
+knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+```
 
 ```{r paths}
 switch (Sys.info()[['sysname']],
@@ -54,23 +54,27 @@ switch (Sys.info()[['sysname']],
           path_input <- "P:/studydata/risk/chtc/ema"
           path_processed <- "P:/studydata/risk/data_processed/ema"
           path_models <- "P:/studydata/risk/models/ema"
-          path_shared <- "P:/studydata/risk/data_processed/shared"},
+          path_shared <- "P:/studydata/risk/data_processed/shared"
+          path_manuscript <- "P:/studydata/risk/manuscripts/EMA"},
 
         # IOS paths
         Darwin = {
           path_input <- "/Volumes/private/studydata/risk/chtc/ema"
           path_processed <- "/Volumes/private/studydata/risk/data_processed/ema"
           path_models <- "/Volumes/private/studydata/risk/models/ema"
-          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"},
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"
+          path_manuscript <- "/Volumes/private/studydata/risk/manuscripts/EMA"},
         
         # Linux paths
         Linux = {
           path_input <- "~/mnt/private/studydata/risk/chtc/ema"
           path_processed <- "~/mnt/private/studydata/risk/data_processed/ema"
           path_models <- "~/mnt/private/studydata/risk/models/ema"
-          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"
+          path_manuscript <- "~/mnt/private/studydata/risk/manuscripts/EMA"}
         )
 ```
+
 
 ```{r load_data}
 # For table 1
@@ -168,9 +172,7 @@ ci_diffs <- pp_diffs |>
             upper = quantile(difference, probs = q[3]))
 
 
-
-# UPDATE - JJC
-# Local and Global Grouped SHAPS
+# SHAPS
 shap_local_week <- read_rds(file.path(path_models, "outer_shapsgrp_1week_0_v5_nested.rds")) 
 shap_local_day <- read_rds(file.path(path_models, "outer_shapsgrp_1day_0_v5_nested.rds"))
 shap_local_hour <- read_rds(file.path(path_models, "outer_shapsgrp_1hour_0_v5_nested.rds")) 
@@ -190,7 +192,6 @@ shap_global_hour <- shap_local_hour |>
   summarize(mean_value = mean(abs(value)), .groups = "drop") |>  
   arrange(mean_value) |> 
   mutate(model = "Hour")
-
 shap_global_all <- shap_global_week |> 
   bind_rows(shap_global_day) |> 
   bind_rows(shap_global_hour) |> 
@@ -213,8 +214,6 @@ shap_global_all <- shap_global_week |>
                                           "race (demographic)",
                                           "marital (demographic)",
                                           "education (demographic)")))
-
-
 ```
 
 ```{r table_1_calcs}
@@ -586,6 +585,7 @@ metrics <- metrics[c(6,1,2,5,3,4),]
 ```
 
 
+
 ```{r ppv_70_values}
 # PPV and sens values at ppv = .70
 ppv_70 <- pr_all |>  
@@ -833,12 +833,13 @@ We also used these posterior probability distributions for the auROCs of the thr
 
 \newpage
 <!--************************************************************************-->
-<!-- Figure 1: ROC and Posterier probability histograms for auROC by model-->  
+<!-- Figure 1: ROC and Posterior probability histograms for auROC by model-->  
+<!--ADD FIGURE CAPTION-->
 
-```{r fig_roc_pp, fig.cap = fig_caption_roc_pp, fig.height = 4.5, fig.width = 7}
+```{r fig_1_roc-pp}
 #| output: true
-
-fig_caption_roc_pp <- "Insert note here"
+#| fig-cap: 
+#|   - "Receiver Operating Characteristic Curves and Area Under Curves by Model. ADD CAPTION INFO"
 
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -883,8 +884,9 @@ To rigorously evaluate the performance of these three prediction models, we calc
 
 We also created Precision-Recall curves by aggregating predicted lapse probabilities across the 30 held-out test folds to evaluate the trade-off between positive predictive value (i.e., precision) and sensitivity (i.e., recall) across decision thresholds.   Figure 2 displays these Precision-Recall curves for each of the three models.  The positive predictive value of any model can be increased by increasing the decision threshold for classifying an observation as a lapse.  However, increasing the decision threshold will also lower the model's sensitivity.  Table 2 reported performance metrics (including sensitivity and positive predictive values) at decision thresholds selected with respect to Youden's Index.  However, other thresholds can be considered depending on the intended application for the model and these curves depict the tra
 
-Figure 2 displays Precision-Recall curves for each of the three models that were created by aggregating predicted lapse probabilities across the 30 held-out test folds.  The positive predictive value (i.e., precision) of any model can be increased by increasing the decision threshold for classifying an observation as a lapse.  However, increasing the decision threshold will also lower the model's sensitivity (i.e., recall).  Table 2 reported performance metrics (including sensitivity and positive predictive values) at decision thresholds selected with respect to Youden's Index.  However, other thresholds can be considered depending on the intended application for the model and these Precision-Recall curves depict the trade-off between positive predicitve value and sensitivity across decision thresholds.   For example, the dotted lines in Figure 2 depict the sensitivities (##, ##, and ## for week, day, and hour models) associated with decision thresholds that yield 0.75 positive predictive value for each of those models.  
+Figure 2 displays Precision-Recall curves for each of the three models that were created by aggregating predicted lapse probabilities across the 30 held-out test folds.  The positive predictive value (i.e., precision) of any model can be increased by increasing the decision threshold for classifying an observation as a lapse.  However, increasing the decision threshold will also lower the model's sensitivity (i.e., recall).  Table 2 reported performance metrics (including sensitivity and positive predictive values) at decision thresholds selected with respect to Youden's Index.  However, other thresholds can be considered depending on the intended application for the model and these Precision-Recall curves depict the trade-off between positive predictive value and sensitivity across decision thresholds.   For example, the dotted lines in Figure 2 depict the sensitivities (`r sprintf("%1.2f", ppv_70 |> filter(model == "Week") |> pull(recall)`, `r sprintf("%1.2f", ppv_70 |> filter(model == "Day") |> pull(recall)`, and `r sprintf("%1.2f", ppv_70 |> filter(model == "Hour") |> pull(recall)` for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models.  
 
+\newpage
 <!--************************************************************************-->
 <!-- Table 2: Performance metrics-->
 
@@ -909,11 +911,12 @@ metrics |>
 \newpage
 <!--************************************************************************-->
 <!-- Figure 2: PR curves by model-->
-
-```{r fig_pr, fig.cap = fig_caption_pr, fig.height=7}
+<!--UPDATE:  NEED TO FIX LINES.  THEY DONT LINE UP!-->
+```{r fig_2_pr}
 #| output: true
+#| fig-cap: 
+#| - "Precision-Recall Curves by Model.  ADD CAPTION TEXT"
 
-fig_caption_pr <- "Precision-Recall Curves for models."
 
 pr_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"),
@@ -942,23 +945,13 @@ pr_all |>
 
 ## Feature Importance
 
-
-<!--
-#| fig-cap: 
-#|   - "Speed and Stopping Distances of Cars"
-
-https://quarto.org/docs/authoring/figures.html
--->
-
 <!--************************************************************************-->
 <!-- Figure 3: SHAP Importance figure-->
-
-```{r fig_shap, fig.cap = fig_caption_shapgrouped, fig.height=7}
+<!--NEED TO UPDATE FIGURE CAPTION-->
+```{r fig_3_shap}
 #| output: true
-
-
-fig_caption_shapgrouped <- "Variable Importance (SHAP Values) for each Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
-
+#| fig-cap: 
+#| - "Variable Importance (SHAP Values) by Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
 
 shap_global_all |>  
   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
@@ -970,85 +963,81 @@ shap_global_all |>
 ```
 
 
+```{r fig_shap_local}
+# from chunk arguments
+# , fig.width = 10, fig.height = 7, out.extra='angle=90'
 
 
-<!-- Local SHAP values -->
-```{r caption_shap_local}
-fig_caption_shap_local <- "Insert Note here."
-```
-
-```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
-
-shap_levels <- shap_global_all |> 
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
-  pull(variable_grp) |> 
-  levels()
-
-# downsample to 2% of observations for each plot (COULD INCREASE?)
-ids_week <- shap_local_week |> 
-  pull(id_obs) |> 
-  unique()
-ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
-ids_day <- shap_local_day |> 
-  pull(id_obs) |> 
-  unique()
-ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
-ids_hour <- shap_local_hour |> 
-  pull(id_obs) |> 
-  unique()
-ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
-
-plot_shap_week <- shap_local_week |> 
-  filter(id_obs %in% ids_week) |> 
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "red") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(model == "Week"),
-            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
-            color = "red") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_day <- shap_local_day |> 
-  filter(ID %in% ids_day) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "green") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "day"),
-            aes(x = group, y = -2, label = round(mean_value, 2)),
-            color = "green") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_hour <- shap_local_hour |> 
-  filter(ID %in% ids_hour) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "blue") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "hour"),
-            aes(x = group, y = -1.75, label = round(mean_value, 2)),
-            color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
-
-plot_shap_week + plot_shap_day + plot_shap_hour
+# shap_levels <- shap_global_all |> 
+#   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
+#   pull(variable_grp) |> 
+#   levels()
+# 
+# # downsample to 2% of observations for each plot (COULD INCREASE?)
+# ids_week <- shap_local_week |> 
+#   pull(id_obs) |> 
+#   unique()
+# ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
+# ids_day <- shap_local_day |> 
+#   pull(id_obs) |> 
+#   unique()
+# ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
+# ids_hour <- shap_local_hour |> 
+#   pull(id_obs) |> 
+#   unique()
+# ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
+# 
+# plot_shap_week <- shap_local_week |> 
+#   filter(id_obs %in% ids_week) |> 
+#   mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
+#   ggplot(mapping = aes(x = variable_grp, y = value)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+#                      color = "red") +
+#   geom_hline(yintercept = 0) +
+#   geom_text(data = shap_global_all |> filter(model == "Week"),
+#             aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
+#             color = "red") +
+#   scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+#   ylab("SHAP value") +
+#   xlab("") +
+#   coord_flip() 
+# 
+# plot_shap_day <- shap_local_day |> 
+#   filter(ID %in% ids_day) |> 
+#   mutate(group = factor(group, levels = shap_levels)) |> 
+#   ggplot(mapping = aes(x = group, y = shap)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+#                      color = "green") +
+#   geom_hline(yintercept = 0) +
+#   geom_text(data = shap_global_all |> filter(window == "day"),
+#             aes(x = group, y = -2, label = round(mean_value, 2)),
+#             color = "green") +
+#   scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+#   ylab("SHAP value") +
+#   xlab("") +
+#   coord_flip() 
+# 
+# plot_shap_hour <- shap_local_hour |> 
+#   filter(ID %in% ids_hour) |> 
+#   mutate(group = factor(group, levels = shap_levels)) |> 
+#   ggplot(mapping = aes(x = group, y = shap)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+#                      color = "blue") +
+#   geom_hline(yintercept = 0) +
+#   geom_text(data = shap_global_all |> filter(window == "hour"),
+#             aes(x = group, y = -1.75, label = round(mean_value, 2)),
+#             color = "black") +
+#   scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+#   ylab("SHAP value") +
+#   xlab("") +
+#   coord_flip() 
+# 
+# plot_shap_week + plot_shap_day + plot_shap_hour
 ```
 
 
 
-
+\newpage
 
 # Discussion
 
