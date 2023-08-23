@@ -827,7 +827,7 @@ Our primary performance metric for model selection and evaluation was the area o
 
 Model performance metrics from the validation sets (from the inner loop) may contain some optimization bias when used to evaluate best model configurations because they are first used to select those best configurations.  Performance metrics from the test sets (from the outer loop) do not contain this optimization bias and therefore serve as our primary performance evaluation.  The median auROC across the 30 test folds remained high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> max())`) prediction windows.  The left panel of Figure 1 displays the Receiver Operating Characteristic curves by prediction window derived by aggregating predicted lapse probabilities across these same 30 held-out test folds.  Figure S4 presents the individual ROC curves from each of the 30 test folds.  
 
-We used the auROCs across the 30 test folds for the week, day and hour models to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of figure 1.  The median auROCs from these posterior distributions were `r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(median) |> as.numeric())`,  `r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(median) |> as.numeric())`, and `r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(median) |> as.numeric())` for the week, day, and hour prediction windows.  These median values from the Bayesian posterior distributions represent our best estimates for magnitude of the auROC parameter for the models for these three prediction windows.  The 95% Bayesian Confidence Intervals (95% CI; i.e., intervals that have 0.95 posterior probability of containing the true population value for the parameter) for the auROCs for these models were relatively narrow and did not contain 0.5 for any of the three window widths: week [`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(upper) |> as.numeric())`], day [`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(upper) |> as.numeric())`], hour [`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(upper) |> as.numeric())`].  The right panel of Figure 1 displays histograms (and 95% CIs) of the posterior probability distribution for the auROC by prediction window.  
+We used the auROCs across the 30 test folds for the week, day and hour models to estimate the posterior probability distribution for the auROC for each model.  These posterior probability distributions are displayed by prediction window in the right panels of Figure 1.  The median auROCs from these posterior distributions were `r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(median) |> as.numeric())`,  `r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(median) |> as.numeric())`, and `r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(median) |> as.numeric())` for the week, day, and hour prediction windows.  These median values from the Bayesian posterior distributions represent our best estimates for magnitude of the auROC parameter for the models for these three prediction windows.  The 95% Bayesian Confidence Intervals (95% CI; i.e., intervals that have 0.95 posterior probability of containing the true population value for the parameter) for the auROCs for these models were relatively narrow and did not contain 0.5 for any of the three window widths: week [`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(upper) |> as.numeric())`], day [`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(upper) |> as.numeric())`], hour [`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(upper) |> as.numeric())`].  The right panel of Figure 1 displays histograms (and 95% CIs) of the posterior probability distribution for the auROC by prediction window.  
 
 We also used these posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models.  The median increase in auROC for the hour vs. the day model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. day") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the day model.  The median increase in auROC for the hour vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the week model.  The median increase in auROC for the day vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="day vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the day model had superior performance relative to the week model.  We present histograms (and 95% CIs) of the posterior probability distributions for these model contrasts on auROC in Figure S5.
 
@@ -968,6 +968,87 @@ shap_global_all |>
   xlab("") +
   coord_flip()
 ```
+
+
+
+
+<!-- Local SHAP values -->
+```{r caption_shap_local}
+fig_caption_shap_local <- "Insert Note here."
+```
+
+```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
+
+shap_levels <- shap_global_all |> 
+  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
+  pull(variable_grp) |> 
+  levels()
+
+# downsample to 2% of observations for each plot (COULD INCREASE?)
+ids_week <- shap_local_week |> 
+  pull(id_obs) |> 
+  unique()
+ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
+ids_day <- shap_local_day |> 
+  pull(id_obs) |> 
+  unique()
+ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
+ids_hour <- shap_local_hour |> 
+  pull(id_obs) |> 
+  unique()
+ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
+
+plot_shap_week <- shap_local_week |> 
+  filter(id_obs %in% ids_week) |> 
+  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = variable_grp, y = value)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "red") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(model == "Week"),
+            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
+            color = "red") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_day <- shap_local_day |> 
+  filter(ID %in% ids_day) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "green") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(window == "day"),
+            aes(x = group, y = -2, label = round(mean_value, 2)),
+            color = "green") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_hour <- shap_local_hour |> 
+  filter(ID %in% ids_hour) |> 
+  mutate(group = factor(group, levels = shap_levels)) |> 
+  ggplot(mapping = aes(x = group, y = shap)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
+                     color = "blue") +
+  geom_hline(yintercept = 0) +
+  geom_text(data = shap_global_all |> filter(window == "hour"),
+            aes(x = group, y = -1.75, label = round(mean_value, 2)),
+            color = "black") +
+  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
+  ylab("SHAP value") +
+  xlab("") +
+  coord_flip() 
+
+plot_shap_week + plot_shap_day + plot_shap_hour
+```
+
+
+
+
 
 # Discussion
 
