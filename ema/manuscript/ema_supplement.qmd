@@ -1,26 +1,31 @@
 ---
-output:
-  pdf_document:
-    includes:
-      in_header: !expr file.path("..", "lab_support", "rmd_templates", "latex", "header.tex")
-    template: !expr file.path"..", "lab_support", "rmd_templates", "latex", "nih_latex_template.tex")
-    keep_tex: no
-    number_sections: no
-    latex_engine: xelatex
-    citation_package: default
-header-includes:
-  - \usepackage{helvet}
-  - \usepackage[T1]{fontenc}
-  - \renewcommand\familydefault{\sfdefault}
-csl: "national-library-of-medicine-grant-proposals.csl"
+title: "Supplemental Materials"
+format: pdf
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
 fontsize: 11pt
 bibliography: paper_ema.bib
 editor_options: 
   chunk_output_type: console
+execute:
+  echo: false
+  warning: false
+  message: false
+  output: false
 ---
 
-```{r knitr_settings, include = FALSE}
+
+<!--
+#| fig-cap: 
+#|   - "Speed and Stopping Distances of Cars"
+
+https://quarto.org/docs/authoring/figures.html
+-->
+
+
+
+
+```{r knitr_settings}
 # settings
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
                       message = FALSE)
@@ -71,123 +76,263 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-```{r load_consort_data}
+```{r load_model_data}
+# Table data
 disposition <- read_csv(file.path(path_processed, "disposition.csv"), 
                         col_types = "ccDDcccccccccc")
-```
+screen <- read_csv(file.path(path_shared, "screen.csv"), 
+                   col_types = cols()) |>
+  filter(subid %in% subset(disposition, analysis == "yes")$subid)
 
-
-```{r load_model_data}
-# AUCs for 10x10 folds data
-auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
-  select(outer_split_num, roc_auc)
-
-# posterior probabilites
-pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
+lapses <- read_csv(file.path(path_shared, "lapses.csv"), col_types = cols()) |>
+  filter(exclude == FALSE)
 
 # Predictions data
-preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
-  select(outer_split_num, prob = prob_beta, label)
-preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
-  select(outer_split_num, prob = prob_beta, label)
-preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
-  select(outer_split_num, prob = prob_beta, label) 
+preds_week<- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_day<- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
+preds_hour<- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, label, prob = prob_beta)
 
-# roc overall
-roc_week_full <- preds_week %>% 
-  roc_curve(prob, truth = truth)
+auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
+auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+  select(outer_split_num, contains("auc"))
 
-roc_day_full <- preds_day %>% 
-  roc_curve(prob, truth = truth)
+# posterior probabilities
+pp <- read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
 
-roc_hour_full <- preds_hour%>% 
-  roc_curve(prob, truth = truth)
+pp_tidy <- pp %>% 
+  tidy(seed = 123)
 
-# rocs per fold
-roc_week <- preds_week %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+q = c(.025, .5, .975)
+ci <- pp_tidy %>% 
+  group_by(model) %>% 
+  summarize(median = quantile(posterior, probs = q[2]),
+            lower = quantile(posterior, probs = q[1]), 
+            upper = quantile(posterior, probs = q[3])) %>% 
+  mutate(model = factor(model, levels = c("week", "day", "hour"),
+                        labels = c("Week", "Day", "Hour")),
+         y = 1000) |> 
+  arrange(model)
 
-roc_day <- preds_day %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "day")
+pp_diffs <- pp %>% 
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week"))
 
-roc_hour <- preds_hour %>%
-  nest(.by = split_num, .key = "preds") %>% 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
-                                             truth = truth))) %>% 
-  mutate(model = "week")
+ci_diffs <- pp_diffs |> 
+  group_by(contrast) %>% 
+  summarize(median = quantile(difference, probs = q[2]),
+            lower = quantile(difference, probs = q[1]), 
+            upper = quantile(difference, probs = q[3]))
 
-# pr overall
-pr_week_full <- preds_week %>% 
-  pr_curve(prob, truth = truth)
+# ROC curves
+roc_week <- preds_week %>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1week")
 
-pr_day_full <- preds_day %>% 
-  pr_curve(prob, truth = truth)
+roc_day <- preds_day %>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1day")
 
-pr_hour_full <- preds_hour%>% 
-  pr_curve(prob, truth = truth)
+roc_hour <- preds_hour%>% 
+  roc_curve(prob, truth = label) %>% 
+  mutate(model = "1hour")
 
-# prs per fold
+roc_all <- roc_week %>% 
+  bind_rows(roc_day) %>% 
+  bind_rows(roc_hour)
+
+# PR curves
 pr_week <- preds_week %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1week")
 
 pr_day <- preds_day %>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1day")
 
 pr_hour <- preds_hour%>% 
-  pr_curve(prob, truth = truth) %>% 
+  pr_curve(prob, truth = label) %>% 
   mutate(model = "1hour")
 
 pr_all <- pr_week %>% 
   bind_rows(pr_day) %>% 
   bind_rows(pr_hour)
 
-#raw SHAPs
-shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
-shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
-  group_by(variable) %>% 
-  slice(1) %>%   
-  ungroup() %>% 
-  arrange(mean_value)
+# UPDATE - JJC
+# Local and Global Grouped SHAPS
+shap_local_week <- read_rds(file.path(path_models, "outer_shapsgrp_1week_0_v5_nested.rds")) 
+shap_local_day <- read_rds(file.path(path_models, "outer_shapsgrp_1day_0_v5_nested.rds"))
+shap_local_hour <- read_rds(file.path(path_models, "outer_shapsgrp_1hour_0_v5_nested.rds")) 
 
-# Grouped SHAPS
-shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
-shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
-shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+shap_global_week <- shap_local_week %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Week")
+shap_global_day <- shap_local_day %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Day")
+shap_global_hour <- shap_local_hour %>% 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) |> 
+  mutate(model = "Hour")
+
+shap_global_all <- shap_global_week |> 
+  bind_rows(shap_global_day) |> 
+  bind_rows(shap_global_hour) |> 
+  mutate(model = factor(model, levels = c("Week", "Day", "Hour"))) %>% 
+  mutate(variable_grp = factor(variable_grp, levels = c("past use (EMA item)", 
+                                          "craving (EMA item)", 
+                                          "past risky situation (EMA item)", 
+                                          "past stressful event (EMA item)", 
+                                          "past pleasant event (EMA item)", 
+                                          "valence (EMA item)", 
+                                          "arousal (EMA item)", 
+                                          "future risky situation (EMA item)", 
+                                          "future stressful event (EMA item)", 
+                                          "future efficacy (EMA item)",
+                                          "lapse day (other)",
+                                          "lapse hour (other)",
+                                          "missing surveys (other)",
+                                          "age (demographic)",
+                                          "sex (demographic)",
+                                          "race (demographic)",
+                                          "marital (demographic)",
+                                          "education (demographic)")))
 
 # lapse labels
-labels_week <- read_csv(file.path(path_data_ema, "labels_1week.csv"), col_types = cols())
-labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = cols())
-labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
+labels_week <- read_csv(file.path(path_processed, "labels_1week.csv"), col_types = cols())
+labels_day <- read_csv(file.path(path_processed, "labels_1day.csv"), col_types = cols())
+labels_hour <- read_csv(file.path(path_processed, "labels_1hour.csv"), col_types = cols())
+
 ```
 
 
-<!-- THIS WILL BE FIGURE S1-->
+
+
+```{r }
+# OLD version
+# AUCs for 10x10 folds data
+# auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+#   select(outer_split_num, roc_auc)
+# 
+# # posterior probabilites
+# pp <-  read_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
+# 
+# # Predictions data
+# preds_week <- read_rds(file.path(path_models, "outer_preds_1week_0_v5_nested.rds")) |> 
+#   select(outer_split_num, prob = prob_beta, label)
+# preds_day <- read_rds(file.path(path_models, "outer_preds_1day_0_v5_nested.rds")) |> 
+#   select(outer_split_num, prob = prob_beta, label)
+# preds_hour <- read_rds(file.path(path_models, "outer_preds_1hour_0_v5_nested.rds")) |>
+#   select(outer_split_num, prob = prob_beta, label) 
+# 
+# # roc overall
+# roc_week_full <- preds_week %>% 
+#   roc_curve(prob, truth = truth)
+# 
+# roc_day_full <- preds_day %>% 
+#   roc_curve(prob, truth = truth)
+# 
+# roc_hour_full <- preds_hour%>% 
+#   roc_curve(prob, truth = truth)
+# 
+# # rocs per fold
+# roc_week <- preds_week %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "week")
+# 
+# roc_day <- preds_day %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "day")
+# 
+# roc_hour <- preds_hour %>%
+#   nest(.by = split_num, .key = "preds") %>% 
+#   mutate(roc = map(preds, \(preds) roc_curve(preds, prob, 
+#                                              truth = truth))) %>% 
+#   mutate(model = "week")
+# 
+# # pr overall
+# pr_week_full <- preds_week %>% 
+#   pr_curve(prob, truth = truth)
+# 
+# pr_day_full <- preds_day %>% 
+#   pr_curve(prob, truth = truth)
+# 
+# pr_hour_full <- preds_hour%>% 
+#   pr_curve(prob, truth = truth)
+# 
+# # prs per fold
+# pr_week <- preds_week %>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1week")
+# 
+# pr_day <- preds_day %>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1day")
+# 
+# pr_hour <- preds_hour%>% 
+#   pr_curve(prob, truth = truth) %>% 
+#   mutate(model = "1hour")
+# 
+# pr_all <- pr_week %>% 
+#   bind_rows(pr_day) %>% 
+#   bind_rows(pr_hour)
+# 
+# #raw SHAPs
+# shap_raw_week <- readRDS(file.path(path_models, "imp_shap_raw_all_1week_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# shap_raw_day <- readRDS(file.path(path_models, "imp_shap_raw_all_1day_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# shap_raw_hour <- readRDS(file.path(path_models, "imp_shap_raw_all_1hour_0_v4.rds")) %>% 
+#   group_by(variable) %>% 
+#   slice(1) %>%   
+#   ungroup() %>% 
+#   arrange(mean_value)
+# 
+# # Grouped SHAPS
+# shap_grouped_week <- readRDS(file.path(path_models, "imp_shap_grouped_all_1week_0_v4.rds")) 
+# shap_grouped_day <- readRDS(file.path(path_models, "imp_shap_grouped_all_1day_0_v4.rds"))
+# shap_grouped_hour <- readRDS(file.path(path_models, "imp_shap_grouped_all_1hour_0_v4.rds")) 
+# 
+# # lapse labels
+# labels_week <- read_csv(file.path(path_data_ema, "labels_1week.csv"), col_types = cols())
+# labels_day <- read_csv(file.path(path_data_ema, "labels_1day.csv"), col_types = cols())
+# labels_hour <- read_csv(file.path(path_data_ema, "labels_1hour.csv"), col_types = cols())
+```
+
+<!--***************************************************************************-->
+<!-- Figure S1: Consort Diagram-->
+
 ```{r caption_consort}
 fig_caption_consort <- "Consort Diagram"
 ```
 
 ```{r fig_consort, fig.cap=fig_caption_consort, fig.height=7}
+#| output: true
+
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
                         consented_reason = "Not Consented",
@@ -207,282 +352,9 @@ consort_plot(data = disposition,
 ```
 
 
-
-
-<!-- Supp figure: ROC curves and AUCs for each held out fold-->
-```{r}
-fig_roc_week <- roc_week_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
-  
-for (i in 1:nrow(roc_week)) {
-  fig_roc_week <- fig_roc_week +
-     geom_path(data = roc_week$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#fdd2ce")
-}
-
-fig_roc_week <- fig_roc_week +
-     geom_path(data = roc_week_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#F8766D", size = 1)
-```
-
-```{r}
-fig_roc_day <- roc_day_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) 
-  
-for (i in 1:nrow(roc_day)) {
-  fig_roc_day <- fig_roc_day +
-     geom_path(data = roc_day$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#bcffcf")
-}
-
-fig_roc_day <- fig_roc_day +
-     geom_path(data = roc_day_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#00BA38", size = 1)
-  
-```
-
-
-```{r}
-fig_roc_hour <- roc_hour_full %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) 
-  
-for (i in 1:nrow(roc_hour)) {
-  fig_roc_hour <- fig_roc_hour +
-     geom_path(data = roc_hour$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#c8dcff")
-}
-
-fig_roc_hour <- fig_roc_hour +
-     geom_path(data = roc_week_full,
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "#619CFF", size = 1)
-```
-
-
-```{r}
-fig_auc_week <- auc_folds_week %>% 
-  mutate(model = "Week") %>%
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
-  facet_wrap(~model, ncol = 1, strip.position = "right") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position = "none") +
-  ylab("Count")
-
-fig_auc_day <- auc_folds_day %>% 
-  mutate(model = "Day") %>%
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
-  facet_wrap(~model, ncol = 1, strip.position = "right") +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank(),
-        legend.position = "none") +
-  ylab("Count")
-
-fig_auc_hour <- auc_folds_hour %>% 
-  mutate(model = "Hour") %>% 
-  ggplot() + 
-  geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
-  facet_wrap(~model, ncol = 1, strip.position = "right") +
-  xlab("Area Under ROC Curve (per fold)") +
-  ylab("Count")
-```
-
-
-
-```{r}
-fig_caption_3_x_2 <- "Insert Note Here."
-```
-
-```{r fig.cap = fig_caption_3_x_2, fig.height = 7}
-plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fig_auc_hour,
-          ncol = 2, align = "h")
-```
-
-
-<!--lapse predictions faceted by model-->
-
-```{r}
-fig_caption_preds_facet <- "Insert Note Here."
-```
-
-
-```{r fig.cap = fig_caption_preds_facet, fig.width = 7.5, fig.height = 5}
-fig_preds_week_lapse <- preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "Week") %>% 
-  filter(truth == "Lapse") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
-   facet_wrap(~model) +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  ylab("Count")
-
-fig_preds_week_nolapse <- preds_week %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "week") %>% 
-  filter(truth == "No lapse") %>% 
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  ylab("Count")
-
-
-fig_preds_day_lapse <- preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "Day") %>% 
-  filter(truth == "Lapse") %>%
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
-   facet_wrap(~model) +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  ylab(NULL)
-
-fig_preds_day_nolapse <- preds_day %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "Day") %>% 
-  filter(truth == "No lapse") %>%
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  ylab(NULL)
-
-fig_preds_hour_lapse <- preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "Hour") %>% 
-  filter(truth == "Lapse") %>%
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
-   facet_grid(truth~model) +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  ylab(NULL)
-
-fig_preds_hour_nolapse <- preds_hour %>% 
-  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
-         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
-         model = "Hour") %>% 
-  filter(truth == "No lapse") %>%
-  ggplot(data = ., aes(x = prob)) + 
-   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
-   facet_wrap(~truth, strip.position = "right") +
-   xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
-  scale_y_continuous(labels = scales::comma) +
-  ylab(NULL)
-
-
-fig_week <- plot_grid(fig_preds_week_lapse, fig_preds_week_nolapse, ncol = 1, align = "v")
-fig_day <- plot_grid(fig_preds_day_lapse, fig_preds_day_nolapse, ncol = 1, align = "v")
-fig_hour <- plot_grid(fig_preds_hour_lapse, fig_preds_hour_nolapse, ncol = 1, align = "v")
-
-
-plot_grid(fig_week, fig_day, fig_hour, nrow = 1, rel_widths = c(1, 1, 1.1))
-```
-
-
-
-
-```{r caption_pp_contrasts}
-fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
-```
-
-```{r fig_posterior_d, fig.cap = fig_caption_pp_contrasts, fig.height = 7}
-ci <- pp %>% 
-  contrast_models(list("hour","hour", "day"), 
-                list("week", "day", "week")) %>% 
-  summary(size = .01) %>% 
-  mutate(contrast = factor(contrast, 
-                           levels = c("hour vs week", "hour vs day", "day vs week"),
-                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week")),
-         y = 700)
-
-pp %>% 
-  tidy(seed = 123) %>%   
-  group_by(model) %>% 
-  mutate(sample = row_number()) %>% 
-  ungroup() %>% 
-  pivot_wider(names_from = model, values_from = posterior) %>% 
-  mutate(hour_vs_week = hour - week,
-         hour_vs_day = hour - day,
-         day_vs_week = day - week) %>% 
-  pivot_longer(cols = hour_vs_week:day_vs_week,
-               names_to = "contrast",
-               values_to = "posterior") %>% 
-  mutate(contrast = factor(contrast, 
-                           levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
-                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week"))) %>% 
-  ggplot() +
-  geom_histogram(aes(x = posterior, fill = contrast), 
-                 color = "black", alpha = .4, bins = 30) +
-  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
-  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-                             color = contrast), data = ci, show.legend = FALSE) +
-  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
-                             color = contrast), data = ci, show.legend = FALSE) +
-  geom_text(data = ci, x = c(.0255, .035, .015), y = 700, 
-            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
-  facet_wrap(~contrast, ncol = 1) +
-  xlab("Posterior")
-  
-```
-
+<!--***************************************************************************-->
+<!-- Figure S2: Histogram of number of lapses per participant??-->
+<!-- or Kendra made these figures-->
 
 <!-- Supp figure: mean lapse rates per subid and overall mean lapse rate per model -->
 
@@ -592,80 +464,290 @@ labels_all %>%
     summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
 ```
 
+<!--***************************************************************************-->
+<!-- Figure S3: EMA completion rate for 4x daily and 1x daily by week-->
 
 
-<!-- Local SHAP values -->
-```{r caption_shap_local}
-fig_caption_shap_local <- "Insert Note here."
+
+<!--***************************************************************************-->
+<!-- THIS WILL BE FIGURE S4-->
+<!-- ROC curves and AUCs for each held out fold-->
+```{r}
+fig_roc_week <- roc_week_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+  
+for (i in 1:nrow(roc_week)) {
+  fig_roc_week <- fig_roc_week +
+     geom_path(data = roc_week$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#fdd2ce")
+}
+
+fig_roc_week <- fig_roc_week +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#F8766D", size = 1)
 ```
 
-```{r fig_shap_local, fig.cap = fig_caption_shap_local, fig.width = 10, fig.height = 7, out.extra='angle=90'}
+```{r}
+fig_roc_day <- roc_day_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) 
+  
+for (i in 1:nrow(roc_day)) {
+  fig_roc_day <- fig_roc_day +
+     geom_path(data = roc_day$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#bcffcf")
+}
 
-shap_levels <- shap_global_all |> 
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |> 
-  pull(variable_grp) |> 
-  levels()
+fig_roc_day <- fig_roc_day +
+     geom_path(data = roc_day_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#00BA38", size = 1)
+  
+```
 
-# downsample to 2% of observations for each plot (COULD INCREASE?)
-ids_week <- shap_local_week |> 
-  pull(id_obs) |> 
-  unique()
-ids_week <- ids_week |> sample(size = round(length(ids_week)/50))
-ids_day <- shap_local_day |> 
-  pull(id_obs) |> 
-  unique()
-ids_day <- ids_day |> sample(size = round(length(ids_day)/50))
-ids_hour <- shap_local_hour |> 
-  pull(id_obs) |> 
-  unique()
-ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/50))
+```{r}
+fig_roc_hour <- roc_hour_full %>% 
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
+  geom_abline(lty = 3) +
+  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Specificity",
+       y = "Sensitivity") +
+  scale_x_continuous(breaks = seq(0,1,.25),
+    labels = sprintf("%.2f", seq(1,0,-.25))) 
+  
+for (i in 1:nrow(roc_hour)) {
+  fig_roc_hour <- fig_roc_hour +
+     geom_path(data = roc_hour$roc[[i]],
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#c8dcff")
+}
 
-plot_shap_week <- shap_local_week |> 
-  filter(id_obs %in% ids_week) |> 
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "red") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(model == "Week"),
-            aes(x = variable_grp, y = -1.75, label = round(mean_value, 2)),
-            color = "red") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
+fig_roc_hour <- fig_roc_hour +
+     geom_path(data = roc_week_full,
+               mapping = aes(x = 1 - specificity, y = sensitivity),
+               color = "#619CFF", size = 1)
+```
 
-plot_shap_day <- shap_local_day |> 
-  filter(ID %in% ids_day) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "green") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "day"),
-            aes(x = group, y = -2, label = round(mean_value, 2)),
-            color = "green") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
+```{r}
+fig_auc_week <- auc_folds_week %>% 
+  mutate(model = "Week") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#F8766D", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") +
+  ylab("Count")
 
-plot_shap_hour <- shap_local_hour |> 
-  filter(ID %in% ids_hour) |> 
-  mutate(group = factor(group, levels = shap_levels)) |> 
-  ggplot(mapping = aes(x = group, y = shap)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4, 
-                     color = "blue") +
-  geom_hline(yintercept = 0) +
-  geom_text(data = shap_global_all |> filter(window == "hour"),
-            aes(x = group, y = -1.75, label = round(mean_value, 2)),
-            color = "black") +
-  scale_y_continuous(limits = c(-2, 4.5), breaks = seq(-2, 4)) +
-  ylab("SHAP value") +
-  xlab("") +
-  coord_flip() 
+fig_auc_day <- auc_folds_day %>% 
+  mutate(model = "Day") %>%
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#00BA38", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.position = "none") +
+  ylab("Count")
 
-plot_shap_week + plot_shap_day + plot_shap_hour
+fig_auc_hour <- auc_folds_hour %>% 
+  mutate(model = "Hour") %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), fill = "#619CFF", color = "black", alpha = .4, bins = 15) +
+  facet_wrap(~model, ncol = 1, strip.position = "right") +
+  xlab("Area Under ROC Curve (per fold)") +
+  ylab("Count")
+```
+
+```{r}
+fig_caption_3_x_2 <- "Insert Note Here."
+```
+
+```{r fig.cap = fig_caption_3_x_2, fig.height = 7}
+plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fig_auc_hour,
+          ncol = 2, align = "h")
+```
+
+
+<!--***************************************************************************-->
+<!-- THIS WILL BE FIGURE S5-->
+<!-- Bayesian Model Contrasts -->
+
+
+
+```{r caption_pp_contrasts}
+fig_caption_pp_contrasts <- "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines"
+```
+
+```{r fig_posterior_d, fig.cap = fig_caption_pp_contrasts, fig.height = 7}
+ci <- pp %>% 
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week")) %>% 
+  summary(size = .01) %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour vs week", "hour vs day", "day vs week"),
+                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week")),
+         y = 700)
+
+pp %>% 
+  tidy(seed = 123) %>%   
+  group_by(model) %>% 
+  mutate(sample = row_number()) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = model, values_from = posterior) %>% 
+  mutate(hour_vs_week = hour - week,
+         hour_vs_day = hour - day,
+         day_vs_week = day - week) %>% 
+  pivot_longer(cols = hour_vs_week:day_vs_week,
+               names_to = "contrast",
+               values_to = "posterior") %>% 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
+                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week"))) %>% 
+  ggplot() +
+  geom_histogram(aes(x = posterior, fill = contrast), 
+                 color = "black", alpha = .4, bins = 30) +
+  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
+                             color = contrast), data = ci, show.legend = FALSE) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
+                             color = contrast), data = ci, show.legend = FALSE) +
+  geom_text(data = ci, x = c(.0255, .035, .015), y = 700, 
+            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+  facet_wrap(~contrast, ncol = 1) +
+  xlab("Posterior")
+  
+```
+
+
+
+
+
+
+<!--***************************************************************************-->
+<!-- Figure S6: lapse probability predictions faceted by model-->
+
+```{r}
+fig_caption_preds_facet <- "Insert Note Here."
+```
+
+
+```{r fig.cap = fig_caption_preds_facet, fig.width = 7.5, fig.height = 5}
+fig_preds_week_lapse <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Week") %>% 
+  filter(truth == "Lapse") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
+   facet_wrap(~model) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab("Count")
+
+fig_preds_week_nolapse <- preds_week %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "week") %>% 
+  filter(truth == "No lapse") %>% 
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  ylab("Count")
+
+
+fig_preds_day_lapse <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Day") %>% 
+  filter(truth == "Lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
+   facet_wrap(~model) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab(NULL)
+
+fig_preds_day_nolapse <- preds_day %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Day") %>% 
+  filter(truth == "No lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  ylab(NULL)
+
+fig_preds_hour_lapse <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Hour") %>% 
+  filter(truth == "Lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
+   facet_grid(truth~model) +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  ylab(NULL)
+
+fig_preds_hour_nolapse <- preds_hour %>% 
+  mutate(truth = if_else(truth == "no_lapse", "No lapse", "Lapse"),
+         estimate = if_else(estimate == "no_lapse", "No lapse", "Lapse"),
+         model = "Hour") %>% 
+  filter(truth == "No lapse") %>%
+  ggplot(data = ., aes(x = prob)) + 
+   geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
+   facet_wrap(~truth, strip.position = "right") +
+   xlab("Pr(Lapse)") +
+  geom_vline(xintercept = .5, linetype = "dashed") +
+  scale_y_continuous(labels = scales::comma) +
+  ylab(NULL)
+
+
+fig_week <- plot_grid(fig_preds_week_lapse, fig_preds_week_nolapse, ncol = 1, align = "v")
+fig_day <- plot_grid(fig_preds_day_lapse, fig_preds_day_nolapse, ncol = 1, align = "v")
+fig_hour <- plot_grid(fig_preds_hour_lapse, fig_preds_hour_nolapse, ncol = 1, align = "v")
+
+
+plot_grid(fig_week, fig_day, fig_hour, nrow = 1, rel_widths = c(1, 1, 1.1))
 ```
 
 
