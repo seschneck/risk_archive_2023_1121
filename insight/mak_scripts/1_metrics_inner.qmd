@@ -62,7 +62,7 @@ switch (Sys.info()[['sysname']],
         Windows = {
           path_input <- str_c("P:/studydata/risk/chtc/", study)
           path_models <- str_c("P:/studydata/risk/models/", study)
-          path_knit <- str_c("P:/studydata/risk/knits/", study)},
+          path_knits <- str_c("P:/studydata/risk/knits/", study)},
         
         # IOS paths
         Darwin = {
@@ -87,6 +87,18 @@ knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
 
 options(tibble.width = Inf)
 options(tibble.print_max = Inf)
+```
+
+Render
+```{r, eval = FALSE, include=FALSE}
+# Render knit file manually to different location
+
+rmarkdown::render(input = file.path(
+  "insight/mak_scripts/1_metrics_inner.qmd"),
+  output_dir = file.path(path_knits),
+  output_file = str_c("1_metrics_inner_", version,
+                      ".html"),
+  env = new.env())
 ```
 
 ### Read results.csv files
@@ -364,15 +376,4 @@ for (k in outcomes) {
       print(plot_i)
   }
 }
-```
-
-```{r, eval = FALSE, include=FALSE}
-# Render knit file manually to different location
-
-rmarkdown::render(input = file.path(
-  "insight/mak_scripts/1_metrics_inner.qmd"),
-  output_dir = file.path(path_knit),
-  output_file = str_c("1_metrics_inner_", version,
-                      ".html"),
-  env = new.env())
 ```
