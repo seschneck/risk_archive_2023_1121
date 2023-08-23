@@ -1,0 +1,385 @@
+---
+title: "Combines batches of training jobs from CHTC using nested CV for the Insight study"
+author: "Gaylen Fronk, John Curtin, & Kendra Wyant"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+format:
+  html:
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+### Code Status
+
+In use for both kfold and nested cv, including use of batches
+
+This script aggregates all results/metrics for a batch or batches of jobs that train all model configurations for a specific outcome/label window.
+
+NEED: update hyper-parameter plots. Currently combines across ratios for resampling. Need to disaggregate into different plots.
+
+Updated for Insight project to allow comparisons across models.
+
+### Set Up Environment
+
+
+```{r set_params}
+study <- "insight"
+window <- "all"
+version <- "v2"
+cv <- "nested"
+algorithms <- "xgboost"
+```
+
+
+Handle conflicts
+
+
+```{r, packages_workflow}
+#| message: false
+#| warning: false
+
+options(conflicts.policy = "depends.ok")
+```
+
+
+Packages for script
+
+
+```{r, packages_script}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+theme_set(theme_classic()) 
+```
+
+
+Absolute paths
+
+
+```{r, absolute paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)
+          path_knit <- str_c("P:/studydata/risk/knits/", study)},
+        
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)
+          path_knits <- str_c("/Volumes/private/studydata/risk/knits/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)
+          path_knits <- str_c("~/mnt/private/studydata/risk/knits/", study)}
+)
+```
+
+
+Chunk Defaults
+
+
+```{r defaults}
+#| include: false
+
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+
+### Read results.csv files
+
+Set up object for results
+
+
+```{r}
+results_all <- NULL
+```
+
+
+Get batch_names
+
+
+```{r get_batch_names}
+batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+
+if (algorithms == "all") {
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                               str_detect(batch_names, cv) &
+                               str_detect(batch_names, version)]
+} else {
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                               str_detect(batch_names, cv) &
+                               str_detect(batch_names, version) &
+                               str_detect(batch_names, algorithms)]
+}
+
+batch_names
+```
+
+
+Loop over batch_names to read in files and perform checks
+
+
+```{r loop_batches}
+
+for (batch_name in batch_names) {
+  message("Processing Batch: ", batch_name)
+  
+  # read in configs
+  configs <- read_csv(file.path(path_input, batch_name, "input", "configs.csv"), 
+                      show_col_types = FALSE)
+  (n_configs <- nrow(configs))
+  
+  # read in results
+  results_batch <- read_csv(file.path(path_input, batch_name, "output", 
+                                      "batch_results.csv"), 
+                            show_col_types = FALSE)
+  (n_results_batch <- nrow(results_batch))
+  
+  # Check counts of results files
+  if (!(n_configs == n_results_batch)) {
+    stop(n_configs, " configs != ", n_results_batch, " results files!")
+  } else {
+    message(n_results_batch, " results files detected.  Correct!")
+  }
+  
+  # Check col count
+  if (!(ncol(results_batch) == 17)) {
+    stop(ncol(results_batch), " columns != 17")
+  } else {
+    message(ncol(results_batch), " columns detected.  Correct!\n")
+  }
+  
+  # results_batch %>% tab(split_num) %>% print()
+  # results_batch %>% tab(outer_split_num) %>% print()
+  # results_batch %>% tab(inner_split_num) %>% print()
+  # results_batch %>% tab(algorithm) %>% print()
+  # results_batch %>% tab(feature_set) %>% print()
+  # results_batch %>% tab(hp1) %>% print()
+  # results_batch %>% tab(hp2) %>% print()
+  # results_batch %>% tab(hp3) %>% print()
+  # results_batch %>% tab(resample) %>% print()
+  
+  # Append outcome column
+  if (str_detect(batch_name, "1week")) {
+    results_batch <- results_batch %>% 
+      mutate(outcome = "1week")
+  }
+  if (str_detect(batch_name, "dichotomous")) {
+    results_batch <- results_batch %>% 
+      mutate(outcome = "dichotomous")
+  }
+  
+  # Add batch to all metrics
+  results_all <- results_all %>% 
+    bind_rows(results_batch)
+}
+```
+
+
+### Wrap up processing of raw metrics
+
+Remove duplicate rows (e.g., same hyper-parameters across multiple batches)
+
+
+```{r duplicates}
+nrow(results_all)
+
+results_all <- results_all |> 
+  distinct(split_num, outer_split_num, inner_split_num, algorithm, outcome,
+           feature_set, hp1, hp2, hp3, resample, .keep_all = TRUE)
+
+nrow(results_all)
+```
+
+
+Final checks across all batches
+
+
+```{r tables}
+results_all %>% tab(outer_split_num) %>% print()
+results_all %>% tab(inner_split_num) %>% print()
+results_all %>% tab(algorithm) %>% print()
+results_all %>% group_by(outcome) %>% tab(feature_set) %>% print()
+results_all %>% tab(hp1) %>% print()
+results_all %>% tab(hp2) %>% print()
+results_all %>% group_by(outcome, feature_set) %>% tab(hp3) %>% print()
+results_all %>% tab(resample) %>% print()
+```
+
+
+Save raw metrics file
+
+
+```{r save_results}
+results_all %>% 
+  # arrange(split_num, outer_split_num, inner_split_num, algorithm, resample
+  write_csv(file.path(path_models, 
+                      str_c("inner_metrics_", version, "_", cv, ".csv")))
+```
+
+
+### Median metrics across inner folds for model configurations
+
+Inner loop performance of best config.
+This median performance for each configuration over inner x outer folds (e.g., 300 folds for 1x10 inner and 3x10 outer). It is what we would get (essentially) if we just did simple k-fold but with LOTs of folds
+
+
+```{r metrics_avg}
+metrics_avg <- results_all %>% 
+  group_by(outcome, algorithm, feature_set, hp1, hp2, hp3, resample) %>% 
+  summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                   median),
+            n_jobs = n(), .groups = "drop") %>% 
+  relocate(n_jobs) %>% 
+  arrange(desc(roc_auc)) |> 
+  ungroup()
+
+outcomes <- unique(metrics_avg$outcome)
+
+for (i_outcome in outcomes) {
+  
+  i_metrics <- metrics_avg %>% 
+    filter(outcome == i_outcome)
+  
+  feature_sets <- unique(i_metrics$feature_set)
+  
+  for (i_feature_set in feature_sets) {
+    
+    ii_metrics <- i_metrics %>% 
+      filter(feature_set == i_feature_set)
+    
+    i_top_configs <- ii_metrics |> 
+      slice(1:20) |> 
+      select(outcome, algorithm, feature_set, hp1, hp2, hp3, resample, roc_auc, ppv)
+    print(i_top_configs)
+
+    
+    i_best_config <- ii_metrics |> 
+      slice(1)
+    print(i_best_config)
+    
+    i_plot <- results_all |> 
+      filter(outcome == i_best_config$outcome,
+             algorithm == i_best_config$algorithm,
+             feature_set == i_best_config$feature_set,
+             hp1 == i_best_config$hp1,
+             hp2 == i_best_config$hp2,
+             hp3 == i_best_config$hp3,
+             resample == i_best_config$resample) |> 
+      ggplot(aes(x = roc_auc)) +
+      geom_histogram(bins = 10)
+    
+    print(i_plot)
+    
+    rm(i_top_configs)
+    rm(i_best_config)
+    rm(ii_metrics)
+  }
+  
+  rm(i_metrics)
+}
+
+```
+
+
+### Plot hyperparameters
+
+
+```{r plot_hyperparameters}
+# update algorithms to actual ones in the tibble
+outcomes <- unique(metrics_avg$outcome)
+
+for (k in outcomes) {
+  
+  results_k <- metrics_avg %>% 
+    filter(outcome == k)
+  
+  feature_sets <- unique(results_k$feature_set)
+  
+  for (i in feature_sets) {
+    
+    results_i <- results_k %>% 
+      filter(feature_set == i)
+      
+      plot_title <- str_c("Plotting XGBoost hps for ", i, " feature set, ", k, " outcome, and DOWNSAMPLE")
+      plot_i <- results_i %>%
+        mutate(log_hp1 = log10(hp1),
+               hp2 = factor(hp2, ordered = TRUE),
+               hp3 = factor(hp3, ordered = TRUE),
+               resample = factor(resample)) %>% 
+        filter(str_detect(resample, "down")) %>% 
+        ggplot(mapping = aes(x = log_hp1, 
+                             y = roc_auc, 
+                             group = hp3, 
+                             color = hp3)) +
+        geom_line() +
+        facet_grid(resample ~ hp2) +
+        scale_color_discrete(name = "mtry") +
+        labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
+      
+      print(plot_i)
+      
+      plot_title <- str_c("Plotting XGBoost hps for ", i, " feature set, ", k, " outcome, and UPSAMPLE")
+      plot_i <- results_i %>%
+        mutate(log_hp1 = log10(hp1),
+               hp2 = factor(hp2, ordered = TRUE),
+               hp3 = factor(hp3, ordered = TRUE),
+               resample = factor(resample)) %>% 
+        filter(str_detect(resample, "up")) %>% 
+        ggplot(mapping = aes(x = log_hp1, 
+                             y = roc_auc, 
+                             group = hp3, 
+                             color = hp3)) +
+        geom_line() +
+        facet_grid(resample ~ hp2) +
+        scale_color_discrete(name = "mtry") +
+        labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
+      
+      print(plot_i)
+      
+            plot_title <- str_c("Plotting XGBoost hps for ", i, " feature set, ", k, " outcome, and NO RESAMPLING")
+      plot_i <- results_i %>%
+        mutate(log_hp1 = log10(hp1),
+               hp2 = factor(hp2, ordered = TRUE),
+               hp3 = factor(hp3, ordered = TRUE),
+               resample = factor(resample)) %>% 
+        filter(str_detect(resample, "none")) %>% 
+        ggplot(mapping = aes(x = log_hp1, 
+                             y = roc_auc, 
+                             group = hp3, 
+                             color = hp3)) +
+        geom_line() +
+        facet_grid(resample ~ hp2) +
+        scale_color_discrete(name = "mtry") +
+        labs(title = plot_title, x = "log10 learning rate", y = "ROC AUC")
+      
+      print(plot_i)
+  }
+}
+```
+
+```{r, eval = FALSE, include=FALSE}
+# Render knit file manually to different location
+
+rmarkdown::render(input = file.path(
+  "insight/mak_scripts/1_metrics_inner.qmd"),
+  output_dir = file.path(path_knit),
+  output_file = str_c("1_metrics_inner_", version,
+                      ".html"),
+  env = new.env())
+```

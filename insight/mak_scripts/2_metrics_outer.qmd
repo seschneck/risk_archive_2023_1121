@@ -300,7 +300,8 @@ fit_predict_eval <- function(split_num, splits, configs_best){
 ### Read in aggregate CHTC metrics for inner folds
 ```{r read_inner_metrics}
 metrics_raw <- 
-  read_csv(file.path(path_models, str_c("inner_metrics_", version, "_", cv, ".csv")), 
+  read_csv(file.path(path_models, 
+                     str_c("inner_metrics_", version, "_", cv, ".csv")), 
            col_types = "iiiiccdddcdddddddc") |> 
   glimpse()
 ```
@@ -310,8 +311,40 @@ metrics_raw <-
 
 Average metrics for each configuration across inner folds for each outer fold
 ```{r best_model_1}
-metrics_avg <- metrics_raw |> 
-  group_by(algorithm, feature_set, hp1, hp2, hp3, resample, outer_split_num) |> 
+metrics_avg_all <- metrics_raw |> 
+  filter(outcome == "1week" & feature_set == "all") %>% 
+  group_by(outcome, algorithm, feature_set, 
+           hp1, hp2, hp3, resample, outer_split_num) |> 
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     median),
+              n_jobs = n(), .groups = "drop") |> 
+  relocate(outer_split_num, n_jobs) |> 
+  arrange(outer_split_num, desc(roc_auc))
+
+metrics_avg_ins <- metrics_raw |> 
+  filter(outcome == "1week" & feature_set == "insight_only") %>% 
+  group_by(outcome, algorithm, feature_set, 
+           hp1, hp2, hp3, resample, outer_split_num) |> 
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     median),
+              n_jobs = n(), .groups = "drop") |> 
+  relocate(outer_split_num, n_jobs) |> 
+  arrange(outer_split_num, desc(roc_auc))
+
+metrics_avg_aase <- metrics_raw |> 
+  filter(outcome == "1week" & feature_set == "aase_only") %>% 
+  group_by(outcome, algorithm, feature_set, 
+           hp1, hp2, hp3, resample, outer_split_num) |> 
+   summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
+                     median),
+              n_jobs = n(), .groups = "drop") |> 
+  relocate(outer_split_num, n_jobs) |> 
+  arrange(outer_split_num, desc(roc_auc))
+
+metrics_avg_dich <- metrics_raw |> 
+  filter(outcome == "dichotomous" & feature_set == "aase_only") %>% 
+  group_by(outcome, algorithm, feature_set, 
+           hp1, hp2, hp3, resample, outer_split_num) |> 
    summarize(across(c(accuracy, bal_accuracy, roc_auc, sens, spec, ppv, npv),
                      median),
               n_jobs = n(), .groups = "drop") |> 
@@ -321,19 +354,55 @@ metrics_avg <- metrics_raw |>
 
 Best configuration for each outer fold
 ```{r best_model_2}
-configs_best <- metrics_avg |> 
+configs_best_all <- metrics_avg_all |> 
   group_by(outer_split_num) |> 
   arrange(desc(roc_auc)) |> 
   slice(1) |> 
   ungroup() |> 
   relocate(roc_auc, .before = accuracy)
 
-configs_best |> print_kbl()
+configs_best_all |> print_kbl()
+
+configs_best_ins <- metrics_avg_ins |> 
+  group_by(outer_split_num) |> 
+  arrange(desc(roc_auc)) |> 
+  slice(1) |> 
+  ungroup() |> 
+  relocate(roc_auc, .before = accuracy)
+
+configs_best_ins |> print_kbl()
+
+configs_best_aase <- metrics_avg_aase |> 
+  group_by(outer_split_num) |> 
+  arrange(desc(roc_auc)) |> 
+  slice(1) |> 
+  ungroup() |> 
+  relocate(roc_auc, .before = accuracy)
+
+configs_best_aase |> print_kbl()
+
+configs_best_dich <- metrics_avg_dich |> 
+  group_by(outer_split_num) |> 
+  arrange(desc(roc_auc)) |> 
+  slice(1) |> 
+  ungroup() |> 
+  relocate(roc_auc, .before = accuracy)
+
+configs_best_dich |> print_kbl()
 ```
 
 ```{r}
-configs_best |> pull(roc_auc) |> mean()
-configs_best |> pull(roc_auc) |> median()
+configs_best_all |> pull(roc_auc) |> mean()
+configs_best_all |> pull(roc_auc) |> median()
+
+configs_best_ins |> pull(roc_auc) |> mean()
+configs_best_ins |> pull(roc_auc) |> median()
+
+configs_best_aase |> pull(roc_auc) |> mean()
+configs_best_aase |> pull(roc_auc) |> median()
+
+configs_best_dich |> pull(roc_auc) |> mean()
+configs_best_dich |> pull(roc_auc) |> median()
 ```
 
 ```{r}
