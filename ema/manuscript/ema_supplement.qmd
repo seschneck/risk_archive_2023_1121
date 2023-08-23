@@ -14,7 +14,18 @@ execute:
   output: false
 ---
 
-```{r knitr_settings, include = FALSE}
+
+<!--
+#| fig-cap: 
+#|   - "Speed and Stopping Distances of Cars"
+
+https://quarto.org/docs/authoring/figures.html
+-->
+
+
+
+
+```{r knitr_settings}
 # settings
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
                       message = FALSE)
@@ -320,6 +331,8 @@ fig_caption_consort <- "Consort Diagram"
 ```
 
 ```{r fig_consort, fig.cap=fig_caption_consort, fig.height=7}
+#| output: true
+
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
                         consented_reason = "Not Consented",
