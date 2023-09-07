@@ -4,7 +4,7 @@
 study <- "insight"
 version <- "v2"
 algorithm <- "xgboost" # keep as "xgboost"
-batch <- "batch4"
+batch <- "batch2"
 window <- "1week"
 lead <- 0
 
@@ -23,7 +23,7 @@ if (algorithm == "random_forest") {
 
 
 # DATA, SPLITS AND OUTCOME-------------------------------------
-feature_set <- c("insight_only") # all # insight_only # aase_only
+feature_set <- c("all") # all # insight_only # aase_only
  
 if (window == "dichotomous") {
   data_trn <- "aase_dich_v1.csv"
@@ -84,11 +84,11 @@ hp3_rf <- c(10, 100, 500, 1000) # trees (10 x's number of predictors)
 if (feature_set == "all" | window == "dichotomous") {
   hp1_xgboost <- c(0.00001, 0.00005, 0.0001, 0.001, 0.01, 0.1, 0.2)  # learn_rate
 } else {
-  hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4)
+  hp1_xgboost <- c(0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4) # learn_rate
 }
 
 # manual override
-hp1_xgboost <- c(.6, .8, .95)
+# hp1_xgboost <- c(.6, .8, .95)
 
 hp2_xgboost <- c(1, 2, 3, 4) # tree_depth
 if (str_detect(feature_set, "only")) {
@@ -173,6 +173,11 @@ build_recipe <- function(d, config) {
   if (feature_set == "aase_only") {
     rec <- rec %>% 
       step_select(y, aase_total)
+  }
+  
+  if (feature_set == "all") {
+    rec <- rec %>% 
+      step_rm(aase_total, starts_with("demo"), -label_day, -label_hour)
   }
   
   # algorithm specific steps
