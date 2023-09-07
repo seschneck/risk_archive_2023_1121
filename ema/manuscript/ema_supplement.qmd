@@ -14,6 +14,8 @@ execute:
   output: false
 ---
 
+<!--JC NEEDS TO REVIEW ALL FIGURE CAPTIONS-->
+<!--KW - add transparency checklist-->
 
 ```{r knitr_settings}
 # settings
@@ -232,120 +234,7 @@ consort_plot(data = disposition,
 
 
 <!--***************************************************************************-->
-<!-- Figure S2: Histogram of number of lapses per participant??--> 
-<!-- or Kendra made these figures-->
-<!-- JOHN: I created a histogram of number of lapses per participant in ana_lapses. You will see its a bit hard to depict since there are a few outliers that are extending the x-axis-->
-
-<!-- Supp figure: mean lapse rates per subid and overall mean lapse rate per model -->
-
-```{r fig_lapses_v1, fig.width = 7}
-#| output: true
-#| fig-cap: 
-#|   - "Mean lapse rates per participant by model. Overall mean lapse rate is depicted by the dashed line. (version 1 with different x-axis scale)"
-
-plot_week <- labels_week |> 
-  mutate(window = "Week",
-         window = factor(window),
-         lapse = if_else(lapse == "no", 0, 1))  |> 
-  group_by(window, subid) |> 
-  summarise(lapse_mean = mean(lapse), .groups = "drop") |> 
-  ggplot() +
-  geom_histogram(mapping = aes(x = lapse_mean), fill = "#F8766D",
-                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
-  facet_wrap(~window) +
-  xlab("Lapse Rate") +
-  ylab("Count") +
-  scale_x_continuous(breaks = seq(0, 1, .2)) +
-  scale_y_continuous(limits = c(0, 150)) +
-  geom_vline(aes(xintercept = lapse_mean), labels_week |> 
-    group_by(subid) |> 
-    mutate(lapse = if_else(lapse == "no", 0, 1)) |> 
-    summarise(lapse_mean = mean(lapse), .groups = "drop_last") |> 
-    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
-
-plot_day <- labels_day |> 
-  mutate(window = "Day",
-         window = factor(window),
-         lapse = if_else(lapse == "no", 0, 1))  |> 
-  group_by(window, subid) |> 
-  summarise(lapse_mean = mean(lapse), .groups = "drop") |> 
-  ggplot() +
-  geom_histogram(mapping = aes(x = lapse_mean), fill = "#00BA38",
-                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
-  facet_wrap(~window) +
-  xlab("Lapse Rate") +
-  ylab(NULL) +
-  scale_x_continuous(breaks = seq(0, 1, .2), limits = c(0, 1)) +
-  scale_y_continuous(limits = c(0, 150)) +
-  geom_vline(aes(xintercept = lapse_mean), labels_day |> 
-    group_by(subid) |> 
-    mutate(lapse = if_else(lapse == "no", 0, 1)) |> 
-    summarise(lapse_mean = mean(lapse), .groups = "drop_last") |> 
-    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed") +
-  theme(axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
-
-
-plot_hour <- labels_hour |> 
-  mutate(window = "Hour",
-         window = factor(window),
-         lapse = if_else(lapse == "no", 0, 1))  |> 
-  group_by(subid, window) |> 
-  summarise(lapse_mean = mean(lapse), .groups = "drop") |> 
-  ggplot() +
-  geom_histogram(mapping = aes(x = lapse_mean), fill = "#619CFF",
-                 color = "black", alpha = .4, binwidth = .01, boundary = 0) +
-  facet_wrap(~window) +
-  xlab("Lapse Rate") +
-  ylab(NULL) +
-  scale_x_continuous(breaks = seq(0, .2, .04), limits = c(0, .2)) +
-  scale_y_continuous(limits = c(0, 150)) +
-  geom_vline(aes(xintercept = lapse_mean), labels_hour |> 
-    group_by(subid) |> 
-    mutate(lapse = if_else(lapse == "no", 0, 1)) |> 
-    summarise(lapse_mean = mean(lapse), .groups = "drop_last") |> 
-    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed") +
-  theme(axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
-
-
-plot_week + plot_day + plot_hour 
-```
-
-
-```{r fig_lapses_v2, fig.height = 6}
-#| output: true
-#| fig-cap: 
-#|   - "Mean lapse rates per participant by model. Overall mean lapse rate is depicted by the dashed line. (version 2 with same x-axis scale)"
-
-labels_all <- labels_week |> 
-  mutate(window = "Week") |> 
-  bind_rows(labels_day |> 
-              mutate(window = "Day")) |> 
-  bind_rows(labels_hour |> 
-              mutate(window = "Hour")) |> 
-  mutate(window = factor(window, levels = c("Week", "Day", "Hour")),
-         lapse = if_else(lapse == "no", 0, 1)) 
-
-labels_all |> 
-  group_by(window, subid) |> 
-  summarise(lapse_mean = mean(lapse), .groups = "drop") |> 
-  ggplot() +
-  geom_histogram(mapping = aes(x = lapse_mean, fill = window), 
-                 color = "black", alpha = .4, binwidth = .05, boundary = 0) +
-  facet_wrap(~window, ncol = 1) +
-  xlab("Lapse Rate") +
-  ylab("Count") +
-  scale_x_continuous(breaks = seq(0, 1, .1)) +
-  geom_vline(aes(xintercept = lapse_mean), labels_all |> 
-    group_by(window, subid) |> 
-    summarise(lapse_mean = mean(lapse), .groups = "drop_last") |> 
-    summarise(lapse_mean = mean(lapse_mean)), linetype = "dashed")
-```
-
-<!--***************************************************************************-->
-<!-- Figure S3: EMA completion rate for 4x daily and 1x daily by week-->
-<!--JOHN: I Confirmed you referred to this as completion percentages in results section of manuscript.-->
+<!-- Figure S2: EMA completion rate for 4x daily and 1x daily by week-->
 
 ```{r}
 ana_sample <- disposition |> 
@@ -499,7 +388,7 @@ week_compliance_all |>
 
 
 <!--***************************************************************************-->
-<!-- THIS WILL BE FIGURE S4-->
+<!-- THIS WILL BE FIGURE S3-->
 <!-- ROC curves and AUCs for each held out fold-->
 ```{r}
 fig_roc_week <- roc_week_full |> 
@@ -621,9 +510,9 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
 
 
 <!--***************************************************************************-->
-<!-- THIS WILL BE FIGURE S5-->
+<!-- THIS WILL BE FIGURE S4-->
 <!-- Bayesian Model Contrasts -->
-
+<!--KW - remove rope from figures and add dotted line at 0-->
 
 ```{r fig_posterior_d, fig.height = 7, fig.width = 7}
 #| output: true
@@ -676,8 +565,8 @@ pp |>
 
 
 <!--***************************************************************************-->
-<!-- Figure S6: lapse probability predictions faceted by model-->
-
+<!-- Figure S5: lapse probability predictions faceted by model-->
+<!--KW - update dotted lines to be  Youden threshold rather than 0.5 -->
 
 ```{r fig.width = 7.5, fig.height = 5}
 #| output: true
