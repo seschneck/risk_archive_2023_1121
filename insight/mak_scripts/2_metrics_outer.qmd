@@ -27,7 +27,7 @@ This script creates the following files in the `models` folder
 * outer_shaps_*.rds
 * outer_shapsgrp_*.rds
 
-where * = window_lead_version_cv
+where * = window_features_version_cv
 
 ### To Do
 
@@ -47,8 +47,8 @@ version <- "v2"
 cv <- "nested"
 algorithms <- "xgboost"
 
-window <- "1week" # ("1week", "dichotomous")
-features <- "insight_only" # ("all", "insight_only", "aase_only")
+window <- "dichotomous" # ("1week", "dichotomous")
+features <- "aase_only" # ("all", "insight_only", "aase_only")
 
 batch_nums <- NULL
 if (features == "all") {
@@ -265,8 +265,15 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   
   # train calibration model train/test split on held in data
   set.seed(2468)
-  cal_split <- d_in |> 
+  if (window == "1week") {
+      cal_split <- d_in |> 
     group_initial_split(group = all_of(cv_group), prop = 3/4)
+  }
+  if (window == "dichotomous") {
+    cal_split <- d_in |> 
+      initial_split(prop = 3/4)
+  }
+
   d_cal_in <- training(cal_split)
   d_cal_out <- testing(cal_split)
   
