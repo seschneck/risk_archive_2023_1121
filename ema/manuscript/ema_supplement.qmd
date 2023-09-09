@@ -1,5 +1,8 @@
 ---
-title: "Supplemental Materials"
+title: "Supplemental Analyses"
+subtitle: "Personal sensing for temporally precise lapse risk prediction for alcohol use disorder"
+author: "Kendra Wyant, Sarah J. Sant'Ana, Gaylen E. Fronk, John J. Curtin"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
 format: pdf
 csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
@@ -12,10 +15,16 @@ execute:
   warning: false
   message: false
   output: false
+  
+crossref:
+  fig-title: 'Figure S'
 ---
 
 <!--JC NEEDS TO REVIEW ALL FIGURE CAPTIONS-->
-<!--KW - add transparency checklist-->
+<!--KW: I add the transparency checklist to the manuscript folder on the P drive.-->
+<!--KW: still working on figure placement and fig-titles-->
+
+This file is the supplemental analysis script for *Personal sensing for temporally precise lapse risk prediction for alcohol use disorder*. It includes all supplemental figures.   
 
 ```{r knitr_settings}
 # settings
@@ -208,11 +217,15 @@ ema_l <- read_csv(file.path(path_shared, "ema_later.csv"), col_types = cols()) |
 
 <!--***************************************************************************-->
 <!-- Figure S1: Consort Diagram-->
+### CONSORT Diagram
+
+Figure S1 presents a CONSORT diagram that displays participant retention at each study milestone. It also displays reasons for discontinuation when known and reasons for data exclusions.
 
 ```{r fig_consort, fig.height=7}
 #| output: true
 #| fig-cap: 
 #|   - "Consort diagram depicting participant retention at each point of the study and reasons for not enrolling, discontinuation, and exclusion."
+
 
 consort_plot(data = disposition,
              orders = c(eligible = "Eligible Sample",
@@ -232,9 +245,14 @@ consort_plot(data = disposition,
              text_width = 45)
 ```
 
+\newpage
 
 <!--***************************************************************************-->
 <!-- Figure S2: EMA completion rate for 4x daily and 1x daily by week-->
+### EMA completion over time
+
+EMA completion was generally high. Figure S2 displays completion percentages over time (by week) across the study period for both 4x daily and at least one daily report.   
+
 
 ```{r}
 ana_sample <- disposition |> 
@@ -385,11 +403,15 @@ week_compliance_all |>
         legend.position = "bottom")
 ```
 
-
+\newpage
 
 <!--***************************************************************************-->
 <!-- THIS WILL BE FIGURE S3-->
 <!-- ROC curves and AUCs for each held out fold-->
+### ROC curves and AUCs for each held out fold
+
+Figure S3 presents the individual ROC curves from each of the 30 test sets on the left and the distribution of AUCs from each of the 30 test sets on the right.  
+
 ```{r}
 fig_roc_week <- roc_week_full |> 
   ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
@@ -508,11 +530,14 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
           ncol = 2, align = "h")
 ```
 
+\newpage
 
 <!--***************************************************************************-->
 <!-- THIS WILL BE FIGURE S4-->
 <!-- Bayesian Model Contrasts -->
-<!--KW - remove rope from figures and add dotted line at 0-->
+### Bayesian model contrasts
+
+We used the posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models. We present histograms (and 95% CIs) of the posterior probability distributions for our bayesian model contrasts on auROC in Figure S4.
 
 ```{r fig_posterior_d, fig.height = 7, fig.width = 7}
 #| output: true
@@ -546,8 +571,9 @@ pp |>
   ggplot() +
   geom_histogram(aes(x = posterior, fill = contrast), 
                  color = "black", alpha = .4, bins = 30) +
-  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
-  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
+  # geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
+  # geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
                              color = contrast), data = ci, show.legend = FALSE) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
@@ -560,13 +586,15 @@ pp |>
 ```
 
 
-
+\newpage
 
 
 
 <!--***************************************************************************-->
 <!-- Figure S5: lapse probability predictions faceted by model-->
-<!--KW - update dotted lines to be  Youden threshold rather than 0.5 -->
+### Lapse probability predictions by model
+
+ Figure S5 displays histograms for the predicted probabilities of lapse for all observations in these test sets separately for each model. Dotted lines indicate the decision threshold determined with Youden's index.
 
 ```{r fig.width = 7.5, fig.height = 5}
 #| output: true
