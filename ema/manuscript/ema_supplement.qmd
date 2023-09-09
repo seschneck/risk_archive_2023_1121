@@ -595,6 +595,27 @@ pp |>
 ### Lapse probability predictions by model
 
  Figure S5 displays histograms for the predicted probabilities of lapse for all observations in these test sets separately for each model. Dotted lines indicate the decision threshold determined with Youden's index.
+ 
+```{r}
+j_thres_week <- roc_week_full |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_day <- roc_day_full |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+
+j_thres_hour <- roc_hour_full |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+#  print() |> 
+  pull(.threshold)
+```
+
 
 ```{r fig.width = 7.5, fig.height = 5}
 #| output: true
@@ -610,7 +631,7 @@ fig_preds_week_lapse <- preds_week |>
    geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
    facet_wrap(~model) +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_week, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
@@ -625,7 +646,7 @@ fig_preds_week_nolapse <- preds_week |>
   ggplot(aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "#F8766D", col = "black", alpha = .4) +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_week, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   ylab("Count")
 
@@ -639,7 +660,7 @@ fig_preds_day_lapse <- preds_day |>
    geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
    facet_wrap(~model) +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_day, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
@@ -654,7 +675,7 @@ fig_preds_day_nolapse <- preds_day |>
   ggplot(aes(x = prob)) + 
    geom_histogram(bins = 15, fill = "#00BA38", col = "black", alpha = .4) +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_day, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   ylab(NULL)
 
@@ -667,7 +688,7 @@ fig_preds_hour_lapse <- preds_hour |>
    geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
    facet_grid(truth~model) +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_hour, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
@@ -683,7 +704,7 @@ fig_preds_hour_nolapse <- preds_hour |>
    geom_histogram(bins = 15, fill = "#619CFF", col = "black", alpha = .4) +
    facet_wrap(~truth, strip.position = "right") +
    xlab("Pr(Lapse)") +
-  geom_vline(xintercept = .5, linetype = "dashed") +
+  geom_vline(xintercept = j_thres_hour, linetype = "dashed") +
   scale_y_continuous(labels = scales::comma) +
   ylab(NULL)
 
