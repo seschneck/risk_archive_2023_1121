@@ -3,7 +3,17 @@ title: "Supplemental Analyses"
 subtitle: "Personal sensing for temporally precise lapse risk prediction for alcohol use disorder"
 author: "Kendra Wyant, Sarah J. Sant'Ana, Gaylen E. Fronk, John J. Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
-format: pdf
+format: 
+  pdf:
+    include-in-header: 
+      text: |
+        \usepackage{caption}
+        \DeclareCaptionLabelFormat{fig}{
+          \textbf{#1 S#2}
+        }
+        \captionsetup[figure]{
+          labelformat=fig
+        }
 csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
 fontsize: 11pt
@@ -15,21 +25,18 @@ execute:
   warning: false
   message: false
   output: false
-  
-crossref:
-  fig-title: 'Figure S'
 ---
 
 <!--JC NEEDS TO REVIEW ALL FIGURE CAPTIONS-->
 <!--KW: I add the transparency checklist to the manuscript folder on the P drive.-->
-<!--KW: still working on figure placement and fig-titles-->
+
 
 This file is the supplemental analysis script for *Personal sensing for temporally precise lapse risk prediction for alcohol use disorder*. It includes all supplemental figures.   
 
 ```{r knitr_settings}
 # settings
 options(knitr.kable.NA = '')
-knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+knitr::opts_chunk$set(out.extra = "")
 options(scipen = 999) #removes scientific notation
 ```
 
@@ -214,6 +221,7 @@ ema_l <- read_csv(file.path(path_shared, "ema_later.csv"), col_types = cols()) |
 
 
 
+\newpage
 
 <!--***************************************************************************-->
 <!-- Figure S1: Consort Diagram-->
@@ -223,6 +231,7 @@ Figure S1 presents a CONSORT diagram that displays participant retention at each
 
 ```{r fig_consort, fig.height=7}
 #| output: true
+#| fig-pos: "hb"
 #| fig-cap: 
 #|   - "Consort diagram depicting participant retention at each point of the study and reasons for not enrolling, discontinuation, and exclusion."
 
