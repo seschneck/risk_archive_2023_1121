@@ -177,7 +177,7 @@ build_recipe <- function(d, config) {
   
   if (feature_set == "all") {
     rec <- rec %>% 
-      step_rm(aase_total, starts_with("demo"), -label_day, -label_hour)
+      step_rm(aase_total, starts_with("demo"), label_day, label_hour)
   }
   
   # algorithm specific steps
