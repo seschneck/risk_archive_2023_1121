@@ -169,10 +169,10 @@ Could consider reporting this AUC though likely average of outer fold AUCs is mo
 Could also plot ROC by fold but maybe too confusing?
 ```{r roc_info}
 preds_out %>%
-  roc_auc(prob_beta, truth = label)
+  roc_auc(prob_raw, truth = label) # note changed from prob_beta while debugging
 
 roc_data <- preds_out %>% 
-  roc_curve(prob_beta, truth = label)
+  roc_curve(prob_raw, truth = label) # note changed from prob_beta while debugging
   
 roc_data %>% 
   ggplot(aes(x = 1 - specificity, y = sensitivity, color = .threshold)) +
@@ -195,7 +195,7 @@ And these are the curves for each outer fold
 # rocs per fold
 roc_folds <- preds_out %>%
   nest(.by = outer_split_num, .key = "preds") |> 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob_beta, 
+  mutate(roc = map(preds, \(preds) roc_curve(preds, prob_raw, # note changed from prob_beta while debugging
                                              truth = label)))
 
 fig_roc_folds <- roc_data %>%  # plot region from full concatenated data 
@@ -255,7 +255,7 @@ metrics_out |>
 Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance
 ```{r prob_plot_free}
 preds_out %>% 
-  ggplot(data = ., aes(x = prob_beta)) + 
+  ggplot(data = ., aes(x = prob_raw)) + # note changed from prob_beta while debugging
    geom_histogram(bins = 100, fill = "white", col = "black") +
    facet_wrap(~label, nrow = 2, scales = "free_y") +
    xlab("Pr(Lapse)") +
@@ -270,7 +270,7 @@ preds_out %>%
 Confusion matrix using .5 threshold
 ```{r default_cm}
 (cm <- preds_out |> 
-   mutate(estimate = if_else(prob_beta > .5, "Lapse", "No lapse"),
+   mutate(estimate = if_else(prob_raw > .5, "Lapse", "No lapse"), # note changed from prob_beta while debugging
           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
 
@@ -299,7 +299,7 @@ j_thres_roc <- roc_data |>
   pull(.threshold)
 
 (cm <- preds_out |> 
-   mutate(estimate = if_else(prob_beta > j_thres_roc, "Lapse", "No lapse"),
+   mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
 
@@ -317,10 +317,10 @@ cm %>% summary()
 Here is precision/recall by concatenating all folds.  Same approach as above for ROC
 ```{r pr_info}
 preds_out %>%
-  pr_auc(prob_beta, truth = label)
+  pr_auc(prob_raw, truth = label) # note changed from prob_beta while debugging
 
 pr_data <- preds_out %>% 
-  pr_curve(prob_beta, truth = label)
+  pr_curve(prob_raw, truth = label) # note changed from prob_beta while debugging
 
 pr_data %>% 
   ggplot(aes(x = recall, y = precision, color = .threshold)) +
