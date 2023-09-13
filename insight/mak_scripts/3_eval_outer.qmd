@@ -29,10 +29,6 @@ This script is called by various studies, passing in the data_type, window, lead
 study <- "insight"
 version <- "v2"
 cv <- "nested"
-algorithms <- "xgboost"
-
-window <- "1week" # ("1week", "dichotomous")
-features <- "all" # ("all", "insight_only", "aase_only")
 ```
 
 Function conflicts
@@ -132,8 +128,7 @@ Knit to specific directory
 rmarkdown::render(input = file.path(
   "insight/mak_scripts/3_eval_outer.qmd"),
   output_dir = file.path(path_knits),
-  output_file = str_c("3_eval_outer_", version, "_", window, "_", features,
-                      ".html"),
+  output_file = str_c("3_eval_outer_", version, ".html"),
   env = new.env())
 ```
 
@@ -141,56 +136,105 @@ rmarkdown::render(input = file.path(
 ### Model Performance Metrics
 
 ```{r read_metrics_preds}
-preds_out <- read_rds(file.path(path_models, str_c("outer_preds_", window, "_", 
-                                                    features, "_", version, "_", 
-                                                    cv, ".rds")))
-metrics_out <- read_rds(file.path(path_models, str_c("outer_metrics_", window, "_", 
-                                                      features, "_", version, "_", 
-                                                      cv, ".rds")))
+all_files <- list.files(path_models, full.names = TRUE) 
+preds_files <- all_files[str_detect(all_files, "outer_preds_") &
+                             str_detect(all_files, version)]
+
+preds_out <- preds_files |> 
+  map(\(file) read_rds(file) |> 
+        mutate(model = str_extract(file, "(?<=outer_preds_)[:graph:]+(?=_v2_)")) |> 
+        select(model, outer_split_num, prob_raw, label)) |> 
+  list_rbind()
+
+metrics_files <- all_files[str_detect(all_files, "outer_metrics_") & 
+                           str_detect(all_files, version)]
+
+metrics_out <- metrics_files |> 
+  map(\(file) read_rds(file) |> 
+        mutate(model = str_c(outcome, "_", feature_set))) |> 
+  list_rbind()
+
 ```
 
-#### Inner AUC
+#### Inner Loop AUC
 
 Best model configurations were selected using the median AUCs across 10 inner folds.  30 (3x10) models were selected.  
-
 
 ```{r}
 metrics_out |> glimpse()
 
 metrics_out |> 
+  group_by(model) |> 
   summarize(median(roc_auc_in), mean(roc_auc_in), min(roc_auc_in), max(roc_auc_in), sd(roc_auc_in))
 ```
 
+#### Outer AUC
 
+Best model configurations were evaluated using the AUCs from the 30 (3x10) outer folds
+
+Outer overall
+```{r metrics_out}
+metrics_out |> 
+  group_by(model) |> 
+  summarize(median(roc_auc), mean(roc_auc))
+```
+
+Plot outer folds
+```{r plot_outer}
+# histograms faceted by model
+metrics_out |> 
+  ggplot(aes(x = roc_auc)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(vars(model), ncol = 2)
+
+# overlaid density plots
+metrics_out |> 
+  ggplot(aes(x = roc_auc, fill = as.factor(model))) +
+  geom_density(alpha = 0.5) +
+  labs(fill = "Model")
+```
+
+Table for each outer fold
+```{r metrics_out_kbl}
+models <- unique(metrics_out$model)
+
+for (model in models) {
+  metrics_out |> 
+    filter(model == model) |> 
+    print_kbl()
+}
+
+```
 
 #### ROC curve
 This is single ROC by concatenating all outer folds.
 Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
 Could also plot ROC by fold but maybe too confusing?
-```{r roc_info}
+```{r roc_info, include = FALSE, eval = FALSE}
 preds_out %>%
-  roc_auc(prob_raw, truth = label) # note changed from prob_beta while debugging
+  group_by(model) |> 
+  roc_auc(prob_raw, truth = label)
 
-roc_data <- preds_out %>% 
-  roc_curve(prob_raw, truth = label) # note changed from prob_beta while debugging
-  
-roc_data %>% 
-  ggplot(aes(x = 1 - specificity, y = sensitivity, color = .threshold)) +
-  geom_path(linewidth = 2) +
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
-  scale_color_gradient(low="blue", high="red") +
-  theme(axis.text = element_text(size = rel(1.50)), 
-        axis.title = element_text(size = rel(1.75)))
+# roc_data <- preds_out %>% 
+#   roc_curve(prob_raw, truth = label)
+#   
+# roc_data %>% 
+#   ggplot(aes(x = 1 - specificity, y = sensitivity, color = .threshold)) +
+#   geom_path(linewidth = 2) +
+#   geom_abline(lty = 3) +
+#   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
+#   labs(x = "Specificity",
+#        y = "Sensitivity") +
+#   scale_x_continuous(breaks = seq(0,1,.25),
+#     labels = sprintf("%.2f", seq(1,0,-.25))) +
+#   scale_color_gradient(low="blue", high="red") +
+#   theme(axis.text = element_text(size = rel(1.50)), 
+#         axis.title = element_text(size = rel(1.75)))
 ```
 
 And these are the curves for each outer fold
 
-```{r}
+```{r, include = FALSE, eval = FALSE}
 
 # rocs per fold
 roc_folds <- preds_out %>%
@@ -225,30 +269,12 @@ fig_roc_folds +
     scale_color_gradient(low="blue", high="red")
 ```
 
-#### Outer AUC
 
 
 
 
-And now across outer folds
-Outer overall
-```{r metrics_out}
-metrics_out |> 
-  summarize(median(roc_auc), mean(roc_auc))
-```
 
-Plot outer folds
-```{r plot_outer}
-metrics_out |> 
-  ggplot(aes(x = roc_auc)) +
-  geom_histogram(bins = 10)
-```
 
-Table for each outer fold
-```{r metrics_out_kbl}
-metrics_out |> 
-  print_kbl()
-```
 
 
 #### Probability Histograms
