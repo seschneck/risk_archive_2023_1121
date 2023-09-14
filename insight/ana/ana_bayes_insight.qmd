@@ -1,5 +1,5 @@
 ---
-title: "Posterior probabilities across models"
+title: "Posterior probabilities across models for Insight study (version `r version`)"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 format:
@@ -15,18 +15,25 @@ editor_options:
 
 ### Code Status
 
-In use with iterative improvement
+In use with iterative improvement.
+
+Updating for use with study-insight
 
 ### Notes
- Can review online docs for 
- 
- * [how to use rstanarm](https://cran.r-project.org/web/packages/rstanarm/vignettes/rstanarm.html)
- * [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
- * [warnings](https://mc-stan.org/misc/warnings.html)
- * [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
- * [R Bloggers on perf_mod](https://www.r-bloggers.com/2019/12/tidyposteriors-bayesian-approach-to-model-comparison/)
- 
+Can review online docs for 
+
+* [how to use rstanarm](https://cran.r-project.org/web/packages/rstanarm/vignettes/rstanarm.html)
+* [priors](https://cran.r-project.org/web/packages/rstanarm/vignettes/priors.html)
+* [warnings](https://mc-stan.org/misc/warnings.html)
+* [tutorial on rstanarm and shinystan](https://www.tqmp.org/RegularArticles/vol14-2/p099/p099.pdf)
+* [R Bloggers on perf_mod](https://www.r-bloggers.com/2019/12/tidyposteriors-bayesian-approach-to-model-comparison/)
+
 ### Set Up Environment
+
+```{r}
+study <- "insight"
+version <- "v2"
+```
 
 
 
@@ -46,21 +53,25 @@ switch (Sys.info()[['sysname']],
         # PC paths
         Windows = {
           path_shared <- str_c("P:/studydata/risk/data_processed/shared")
-          path_processed <- str_c("P:/studydata/risk/data_processed/ema")
-          path_models <- str_c("P:/studydata/risk/models/ema")},
-
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)},
+        
         # IOS paths
         Darwin = {
           path_shared <- str_c("P:/studydata/risk/data_processed/shared")
-          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/ema")
-          path_models <- str_c("/Volumes/private/studydata/risk/models/ema")},
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/",
+                               study)},
         
         # Linux paths
         Linux = {
           path_shared <- str_c("~/mnt/private/studydata/risk/data_processed/shared")
-          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/")
-          path_models <- str_c("~/mnt/private/studydata/risk/models/ema")}
-        )
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/",
+                               study)}
+)
 ```
 
 
@@ -84,42 +95,60 @@ devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.
 
 ```{r load_preds_metrics}
 
-auc_week <- read_rds(file.path(path_models, "outer_metrics_1week_0_v5_nested.rds")) |> 
+auc_1w_all <- read_rds(file.path(path_models, 
+                                 str_c("outer_metrics_1week_all_", 
+                                       version, "_nested.rds"))) |> 
+  arrange(outer_split_num) |> 
+  mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
+         fold_num = rep(str_c("fold", 1:10), 3)) |>   # assumes 3x10 fold
+  select(repeat_num, fold_num, roc_auc)
+
+auc_1w_ins <- read_rds(file.path(path_models, 
+                                 str_c("outer_metrics_1week_insight_only_", 
+                                       version, "_nested.rds"))) |> 
   arrange(outer_split_num) |> 
   mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
          fold_num = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(repeat_num, fold_num, roc_auc)
 
-auc_day <- read_rds(file.path(path_models, "outer_metrics_1day_0_v5_nested.rds")) |> 
+auc_1w_aase <- read_rds(file.path(path_models, 
+                                  str_c("outer_metrics_1week_aase_only_", 
+                                        version, "_nested.rds"))) |> 
   arrange(outer_split_num) |> 
   mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
          fold_num = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(repeat_num, fold_num, roc_auc)
 
-auc_hour <- read_rds(file.path(path_models, "outer_metrics_1hour_0_v5_nested.rds")) |> 
+auc_dich_aase <- read_rds(file.path(path_models, 
+                                    str_c("outer_metrics_dichotomous_aase_only_", 
+                                          version, "_nested.rds"))) |> 
   arrange(outer_split_num) |> 
   mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
          fold_num = rep(str_c("fold", 1:10),3)) |>   # assumes 3x10 fold
   select(repeat_num, fold_num, roc_auc)
 
-
-auc <- auc_week %>% 
-  rename(week = roc_auc) %>% 
-  mutate(day = auc_day$roc_auc,
-         hour = auc_hour$roc_auc) %>% 
-  glimpse
+auc <- auc_1w_all %>% 
+  rename(week_all = roc_auc) %>% 
+  mutate(week_ins = auc_1w_ins$roc_auc,
+         week_aase = auc_1w_aase$roc_auc,
+         dich_aase = auc_dich_aase$roc_auc) %>% 
+  glimpse()
 ```
 
 ```{r auc_plots}
-auc_week %>% 
+auc_1w_all %>% 
   ggplot() + 
   geom_histogram(aes(x = roc_auc), bins = 10)
 
-auc_day %>% 
+auc_1w_ins %>% 
   ggplot() + 
   geom_histogram(aes(x = roc_auc), bins = 10)
 
-auc_hour %>% 
+auc_1w_aase %>% 
+  ggplot() + 
+  geom_histogram(aes(x = roc_auc), bins = 10)
+
+auc_dich_aase %>% 
   ggplot() + 
   geom_histogram(aes(x = roc_auc), bins = 10)
 ```
@@ -135,14 +164,14 @@ pp <- auc |>
   rename(id = repeat_num,
          id2 = fold_num) |> 
   perf_mod(formula = statistic ~ model + (1 | id2/id),
-         # prior_intercept = rstanarm::student_t(autoscale = TRUE),
-         # prior = rstanarm::student_t(autoscale = TRUE),
-         transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
-         # iter = 2000, chains = 4,  
-         adapt_delta = .99,
-         # cores = 4, seed = 12345,
-         family = gaussian, 
-)  
+           # prior_intercept = rstanarm::student_t(autoscale = TRUE),
+           # prior = rstanarm::student_t(autoscale = TRUE),
+           transform = tidyposterior::logit_trans,  # for skewed & bounded AUC
+           # iter = 2000, chains = 4,  
+           adapt_delta = .99,
+           # cores = 4, seed = 12345,
+           family = gaussian, 
+  )  
 ```
 
 ```{r}
@@ -158,7 +187,8 @@ summary(pp$stan)
 ```
 
 ```{r}
-pp %>%  write_rds(file.path(path_models, "posteriors_all_0_v5_nested.rds"))
+pp %>%  write_rds(file.path(path_models, 
+                            str_c("posteriors_", version, "_nested.rds")))
 ```
 
 ### Model posterier CIs
@@ -173,8 +203,13 @@ pp_tidy %>%
   summarize(median = quantile(posterior, probs = q[2]),
             lower = quantile(posterior, probs = q[1]), 
             upper = quantile(posterior, probs = q[3])) %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour"),
-                        labels = c("Week", "Day", "Hour")),
+  mutate(model = factor(model, 
+                        levels = c("week_all", "week_ins", 
+                                   "week_aase", "dich_aase"),
+                        labels = c("One week / All Features",
+                                   "One week / Insight only", 
+                                   "One week / AASE only",
+                                   "Dichotomous / AASE only")),
          y = 1000) |> 
   arrange(model)
 
@@ -185,54 +220,73 @@ pp_tidy %>%
 
 ```{r}
 pp_contrasts <- contrast_models(pp, 
-                                list("hour","hour", "day"), 
-                                list("week", "day", "week"))
+                                list("week_ins", "week_ins", "week_ins"), 
+                                list("week_aase", "dich_aase", "week_all"))
+# .01 rope
 summary(pp_contrasts, size = .01, prob = 0.95)
 pp_contrasts %>% autoplot(size = .01)
+
+# .05 rope
+summary(pp_contrasts, size = .05, prob = 0.95)
+pp_contrasts %>% autoplot(size = .05)
 ```
 
 ### Plots
 
 Model posteriors
 ```{r}
-pp_tidy <- pp %>% 
-  tidy(seed = 123)
-
 ci <- pp_tidy %>% 
   summary() %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour")),
+  mutate(model = factor(model, 
+                        levels = c("week_all", "week_ins", 
+                                   "week_aase", "dich_aase"),
+                        labels = c("One week / All Features",
+                                   "One week / Insight only", 
+                                   "One week / AASE only",
+                                   "Dichotomous / AASE only")),
          y = 1000)
 
 pp_tidy %>% 
-  mutate(model = factor(model, levels = c("week", "day", "hour"))) %>%
+  mutate(model = factor(model, 
+                        levels = c("week_all", "week_ins", 
+                                   "week_aase", "dich_aase"),
+                        labels = c("One week / All Features",
+                                   "One week / Insight only", 
+                                   "One week / AASE only",
+                                   "Dichotomous / AASE only")),
+         y = 1000) %>%
   ggplot() + 
-  geom_histogram(aes(x = posterior, fill = model), color = "black", alpha = .4, 
+  geom_histogram(aes(x = posterior, fill = model), 
+                 color = "black", alpha = .4, 
                  bins = 30) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-                           color = model),
+                             color = model),
                data = ci) +
-  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
-                data = ci) +
-  facet_wrap(~model, ncol = 1) +
-  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, 
+                             xend = upper, color = model),
+               data = ci) +
+  facet_wrap(vars(model), ncol = 1) +
+  scale_y_continuous("Posterior Probability", 
+                     breaks = c(0, 500, 1000)) +
   # ylab("Posterior Probability Density") +
-  xlab("Area Under ROC Curve")
+  xlab("Area Under ROC Curve") +
+  labs(color = "Model", fill = "Model")
 ```
 
 model contrast posteriors
 
 ```{r model_contrast_posteriors}
 ci <- pp %>%
-  contrast_models(list("hour","hour", "day"), 
-                list("week", "day", "week")) %>% 
+  contrast_models(list("week_ins", "week_ins", "week_ins"), 
+                  list("week_aase", "dich_aase", "week_all")) %>% 
   summary(size = .01) %>% 
   mutate(contrast = factor(contrast, 
-                           levels = c("hour vs week", 
-                                      "hour vs day", 
-                                      "day vs week"),
-                           labels = c("hour vs. week", 
-                                      "hour vs. day", 
-                                      "day vs. week")),
+                           levels = c("week_ins vs dich_aase", 
+                                      "week_ins vs week_aase", 
+                                      "week_ins vs week_all"),
+                           labels = c("Insight vs. AASE (dichotomous)", 
+                                      "Insight vs. AASE (week)", 
+                                      "Insight vs. All Features")),
          y = 700)
 
 pp %>% 
@@ -241,24 +295,26 @@ pp %>%
   mutate(sample = row_number()) %>% 
   ungroup() %>% 
   pivot_wider(names_from = model, values_from = posterior) %>% 
-  mutate(hour_vs_week = hour - week,
-         hour_vs_day = hour - day,
-         day_vs_week = day - week) %>% 
-  pivot_longer(cols = hour_vs_week:day_vs_week,
+  mutate(ins_vs_aasewk = week_ins - week_aase,
+         ins_vs_aasedich = week_ins - dich_aase,
+         ins_vs_all = week_ins - week_all) %>% 
+  pivot_longer(cols = ins_vs_aasewk:ins_vs_all,
                names_to = "contrast",
                values_to = "posterior") %>% 
   mutate(contrast = factor(contrast, 
-                           levels = c("hour_vs_week", 
-                                      "hour_vs_day", 
-                                      "day_vs_week"),
-                           labels = c("hour vs. week", 
-                                      "hour vs. day", 
-                                      "day vs. week"))) %>% 
+                           levels = c("ins_vs_aasedich", 
+                                      "ins_vs_aasewk", 
+                                      "ins_vs_all"),
+                           labels = c("Insight vs. AASE (dichotomous)", 
+                                      "Insight vs. AASE (week)", 
+                                      "Insight vs. All Features"))) %>% 
   ggplot() +
   geom_histogram(aes(x = posterior, fill = contrast), 
                  color = "black", alpha = .4, bins = 30) +
-  geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", linewidth = 1) +
-  geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = -.01, color = "yellow", 
+             linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = .01, color = "yellow", 
+             linetype = "dashed", linewidth = 1) +
   geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
                              color = contrast), data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
