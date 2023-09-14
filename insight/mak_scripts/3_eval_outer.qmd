@@ -1,5 +1,5 @@
 ---
-title: "Evaluate models' performance in held out outer folds for `r window` and `r features` models (version `r version`)"
+title: "Evaluate models' performance in held out outer folds for version `r version`"
 author: "Gaylen Fronk, John Curtin, & Kendra Wyant"
 date: "`r lubridate::today()`"
 output: 
@@ -19,8 +19,6 @@ In use with iterative improvement
 
 ### Notes
 This is a generic script that reproduces the CV metrics for the best model configuration, calculates various performance metrics from that resampling, makes plots, and then fits the best config to the final sample to do feature importance.
-
-This script is called by various studies, passing in the data_type, window, lead, and version.
 
 
 ### Set Up Environment
@@ -77,7 +75,7 @@ switch (Sys.info()[['sysname']],
           path_processed <- str_c("P:/studydata/risk/data_processed/", study)
           path_models <- str_c("P:/studydata/risk/models/", study)
           path_knits <- str_c("P:/studydata/risk/knits/", study)},
-
+        
         # IOS paths
         Darwin = {
           path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
@@ -93,7 +91,7 @@ switch (Sys.info()[['sysname']],
                                   study)
           path_models <- str_c("~/mnt/private/studydata/risk/models/", study)
           path_knits <- str_c("~/mnt/private/studydata/risk/knits/", study)}
-        )
+)
 ```
 
 
@@ -138,7 +136,7 @@ rmarkdown::render(input = file.path(
 ```{r read_metrics_preds}
 all_files <- list.files(path_models, full.names = TRUE) 
 preds_files <- all_files[str_detect(all_files, "outer_preds_") &
-                             str_detect(all_files, version)]
+                           str_detect(all_files, version)]
 
 preds_out <- preds_files |> 
   map(\(file) read_rds(file) |> 
@@ -146,13 +144,17 @@ preds_out <- preds_files |>
         select(model, outer_split_num, prob_raw, label)) |> 
   list_rbind()
 
+glimpse(preds_out)
+
 metrics_files <- all_files[str_detect(all_files, "outer_metrics_") & 
-                           str_detect(all_files, version)]
+                             str_detect(all_files, version)]
 
 metrics_out <- metrics_files |> 
   map(\(file) read_rds(file) |> 
         mutate(model = str_c(outcome, "_", feature_set))) |> 
   list_rbind()
+
+glimpse(metrics_out)
 
 ```
 
@@ -161,8 +163,6 @@ metrics_out <- metrics_files |>
 Best model configurations were selected using the median AUCs across 10 inner folds.  30 (3x10) models were selected.  
 
 ```{r}
-metrics_out |> glimpse()
-
 metrics_out |> 
   group_by(model) |> 
   summarize(median(roc_auc_in), mean(roc_auc_in), min(roc_auc_in), max(roc_auc_in), sd(roc_auc_in))
@@ -179,6 +179,13 @@ metrics_out |>
   summarize(median(roc_auc), mean(roc_auc))
 ```
 
+Side by side of inner & outer median AUCs
+```{r}
+metrics_out |> 
+  group_by(model) |> 
+  summarize(median(roc_auc), median(roc_auc_in))
+```
+
 Plot outer folds
 ```{r plot_outer}
 # histograms faceted by model
@@ -188,10 +195,16 @@ metrics_out |>
   facet_wrap(vars(model), ncol = 2)
 
 # overlaid density plots
+med_roc <- metrics_out |> 
+  group_by(model) |> 
+  summarize(median = median(roc_auc))
+
 metrics_out |> 
   ggplot(aes(x = roc_auc, fill = as.factor(model))) +
   geom_density(alpha = 0.5) +
-  labs(fill = "Model")
+  geom_vline(data = med_roc, aes(xintercept = median, 
+                                 color = as.factor(model)), size = 1) +
+  labs(fill = "Model", color = "Model")
 ```
 
 Table for each outer fold
@@ -208,8 +221,7 @@ for (model in models) {
 
 #### ROC curve
 This is single ROC by concatenating all outer folds.
-Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate?
-Could also plot ROC by fold but maybe too confusing?
+Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate. Could also consider curves for each outer fold
 ```{r roc_info, include = FALSE, eval = FALSE}
 preds_out %>%
   group_by(model) |> 
@@ -232,8 +244,6 @@ preds_out %>%
 #         axis.title = element_text(size = rel(1.75)))
 ```
 
-And these are the curves for each outer fold
-
 ```{r, include = FALSE, eval = FALSE}
 
 # rocs per fold
@@ -249,53 +259,35 @@ fig_roc_folds <- roc_data %>%  # plot region from full concatenated data
   labs(x = "Specificity",
        y = "Sensitivity") +
   scale_x_continuous(breaks = seq(0,1,.25),
-    labels = sprintf("%.2f", seq(1,0,-.25))) +
+                     labels = sprintf("%.2f", seq(1,0,-.25))) +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
-  
+
 for (i in 1:nrow(roc_folds)) {
   fig_roc_folds <- fig_roc_folds +
-     geom_path(data = roc_folds$roc[[i]],
-               mapping = aes(x = 1 - specificity, y = sensitivity),
-               color = "gray")
+    geom_path(data = roc_folds$roc[[i]],
+              mapping = aes(x = 1 - specificity, y = sensitivity),
+              color = "gray")
 }
 
 #add full concatenated curve
 fig_roc_folds +
-     geom_path(data = roc_data,
-               mapping = aes(x = 1 - specificity, y = sensitivity, color = .threshold),
-               linewidth = 2) +
-    scale_color_gradient(low="blue", high="red")
+  geom_path(data = roc_data,
+            mapping = aes(x = 1 - specificity, y = sensitivity, color = .threshold),
+            linewidth = 2) +
+  scale_color_gradient(low="blue", high="red")
 ```
-
-
-
-
-
-
-
-
-
-#### Probability Histograms
-Histograms with free Y. Remove `scales = "free_y"` for fixed y but doesnt make sense to do this with the class imbalance
-```{r prob_plot_free}
-preds_out %>% 
-  ggplot(data = ., aes(x = prob_raw)) + # note changed from prob_beta while debugging
-   geom_histogram(bins = 100, fill = "white", col = "black") +
-   facet_wrap(~label, nrow = 2, scales = "free_y") +
-   xlab("Pr(Lapse)") +
-  theme(axis.text = element_text(size = rel(1.00)), 
-        axis.title.x = element_text(size = rel(1.25)),
-        strip.text = element_text(size = rel(1.75)))
-```
-
 
 #### Outer individual metrics
 
-Confusion matrix using .5 threshold
-```{r default_cm}
+*1 week / all features model*
+
+Default threshold (0.5)
+```{r}
+
 (cm <- preds_out |> 
+   filter(model == "1week_all") |> 
    mutate(estimate = if_else(prob_raw > .5, "Lapse", "No lapse"), # note changed from prob_beta while debugging
           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
    conf_mat(truth = label, estimate = estimate))
@@ -307,17 +299,18 @@ cm %>%
 
 cm %>% summary()
 
-# save plot for presentations
-# ggsave(file.choose(), width = 7.5, height = 6.5, units = "in", device = "png",  dpi = 100)
 ```
-
 
 Confusion matrix at optimal cut-point (based on Youdens J index)
 
 https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
 https://pubmed.ncbi.nlm.nih.gov/15405679/
 
-```{r youden_cm}
+```{r}
+roc_data <- preds_out %>%
+  filter(model == "1week_all") |> 
+  roc_curve(prob_raw, truth = label)
+
 j_thres_roc <- roc_data |> 
   mutate(j = sensitivity + specificity - 1) |> 
   slice_max(j) |> 
@@ -325,9 +318,10 @@ j_thres_roc <- roc_data |>
   pull(.threshold)
 
 (cm <- preds_out |> 
-   mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
-          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
-   conf_mat(truth = label, estimate = estimate))
+    filter(model == "1week_all") |> 
+    mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+    conf_mat(truth = label, estimate = estimate))
 
 cm %>% 
   autoplot() +
@@ -337,59 +331,230 @@ cm %>%
 cm %>% summary()
 ```
 
+*1 week / insight_only model*
 
-
-#### PR Curve
-Here is precision/recall by concatenating all folds.  Same approach as above for ROC
-```{r pr_info}
-preds_out %>%
-  pr_auc(prob_raw, truth = label) # note changed from prob_beta while debugging
-
-pr_data <- preds_out %>% 
-  pr_curve(prob_raw, truth = label) # note changed from prob_beta while debugging
-
-pr_data %>% 
-  ggplot(aes(x = recall, y = precision, color = .threshold)) +
-  geom_path(linewidth = 2) +
-  geom_hline(lty = 3, yintercept = mean(preds_out$label == "Lapse")) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  scale_color_gradient(low="blue", high="red") +
-  labs(x = "Recall (Sensitivity)",
-       y = "Precision (PPV)")
-```
-
-Sensitivity at min PPV of .7
+Default threshold (0.5)
 ```{r}
-pr_data |> 
-  filter(precision >= .7) |> 
-  arrange(desc(recall)) |> 
-  slice(1) |> 
-  print()
+
+(cm <- preds_out |> 
+   filter(model == "1week_insight_only") |> 
+   mutate(estimate = if_else(prob_raw > .5, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+
 ```
 
-Sensitivity at best F
+Confusion matrix at optimal cut-point (based on Youdens J index)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
+https://pubmed.ncbi.nlm.nih.gov/15405679/
+
 ```{r}
-f <- pr_data |> 
-  mutate(f =  (2 * precision * recall) / (precision + recall)) |> 
-  slice_max(f) |> 
-  print()
+roc_data <- preds_out %>%
+  filter(model == "1week_insight_only") |> 
+  roc_curve(prob_raw, truth = label)
+
+j_thres_roc <- roc_data |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+  print() |> 
+  pull(.threshold)
+
+(cm <- preds_out |> 
+    filter(model == "1week_insight_only") |> 
+    mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+    conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
 ```
 
+*1 week / aase_only model*
+
+Default threshold (0.5)
+```{r }
+
+(cm <- preds_out |> 
+   filter(model == "1week_aase_only") |> 
+   mutate(estimate = if_else(prob_raw > .5, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+
+```
+
+Confusion matrix at optimal cut-point (based on Youdens J index)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
+https://pubmed.ncbi.nlm.nih.gov/15405679/
+
+```{r }
+roc_data <- preds_out %>%
+  filter(model == "1week_aase_only") |> 
+  roc_curve(prob_raw, truth = label)
+
+j_thres_roc <- roc_data |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+  print() |> 
+  pull(.threshold)
+
+(cm <- preds_out |> 
+    filter(model == "1week_aase_only") |> 
+    mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+    conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+```
+
+*Dichotomous / aase_only model*
+
+Default threshold (0.5)
+```{r }
+
+(cm <- preds_out |> 
+   filter(model == "dichotomous_aase_only") |> 
+   mutate(estimate = if_else(prob_raw > .5, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+          estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+   conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+
+```
+
+Confusion matrix at optimal cut-point (based on Youdens J index)
+
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1444894/
+https://pubmed.ncbi.nlm.nih.gov/15405679/
+
+```{r }
+roc_data <- preds_out %>%
+  filter(model == "dichotomous_aase_only") |> 
+  roc_curve(prob_raw, truth = label)
+
+j_thres_roc <- roc_data |> 
+  mutate(j = sensitivity + specificity - 1) |> 
+  slice_max(j) |> 
+  print() |> 
+  pull(.threshold)
+
+(cm <- preds_out |> 
+    filter(model == "dichotomous_aase_only") |> 
+    mutate(estimate = if_else(prob_raw > j_thres_roc, "Lapse", "No lapse"), # note changed from prob_beta while debugging
+           estimate = factor(estimate, levels = c("Lapse", "No lapse"))) |> 
+    conf_mat(truth = label, estimate = estimate))
+
+cm %>% 
+  autoplot() +
+  theme(axis.text = element_text(size = rel(1.50)), 
+        axis.title = element_text(size = rel(1.75)))
+
+cm %>% summary()
+```
 
 ### Feature Importance
 
 #### Grouped Features
 
 ```{r read_shaps_grp}
-shapsgrp_out <- readRDS(file.path(path_models, str_c("outer_shapsgrp_", 
-                                                        window, "_", features, "_", 
-                                                        version, "_", cv, ".rds")))
+shaps_files <- all_files[str_detect(all_files, "outer_shapsgrp") &
+                           str_detect(all_files, version)]
+
+shapsgrp_out <- shaps_files |> 
+  map(\(file) read_rds(file) |> 
+        mutate(model = str_extract(file, 
+                                   "(?<=outer_shapsgrp_)[:graph:]+(?=_v2_)"))) |> 
+  list_rbind()
+
+glimpse(shapsgrp_out)
 ```
 
-
 Global importance SHAP plot for grouped features
-```{r shap_grouped_plot}
+
+*1 week / all features model*
+```{r }
 shapsgrp_out %>% 
+  filter(model == "1week_all") |> 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) %>% 
+  mutate(variable_grp = factor(variable_grp),
+         variable_grp = fct_inorder(variable_grp)) %>% 
+  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  coord_flip()
+```
+
+*1 week / insight_only model*
+```{r }
+shapsgrp_out %>% 
+  filter(model == "1week_insight_only") |> 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) %>% 
+  mutate(variable_grp = factor(variable_grp),
+         variable_grp = fct_inorder(variable_grp)) %>% 
+  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  coord_flip()
+```
+
+*1 week / aase_only model*
+```{r }
+shapsgrp_out %>% 
+  filter(model == "1week_aase_only") |> 
+  group_by(variable_grp) %>% 
+  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
+  arrange(mean_value) %>% 
+  mutate(variable_grp = factor(variable_grp),
+         variable_grp = fct_inorder(variable_grp)) %>% 
+  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
+  geom_point(size = 2, color = "red") +
+  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
+               yend = 0, colour = "grey50")  +
+  ylab("Mean |SHAP| value") +
+  coord_flip()
+```
+
+*dichotomous / aase_only model*
+```{r }
+shapsgrp_out %>% 
+  filter(model == "dichotomous_aase_only") |> 
   group_by(variable_grp) %>% 
   summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
   arrange(mean_value) %>% 
