@@ -1,0 +1,96 @@
+---
+title: "Analyses & Results Outline"
+author: "Gaylen Fronk"
+date: "`r lubridate::today()`"
+format:
+  html:
+    embed-resources: true
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+## Full Knit Files
+
+[Evaluate Outer Loop Performance & SHAP Values](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html){target="_blank"}
+
+[Bayesian Analyses: Model comparisons & Posterior distributions](file:///P:/StudyData/risk/knits/insight/ana_bayes_insight.html){target="_blank"}
+
+## Analysis Plan
+
+### Key Questions
+
+The purpose of this project is to determine:
+
+1. The accuracy of individuals' insight into their lapse risk (in the next week)
+
+*Relevant model configurations*
+
+1 week windows ~ insight only (raw)
+
+2. Whether dynamic assessment of insight and lapse risk has more predictive value than static assessment of insight and/or lapse risk
+
+*Relevant model configurations*
+
+1 week windows ~ insight only (raw)
+
+1 week windows ~ AASE total score only --> comparable to how an individual might currently use their own post-treatment insight to assess ongoing lapse risk
+
+Dichotomous lapse (whether an individual lapsed or not during study period) ~ AASE total score only --> comparable to how a clinician might use post-treatment insight to determine whether an individual should leave or continue treatment
+
+3. Whether models that take advantage of full EMA data & feature engineering can predict lapse risk more accurately than insight alone
+
+*Relevant model configurations*
+
+1 week windows ~ insight only (raw)
+
+1 week windows ~ all EMA items (4x daily surveys, engineered features)
+
+## Model Performance
+
+[Inner loop performance](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html#inner-loop-auc){target="_blank"}
+
+Already seeing some separation in model performance (all > insight only > AASE only models).
+
+[Outer loop performance & Drop off (inner --> outer loop)](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html#outer-auc){target="_blank"}
+
+We see much larger drop-off for AASE only models (perhaps suggesting less signal). Gaps between models widen in the outer loop.
+
+## Visualize Comparisons of outer loop AUCs
+
+[Faceted AUC histograms (all model configurations)](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html#roc-curve){target="_blank"}
+
+Very wide spread of AUCs for AASE only models.
+
+[Overlaid AUC density plots](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html#roc-curve){target="_blank"}
+
+I like the idea of this figure, might be a good starting point for a primary figure for the paper. 
+
+## SHAP Values
+
+[Grouped global SHAP values](file:///P:/StudyData/risk/knits/insight/3_eval_outer_v2.html#feature-importance){target="_blank"}
+
+SHAP values are really only meaningful here for the all feature models. These will help us demonstrate the value of asking other EMA questions as they can help us determine WHY someone is at risk of lapsing and, consequently, which treatments/tools/supports may benefit them in the moment.
+
+However, it is interesting to see how the SHAP values differ for the single-feature models.
+
+## Posterior Distributions around Individual Model Performance
+
+[Confidence Intervals](file:///P:/StudyData/risk/knits/insight/ana_bayes_insight.html#model-posterier-cis){target="_blank"}
+
+Tight confidence intervals around AUCs. CIs for the insight only & all feature models are well above 0.5. AASE only models are above 0.5 but not very much. Not sure if we'd want/need any additional demonstration of this fact?
+
+## Model Comparisons
+
+We compare insight only model to all other models to answer our key questions.
+
+[Posterior distributions for model comparisons](file:///P:/StudyData/risk/knits/insight/ana_bayes_insight.html#model-contrasts){target="_blank"}
+
+Insight model performs better (ROPE of .01, .05) than AASE 1-week and dichotomous models (Key Question 2).
+
+All feature model perofrms better (ROPE of .01, .05) than insight only model (Key QUestion 3).
+
+[Nicer plots](file:///P:/StudyData/risk/knits/insight/ana_bayes_insight.html#plots){target="_blank"}
