@@ -1,6 +1,6 @@
 ---
 title: "Supplemental Analyses"
-subtitle: "Machine learning models for temporally precise lapse prediction in alcohol use disorder."
+subtitle: "Machine learning models for temporally precise lapse prediction in alcohol use disorder"
 author: "Kendra Wyant, Sarah J. Sant'Ana, Gaylen E. Fronk, John J. Curtin"
 date: '`r format(Sys.time(), "%Y-%m-%d")`'
 format: 
@@ -27,7 +27,7 @@ execute:
   output: false
 ---
 
-This file is the supplemental analysis script for *Personal sensing for temporally precise lapse risk prediction for alcohol use disorder*. It includes all supplemental figures.   
+This file is the supplemental analysis script for *Machine learning models for temporally precise lapse prediction in alcohol use disorder*. It includes all supplemental figures.   
 
 ```{r knitr_settings}
 # settings
@@ -544,6 +544,21 @@ ci <- pp |>
                            labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week")),
          y = 700)
 
+
+ci_median <- pp |> 
+  contrast_models(list("hour","hour", "day"), 
+                list("week", "day", "week")) |> 
+  group_by(contrast) |> 
+  summarize(median = quantile(difference, .5),
+            mean = mean(difference)) |> 
+  mutate(contrast = factor(contrast, 
+                           levels = c("hour vs. week", "hour vs. day", "day vs. week"),
+                           labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week")))
+
+ci <- ci |> 
+  left_join(ci_median, by = c("contrast", "mean"))
+
+
 pp |> 
   tidy(seed = 123) |>   
   group_by(model) |> 
@@ -563,14 +578,15 @@ pp |>
   geom_histogram(aes(x = posterior), 
                  color = "black", fill = "grey", alpha = .4, bins = 30) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
-  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean), 
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = median, xend = median), 
                data = ci, show.legend = FALSE) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper), 
                data = ci, show.legend = FALSE) +
   # geom_text(data = ci, x = c(.0255, .043, .018), y = 700, 
   #           label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~contrast, ncol = 1) +
-  xlab("Posterior")
+  xlab("auROC difference") +
+  ylab("Count")
   
 ```
 
