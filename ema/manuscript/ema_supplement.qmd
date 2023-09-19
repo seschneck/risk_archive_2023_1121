@@ -28,7 +28,6 @@ execute:
 ---
 
 <!--JC NEEDS TO REVIEW ALL FIGURE CAPTIONS-->
-<!--KW: I add the transparency checklist to the manuscript folder on the P drive.-->
 
 
 This file is the supplemental analysis script for *Personal sensing for temporally precise lapse risk prediction for alcohol use disorder*. It includes all supplemental figures.   
@@ -225,15 +224,12 @@ ema_l <- read_csv(file.path(path_shared, "ema_later.csv"), col_types = cols()) |
 
 <!--***************************************************************************-->
 <!-- Figure S1: Consort Diagram-->
-### CONSORT Diagram
-
-Figure S1 presents a CONSORT diagram that displays participant retention at each study milestone. It also displays reasons for discontinuation when known and reasons for data exclusions.
 
 ```{r fig_consort, fig.height=7}
 #| output: true
 #| fig-pos: "hb"
 #| fig-cap: 
-#|   - "Consort diagram depicting participant retention at each point of the study and reasons for not enrolling, discontinuation, and exclusion."
+#|   - "CONSORT diagram. The diagram depicts participant retention at each study milestone. It also displays reasons for discontinuation when known and reasons for data exclusions."
 
 
 consort_plot(data = disposition,
@@ -258,9 +254,6 @@ consort_plot(data = disposition,
 
 <!--***************************************************************************-->
 <!-- Figure S2: EMA completion rate for 4x daily and 1x daily by week-->
-### EMA completion over time
-
-EMA completion was generally high. Figure S2 displays completion percentages over time (by week) across the study period for both 4x daily and at least one daily report.   
 
 
 ```{r}
@@ -365,11 +358,10 @@ ema_week_compliance_1x <- ema_study_weeks |>
 ```
 
 
-
 ```{r fig_completion, fig.width = 6, fig.height = 4}
 #| output: true
 #| fig-cap: 
-#|   - "Completion percentages by week on study for 1x and 4x daily EMA."
+#|   - "EMA completion. The plot depicts completion percentages over time (by week) across the study period for 1x (closed circles) and 4x (open circles) daily EMA. Dashed lines represent mean EMA completion over entire study period."
 
 week_compliance_all <- ema_week_compliance_4x |> 
               mutate(compliance = compliance*100) |> 
@@ -415,11 +407,7 @@ week_compliance_all |>
 \newpage
 
 <!--***************************************************************************-->
-<!-- THIS WILL BE FIGURE S3-->
-<!-- ROC curves and AUCs for each held out fold-->
-### ROC curves and AUCs for each held out fold
-
-Figure S3 presents the individual ROC curves from each of the 30 test sets on the left and the distribution of AUCs from each of the 30 test sets on the right.  
+<!-- Figure S3: ROC curves and AUCs for each held out fold-->
 
 ```{r}
 fig_roc_week <- roc_week_full |> 
@@ -533,7 +521,7 @@ fig_auc_hour <- auc_hour |>
 ```{r fig.height = 7}
 #| output: true
 #| fig-cap: 
-#|   - "Insert note here."
+#|   - "ROC curves and auROCs for each held out fold. The plots on the left depict individual ROC curves from each of the 30 test sets. The darker curves represent the median ROC curve across test sets. The plots on the right depict the distribution of auROCs from the 30 test sets. The rows are organized by model (week, day, hour)."
 
 plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fig_auc_hour,
           ncol = 2, align = "h")
@@ -542,16 +530,13 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
 \newpage
 
 <!--***************************************************************************-->
-<!-- THIS WILL BE FIGURE S4-->
-<!-- Bayesian Model Contrasts -->
-### Bayesian model contrasts
+<!-- S4: Bayesian Model Contrasts -->
 
-We used the posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models. We present histograms (and 95% CIs) of the posterior probability distributions for our bayesian model contrasts on auROC in Figure S4.
 
 ```{r fig_posterior_d, fig.height = 7, fig.width = 7}
 #| output: true
 #| fig-cap: 
-#|   - "Posterior Probabilities for Model Contrasts for AUC.   Region of Practical Equivalence (ROPE) indicated by dashed yellow lines."
+#|   - "Bayesian model contrasts. The plots above depict the posterior probabilities for the auROCs of our model contrasts. Each row represents a model constrast (hour vs. week, hour vs. day, day vs. week). The solid vertical lines represent the mean posterior probability. The horizontal lines represent the 95% credible interval. The dashed vertical lines denote a posterior probability of 0."
 
 ci <- pp |> 
   contrast_models(list("hour","hour", "day"), 
@@ -601,10 +586,8 @@ pp |>
 
 <!--***************************************************************************-->
 <!-- Figure S5: lapse probability predictions faceted by model-->
-### Lapse probability predictions by model
 
- Figure S5 displays histograms for the predicted probabilities of lapse for all observations in these test sets separately for each model. Dotted lines indicate the decision threshold determined with Youden's index.
- 
+
 ```{r}
 j_thres_week <- roc_week_full |> 
   mutate(j = sensitivity + specificity - 1) |> 
@@ -625,11 +608,11 @@ j_thres_hour <- roc_hour_full |>
   pull(.threshold)
 ```
 
-
+ 
 ```{r fig.width = 7.5, fig.height = 5}
 #| output: true
 #| fig-cap: 
-#|   - "Insert note here."
+#|   - "Lapse probability predictions by model. The plots above depict predicted probabilities for all observations in the 30 test sets. The columns are organized by model (week, day, hour). The top row depicts estimated lapse probabilities for true lapses. The bottom row depicts estimated lapse probabilities for true no lapses. The dashed vertical lines represent the decision threshold for each model, determined using Youden's index."
 
 fig_preds_week_lapse <- preds_week |> 
   rename(truth = label) |> 
