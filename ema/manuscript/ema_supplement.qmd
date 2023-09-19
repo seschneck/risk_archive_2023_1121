@@ -27,9 +27,6 @@ execute:
   output: false
 ---
 
-<!--JC NEEDS TO REVIEW ALL FIGURE CAPTIONS-->
-
-
 This file is the supplemental analysis script for *Personal sensing for temporally precise lapse risk prediction for alcohol use disorder*. It includes all supplemental figures.   
 
 ```{r knitr_settings}
@@ -361,7 +358,7 @@ ema_week_compliance_1x <- ema_study_weeks |>
 ```{r fig_completion, fig.width = 6, fig.height = 4}
 #| output: true
 #| fig-cap: 
-#|   - "EMA completion. The plot depicts completion percentages over time (by week) across the study period for 1x (closed circles) and 4x (open circles) daily EMA. Dashed lines represent mean EMA completion over entire study period."
+#|   - "EMA completion by week. The plot depicts completion percentages over time (by week) across the study period for 1x (closed circles) and 4x (open circles) daily EMA. Dashed lines represent mean EMA completion over entire study period for 1x and 4x daily EMA. Error bars represent the standard error for each completion percentage by week."
 
 week_compliance_all <- ema_week_compliance_4x |> 
               mutate(compliance = compliance*100) |> 
@@ -521,7 +518,7 @@ fig_auc_hour <- auc_hour |>
 ```{r fig.height = 7}
 #| output: true
 #| fig-cap: 
-#|   - "ROC curves and auROCs for each held out fold. The plots on the left depict individual ROC curves from each of the 30 test sets. The darker curves represent the median ROC curve across test sets. The plots on the right depict the distribution of auROCs from the 30 test sets. The rows are organized by model (week, day, hour)."
+#|   - "ROC curves and auROCs. The plots on the left depict individual receiver operating characteristic (ROC) curves from each of the 30 test sets. The darker curves represent the aggregate ROC curve derived by concatenating all held out folds. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the distribution of areas under the ROC curves (auROCs) from the same 30 test sets. The rows are organized by model (week, day, hour)."
 
 plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fig_auc_hour,
           ncol = 2, align = "h")
@@ -536,7 +533,7 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
 ```{r fig_posterior_d, fig.height = 7, fig.width = 7}
 #| output: true
 #| fig-cap: 
-#|   - "Bayesian model contrasts. The plots above depict the posterior probabilities for the auROCs of our model contrasts. Each row represents a model constrast (hour vs. week, hour vs. day, day vs. week). The solid vertical lines represent the mean posterior probability. The horizontal lines represent the 95% credible interval. The dashed vertical lines denote a posterior probability of 0."
+#|   - "Bayesian model contrasts. The plots above depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) of our model contrasts (i.e., the difference in auROC between the two models). Each row represents a model constrast (hour vs. week, hour vs. day, day vs. week). The solid vertical lines represent the median posterior probability. The horizontal lines represent the 95% credible interval. The dashed vertical lines indicate an auROC model difference of 0 which denotes no difference in performance."
 
 ci <- pp |> 
   contrast_models(list("hour","hour", "day"), 
@@ -563,17 +560,15 @@ pp |>
                            levels = c("hour_vs_week", "hour_vs_day", "day_vs_week"),
                            labels = c("Hour vs. Week", "Hour vs. Day", "Day vs. Week"))) |> 
   ggplot() +
-  geom_histogram(aes(x = posterior, fill = contrast), 
-                 color = "black", alpha = .4, bins = 30) +
+  geom_histogram(aes(x = posterior), 
+                 color = "black", fill = "grey", alpha = .4, bins = 30) +
   geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
-  # geom_vline(xintercept = -.01, color = "yellow", linetype = "dashed", size = 1) +
-  # geom_vline(xintercept = .01, color = "yellow", linetype = "dashed", size = 1) +
-  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean,
-                             color = contrast), data = ci, show.legend = FALSE) +
-  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, 
-                             color = contrast), data = ci, show.legend = FALSE) +
-  geom_text(data = ci, x = c(.0255, .043, .018), y = 700, 
-            label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
+  geom_segment(mapping = aes(y = y+100, yend = y-100, x = mean, xend = mean), 
+               data = ci, show.legend = FALSE) +
+  geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper), 
+               data = ci, show.legend = FALSE) +
+  # geom_text(data = ci, x = c(.0255, .043, .018), y = 700, 
+  #           label = str_c(round(ci$mean, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~contrast, ncol = 1) +
   xlab("Posterior")
   
