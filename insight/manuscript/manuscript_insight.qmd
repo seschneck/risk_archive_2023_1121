@@ -1,0 +1,154 @@
+---
+title: "Untitled"
+format: pdf
+csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
+geometry: margin=.5in
+fontsize: 11pt
+bibliography: paper_insight.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+<!--General notes
+Additional YAML formatting will need to be added once it's decided where this will be submitted. Tag Susan to handle that.
+
+-->
+
+```{r knitr_settings, include = FALSE}
+# settings
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, cache = FALSE, 
+                      message = FALSE)
+options(knitr.kable.NA = '')
+knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
+```
+
+```{r setup, include = FALSE}
+library(knitr)
+# library(yardstick) # for roc_curve
+library(kableExtra)
+library(janitor)
+# library(corx)
+library(patchwork)
+library(ggtext)
+library(consort)
+library(tidyverse)
+library(tidymodels)
+library(tidyposterior)
+library(cowplot)
+
+theme_set(theme_classic()) 
+```
+
+
+```{r paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- "P:/studydata/risk/chtc/insight"
+          path_processed <- "P:/studydata/risk/data_processed/insight"
+          path_models <- "P:/studydata/risk/models/insight"
+          path_shared <- "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_input <- "/Volumes/private/studydata/risk/chtc/insight"
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/insight"
+          path_models <- "/Volumes/private/studydata/risk/models/insight"
+          path_shared <- "/Volumes/private/studydata/risk/data_processed/shared"},
+        
+        # Linux paths
+        Linux = {
+          path_input <- "~/mnt/private/studydata/risk/chtc/insight"
+          path_processed <- "~/mnt/private/studydata/risk/data_processed/insight"
+          path_models <- "~/mnt/private/studydata/risk/models/insight"
+          path_shared <- "~/mnt/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+```{r load_data}
+```
+
+# Introduction
+
+
+## Current Study
+
+
+# Method
+
+## Research Transparency
+
+## Participants
+
+## Procedure
+
+
+## Measures
+### EMA
+
+### Individual Differences
+
+## Data Analytic Strategy
+
+### Lapse Labels
+
+
+### Feature Engineering
+
+
+
+### Model Training and Evaluation
+
+
+\newpage
+
+
+# Results
+
+
+## Demographic and Clinical Characteristics
+
+
+
+<!-- Demographics table-->
+
+
+
+\newpage
+
+
+## Model Performance
+
+### auROC
+
+
+
+### Other Performance Metrics
+
+
+### Feature Importance
+
+
+
+
+
+
+# Discussion
+
+## 1. Model Performance
+
+## 2. Understanding & Contextualizing Model Performance
+
+## 3. Clinical Implementation
+
+
+## 4. Additional Future Directions & Limitations
+
+
+
+\clearpage
+
+
+# References
