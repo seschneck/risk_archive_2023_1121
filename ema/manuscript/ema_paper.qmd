@@ -918,7 +918,8 @@ We also used these posterior probability distributions for the auROCs of the thr
 
 ```{r fig_1_roc-pp}
 #| output: true
-#| fig-cap: "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
+#| fig-cap: 
+#|   - "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
 
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -997,7 +998,8 @@ metrics |>
 <!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
-#| fig-cap: "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
+#| fig-cap: 
+#|   - "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
 
 
 pr_all |>  
@@ -1116,14 +1118,15 @@ We display local Shapley values that quantify the influence of feature categorie
 
 ```{r fig_3_shap}
 #| output: true
-#| fig-cap: "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
+#| fig-cap: 
+#|   - "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
 
 # panel_shap_global + panel_shap_local_week + panel_shap_local_day + panel_shap_local_hour +
 #    plot_annotation(tag_levels = 'A') +
 #    plot_layout (ncol = 2, guides = "collect", width = c(1,1)) 
 ```
 
-![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](C:/Users/kpaquette2/analysis_risk1/ema/manuscript/figures/fig_3.jpeg)
+![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](figures/fig_3.jpeg){height=600px width=95%}
 
 
 \newpage
