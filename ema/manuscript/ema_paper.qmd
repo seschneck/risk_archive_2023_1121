@@ -61,7 +61,7 @@ author-note:
     financial-support: "This research was supported by grants from the National Institute on Alcohol Abuse and Alcoholism (R01 AA024391; JJC) and the National Institute on Drug Abuse (R01 DA047315; JJC)."
     gratitude: "The authors wish to thank Susan E. Wanta for her role as the project administrator and for her help with data curation. The authors also wish to thank Candace Lightheart, Jill Nagler, Kerry Keiser, and Megan Shultz for their contributions to data collection and Chris Gioia for the clinical supervision he provided to graduate students."
     authorship-agreements: ~
-abstract: "We developed three separate models that provide hour-by-hour probabilities of a future lapse back to alcohol use with increasing temporal precision (i.e., lapses in the next week, next day, and next hour). Model features were based on raw scores and longitudinal change in theoretically implicated risk factors collected through ecological momentary assessment (EMA). Participants (*N*=151; 51% male; mean age = 41; 87% White, 97% Non-Hispanic) in early recovery (1–8 weeks of abstinence) from alcohol use disorder provided 4x daily EMA for up to three months. We used grouped, nested cross-validation, with 1 repeat of 10-fold cross-validation for the inner loop and 3 repeats of 10-fold cross-validation for the outer loop to train models, select best models, and evaluate those best models on auROC. Models yielded median areas under the receiver operating curves (auROCs) of .90, .91, and .94 in the 30 held-out test sets for week, day, and hour level models, respectively. Some feature categories consistently emerged as being globally important to lapse prediction across our week, day, and hour level models (i.e., increased past use, lower future abstinence efficacy). However, most of the more punctuate, time varying constructs (e.g., craving, stressful events, arousal) appear to have greater impact within the next hour prediction model. This research represents an important step toward the development of a *smart* (machine learning guided) sensing system that can both identify periods of peak lapse risk and recommend specific supports to address factors contributing to this risk. \n\nGeneral scientific summary: This study suggests that densely sampled self-report data could be used to predict lapses back to alcohol use with varying degrees of temporal precision. Additionally, the contextual features contributing to risk of lapse may offer important insight for treatment matching through a digital therapeutic."
+abstract: "We developed three separate models that provide hour-by-hour probabilities of a future lapse back to alcohol use with increasing temporal precision (i.e., lapses in the next week, next day, and next hour). Model features were based on raw scores and longitudinal change in theoretically implicated risk factors collected through ecological momentary assessment (EMA). Participants (*N*=151; 51% male; mean age = 41; 87% White, 97% Non-Hispanic) in early recovery (1–8 weeks of abstinence) from alcohol use disorder provided 4x daily EMA for up to three months. We used grouped, nested cross-validation, with 1 repeat of 10-fold cross-validation for the inner loop and 3 repeats of 10-fold cross-validation for the outer loop to train models, select best models, and evaluate those best models on auROC. Models yielded median areas under the receiver operating curves (auROCs) of .90, .91, and .94 in the 30 held-out test sets for week, day, and hour level models, respectively. Some feature categories consistently emerged as being globally important to lapse prediction across our week, day, and hour level models (i.e., increased past use, lower future abstinence efficacy). However, most of the more punctuate, time varying constructs (e.g., craving, stressful events, arousal) appear to have greater impact within the next hour prediction model. This research represents an important step toward the development of a *smart* (machine learning guided) sensing system that can both identify periods of peak lapse risk and recommend specific supports to address factors contributing to this risk. \n\nGeneral scientific summary: This study suggests that densely sampled self-report data can be used to predict lapses back to alcohol use with varying degrees of temporal precision. Additionally, the contextual features contributing to risk of lapse may offer important insight for treatment matching through a digital therapeutic."
 keywords: [ecological momentary assessment, digital therapeutics, alcohol use disorder]
 bibliography: paper_ema.bib
 format:
@@ -73,6 +73,20 @@ format:
 
 
 {{< include _extensions/wjschne/apaquarto/_apa_title.qmd >}}
+
+
+<!-- total words: 11416
+- Journal metadata (title page, author notes, disclosures, abstract, general scientific summary) = 496
+- intro = 1488
+- Method (including 2 footnotes) = 2965 (still need to add statement about power)
+- Results (text only) = 1300
+- Discussion = 2286
+- References (currently 65 references, a few more may be cut depending on what gets moved to supplement from methods) = 2133
+- Tables = 493 (still need to add note about lapse outliers to Table 1)
+- Fig captions = 255
+-->
+
+
 
 
 <!--required author notes (already entered into metadata):
@@ -700,7 +714,6 @@ ppv_70 <- pr_all |>
             .groups = "drop")
 ```
 # Introduction
-<!--word count w/references: 1324-->
 
 Alcohol use disorder (AUD) is highly prevalent and costly. Among United States (U.S.) adults, over 30 million had an active AUD in 2021, and 23.3% reported engaging in past-month binge drinking [@samhsa2021NSDUHDetailed2021]. Alcohol ranks as the third leading preventable cause of death, accounting for approximately 140,000 fatalities per year [@centersfordiseasecontrolandpreventionAlcoholPublicHealth]. Economically, alcohol misuse cost the United States $249 billion in 2016 alone [@administrationusFacingAddictionAmerica2016]. 
 
@@ -736,7 +749,6 @@ We designed the current study to address the gaps and limitations of previous pr
 
 
 # Method
-<!--word count: 2901-->
 
 ## Transparency and openness 
 <!--KW: note that this subheading wording is required by JPCS-->
@@ -893,21 +905,21 @@ Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 
 
 Best model configurations were selected via validation set performance. The median auROCs from the validation sets for the best configurations were high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc_in) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc_in) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc_in) |> max())`) prediction windows. 
 
-Best model configurations were evaluated via test set performance. The median auROC across the 30 test sets remained high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> max())`) prediction windows.  The left panel of Figure 1 displays the Receiver Operating Characteristic curves by model (i.e., window width) derived by aggregating predicted lapse probabilities across these same 30 test sets.  Figure S4 presents the individual ROC curves from each of the 30 test sets.  
+Best model configurations were evaluated via test set performance. The median auROC across the 30 test sets remained high for the week (median=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_week |> pull(roc_auc) |> max())`), day (median=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_day |> pull(roc_auc) |> max())`), and hour (median=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> median())`, IQR=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> IQR())`, range=`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> min())`-`r sprintf("%1.2f", auc_hour |> pull(roc_auc) |> max())`) prediction windows.  The left panel of Figure 1 displays the ROC curves by model (i.e., window width) derived by aggregating predicted lapse probabilities across these same 30 test sets.  Figure S4 presents the individual ROC curves from each of the 30 test sets.  
 
-Posterior probability distributions for the week, day, and hour models are displayed separately for each model in the right panels of Figure 1.  The median auROCs from these posterior distributions were `r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(median) |> as.numeric())`,  `r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(median) |> as.numeric())`, and `r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(median) |> as.numeric())` for the week, day, and hour models, respectively.  These median values from the Bayesian posterior distributions represent our best estimates for magnitude of the auROC parameter for the models for these three prediction windows.  The 95% Bayesian confidence intervals (95% CI) for the auROCs for these models were relatively narrow and did not contain 0.5 for any of the three window widths: week [`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(upper) |> as.numeric())`], day [`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(upper) |> as.numeric())`], hour [`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(upper) |> as.numeric())`].  The right panel of Figure 1 displays histograms (and 95% CIs) of the posterior probability distribution for the auROC by model. <!-- GEF: John - I think this is what is already stated in the opening sentence? Just confirming in case you meant to reference something else here-->  
+Posterior probability distributions (and 95% CIs) for the auROC are displayed separately for each model in the right panel of Figure 1.  The median auROCs from these posterior distributions were `r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(median) |> as.numeric())`,  `r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(median) |> as.numeric())`, and `r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(median) |> as.numeric())` for the week, day, and hour models, respectively.  These median values from the Bayesian posterior distributions represent our best estimates for magnitude of the auROC parameter for the models for these three prediction windows.  The 95% Bayesian confidence intervals (95% CI) for the auROCs for these models were relatively narrow and did not contain 0.5 for any of the three window widths: week [`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Week") |> pull(upper) |> as.numeric())`], day [`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Day") |> pull(upper) |> as.numeric())`], hour [`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci |> filter(model=="Hour") |> pull(upper) |> as.numeric())`].  
 
 We also used these posterior probability distributions for the auROCs of the three models to formally compare the differences in performance of these models.  The median increase in auROC for the hour vs. the day model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. day") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. day") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the day model.  The median increase in auROC for the hour vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "hour vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="hour vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the hour model had superior performance relative to the week model.  The median increase in auROC for the day vs. the week model was `r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(median) |> as.numeric())` (95% CI=[`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(lower) |> as.numeric())`-`r sprintf("%1.2f", ci_diffs |> filter(contrast == "day vs. week") |> pull(upper) |> as.numeric())`], yielding a probability of `r sprintf("%1.3f", pp_diffs |> filter(contrast=="day vs. week") |> pull(difference) |> (\(x) mean(x>0))())` that the day model had superior performance relative to the week model.  We present histograms (and 95% CIs) of the posterior probability distributions for these model contrasts on auROC in Figure S5.
 
 \newpage
 <!--************************************************************************-->
 <!-- Figure 1: ROC and Posterior probability histograms for auROC by model-->  
-<!--ADD FIGURE CAPTION-->
+<!--JC: check fig caption-->
 
 ```{r fig_1_roc-pp}
 #| output: true
 #| fig-cap: 
-#|   - "Receiver Operating Characteristic Curves and Area Under Curves by Model. ADD CAPTION INFO"
+#|   - "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
 
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -934,8 +946,8 @@ pp_plot <- pp_tidy |>
   # geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
   #           label = str_c(round(ci$median, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
-  scale_y_continuous("Posterior Probability", breaks = c(0, 500, 1000)) +
-  xlab("Area Under ROC Curve") +
+  scale_y_continuous("Count", breaks = c(0, 500, 1000)) +
+  xlab("Posterior probability for auROC") +
   theme(strip.background = element_blank(),
         strip.text.x = element_blank())
 
@@ -960,10 +972,10 @@ We also created Precision-Recall curves by aggregating predicted lapse probabili
 #| output: true
 
 
-footnote_table_metrics <- "Insert footnote"
+footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model. Our decision thresholds (.24, .06, and .003 for week, day, and hour level model’s respectively) was determined with Youden’s index, which seeks to maximize sensitivity and sensitivity."
 
 metrics |> 
- mutate(metric = case_when(metric == "auROC" ~ "area under the receiver operating characteristic curve",
+ mutate(metric = case_when(metric == "auROC" ~ "auROC",
                            metric == "sens" ~ "sensitivity",
                            metric == "spec" ~ "specificity",
                            metric == "bal_accuracy" ~ "balanced accuracy",
@@ -982,11 +994,12 @@ metrics |>
 \newpage
 <!--************************************************************************-->
 <!-- Figure 2: PR curves by model-->
-<!--UPDATE:  NEED TO FIX LINES.  THEY DONT LINE UP!-->
+<!--UPDATE:  NEED TO FIX LINES.  THEY DONT LINE UP!--> <!--KW will update-->
+<!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
 #| fig-cap: 
-#| - "Precision-Recall Curves by Model.  ADD CAPTION TEXT"
+#| - "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
 
 
 pr_all |>  
@@ -1016,17 +1029,17 @@ pr_all |>
 
 ## Feature Importance
 
-We display the global importance (mean |Shapley value|) for feature categories for each of the three models in Panel A of Figure 3.  These feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color.  Past use is a strong global predictor of future use consistently for all three models.  Self-reported future abstinence efficacy also emerges as a strong and consistent global predictor of future use.  The start time of the prediction window affects lapse predictions for next hour prediction but loses its value when the prediction windows encompass a full day or week.  <!--KW: Moved this sentence to discussion - Most of the more punctuate, time varying constructs (e.g., craving, stressful events, arousal) appear to have greater impact within the next hour prediction model.--> <!--JJC: not sure how much of this is starting to sounds like discussion vs. results--> <!-- GEF: i took out the final clause about what that might mean-->
+We display the global importance (mean |Shapley value|) for feature categories for each of the three models in Panel A of Figure 3.  These feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color.  <!--KW: just noting that the content of the rest of this paragraph is also in the discussion-->Past use is a strong global predictor of future use consistently for all three models.  Self-reported future abstinence efficacy also emerges as a strong and consistent global predictor of future use.  The start time of the prediction window affects lapse predictions for next hour prediction but loses its value when the prediction windows encompass a full day or week.  Most of the more punctuate, time varying constructs (e.g., craving, stressful events, arousal) appear to have greater impact within the next hour prediction model. <!--JJC: not sure how much of this is starting to sounds like discussion vs. results--> <!-- GEF: i took out the final clause about what that might mean-->
 
 We display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model in Panels B-D of Figure 3.  Critically, these Sina plots confirm that some feature categories (e.g., past pleasant events, future stressful events) impact lapse probability for specific individuals at specific times even if they are not globally important across all observations.  <!--KW: this last sentence is also brought into discussion. Not sure if we want to keep it here too for emphasis-->
 
 
 <!--************************************************************************-->
 <!-- Figure 3: SHAP Importance figure-->
-<!--NEED TO UPDATE FIGURE CAPTION - JJC-->
 <!--NEED TO ADD HEAT COLORS FOR DIRECTION TO LOCAL PLOTS - KENDRA?-->
 <!--CONSIDER PANEL TITLES?-->
 <!--CONSIDER WHERE LEGEND GOES-->
+<!--JOHN: check fig caption. Also, we should discuss what edits to figure you want me to make-->
 ```{r make_global_shap}
 panel_shap_global <- shap_global_all |>  
   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
@@ -1106,7 +1119,7 @@ panel_shap_local_hour <- shap_local_hour |>
 ```{r fig_3_shap}
 #| output: true
 #| fig-cap: 
-#| - "Variable Importance (Shapley Values) by Model.  Raw EMA features are grouped by the original item from the EMA. Features from demographics and the day and hour for the start of the  prediction window are also included."
+#| - "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
 
 panel_shap_global + 
   panel_shap_local_week + 
@@ -1125,8 +1138,6 @@ panel_shap_global +
 \newpage
 
 # Discussion
-
-<!--Word count: 2268-->
 
 ## Model Performance
 
@@ -1149,7 +1160,7 @@ The demographic variables included in our models did not yield high global or lo
 
 ## Considerations for Clinical Implementation
 
-The aim of the current project was to build models for lapse risk prediction using EMA data. Although this is a necessary first step, the ultimate goal of this line of work is to use these models clinically. We believe these models may be most effective when embedded in a digital therapeutic platform for reasons of access, availability, and affordability described previously. Below we describe potential considerations for clinical implementation of our model predictions.
+The aim of the current project was to build models for alcohol lapse risk prediction using EMA data. Although this is a necessary first step, the ultimate goal of this line of work is to use these models clinically. We believe these models may be most effective when embedded in a digital therapeutic platform for reasons of access, availability, and affordability described previously. Below we describe potential considerations for clinical implementation of our model predictions.
 
 The primary output of our model is the likelihood of lapsing for an individual within the next week, day, or hour. This probability could in turn be used to recommend actions that an individual could take to reduce their risk of a lapse. In this situation, a model like ours could communicate an actionable treatment recommendation to the individual based on their lapse risk and the locally important feature categories contributing to that risk (e.g., recommending an urge surfing activity in response to reported high cravings). Importantly, many of our features with high local and/or global importance align well with the risk factors and associated intervention strategies delineated in Marlatt's Relapse Prevention model. This means recommendations could be mapped onto existing therapeutic frameworks already shown to be effective for AUD (e.g., CBT, mindfulness-based relapse). Thus, prediction models can optimize digital therapeutics such that these personalized treatment goals are realized while capitalizing on the benefits of existing self-guided digital therapeutics (e.g., reaching people not connected with a treatment provider, around-the-clock availability). 
 
