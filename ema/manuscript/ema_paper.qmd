@@ -918,8 +918,7 @@ We also used these posterior probability distributions for the auROCs of the thr
 
 ```{r fig_1_roc-pp}
 #| output: true
-#| fig-cap: 
-#|   - "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
+#| fig-cap: "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
 
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -998,8 +997,7 @@ metrics |>
 <!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
-#| fig-cap: 
-#| - "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
+#| fig-cap: "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
 
 
 pr_all |>  
@@ -1039,100 +1037,93 @@ We display local Shapley values that quantify the influence of feature categorie
 <!--NEED TO ADD HEAT COLORS FOR DIRECTION TO LOCAL PLOTS - KENDRA?-->
 <!--CONSIDER PANEL TITLES?-->
 <!--CONSIDER WHERE LEGEND GOES-->
-<!--JOHN: check fig caption. Also, we should discuss what edits to figure you want me to make-->
+<!--JOHN: check fig caption. Also, I add panel titles and moved legend. The code is commented out for knitting the paper though right now because it takes so long. Fig is instead saved out and read in.-->
 ```{r make_global_shap}
-panel_shap_global <- shap_global_all |>  
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
-  ggplot() +
-  geom_bar(aes(x = variable_grp, y = mean_value, fill = model), stat = "identity", alpha = .4) +
-  ylab("Mean(|Shapley Value|)") +
-  xlab("") +
-  coord_flip()
+# panel_shap_global <- shap_global_all |>  
+#   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
+#   ggplot() +
+#   geom_bar(aes(x = variable_grp, y = mean_value, fill = model), stat = "identity", alpha = .4) +
+#   ylab("Mean(|Shapley Value|)") +
+#   xlab("") +
+#   coord_flip()
 ```
 
 ```{r make_shap_local}
-# get colors for models to match other figures that use faceting or grouping
-colors_hex <- scales::hue_pal()(3) # week = 1, day = 2, hour = 3
-
-# order features to match global plot
-shap_levels <- shap_global_all |>
-  mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>
-  pull(variable_grp) |>
-  levels()
-
-# downsample to 10% of observations for each plot
-downsample_ratio <- .10
-ids_week <- shap_local_week |>
-  pull(id_obs) |>
-  unique()
-ids_week <- ids_week |> sample(size = round(length(ids_week)/(1/downsample_ratio)))
-ids_day <- shap_local_day |>
-  pull(id_obs) |>
-  unique()
-ids_day <- ids_day |> sample(size = round(length(ids_day)/(1/downsample_ratio)))
-ids_hour <- shap_local_hour |>
-  pull(id_obs) |>
-  unique()
-ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/(1/downsample_ratio)))
-
-# week panel
-panel_shap_local_week <- shap_local_week |>
-  filter(id_obs %in% ids_week) |>
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
-                     color = colors_hex[1]) +
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
-  ylab("Shapley Value") +
-  xlab("") +
-  coord_flip()
-
-# day panel
-panel_shap_local_day <- shap_local_day |>
-  filter(id_obs %in% ids_day) |>
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
-                     color = colors_hex[2]) +
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
-  ylab("Shapley Value") +
-  xlab("") +
-  coord_flip()
-
-# hour panel
-panel_shap_local_hour <- shap_local_hour |>
-  filter(id_obs %in% ids_hour) |>
-  mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
-  ggplot(mapping = aes(x = variable_grp, y = value)) +
-  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
-                     color = colors_hex[3]) +
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
-  ylab("Shapley Value") +
-  xlab("") +
-  coord_flip()
+# # get colors for models to match other figures that use faceting or grouping
+# colors_hex <- scales::hue_pal()(3) # week = 1, day = 2, hour = 3
+# 
+# # order features to match global plot
+# shap_levels <- shap_global_all |>
+#   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>
+#   pull(variable_grp) |>
+#   levels()
+# 
+# # downsample to 10% of observations for each plot
+# downsample_ratio <- .10
+# ids_week <- shap_local_week |>
+#   pull(id_obs) |>
+#   unique()
+# ids_week <- ids_week |> sample(size = round(length(ids_week)/(1/downsample_ratio)))
+# ids_day <- shap_local_day |>
+#   pull(id_obs) |>
+#   unique()
+# ids_day <- ids_day |> sample(size = round(length(ids_day)/(1/downsample_ratio)))
+# ids_hour <- shap_local_hour |>
+#   pull(id_obs) |>
+#   unique()
+# ids_hour <- ids_hour |> sample(size = round(length(ids_hour)/(1/downsample_ratio)))
+# 
+# # week panel
+# panel_shap_local_week <- shap_local_week |>
+#   filter(id_obs %in% ids_week) |>
+#   mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
+#   ggplot(mapping = aes(x = variable_grp, y = value)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
+#                      color = colors_hex[1]) +
+#   geom_hline(yintercept = 0) +
+#   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
+#   ylab("Shapley Value") +
+#   xlab("") +
+#   coord_flip()
+# 
+# # day panel
+# panel_shap_local_day <- shap_local_day |>
+#   filter(id_obs %in% ids_day) |>
+#   mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
+#   ggplot(mapping = aes(x = variable_grp, y = value)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
+#                      color = colors_hex[2]) +
+#   geom_hline(yintercept = 0) +
+#   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
+#   ylab("Shapley Value") +
+#   xlab("") +
+#   coord_flip()
+# 
+# # hour panel
+# panel_shap_local_hour <- shap_local_hour |>
+#   filter(id_obs %in% ids_hour) |>
+#   mutate(variable_grp = factor(variable_grp, levels = shap_levels)) |>
+#   ggplot(mapping = aes(x = variable_grp, y = value)) +
+#   ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4,
+#                      color = colors_hex[3]) +
+#   geom_hline(yintercept = 0) +
+#   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
+#   ylab("Shapley Value") +
+#   xlab("") +
+#   coord_flip()
 ```
 
 
 ```{r fig_3_shap}
 #| output: true
-#| fig-cap: 
-#| - "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
-
-panel_shap_global + 
-  panel_shap_local_week + 
-  panel_shap_local_day + 
-  panel_shap_local_hour +
-  plot_layout(ncol = 2)
-
+#| fig-cap: "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
 
 # panel_shap_global + panel_shap_local_week + panel_shap_local_day + panel_shap_local_hour +
-#    plot_layout (ncol = 2, guides = "collect") &
-#    theme(legend.position = "bottom")
+#    plot_annotation(tag_levels = 'A') +
+#    plot_layout (ncol = 2, guides = "collect", width = c(1,1)) 
 ```
 
+![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](C:/Users/kpaquette2/analysis_risk1/ema/manuscript/figures/fig_3.jpeg)
 
 
 \newpage
