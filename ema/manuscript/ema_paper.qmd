@@ -1,18 +1,78 @@
 ---
 title: "Machine learning models for temporally precise lapse prediction in alcohol use disorder"
-format: pdf
-csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
-geometry: margin=.5in
-fontsize: 11pt
+blank-lines-above-title: 2
+shorttitle: Machine learning for lapse prediction
+author:
+  - name: Kendra Wyant*
+    # role:
+    #   - Conceptualization
+    #   - Data curation
+    #   - Formal analysis
+    #   - Writing – original draft
+    #   - Writing – review & editing
+    affiliations:
+      - id: id1
+        name: University of Wisconsin-Madison
+        department: Department of Psychology
+        address: 1202 W Johnson St
+        city: Madison
+        region: WI
+        postal-code: "53521"
+  - name: Sarah J. Sant’Ana*
+    # role:
+    #   - Conceptualization
+    #   - Data curation
+    #   - Investigation
+    #   - Writing – original draft
+    #   - Writing – review & editing
+    affiliations: 
+      - ref: id1
+  - name: Gaylen E. Fronk
+    # role:
+    #   - Conceptualization
+    #   - Writing – original draft
+    #   - Writing – review & editing
+    affiliations: 
+      - ref: id1
+  - name: John J. Curtin
+    corresponding: true
+    email: jjcurtin@wisc.edu
+    url: https://arc.psych.wisc.edu/
+    # role:
+    #   - Conceptualization
+    #   - Data curation
+    #   - Formal analysis
+    #   - Funding acquisition
+    #   - Investigation
+    #   - Supervision
+    #   - Writing – original draft
+    #   - Writing – review & editing
+    affiliations: 
+      - ref: id1
+author-note:
+  blank-lines-above-author-note: 1
+  status-changes: 
+    affiliation-change: "*These authors contributed equally as co-first authors."
+  # Disclosures condensed to one paragraph, but you can start a field with two line breaks to break them up: \n\nNew Paragraph
+  disclosures:
+    study-registration: ~
+    data-sharing: "All data and materials have been made publicly available on Open Science Framework and can be accessed at [https://osf.io/w5h9y/](https://osf.io/w5h9y/)."   
+    related-report: "All procedures were approved by the University of Wisconsin-Madison Institutional Review Board (Study # 2015-0780)."
+    financial-support: "This research was supported by grants from the National Institute on Alcohol Abuse and Alcoholism (R01 AA024391; JJC) and the National Institute on Drug Abuse (R01 DA047315; JJC)."
+    gratitude: "The authors wish to thank Susan E. Wanta for her role as the project administrator and for her help with data curation. The authors also wish to thank Candace Lightheart, Jill Nagler, Kerry Keiser, and Megan Shultz for their contributions to data collection and Chris Gioia for the clinical supervision he provided to graduate students."
+    authorship-agreements: ~
+abstract: "KENDRA insert abstract here"
+keywords: [keyword1, keyword2, keyword3, keyword4, keyword5]
 bibliography: paper_ema.bib
-editor_options: 
-  chunk_output_type: console
-execute:
-  echo: false
-  warning: false
-  message: false
-  output: false
+format:
+  apaquarto-pdf:
+    documentmode: man
+    fontsize: 12pt
+    floatsintext: false
 ---
+
+
+{{< include _extensions/wjschne/apaquarto/_apa_title.qmd >}}
 
 
 <!--required author notes:
@@ -25,7 +85,6 @@ All procedures were approved by the University of Wisconsin-Madison Institutiona
 
 <!--Still need to add figure captions and check all figures are rendering correctly-->
 
-<!--Add acknowledgments and grant funding disclosures-->
 
 
 <!--Target Journal
@@ -60,6 +119,10 @@ Discussion:
 -add to limitations/future directions: no existing method to say whether an AUC is clinically useful or whether a SHAP value (global value or local variability) is meaningful
 -->
 
+```{r knitr_settings}
+options(knitr.kable.NA = '')
+knitr::opts_chunk$set(fig.pos = "ht", out.extra = "", message = FALSE)
+```
 
 
 ```{r setup}
@@ -79,10 +142,6 @@ library(cowplot)
 theme_set(theme_classic()) 
 ```
 
-```{r knitr_settings}
-options(knitr.kable.NA = '')
-knitr::opts_chunk$set(fig.pos = "ht", out.extra = "")
-```
 
 ```{r paths}
 switch (Sys.info()[['sysname']],
@@ -641,9 +700,9 @@ ppv_70 <- pr_all |>
 # Introduction
 <!--word count w/references: 1324-->
 
-Alcohol use disorder (AUD) is highly prevalent and costly. Among United States (U.S.) adults, over 30 million had an active AUD in 2021, and 23.3% reported engaging in past-month binge drinking [@samhsa2021NSDUHDetailedl]. Alcohol ranks as the third leading preventable cause of death, accounting for approximately 140,000 fatalities per year [@centersfordiseasecontrolandpreventionAlcoholPublicHealth]. Economically, alcohol misuse cost the United States $249 billion in 2016 alone [@administrationusFacingAddictionAmerica2016]. 
+Alcohol use disorder (AUD) is highly prevalent and costly. Among United States (U.S.) adults, over 30 million had an active AUD in 2021, and 23.3% reported engaging in past-month binge drinking [@samhsa2021NSDUHDetailed]. Alcohol ranks as the third leading preventable cause of death, accounting for approximately 140,000 fatalities per year [@centersfordiseasecontrolandpreventionAlcoholPublicHealth]. Economically, alcohol misuse cost the United States $249 billion in 2016 alone [@administrationusFacingAddictionAmerica2016]. 
 
-Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010], mindfulness-based relapse prevention [@goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational enhancement therapy [@millerEnhancingMotivationChange1993], and contingency management [@silvaContingencyManagementApplied2022] are effective when provided to patients.  Unfortunately, fewer than 1 in 20 adults with an active AUD receive any treatment [@samhsa2021NSDUHDetailedl].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017]. This treatment gap and associated disparities stem from well-known barriers to receiving clinician-delivered mental healthcare related to affordability, accessibility, availability, and acceptability [@jacobsonUsingDigitalTherapeutics2023].
+Existing clinician-delivered treatments for AUD such as cognitive-behavioral therapy [@mchughCognitiveBehavioralTherapySubstance2010], mindfulness-based relapse prevention [@goldbergMindfulnessbasedInterventionsPsychiatric2018], motivational enhancement therapy [@millerEnhancingMotivationChange1993], and contingency management [@silvaContingencyManagementApplied2022] are effective when provided to patients.  Unfortunately, fewer than 1 in 20 adults with an active AUD receive any treatment [@samhsa2021NSDUHDetailed].  Even more concerning, the failure to access treatment is associated with demographic factors including race, ethnicity, geographic region, and socioeconomic status, which further increase mental health disparities [@wangFailureDelayInitial2005; @generalusMentalHealthCulture2001; @mauraMentalHealthDisparities2017]. This treatment gap and associated disparities stem from well-known barriers to receiving clinician-delivered mental healthcare related to affordability, accessibility, availability, and acceptability [@jacobsonUsingDigitalTherapeutics2023].
 
 Digital therapeutics may help to combat these disparities. Digital therapeutics deliver evidence-based treatments through a smartphone "app" and are used to prevent, treat, or manage a medical disorder, either independently or in conjunction with traditional treatments [@jacobsonDigitalTherapeuticsMental2022]. They offer highly scalable, on-demand therapeutic support that is accessible whenever and wherever it is needed most. Several large, randomized controlled trials have confirmed that digital therapeutics for AUD improve clinical outcomes (e.g., abstinence, heavy drinking days [@gustafsonSmartphoneApplicationSupport2014; @campbellInternetdeliveredTreatmentSubstance2014]; see [@campbellFirstWaveScalable2023] for a review). Additionally, U.S. adults display high rates of smartphone ownership (approximately 85% in April 2021), with minimal variation across race, ethnicity, socioeconomic status, geographic settings (e.g., urban, suburban, rural), or AUD diagnosis [@pewresearchcenterMobileFactSheet2021; @collinsFactorsAssociatedPatterns2016]. Therefore, digital therapeutics may mitigate many of the barriers associated with in-person, clinician-delivered treatments.
 
@@ -811,7 +870,7 @@ dem  |>
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
   pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |>  
-  footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
+  kableExtra::footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
            threeparttable = TRUE)
 ```
 
@@ -915,7 +974,7 @@ metrics |>
       caption = "Performance Metrics by Model",
      linesep = "") |>  
   kable_styling(position = "left") |>  
-  footnote(general=footnote_table_metrics)
+  kableExtra::footnote(general=footnote_table_metrics)
 ```
 
 \newpage
