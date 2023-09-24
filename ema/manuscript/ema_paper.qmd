@@ -852,6 +852,8 @@ The final sample of 151 participants included approximately equal numbers of men
 <!--UPDATE -JJC handle description of outliers for quit attempts-->
 ```{r dem_table}
 #| output: true
+#| tbl-cap: Demographics and clinical characteristics
+
 
 footnote_table_dem_a <- "N = 151"
 
@@ -870,8 +872,7 @@ dem  |>
       booktabs = TRUE,
       col.names = c("", "N", "%", "M", "SD", "Range"),
       align = c("l", "c", "c", "c", "c", "c"),
-      digits = 1,
-      caption = "Demographics and Clinical Characteristics for the Sample") |> 
+      digits = 1) |> 
   kable_styling(latex_options = c("HOLD_position")) |>  
   row_spec(row = 0, align = "c", italic = TRUE) |>  
   column_spec(column = 1, width = "18em") |> 
@@ -885,9 +886,7 @@ dem  |>
   pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) |>  
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
-  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |>  
-  kableExtra::footnote(general=c(footnote_table_dem_a), symbol = c(footnote_table_dem_b), 
-           threeparttable = TRUE)
+  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) 
 ```
 
 
@@ -919,11 +918,7 @@ We also used these posterior probability distributions for the auROCs of the thr
 <!--JC: check fig caption-->
 <!--KW: figure out why fig captions are not rendering-->
 
-```{r fig-1-roc-pp}
-#| output: true
-#| fig-cap: 
-#|   - "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
-
+```{r}
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("Week", "Day", "Hour"))) |>  
@@ -953,11 +948,18 @@ pp_plot <- pp_tidy |>
   xlab("Posterior probability for auROC") +
   theme(strip.background = element_blank(),
         strip.text.x = element_blank())
+```
+
+```{r fig1rocpp}
+#| output: TRUE
+#| fig-cap: ROC curves and posterior probabilities for auROCs.
+#| fig-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval.
 
 roc_plot + pp_plot +
   plot_layout (guides = "collect") &
   theme(legend.position = "bottom")
 ```
+
 
 \newpage
 
@@ -1124,6 +1126,11 @@ We display local Shapley values that quantify the influence of feature categorie
 #| output: true
 #| fig-cap: 
 #|   - "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
+
+# #| label: apafg-importedgraphic
+# #| apa-cap: This is an imported graphic.
+# #| apa-note: My note.
+# knitr::include_graphics("orcid.png")
 
 # panel_shap_global + panel_shap_local_week + panel_shap_local_day + panel_shap_local_hour +
 #    plot_annotation(tag_levels = 'A') +
