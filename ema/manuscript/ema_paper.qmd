@@ -831,9 +831,6 @@ We used the Shapley Additive Explanations (SHAP) method [@lundbergUnifiedApproac
 
 
 
-\newpage
-
-
 # Results
 
 ## Demographic and Clinical Characteristics
@@ -847,12 +844,11 @@ The final sample of 151 participants included approximately equal numbers of men
 \newpage
 <!--************************************************************************-->
 <!-- Table 1: Demographics and clinical characteristics-->
-<!--KW: fix rendering - footnote not full width and doesn't go to end of paper like other table-->
+<!--KW: fix rendering - footnote runs off page and table doesn't go to end of paper like other table-->
 
 <!--UPDATE -JJC handle description of outliers for quit attempts-->
 ```{r dem_table}
 #| output: true
-#| tbl-cap: Demographics and clinical characteristics
 
 
 footnote_table_dem_a <- "N = 151"
@@ -872,8 +868,9 @@ dem  |>
       booktabs = TRUE,
       col.names = c("", "N", "%", "M", "SD", "Range"),
       align = c("l", "c", "c", "c", "c", "c"),
-      digits = 1) |> 
-  kable_styling(latex_options = c("HOLD_position")) |>  
+      digits = 1,
+      caption = "Demographics and clinical characteristics") |> 
+  kable_styling(position = "l", latex_options = c("HOLD_position")) |>  
   row_spec(row = 0, align = "c", italic = TRUE) |>  
   column_spec(column = 1, width = "18em") |> 
   pack_rows("Sex", 2, 3, bold = FALSE) |>  
@@ -886,7 +883,8 @@ dem  |>
   pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) |>  
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
-  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) 
+  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |> 
+  kableExtra::footnote(general = c(footnote_table_dem_a, footnote_table_dem_b))
 ```
 
 
@@ -915,10 +913,14 @@ We also used these posterior probability distributions for the auROCs of the thr
 \newpage
 <!--************************************************************************-->
 <!-- Figure 1: ROC and Posterior probability histograms for auROC by model-->  
-<!--JC: check fig caption-->
-<!--KW: figure out why fig captions are not rendering-->
+<!--JC: check fig caption and fig note-->
+<!--KW: needs to figure out why figure won't render when fig note is included. Commented out for now-->
 
-```{r}
+```{r fig_1_roc}
+#| output: true
+#| apa-cap: ROC curves and posterior probabilities for auROCs
+
+# apa-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval.
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("Week", "Day", "Hour"))) |>  
@@ -948,12 +950,6 @@ pp_plot <- pp_tidy |>
   xlab("Posterior probability for auROC") +
   theme(strip.background = element_blank(),
         strip.text.x = element_blank())
-```
-
-```{r fig1rocpp}
-#| output: TRUE
-#| fig-cap: ROC curves and posterior probabilities for auROCs.
-#| fig-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval.
 
 roc_plot + pp_plot +
   plot_layout (guides = "collect") &
@@ -977,7 +973,6 @@ We also created Precision-Recall curves by aggregating predicted lapse probabili
 ```{r table_2}
 #| output: true
 
-
 footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model. Our decision thresholds (.24, .06, and .003 for week, day, and hour level model’s respectively) was determined with Youden’s index, a statistical formula to maximize sensitivity and sensitivity."
 
 metrics |> 
@@ -991,21 +986,21 @@ metrics |>
      booktabs = TRUE,
      digits = 2,
      align = c("l", "l", "l", "l"),
-     caption = "Performance Metrics by Model",
-     linesep = "") |>  
-  kable_styling(latex_options = c("HOLD_position")) |>  
+     linesep = "",
+     caption = "Performance Metrics by Model") |>  
+  kable_styling(position = "left", latex_options = c("HOLD_position")) |>  
+  column_spec(column = 1, width = "25em") |> 
   kableExtra::footnote(general = c(footnote_table_metrics), threeparttable = TRUE)
 ```
 
 \newpage
 <!--************************************************************************-->
 <!-- Figure 2: PR curves by model-->
-<!--KW: figure out why fig caption not printing-->
 <!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
-#| fig-cap: 
-#|   - "Precision-recall curves by model. The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models."
+#| apa-cap: Precision-recall curves by model 
+#| apa-note: The plot depicts the aggregate precision-recall curves for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted lines depict the sensitivities (0.72, 0.47, and 0.33 for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each of those models.
 
 
 pr_all |>  
@@ -1124,23 +1119,17 @@ We display local Shapley values that quantify the influence of feature categorie
 
 ```{r fig_3_shap}
 #| output: true
-#| fig-cap: 
-#|   - "Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model."
+#| apa-cap: Variable Importance (Shapley Values) by Model
+#| apa-note: Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.
 
-# #| label: apafg-importedgraphic
-# #| apa-cap: This is an imported graphic.
-# #| apa-note: My note.
-# knitr::include_graphics("orcid.png")
+knitr::include_graphics(path = "figures/fig_3.jpeg", dpi = 130)
 
 # panel_shap_global + panel_shap_local_week + panel_shap_local_day + panel_shap_local_hour +
 #    plot_annotation(tag_levels = 'A') +
 #    plot_layout (ncol = 2, guides = "collect", width = c(1,1)) 
 ```
 
-![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](figures/fig_3.jpeg){height=550px width=95%}
 
-
-\newpage
 
 # Discussion
 
