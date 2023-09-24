@@ -847,6 +847,7 @@ The final sample of 151 participants included approximately equal numbers of men
 \newpage
 <!--************************************************************************-->
 <!-- Table 1: Demographics and clinical characteristics-->
+<!--KW: fix rendering - footnote not full width and doesn't go to end of paper like other table-->
 
 <!--UPDATE -JJC handle description of outliers for quit attempts-->
 ```{r dem_table}
@@ -871,8 +872,9 @@ dem  |>
       align = c("l", "c", "c", "c", "c", "c"),
       digits = 1,
       caption = "Demographics and Clinical Characteristics for the Sample") |> 
-  kable_styling() |>  
+  kable_styling(latex_options = c("HOLD_position")) |>  
   row_spec(row = 0, align = "c", italic = TRUE) |>  
+  column_spec(column = 1, width = "18em") |> 
   pack_rows("Sex", 2, 3, bold = FALSE) |>  
   pack_rows("Race", 4, 8, bold = FALSE) |>  
   pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) |>  
@@ -884,7 +886,7 @@ dem  |>
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
   pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |>  
-  kableExtra::footnote(general=footnote_table_dem_a, symbol = c(footnote_table_dem_b), 
+  kableExtra::footnote(general=c(footnote_table_dem_a), symbol = c(footnote_table_dem_b), 
            threeparttable = TRUE)
 ```
 
@@ -915,8 +917,9 @@ We also used these posterior probability distributions for the auROCs of the thr
 <!--************************************************************************-->
 <!-- Figure 1: ROC and Posterior probability histograms for auROC by model-->  
 <!--JC: check fig caption-->
+<!--KW: figure out why fig captions are not rendering-->
 
-```{r fig_1_roc-pp}
+```{r fig-1-roc-pp}
 #| output: true
 #| fig-cap: 
 #|   - "ROC curves and posterior probabilities for auROCs. The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represents the median posterior probability and the horizontal line represents the 95% credible interval."
@@ -967,12 +970,13 @@ We also created Precision-Recall curves by aggregating predicted lapse probabili
 \newpage
 <!--************************************************************************-->
 <!-- Table 2: Performance metrics-->
+<!--John: check footnote-->
 
 ```{r table_2}
 #| output: true
 
 
-footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model. Our decision thresholds (.24, .06, and .003 for week, day, and hour level model’s respectively) was determined with Youden’s index, which seeks to maximize sensitivity and sensitivity."
+footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model. Our decision thresholds (.24, .06, and .003 for week, day, and hour level model’s respectively) was determined with Youden’s index, a statistical formula to maximize sensitivity and sensitivity."
 
 metrics |> 
  mutate(metric = case_when(metric == "auROC" ~ "auROC",
@@ -982,19 +986,19 @@ metrics |>
                            metric == "ppv" ~ "positive predictive value",
                            metric == "npv" ~ "negative predictive value")) |> 
  kbl(col.names = c("Metric", "Week", "Day", "Hour"),
-      booktabs = TRUE,
-      digits = 2,
-      align = c("l"),
-      caption = "Performance Metrics by Model",
+     booktabs = TRUE,
+     digits = 2,
+     align = c("l", "l", "l", "l"),
+     caption = "Performance Metrics by Model",
      linesep = "") |>  
-  kable_styling(position = "left") |>  
-  kableExtra::footnote(general=footnote_table_metrics)
+  kable_styling(latex_options = c("HOLD_position")) |>  
+  kableExtra::footnote(general = c(footnote_table_metrics), threeparttable = TRUE)
 ```
 
 \newpage
 <!--************************************************************************-->
 <!-- Figure 2: PR curves by model-->
-<!--UPDATE:  NEED TO FIX LINES.  THEY DONT LINE UP!--> <!--KW will update-->
+<!--KW: figure out why fig caption not printing-->
 <!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
@@ -1007,13 +1011,13 @@ pr_all |>
                         labels = c("Week", "Day", "Hour"))) |> 
   ggplot(aes(x = recall, y = precision, color = model)) +
   geom_path(linewidth = 1.25) +
-  geom_segment(mapping = aes(y = .75, yend = .75, x = -.5, xend = recall,
+  geom_segment(mapping = aes(y = .7, yend = .7, x = -.5, xend = recall,
                            color = model),
                linetype = "dashed",
                alpha = .8,
                show.legend = FALSE,
                data = ppv_70) +
-  geom_segment(mapping = aes(y = -.5, yend = .75, x = recall, xend = recall,
+  geom_segment(mapping = aes(y = -.5, yend = .7, x = recall, xend = recall,
                            color = model),
                linetype = "dashed",
                alpha = .8,
@@ -1126,7 +1130,7 @@ We display local Shapley values that quantify the influence of feature categorie
 #    plot_layout (ncol = 2, guides = "collect", width = c(1,1)) 
 ```
 
-![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](figures/fig_3.jpeg){height=600px width=95%}
+![Variable Importance (Shapley Values) by Model.  Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.](figures/fig_3.jpeg){height=550px width=95%}
 
 
 \newpage
