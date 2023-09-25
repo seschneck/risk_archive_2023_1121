@@ -142,6 +142,8 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "", message = FALSE)
 
 
 ```{r setup}
+#| warning: false
+
 library(knitr)
 # library(yardstick) # for roc_curve
 library(kableExtra)
@@ -896,7 +898,8 @@ dem  |>
   pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
   pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
   pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |> 
-  kableExtra::footnote(general = c(footnote_table_dem_a, footnote_table_dem_b))
+  kableExtra::footnote(general = c(footnote_table_dem_a, footnote_table_dem_b),
+           threeparttable=TRUE, fixed_small_size = TRUE)
 ```
 
 
@@ -1060,6 +1063,7 @@ We display local Shapley values that quantify the influence of feature categorie
 #   geom_bar(aes(x = variable_grp, y = mean_value, fill = model), stat = "identity", alpha = .4) +
 #   ylab("Mean(|Shapley Value|)") +
 #   xlab("") +
+#   theme(axis.text = element_text(size = 9.5)) +
 #   coord_flip()
 ```
 
@@ -1099,6 +1103,7 @@ We display local Shapley values that quantify the influence of feature categorie
 #   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
 #   ylab("Shapley Value") +
 #   xlab("") +
+#   theme(axis.text = element_text(size = 9.5)) +
 #   coord_flip()
 # 
 # # day panel
@@ -1112,6 +1117,7 @@ We display local Shapley values that quantify the influence of feature categorie
 #   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
 #   ylab("Shapley Value") +
 #   xlab("") +
+#   theme(axis.text = element_text(size = 9.5)) +
 #   coord_flip()
 # 
 # # hour panel
@@ -1125,6 +1131,7 @@ We display local Shapley values that quantify the influence of feature categorie
 #   scale_y_continuous(limits = c(-2, 5), breaks = seq(-2, 5)) +
 #   ylab("Shapley Value") +
 #   xlab("") +
+#   theme(axis.text = element_text(size = 9.5)) +
 #   coord_flip()
 ```
 
