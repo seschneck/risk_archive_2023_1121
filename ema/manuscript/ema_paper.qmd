@@ -858,55 +858,6 @@ We excluded data from one participant who did not maintain a goal of abstinence 
 
 The final sample of 151 participants included approximately equal numbers of men (N=77; 51%) and women (N=74; 49%) who ranged in age from 21 - 72 years old.  The sample was majority White (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of alcohol use disorder (SD=5.8; range=4-11), a mean of 5.5 previous quit attempts (SD=5.8, range=0-30), and many reported using medications for AUD (N=59; 39%).  Most participants (N=84; 56%) reported one or more alcohol lapses during the study period.  The mean number of lapses per participant during the study period was 6.8 (SD=12.0; range=0-75).  Table 1 provides more detail on demographic and clinical characteristics of the sample.
 
-\newpage
-<!--************************************************************************-->
-<!-- Table 1: Demographics and clinical characteristics-->
-<!--KW: fix rendering - footnote runs off page and table doesn't go to end of paper like other table-->
-
-<!--UPDATE -JJC handle description of outliers for quit attempts-->
-```{r dem_table}
-#| output: true
-
-
-footnote_table_dem_a <- "N = 151"
-
-footnote_table_dem_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior to calculating the mean (M), standard deviation (SD), and range."
-
-dem  |>  
-  bind_rows(auh |>  
-              mutate(across(mean:max, ~round(.x, 1))) |>  
-              mutate(across(mean:max, ~as.character(.x)))) |>  
-  bind_rows(lapse_info |>  
-              mutate(across(mean:max, ~round(.x, 1))) |>  
-              mutate(across(mean:max, ~as.character(.x)))) |>  
-  mutate(range = str_c(min, "-", max)) |> 
-  select(-c(min, max)) |>  
-  kbl(longtable = TRUE,
-      booktabs = TRUE,
-      col.names = c("", "N", "%", "M", "SD", "Range"),
-      align = c("l", "c", "c", "c", "c", "c"),
-      digits = 1,
-      caption = "Demographics and clinical characteristics") |> 
-  kable_styling(position = "l", latex_options = c("HOLD_position")) |>  
-  row_spec(row = 0, align = "c", italic = TRUE) |>  
-  column_spec(column = 1, width = "18em") |> 
-  pack_rows("Sex", 2, 3, bold = FALSE) |>  
-  pack_rows("Race", 4, 8, bold = FALSE) |>  
-  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) |>  
-  pack_rows("Education", 11, 16, bold = FALSE) |>  
-  pack_rows("Employment", 17, 25, bold = FALSE) |>  
-  pack_rows("Marital Status", 27, 31, bold = FALSE) |>  
-  pack_rows("Alcohol Use Disorder Milestones", 32, 35, bold = FALSE) |>  
-  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) |>  
-  pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
-  pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
-  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |> 
-  kableExtra::footnote(general = c(footnote_table_dem_a, footnote_table_dem_b),
-           threeparttable=TRUE, fixed_small_size = TRUE)
-```
-
-
-\newpage
 
 
 ## EMA compliance, features (predictors), and prediction window labels (outcome)
@@ -1199,3 +1150,57 @@ A final future direction concerns model lag time. Our models are currently zero 
 \newpage
 
 # References
+::: {#refs}
+:::
+
+
+\newpage
+<!--************************************************************************-->
+<!-- Table 1: Demographics and clinical characteristics-->
+<!--KW: fix rendering - footnote runs off page and table doesn't go to end of paper like other table-->
+
+<!--UPDATE -JJC handle description of outliers for quit attempts -->
+```{r table_1}
+#| output: true
+
+
+footnote_table_dem_a <- "N = 151"
+
+footnote_table_dem_b <- "Two participants reported 100 or more quit attempts. We removed these outliers prior"
+
+footnote_table_dem_c <- "to calculating the mean (M), standard deviation (SD), and range."
+
+dem  |>  
+  bind_rows(auh |>  
+              mutate(across(mean:max, ~round(.x, 1))) |>  
+              mutate(across(mean:max, ~as.character(.x)))) |>  
+  bind_rows(lapse_info |>  
+              mutate(across(mean:max, ~round(.x, 1))) |>  
+              mutate(across(mean:max, ~as.character(.x)))) |>  
+  mutate(range = str_c(min, "-", max)) |> 
+  select(-c(min, max)) |>  
+  kbl(longtable = TRUE,
+      booktabs = TRUE,
+      col.names = c("", "N", "%", "M", "SD", "Range"),
+      align = c("l", "c", "c", "c", "c", "c"),
+      digits = 1,
+      caption = "Demographics and clinical characteristics") |> 
+  kable_styling(position = "l") |>  
+  row_spec(row = 0, align = "c", italic = TRUE) |>  
+  column_spec(column = 1, width = "18em") |> 
+  pack_rows("Sex", 2, 3, bold = FALSE) |>  
+  pack_rows("Race", 4, 8, bold = FALSE) |>  
+  pack_rows("Hispanic, Latino, or Spanish Origin", 9, 10, bold = FALSE) |>  
+  pack_rows("Education", 11, 16, bold = FALSE) |>  
+  pack_rows("Employment", 17, 25, bold = FALSE) |>  
+  pack_rows("Marital Status", 27, 31, bold = FALSE) |>  
+  pack_rows("Alcohol Use Disorder Milestones", 32, 35, bold = FALSE) |>  
+  pack_rows("Lifetime History of Treatment (Can choose more than 1)", 37, 43, bold = FALSE) |>  
+  pack_rows("Received Medication for Alcohol Use Disorder", 44, 45, bold = FALSE) |>  
+  pack_rows("Current (Past 3 Month) Drug Use", 47, 54, bold = FALSE) |>  
+  pack_rows("Reported 1 or More Lapse During Study Period", 55, 56, bold = FALSE) |> 
+  kableExtra::footnote(general = c(footnote_table_dem_a, footnote_table_dem_b, footnote_table_dem_c), escape=FALSE)
+```
+
+
+\newpage
