@@ -72,83 +72,126 @@ switch (Sys.info()[['sysname']],
 
 # Introduction
 
+## Background
 
-## Current Study
+Self-monitoring is thought to be a valuable and necessary tool during recovery from AUD and other SUDs.
+-   Anecdotally - encouraged by clinicians, prompted by many self-help tools/apps, etc.
+-   Empirically? Might be some evidence (Ariela's review & continued lit review)
+-   Consider ARCP framing - there is a strongly held belief about monitoring perhaps without **sufficient evidence** and/or without **sufficient nuance** to how monitoring should be implemented
 
+Self-monitoring, insight, and/or confidence in remaining abstinent/pursuing treatment goals has traditionally been measured statically.
+-   Measures like the AASE are often used to assess an individual's "long-term" likelihood of remaining abstinent
+-   Scores from measures like the AASe may be used at the end of treatment/end of study/etc. to estimate an individual's future likelihood of staying abstinent
+-   It is **unclear if or how clinicians use or might use static measures like the AASE** (e.g., in determining treatment conclusion or retention, in determining level of care, etc.)
+
+It is **unclear how well static measures like the AASE predict future lapse/relapse outcomes**.
+
+Risk of lapse/relapse is best understood **dynamically**.
+-   Relapse prevention model
+-   Fluctuating risk over time due to fluctuating proximal and distal risk factors that interact fluidly with one another
+-   Thus, **monitoring dynamic risk of lapse likely requires dense, dynamic monitoring to be effective**.
+
+**EMA** offers a method to assess individuals' insight into risk of lapse densely and longitudinally.
+-   This has/has not? (look at review) been done before (check Y/N, duration of monitoring, question being asked, etc.)
+-   When done, it has/has not? (look at review) been done with **true prediction**.
+
+Continuous monitoring with EMA can be embedded within a digital therapeutic context that can allow for monitoring of other risk factors and offer access to supports and tools to be used throughout recovery.
+
+## Current study
+
+We measured individuals' insight into their own lapse risk via daily EMA surveys situated within a digital therapeutic.
+-   Thus, insight was assessed in a way that was: **cued** (i.e., prompted to reflect), **contextualized** (i.e., asked at the end of the survey assessing 9 other relevant risk factors, with three additional daily surveys asking similar question - a LOT of reflection!), and **continuous** (i.e., daily assessments).
+-   Question was asked about individuals' risk of lapsing in the next week, so we used corresponding 1-week outcome windows that began at the time of the daily survey completion.
+
+The purpose of this project is to determine:
+
+1. The accuracy of individuals' insight into their lapse risk (in the next week)
+
+*Relevant model configurations*
+1 week windows ~ insight only (raw)
+
+2. Whether dynamic assessment of insight and lapse risk has more predictive value than static assessment of insight and/or lapse risk
+
+*Relevant model configurations*
+1 week windows ~ insight only (raw)
+1 week windows ~ AASE total score only --> comparable to how an individual might currently use their own post-treatment insight to assess ongoing lapse risk
+Dichotomous lapse (whether an individual lapsed or not during study period) ~ AASE total score only --> comparable to how a clinician might use post-treatment insight to determine whether an individual should leave or continue treatment
+
+3. Whether models that take advantage of full EMA data & feature engineering can predict lapse risk more accurately than insight alone
+
+*Relevant model configurations*
+1 week windows ~ insight only (raw)
+1 week windows ~ all EMA items (4x daily surveys, engineered features)
 
 # Method
+<!-- copy HEAVILY from EMA paper -->
 
 ## Research Transparency
+<!-- 
+make sure 21-word solution is accurate
+make sure to update OSF links
+-->
 
 ## Participants
+<!-- identify if any participants excluded because of data exclusions (though maybe not here, still report on 151 sample?) -->
 
 ## Procedure
 
-
 ## Measures
+
 ### EMA
 
+### AASE
+
 ### Individual Differences
+<!-- just to characterize data, not included in analyses -->
 
 ## Data Analytic Strategy
 
 ### Lapse Labels
 
-
 ### Feature Engineering
-
-
 
 ### Model Training and Evaluation
 
-
-\newpage
-
-
 # Results
-
 
 ## Demographic and Clinical Characteristics
 
-
-
 <!-- Demographics table-->
-
-
-
-\newpage
-
 
 ## Model Performance
 
 ### auROC
 
-
-
-### Other Performance Metrics
-
+### Model Comparisons
 
 ### Feature Importance
 
-
-
-
-
-
 # Discussion
 
-## 1. Model Performance
+<!-- 
 
-## 2. Understanding & Contextualizing Model Performance
+## Discussion emphases
 
-## 3. Clinical Implementation
+Cued, contextualized, continuous insight can accurately predict dynamic risk of alcohol lapse.
 
+Why is this good?
 
-## 4. Additional Future Directions & Limitations
+-   Shows the value of insight/self-monitoring that we have long suspected/believed, now with empirical evidence and with theoretical nuance regarding the need for dynamic assessment of predictor and outcome
 
+-   Within a dtx environment, accurate insight may lead to increased: trust in the algorithm (risk feedback aligns with insight), engagement with the app (d/t trust, but also perhaps reengagement following a period of lower use), self-efficacy, etc.
 
+-   There may be opportunities for decreased burden (following additional research) if insight can be used in place of a full survey (still with cued daily assessment & ask to reflect on contextual factors), but we don't know how that will do on its own
+
+AASE has some predictive value for dichotomous (and even rolling week window) outcomes (supports value of self-monitoring) but is insufficient for prediction and clinical utility.
+
+Dynamic insight measurement can predict better than static AASE measurement.
+
+Prediction algorithms grow more accurate when we add in other EMA features from 4X daily surveys - we can do our best prediction when we use more information. 
+
+-->
 
 \clearpage
-
 
 # References
