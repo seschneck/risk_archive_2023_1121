@@ -1,4 +1,112 @@
 ---
-title: "Untitled"
+title: "EDA for SMS on Android"
+authour: Coco Yu
+format: html
 ---
 
+## Notes
+
+## Set up Environment
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+Load Packages
+
+```{r}
+library(tidyverse)
+library(wordcloud2)
+library(RColorBrewer)
+library(tm)
+```
+
+Related Paths
+
+```{r}
+path = "P:/studydata/risk/data_processed/shared/sms_android.csv"
+contact_path = "P:/studydata/risk/data_processed/shared/contacts.csv"
+```
+
+## Read Data
+
+```{r}
+d <- read_csv(path)
+```
+
+## Inspect Data
+
+Look at number of participants with android phones
+
+```{r}
+length(unique(d$subid))
+```
+
+Get descriptive statistics
+
+```{r}
+table(d$type)
+table(d$read)
+table(d$status)
+```
+
+Check if date created/modified is after the date
+
+```{r}
+head(d[, c("date", "created", "modified")])
+all(d$date < d$created, na.rm = TRUE)
+```
+
+For "yes" in locked column
+
+```{r}
+table(d$locked)
+filter(d, d$locked == "yes") |>
+  select(subid) |>
+  unique() |>
+  count()
+```
+
+inspect group messages
+
+```{r}
+d |> 
+  filter(str_detect(address, "~")) |>
+  select(subid) |>
+  unique() |>
+  count() / length(unique(d$subid))
+```
+
+check if date and date_sent are calculated as date -\> unix time stamp
+
+```{r}
+table(as.numeric(as.POSIXct(d$date, tz = "GMT")) == d$date_sent)
+# checked if it's because of missing values
+table(is.na(d$date_sent))
+```
+
+```{r}
+d_contacts <- read_csv(contact_path)
+
+d_contacts |>
+  filter(subid %in% as.numeric(d$subid))
+```
+
+## Visualization
+
+```{r}
+words <- d$body |>
+  VectorSource() |>
+  Corpus() |>
+  tm_map(removeNumbers) |>
+  tm_map(removePunctuation) |>
+  tm_map(content_transformer(tolower)) |>
+  tm_map(removeWords, stopwords("english")) |>
+  TermDocumentMatrix() |>
+  as.matrix() |>
+  rowSums() |>
+  sort(decreasing = TRUE)
+
+data.frame(word = names(words), freq = words) |>
+  wordcloud2(color = "random-dark")
+```
