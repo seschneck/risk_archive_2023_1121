@@ -25,6 +25,7 @@ Related Paths
 
 ```{r}
 path = "P:/studydata/risk/data_processed/shared/sms_android.csv"
+contact_path = "P:/studydata/risk/data_processed/shared/contacts.csv"
 ```
 
 ## Read Data
@@ -83,6 +84,15 @@ table(as.numeric(as.POSIXct(d$date, tz = "GMT")) == d$date_sent)
 # checked if it's because of missing values
 table(is.na(d$date_sent))
 ```
+
+```{r}
+d_contacts <- read_csv(contact_path)
+
+d_contacts |>
+  filter(subid %in% as.numeric(d$subid))
+```
+
+## Visualization
 
 ```{r}
 words <- d$body |>
