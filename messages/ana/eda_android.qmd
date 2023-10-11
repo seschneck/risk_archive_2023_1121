@@ -71,6 +71,9 @@ inspect group messages
 
 ```{r}
 d |> 
+  filter(str_detect(address, "~"))
+
+d |> 
   filter(str_detect(address, "~")) |>
   select(subid) |>
   unique() |>
@@ -83,6 +86,8 @@ check if date and date_sent are calculated as date -\> unix time stamp
 table(as.numeric(as.POSIXct(d$date, tz = "GMT")) == d$date_sent)
 # checked if it's because of missing values
 table(is.na(d$date_sent))
+
+table(d$date_sent > 1000000000)
 ```
 
 ```{r}
