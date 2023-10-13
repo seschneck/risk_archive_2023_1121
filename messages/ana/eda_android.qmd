@@ -1,4 +1,142 @@
 ---
-title: "Untitled"
+title: "EDA for SMS on Android"
+authour: Coco Yu
+format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
+## Notes
+
+## Set up Environment
+
+```{r setup}
+#| include: false
+
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+Load Packages
+
+```{r}
+library(tidyverse)
+library(wordcloud2)
+library(RColorBrewer)
+library(tm)
+```
+
+Related Paths
+
+```{r}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared = "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_shared = "/Volumes/private/studydata/risk/data_processed/shared"},
+        
+        # Linux paths
+        Linux = {
+          path_shared = "~/mnt/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+
+## Read Data
+
+```{r}
+d <- read_csv(file.path(path_shared, "sms_android.csv"),
+                        col_type = cols()) |> 
+  glimpse()
+```
+
+## Inspect Data
+
+Look at number of participants with android phones
+
+```{r}
+length(unique(d$subid))
+```
+
+Get descriptive statistics
+
+```{r}
+table(d$type)
+table(d$read)
+table(d$status)
+```
+
+Check if date created/modified is after the date
+
+```{r}
+head(d[, c("date", "created", "modified")])
+all(d$date < d$created, na.rm = TRUE)
+```
+
+For "yes" in locked column
+
+```{r}
+table(d$locked)
+d |> 
+  filter(locked == "yes") |>
+  select(subid) |>
+  unique() |>
+  count()
+
+d |> 
+  filter(locked == "yes") |>
+  print(n = 20)
+```
+
+inspect group messages
+
+```{r}
+d |> 
+  filter(str_detect(address, "~"))
+
+d |> 
+  filter(str_detect(address, "~")) |>
+  select(subid) |>
+  unique() |>
+  count() / length(unique(d$subid))
+```
+
+check if date and date_sent are calculated as date -\> unix time stamp
+
+```{r}
+
+table(as.numeric(as.POSIXct(d$date, tz = "GMT")) == d$date_sent)
+# checked if it's because of missing values
+table(is.na(d$date_sent))
+
+table(d$date_sent > 1000000000)
+```
+
+```{r}
+d_contacts <- read_csv(file.path(path_shared, "contacts.csv")) |> 
+  glimpse()
+
+d_contacts |>
+  filter(subid %in% as.numeric(d$subid))
+```
+
+## Visualization
+
+```{r}
+words <- d$body |>
+  VectorSource() |>
+  Corpus() |>
+  tm_map(removeNumbers) |>
+  tm_map(removePunctuation) |>
+  tm_map(content_transformer(tolower)) |>
+  tm_map(removeWords, stopwords("english")) |>
+  TermDocumentMatrix() |>
+  as.matrix() |>
+  rowSums() |>
+  sort(decreasing = TRUE)
+
+data.frame(word = names(words), freq = words) |>
+  wordcloud2(color = "random-dark")
+```

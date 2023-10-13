@@ -1,0 +1,36 @@
+---
+title: "EDA for SMS on IOS"
+author: "Coco Yu"
+format: html
+editor: visual
+---
+
+## Notes
+
+## Set up Environment
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+Load Packages
+
+```{r}
+library(tidyverse)
+library(wordcloud2)
+library(RColorBrewer)
+library(tm)
+```
+
+Related Paths
+
+```{r}
+path = "P:/studydata/risk/data_processed/shared/sms_ios.csv"
+contact_path = "P:/studydata/risk/data_processed/shared/contacts.csv"
+```
+
+## Read Data
+
+```{r}
+d <- read_csv(path)
+```
