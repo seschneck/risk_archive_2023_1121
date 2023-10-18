@@ -8,13 +8,17 @@ editor_options:
 
 ## Notes
 
+**Tasks**
+
+1.  Check blank texts
+
+2.  Figure out meanings for different dates
+
+**Inspections**
+
+1. Missing values due to MSM (all group messages are included in MMS)
+
 ## Set up Environment
-
-```{r setup}
-#| include: false
-
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
-```
 
 Load Packages
 
@@ -43,7 +47,6 @@ switch (Sys.info()[['sysname']],
         )
 ```
 
-
 ## Read Data
 
 ```{r}
@@ -66,6 +69,7 @@ Get descriptive statistics
 table(d$type)
 table(d$read)
 table(d$status)
+table(d$locked)
 ```
 
 Check if date created/modified is after the date
@@ -73,6 +77,22 @@ Check if date created/modified is after the date
 ```{r}
 head(d[, c("date", "created", "modified")])
 all(d$date < d$created, na.rm = TRUE)
+```
+
+Look into what status means
+
+```{r}
+filter(d, status == "status complete")[, c("type")] |> table()
+filter(d, status == "status complete")[, c("read")] |> table()
+filter(d, status == "status complete")[, c("locked")] |> table()
+
+filter(d, status == "status pending")[, c("type")] |> table()
+filter(d, status == "status pending")[, c("read")] |> table()
+filter(d, status == "status pending")[, c("locked")] |> table()
+
+filter(d, status == "no status")[, c("type")] |> table()
+filter(d, status == "no status")[, c("read")] |> table()
+filter(d, status == "no status")[, c("locked")] |> table()
 ```
 
 For "yes" in locked column
@@ -94,7 +114,7 @@ inspect group messages
 
 ```{r}
 d |> 
-  filter(str_detect(address, "~"))
+  filter(str_detect(address, "~")) |> tail()
 
 d |> 
   filter(str_detect(address, "~")) |>
@@ -125,7 +145,7 @@ d_contacts |>
 ## Visualization
 
 ```{r}
-words <- d$body |>
+words <- d$body[1:2000] |>
   VectorSource() |>
   Corpus() |>
   tm_map(removeNumbers) |>
