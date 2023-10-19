@@ -752,7 +752,6 @@ An early lapse prediction model developed by Gustafson and colleagues [@chihPred
 The current study addresses these limitations of previously developed prediction models.  We trained our models using participants in early recovery from moderate to severe AUD who reported a goal of alcohol abstinence.  We developed three separate models that provide hour-by-hour probabilities of a future lapse back to alcohol use with increasing temporal precision: lapses in the next week, next day, and next hour.  Model features were engineered from raw scores and longitudinal change in responses to 4X daily EMAs.  These features were derived to measure theoretically-implicated risk factors and contexts[@marlattRelapsePreventionMaintenance1985] including past use, craving, past pleasant events, past and future risky situations, past and future stressful events, emotional valence and arousal, and self-efficacy. This research represents an important step toward the development of a "smart" (machine learning guided) sensing and prediction system that can be embedded within a digital therapeutic both to identify periods of peak lapse risk and to recommend specific supports to address factors contributing to this risk.  
 
 # Method
-<!--JC to add statement about power-->
 <!--KW to add reference to methods in supplement-->
 
 ## Transparency and openness 
@@ -761,7 +760,7 @@ We adhere to research transparency principals that are crucial for robust and re
 Our study design and analyses were not pre-registered. However, we restricted many researcher degrees of freedom via cross-validation. Cross-validation inherently includes replication; models are fit on held-in sets, decisions are made in held-out validation sets, and final performance is evaluated on held-out test sets.
 
 ## Participants
-We recruited 151 participants in early recovery (1-8 weeks of abstinence) from AUD in Madison, Wisconsin, USA. Participants were recruited through print and targeted digital advertisements and partnerships with treatment centers. We required participants:
+We recruited 151 participants in early recovery (1-8 weeks of abstinence) from AUD in Madison, Wisconsin, USA. This sample size was determined based on traditional power analysis methods for logistic regression[@hsiehSampleSizeTables1989] because comparable approaches for machine learning models have not yet been validated.  Participants were recruited through print and targeted digital advertisements and partnerships with treatment centers. We required participants:
 
 1.  were age 18 or older,
 2.  could write and read in English,
@@ -778,7 +777,7 @@ Participants completed five study visits over approximately three months. After 
 ### EMA
 <!--KW: we need to be consistent with how we refer to EMA constructs. I have edited to consistently use past use, future efficacy, craving, past and future stressful events, future and past risky situations, past pleasant events, arousal, and valence-->
 <!--KW: Also, consider changing lapse day and lapse hour on SHAP plots to start day of prediction window and start hour of prediction window-->
-Participants completed four brief (7-10 questions) EMAs daily following text message reminders. All EMAs included seven items that asked about any past alcohol use, current affective state (valence and arousal), craving, past stressful events, risky situations and pleasant events. The first EMA each day included three additional questions about the likelihood of encountering a risky situation, a stressful event, and drinking alcohol in the upcoming week (i.e., future efficacy). 
+Participants completed four brief (7-10 questions) EMAs daily following text message reminders. All EMAs included seven items that asked about any past alcohol use, current affective state (valence and arousal), craving, and past stressful events, risky situations and pleasant events. The first EMA each day included three additional questions about the likelihood of future risky situations, stressful events, and drinking alcohol in the upcoming week (i.e., future efficacy). 
 
 The first and last EMAs of the day were scheduled within one hour of participants' typical wake and sleep times. The other two EMAs were scheduled randomly within the first and second halves of the participants' typical day, with at least one hour between EMAs. 
 
@@ -786,36 +785,37 @@ The first and last EMAs of the day were scheduled within one hour of participant
 We collected self-report information about demographics (age, sex, race, ethnicity, education, employment, income, and marital status) and clinical characteristics (AUD milestones, number of quit attempts, lifetime AUD treatment history, lifetime receipt of AUD medication, DSM-5 AUD symptom count, and current drug use [@whoassistworkinggroupAlcoholSmokingSubstance2002]). Only age, sex, race, education, and marital status were used as model features.
 
 ## Data Analytic Strategy
-Data preprocessing, modeling and Bayesian analyses were done in R using the tidymodels ecosystem [@kuhnTidymodelsCollectionPackages2020]. All models were trained and evaluated using high-throughput computing resources provided by the University of Wisconsin Center for High Throughput Computing [@chtc].
+Data preprocessing, modeling, and Bayesian analyses were done in R using the tidymodels ecosystem [@kuhnTidymodelsCollectionPackages2020]. All models were trained and evaluated using high-throughput computing resources provided by the University of Wisconsin Center for High Throughput Computing [@chtc].
 
 ### Lapse Labels
 We predicted future lapses in three window widths that varied in their temporal precision: one week, one day, and one hour. Prediction windows were updated hourly. All classification models provide hour-by-hour predictions of future lapse probability for all three window widths.
 
-We labeled each prediction window as *lapse* or *no lapse* using participants' reports from the EMA item "Have you drank any alcohol that you have not yet reported?". If participants answered yes to this question, they were prompted to enter the hour and date of the start and end of the drinking episode. These reports were validated by study staff during monthly followup visits. 
+We labeled each prediction window as *lapse* or *no lapse* using the EMA item "Have you drank any alcohol that you have not yet reported?". If participants answered yes to this question, they were prompted to enter the hour and date of the start and end of the drinking episode. Their responses were validated by study staff during monthly followup visits. 
 
 For more detail on the creation of our prediction windows see Lapse Labels in the Supplemental Methods section of our supplement.
 
 ### Feature Engineering
 Features were calculated using only data collected prior to the start of each prediction window. This ensured our models were making true *future predictions* versus identifying concurrent associations.  
 
-Features were derived from three sources: baseline demographic characteristics (i.e., age, sex, race, marital status, education); day of the week and the time of day (daytime vs. evening/night) of the start of the prediction window; and previous EMA responses. We scored raw min, max, median, and count features from previous EMA items within varying lead up times (6, 12, 24, 48, 72, and 168 hours prior to start of window).  We scored change EMA response features by subtracting the mean response for each feature over all data prior to the start of the prediction window from the associated raw feature.  
+Features were derived from three sources: baseline demographic characteristics (i.e., age, sex, race, marital status, education); day of the week and the time of day (daytime vs. evening/night) of the start of the prediction window; and previous EMA responses. We scored raw min, max, median, and count features from EMA items within varying lead up times (6, 12, 24, 48, 72, and 168 hours prior to start of prediction window).  We scored change EMA response features by subtracting the mean response for each feature over all data prior to the start of the prediction window from the associated raw feature.  
 
 For more detail on feature engineering steps see Feature Engineering in the Supplemental Methods section of our supplement. We also made a sample feature engineering script (i.e., tidymodels recipe) available on our study's OSF page.
 
 ### Model Training and Evaluation
 
 #### Statistical Algorithm and Hyperparameters
+
 We trained and evaluated three separate classification models: one each for week, day, and hour  prediction windows.  We initially considered four well-established statistical algorithms (XGBoost, Random Forest, K-Nearest Neighbors, and Elastic Net) that vary across characteristics expected to affect model performance (e.g., flexibility, complexity, and ability to handle higher-order interactions natively) [@kuhnAppliedPredictiveModeling2018]. However, preliminary exploratory analyses suggested that XGBoost consistently outperformed the other three algorithms.  Furthermore, the Shapley Additive Explanations (SHAP) method, which we planned to use for explanatory analyses of feature importance, is optimized for XGBoost.  For these reasons, we focused our primary model training and evaluation on the XGBoost algorithm only.  
   
 Candidate XGBoost model configurations differed across sensible values for the hyperparameters mtry, tree depth, and learning rate using grid search.  All configurations used 500 trees with early stopping to prevent over-fitting.  All other hyperparameters were set to defaults established by the tidymodels packages.  Candidate model configurations also differed on outcome resampling method (i.e., up-sampling and down-sampling of the outcome using majority/no lapse to minority/lapse ratios ranging from 1:1 to 5:1).  We calibrated predicted probabilities using the beta distribution to support optimal decision-making under variable outcome distributions[@kullSigmoidsHowObtain2017].
 
 #### Performance Metric
-Our primary performance metric model selection and evaluation was area under the Receiver Operating Characteristic Curve (auROC) [@kuhnAppliedPredictiveModeling2018]. auROC indexes the probability that the model will predict a higher score for a randomly selected positive case (i.e., lapse) relative to a randomly selected negative case (i.e., no lapse). This metric was selected because it 1) combines sensitivity and specificity, which are both important characteristics to consider for clinical implementation; 2) is an aggregate metric across all decision thresholds, which is important because optimal decision thresholds may differ across settings and goals; and 3) is unaffected by class imbalance, which is important for comparing models with differing window widths and levels of class imbalance.
+Our primary performance metric for model selection and evaluation was area under the Receiver Operating Characteristic Curve (auROC) [@kuhnAppliedPredictiveModeling2018]. auROC indexes the probability that the model will predict a higher score for a randomly selected positive case (i.e., lapse) relative to a randomly selected negative case (i.e., no lapse). This metric was selected because it 1) combines sensitivity and specificity, which are both important characteristics to consider for clinical implementation; 2) is an aggregate metric across all decision thresholds, which is important because optimal decision thresholds may differ across settings and goals; and 3) is unaffected by class imbalance, which is important for comparing models with differing window widths and levels of class imbalance.
 
 #### Cross-validation 
 We used participant-grouped, nested cross-validation for model training, selection, and evaluation with auROC. Grouped cross-validation assigns all data from a participant as either held-in or held-out to avoid bias introduced when predicting a participant's data from their own data.  
 
-Nested cross-validation uses two nested loops for dividing and holding out folds: an outer loop, where held-out folds serve as *test sets* for model evaluation; and inner loops, where held-out folds serve as *validation sets* for model selection. Importantly, these loops are independent, maintaining separation between data used to train the models, *validation sets*, and *test sets*. This separation removes optimization bias from the evaluation of model performance in the test sets and can yield lower variance performance estimates than single test set approaches [@jonathanUseCrossvalidationAssess2000].  
+Nested cross-validation uses two nested loops for dividing and holding out folds: an outer loop, where held-out folds serve as *test sets* for model evaluation; and inner loops, where held-out folds serve as *validation sets* for model selection. Importantly, these sets are independent, maintaining separation between data used to train the models, select best models, and evaluate those best models. Therefore, nested cross-validation removes optimization bias from the evaluation of model performance in the test sets and can yield lower variance performance estimates than single test set approaches [@jonathanUseCrossvalidationAssess2000].  
 
 We used 1 repeat of 10-fold cross-validation for the inner loops and 3 repeats of 10-fold cross-validation for the outer loop.  Best model configurations were selected based on the median auROC across the 10 *validation sets*.  Final performance evaluation of those best model configurations was based on the median auROC across the 30 *test sets*.  For completeness, we report median auROC for our best model configurations for each model (week, day, and hour) separately from both the validation and test sets. In addition, we report key additional performance metrics for the best model configurations including sensitivity, specificity, balanced accuracy, positive predictive value (PPV), and negative predictive value (NPV) from the test sets [@kuhnAppliedPredictiveModeling2018].
 
@@ -825,7 +825,7 @@ We used a Bayesian hierarchical generalized linear model to estimate the posteri
 
 ### Shapley Additive Explanations for Feature Importance
 
-We computed Shapley Values [@lundbergUnifiedApproachInterpreting2017] to provide a consistent and objective explanation of the importance of categories of features across our three models. Shapley values are model-agnostic and possess several useful properties including: Additivity (Shapley values for each feature can be computed independently and summed); Efficiency (the sum of Shapley values across features must add up to the difference between predicted and observed outcomes for each observation); Symmetry (Shapley values for two features should be equal if the two features contribute equally to all possible coalitions); and Dummy (a feature that does not change the predicted value in any coalition will have a Shapley value of 0).  We calculated Shapley values from the 30 test sets using the SHAPforxgboost package that provides Shapley values in log-odds units for binary classification models.  We averaged the three Shapley values for each observation for each feature across the three repeats to increase their stability. To calculate the local (i.e., for each observation) impact of categories of features (e.g., all features associated with the EMA craving item), we added Shapley values across all features in a category, separately for each observation.  To calculate global importance for categories of features, we averaged the absolute value of the Shapley values of all features in the category across all observations.  
+We computed Shapley Values [@lundbergUnifiedApproachInterpreting2017] to provide a consistent and objective explanation of the importance of categories of features (based on EMA items) across our three models. Shapley values are model-agnostic and possess several useful properties including: Additivity (Shapley values for each feature can be computed independently and summed); Efficiency (the sum of Shapley values across features must add up to the difference between predicted and observed outcomes for each observation); Symmetry (Shapley values for two features should be equal if the two features contribute equally to all possible coalitions); and Dummy (a feature that does not change the predicted value in any coalition will have a Shapley value of 0).  We calculated Shapley values from the 30 test sets using the SHAPforxgboost package that provides Shapley values in log-odds units for binary classification models.  We averaged the three Shapley values for each observation for each feature across the three repeats to increase their stability. To calculate the local (i.e., for each observation) impact of categories of features (e.g., all features associated with the EMA craving item), we added Shapley values across all features in a category, separately for each observation.  To calculate global importance for categories of features, we averaged the absolute value of the Shapley values of all features in the category across all observations.  
 
 
 # Results
@@ -857,12 +857,11 @@ We used these posterior probability distributions for the auROCs to formally com
 
 <!--************************************************************************-->
 <!-- Figure 1: ROC and Posterior probability histograms for auROC by model-->  
-<!--JC: check fig caption and fig note-->
 
 ```{r fig_1_roc}
 #| output: true
 #| apa-cap: ROC curves and posterior probabilities for auROCs
-#| apa-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represent the median posterior probability and the horizontal line represents the 95\% credible interval.
+#| apa-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probability distribution for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represent the median posterior probability and the horizontal line represents the boundaries 95\% CI.
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
                         labels = c("Week", "Day", "Hour"))) |>  
@@ -885,8 +884,6 @@ pp_plot <- pp_tidy |>
                            color = model), show.legend = FALSE, data = ci) +
   geom_segment(mapping = aes(y = y, yend = y, x = lower, xend = upper, color = model),
               show.legend = FALSE, data = ci) +
-  # geom_text(data = ci, x = c(.93, .907, .92), y = 1000, 
-  #           label = str_c(round(ci$median, 2), " [", round(ci$lower, 2), ", ", round(ci$upper, 2), "]")) +
   facet_wrap(~model, ncol = 1) +
   scale_y_continuous("Count", breaks = c(0, 500, 1000)) +
   xlab("Posterior probability for auROC") +
@@ -903,16 +900,15 @@ roc_plot + pp_plot +
 
 Figure S6 displays histograms for the predicted probabilities of lapse for all observations in the 30 *test sets* separately by model and true outcome.  We evaluated the sensitivity, specificity, balanced accuracy, PPV, and NPV when these predicted lapse probabilities were used for binary classification (*lapse* vs. *no lapse*) with decision thresholds identified by Youden's Index (see Table 2).   
 
-We created Precision-Recall curves by aggregating predicted lapse probabilities across the 30 test sets to evaluate the trade-off between PPV (i.e., precision) and sensitivity (i.e., recall) across decision thresholds (see Figure 2). The PPV of any model can be increased by increasing the decision threshold; however, increasing the decision threshold will also lower the model's sensitivity. For example, the dotted lines in Figure 2 depict the sensitivities (`r sprintf("%1.2f", ppv_70 |> filter(model == "Week") |> pull(recall))`, `r sprintf("%1.2f", ppv_70 |> filter(model == "Day") |> pull(recall))`, and `r sprintf("%1.2f", ppv_70 |> filter(model == "Hour") |> pull(recall))` for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 positive predictive value for each model.  
+We created Precision-Recall curves by concatenating predicted lapse probabilities across the 30 test sets to evaluate the trade-off between PPV (i.e., precision) and sensitivity (i.e., recall) across decision thresholds (see Figure 2). The PPV of any model can be increased by increasing the decision threshold; however, increasing the decision threshold will also lower the model's sensitivity. For example, the dotted lines in Figure 2 depict the sensitivities (`r sprintf("%1.2f", ppv_70 |> filter(model == "Week") |> pull(recall))`, `r sprintf("%1.2f", ppv_70 |> filter(model == "Day") |> pull(recall))`, and `r sprintf("%1.2f", ppv_70 |> filter(model == "Hour") |> pull(recall))` for week, day, and hour models, respectively) associated with decision thresholds that yield 0.70 PPV for each model.  
 
 <!--************************************************************************-->
 <!-- Table 2: Performance metrics-->
-<!--John: check footnote-->
 
 ```{r table_2}
 #| output: true
 
-footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model. Our decision thresholds were determined with Youden’s index."
+footnote_table_metrics <- "Areas under the receiver operating characteristic curves (auROCs) summarize the model's sensitivity and specificity over all possible decision thresholds. Sensitivity, specificity, balanced accuracy, positive predictive value, and negative predictive value are performance metrics calculated at a single decision threshold for each model determined with Youden’s index."
 
 metrics |> 
  mutate(metric = case_when(metric == "auROC" ~ "auROC",
@@ -935,7 +931,6 @@ metrics |>
 
 <!--************************************************************************-->
 <!-- Figure 2: PR curves by model-->
-<!--JOHN: check fig caption-->
 ```{r fig_2_pr}
 #| output: true
 #| apa-cap: Precision-recall curves by model 
@@ -974,10 +969,8 @@ We display local Shapley values that quantify the influence of feature categorie
 
 <!--************************************************************************-->
 <!-- Figure 3: SHAP Importance figure-->
-<!--NEED TO ADD HEAT COLORS FOR DIRECTION TO LOCAL PLOTS - KENDRA?-->
-<!--CONSIDER PANEL TITLES?-->
-<!--CONSIDER WHERE LEGEND GOES-->
-<!--JOHN: check fig caption. Also, I add panel titles and moved legend. The code is commented out for knitting the paper though right now because it takes so long. Fig is instead saved out and read in.-->
+<!-- ADD HEAT COLORS FOR DIRECTION TO LOCAL PLOTS - KENDRA?-->
+<!-- The code is commented out for knitting the paper though right now because it takes so long. Fig is instead saved out and read in.-->
 ```{r make_global_shap}
 # panel_shap_global <- shap_global_all |>  
 #   mutate(variable_grp = reorder(variable_grp, mean_value, sum)) |>  
