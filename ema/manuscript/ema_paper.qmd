@@ -756,8 +756,7 @@ The current study addresses these limitations of previously developed prediction
 <!--KW to add reference to methods in supplement-->
 
 ## Transparency and openness 
-We adhere to research transparency principals that are crucial for robust and replicable science. We reported how we determined the sample size, all data exclusions, all manipulations, and all study measures. We completed a transparency report (see Supplement). Finally, we made the data, analysis scripts, annotated results, questionnaires, and other study materials publicly available [https://osf.io/w5h9y/](https://osf.io/w5h9y/). 
-
+We adhere to research transparency principals that are crucial for robust and replicable science. We reported how we determined the sample size, all data exclusions, all manipulations, and all study measures. We provide a transparency report in the supplement. Finally, we made the data, analysis scripts, annotated results, questionnaires, and other study materials publicly available [https://osf.io/w5h9y/](https://osf.io/w5h9y/). 
 
 Our study design and analyses were not pre-registered. However, we restricted many researcher degrees of freedom via cross-validation. Cross-validation inherently includes replication; models are fit on held-in sets, decisions are made in held-out validation sets, and final performance is evaluated on held-out test sets.
 
@@ -818,18 +817,15 @@ We used participant-grouped, nested cross-validation for model training, selecti
 
 Nested cross-validation uses two nested loops for dividing and holding out folds: an outer loop, where held-out folds serve as *test sets* for model evaluation; and inner loops, where held-out folds serve as *validation sets* for model selection. Importantly, these loops are independent, maintaining separation between data used to train the models, *validation sets*, and *test sets*. This separation removes optimization bias from the evaluation of model performance in the test sets and can yield lower variance performance estimates than single test set approaches [@jonathanUseCrossvalidationAssess2000].  
 
-We used 1 repeat of 10-fold cross-validation for the inner loops and 3 repeats of 10-fold cross-validation for the outer loop.  Best model configurations were selected based on the median <!--JC will add footnote for why median-->auROC across the 10 *validation sets*<!--KW: 10 validation sets per held-out outer fold?-->.  Final performance evaluation of those best model configurations was based on the median auROC across the 30 *test sets*.  For completeness, we report median auROC for our best model configurations for each model (week, day, and hour) separately from both the validation and test sets. In addition, we report key additional performance metrics for the best model configurations including sensitivity, specificity, balanced accuracy, positive predictive value (PPV), and negative predictive value (NPV) from the test sets [@kuhnAppliedPredictiveModeling2018].
+We used 1 repeat of 10-fold cross-validation for the inner loops and 3 repeats of 10-fold cross-validation for the outer loop.  Best model configurations were selected based on the median auROC across the 10 *validation sets*.  Final performance evaluation of those best model configurations was based on the median auROC across the 30 *test sets*.  For completeness, we report median auROC for our best model configurations for each model (week, day, and hour) separately from both the validation and test sets. In addition, we report key additional performance metrics for the best model configurations including sensitivity, specificity, balanced accuracy, positive predictive value (PPV), and negative predictive value (NPV) from the test sets [@kuhnAppliedPredictiveModeling2018].
 
 ### Bayesian Estimation of auROC and Model Comparisons 
 
-We used a Bayesian hierarchical generalized linear model to estimate the posterior probability distributions and 95% Bayesian confidence intervals (CIs) for auROC for the three best models (i.e., week, day, and hour). To determine the probability that these models' performance differed systematically from each other, we regressed the auROCs<!--KW: posterior probabilities?--> (logit transformed) from the 30 test sets for each model as a function of window width. Following recommendations from the tidymodels team [@kuhnTidyposteriorBayesianAnalysis2022; @kuhnBayesianAnalysisResampling], we set two random intercepts: one for the repeat, and another for the fold within repeat (folds are nested with repeats for auROCs collected with 3x10-fold cross-validation). We report the 95% (equal-tailed) Bayesian CIs from the posterior probability distributions for our models auROCs.  We also report 95% (equal-tailed) Bayesian CIs for the differences in performance among the three models. For more detail on these analyses see Bayesian Analyses in Supplemental Methods section of the supplement.  
-
-
+We used a Bayesian hierarchical generalized linear model to estimate the posterior probability distributions and 95% Bayesian confidence intervals (CIs) for auROC for the three best models (i.e., week, day, and hour). To determine the probability that these models' performance differed systematically from each other, we regressed the auROCs (logit transformed) from the 30 test sets for each model as a function of window width. Following recommendations from the tidymodels team [@kuhnTidyposteriorBayesianAnalysis2022; @kuhnBayesianAnalysisResampling], we set two random intercepts: one for the repeat, and another for the fold within repeat (folds are nested with repeats for auROCs collected with 3x10-fold cross-validation). We report the 95% (equal-tailed) Bayesian CIs from the posterior probability distributions for our models auROCs.  We also report 95% (equal-tailed) Bayesian CIs for the differences in performance among the three models. For more detail on these analyses see Bayesian Analyses in Supplemental Methods section of the supplement.  
 
 ### Shapley Additive Explanations for Feature Importance
 
 We computed Shapley Values [@lundbergUnifiedApproachInterpreting2017] to provide a consistent and objective explanation of the importance of categories of features across our three models. Shapley values are model-agnostic and possess several useful properties including: Additivity (Shapley values for each feature can be computed independently and summed); Efficiency (the sum of Shapley values across features must add up to the difference between predicted and observed outcomes for each observation); Symmetry (Shapley values for two features should be equal if the two features contribute equally to all possible coalitions); and Dummy (a feature that does not change the predicted value in any coalition will have a Shapley value of 0).  We calculated Shapley values from the 30 test sets using the SHAPforxgboost package that provides Shapley values in log-odds units for binary classification models.  We averaged the three Shapley values for each observation for each feature across the three repeats to increase their stability. To calculate the local (i.e., for each observation) impact of categories of features (e.g., all features associated with the EMA craving item), we added Shapley values across all features in a category, separately for each observation.  To calculate global importance for categories of features, we averaged the absolute value of the Shapley values of all features in the category across all observations.  
-
 
 
 # Results
@@ -840,14 +836,12 @@ One hundred ninety-two participants were eligible for enrollment. Of these, 191 
 
 The final sample included approximately equal numbers of men (N=77; 51%) and women (N=74; 49%) who ranged in age from 21 - 72 years old.  The sample was majority White (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of AUD (SD=5.8; range=4-11) and a mean of 5.5 previous quit attempts (SD=5.8, range=0-30).  Most participants (N=84; 56%) reported one or more lapses during their participation.  The mean number of lapses per participant during the study period was 6.8 (SD=12.0; range=0-75).  Table 1 provides more detail on demographic and clinical characteristics of the sample.
 
-
 ## EMA compliance, features, and prediction window labels
 
 Participants on average completed 3.1 (SD=0.6) of the four daily EMAs each day (78% compliance overall).  Participants completed at least one EMA on 95% of days.  Across individual weeks in the study, EMA compliance percentages ranged from 75% to 87% completion for all of the 4x daily EMAs and from 92% - 99% for at least one daily EMA completed (see Figure S3).  
 
 Using these EMA reports, we created datasets with 270,081, 274,179, and 267,287 future prediction windows for the week, day, and hour window widths, respectively.  Each dataset contained 286 features and an outcome labeled as *lapse* or *no lapse*. These datasets were unbalanced with respect to the outcome such that lapses were observed in 68,467 (25.3%) week windows, 21,107 (7.7%) day windows, and 1,017 (0.3%) hour windows. 
 
- 
 ## Model Performance
 
 ### auROC
@@ -903,8 +897,6 @@ roc_plot + pp_plot +
   plot_layout (guides = "collect") &
   theme(legend.position = "bottom")
 ```
-
-
 
 
 ### Other Performance Metrics
@@ -971,7 +963,6 @@ pr_all |>
   labs(x = "Sensitivity (Recall)",
        y = "Positive Predictive Value (Precision)")
 ```
-
 
 
 ## Feature Importance
@@ -1078,7 +1069,6 @@ knitr::include_graphics(path = "figures/fig_3.jpeg", dpi = 130)
 #    plot_annotation(tag_levels = 'A') +
 #    plot_layout (ncol = 2, guides = "collect", width = c(1,1)) 
 ```
-
 
 
 # Discussion
