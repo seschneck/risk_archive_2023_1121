@@ -6,14 +6,14 @@ date: '`r format(Sys.time(), "%Y-%m-%d")`'
 format: 
   pdf:
     include-in-header: 
+        }
+        \captionsetup[figure]{
+        }
       text: |
         \usepackage{caption}
         \DeclareCaptionLabelFormat{fig}{
           \textbf{#1 S#2}
-        }
-        \captionsetup[figure]{
           labelformat=fig
-        }
 csl: https://raw.githubusercontent.com/jjcurtin/lab_support/main/rmd_templates/csl/elsevier-vancouver.csl
 geometry: margin=.5in
 fontsize: 11pt
@@ -29,7 +29,7 @@ execute:
 
 <!--KW: needs to fix where references are appearing. Get them to be at end of document.-->
 
-This file contains the supplemental materials for *Machine learning models for temporally precise lapse prediction in alcohol use disorder*. It includes a transparency report and all supplemental figures. Additional materials are made available on our study's OSF page ([https://osf.io/w5h9y/](https://osf.io/w5h9y/)).   
+This file contains the supplemental materials for *Machine learning models for temporally precise lapse prediction in alcohol use disorder*. It includes a transparency report and all supplemental methods and figures. Additional materials are made available on our study's OSF page ([https://osf.io/w5h9y/](https://osf.io/w5h9y/)).   
 
 ```{r knitr_settings}
 # settings
@@ -621,7 +621,7 @@ plot_grid(fig_roc_week, fig_auc_week, fig_roc_day, fig_auc_day, fig_roc_hour, fi
 ```{r fig_posterior_d, fig.height = 7, fig.width = 7}
 #| output: true
 #| fig-cap: 
-#|   - "Bayesian model contrasts. The plots above depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) of our model contrasts (i.e., the difference in auROC between the two models). Each row represents a model constrast (hour vs. week, hour vs. day, day vs. week). The solid vertical lines represent the median posterior probability. The horizontal lines represent the 95% credible interval. The dashed vertical lines indicate an auROC model difference of 0 which denotes no difference in performance."
+#|   - "Bayesian model contrasts. The plots above depict the posterior probabilities for the areas under the receiver operating characteristic curves (auROCs) of our model contrasts (i.e., the difference in auROC between the two models). Each row represents a model constrast (hour vs. week, hour vs. day, day vs. week). The solid vertical lines represent the median posterior probability. The horizontal lines represent the 95% CI. The dashed vertical lines indicate an auROC model difference of 0 which denotes no difference in performance."
 
 ci <- pp |> 
   contrast_models(list("hour","hour", "day"), 
