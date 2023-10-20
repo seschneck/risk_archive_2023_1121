@@ -860,7 +860,7 @@ We used these posterior probability distributions for the auROCs to formally com
 
 ```{r fig_1_roc}
 #| output: true
-#| apa-cap: ROC curves and posterior probabilities for auROCs
+#| apa-cap: ROC curves and posterior probabilities for auROCs by model
 #| apa-note: The left panel depicts the aggregate receiver operating characteristic (ROC) curve for each model, derived by concatenating predicted lapse probabilities across all test sets. The dotted line represents the expected ROC curve for a random classifier. The histograms on the right depict the posterior probability distribution for the areas under the receiver operating characteristic curves (auROCs) for each model. The vertical lines represent the median posterior probability and the horizontal line represents the boundaries 95\% CI.
 roc_plot <- roc_all |>  
   mutate(model = factor(model, levels = c("1week", "1day", "1hour"), 
@@ -1053,7 +1053,7 @@ We display local Shapley values that quantify the influence of feature categorie
 
 ```{r fig_3_shap}
 #| output: true
-#| apa-cap: Variable Importance (Shapley Values) by Model
+#| apa-cap: Feature importance (Shapley values) by model
 #| apa-note: Panel A displays the global importance (mean |Shapley value|) for feature categories for each model. Raw EMA features are grouped into categories by the original item from the EMA. Features from demographics and the day and hour for the start of the prediction window are also included. Feature categories are ordered by their aggregate global importance (i.e., total bar length) across the three models.  The importance of each feature category for specific models is displayed separately by color. Panels B-D display local Shapley values that quantify the influence of feature categories on individual observations (i.e., a single prediction window for a specific participant) for each model.
 
 knitr::include_graphics(path = "figures/fig_3.jpeg", dpi = 130)
