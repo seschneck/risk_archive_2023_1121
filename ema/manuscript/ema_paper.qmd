@@ -88,10 +88,6 @@ format:
 
 
 <!--Outstanding issues:
-- get word count to 9000
-- JC to add statement about power in methods
-- JC to check all figure captions and table footnotes
-- JC to check abstract/General scientific statement
 - KW to update supplement with methods and add reference to it in methods
 -->
 
@@ -119,24 +115,7 @@ Prediction window, window width, week, day, or hour model (always in that order)
 relapse (a goal-inconsistent return to harmful substance use) and lapse (a single instance of goal-inconsistent substance use) 
 -->
 
-<!--Notes from lab meeting
 
-Intro:
-- language around AUD/SUD/psychiatric disorders - DONE by JJC
-- reduced focus on digital therapeutics/increased focus on personal sensing & prediction algorithm/changed headings - PARTIALLY DONE BY JJC
-- add information about specific features in “current study” and how they map onto relapse prevention literature -TBD; JC MARKED LOCATION FOR A FEW SENTENCES.
-
-Methods:
-- improve terminology and definitions of things like test set, validation set, etc - so that we can just use simpler language throughout
-
-Results:
-- shorten?/simplify?
-- remove “methods” sentences from results
-- determine how to “answer question” (how do we know if our AUC is good, did we answer the question about “can we predict lapses”/“how accurately can we predict lapses”)
-
-Discussion:
--add to limitations/future directions: no existing method to say whether an AUC is clinically useful or whether a SHAP value (global value or local variability) is meaningful
--->
 
 ```{r knitr_settings}
 options(knitr.kable.NA = '')
@@ -148,10 +127,8 @@ knitr::opts_chunk$set(fig.pos = "ht", out.extra = "", message = FALSE)
 #| warning: false
 
 library(knitr)
-# library(yardstick) # for roc_curve
 library(kableExtra)
 library(janitor)
-# library(corx)
 library(patchwork)
 library(ggtext)
 library(consort)
@@ -969,7 +946,6 @@ We display local Shapley values that quantify the influence of feature categorie
 
 <!--************************************************************************-->
 <!-- Figure 3: SHAP Importance figure-->
-<!-- ADD HEAT COLORS FOR DIRECTION TO LOCAL PLOTS - KENDRA?-->
 <!-- The code is commented out for knitting the paper though right now because it takes so long. Fig is instead saved out and read in.-->
 ```{r make_global_shap}
 # panel_shap_global <- shap_global_all |>  
@@ -1092,7 +1068,7 @@ These module recommendations can also be tuned more precisely using the patient'
 
 Of course, we must first determine how best to provide module recommendations such that patients trust and follow the recommendation.  Increasing the interpretability and transparency of otherwise "black box" machine learning prediction models can improve perceptions of them, but providing complex or otherwise unnecessary information may instead undermine trust in these models[@molnarInterpretableMachineLearning2022]. Therefore, additional research using appropriate research designs is needed to optimize recommendation messaging to increase adherence and associated clinical outcomes[@collinsOptimizationBehavioralBiobehavioral2018].
 
-A smart digital therapeutic can potentially improve clinical outcomes in multiple ways.  First, feedback from the prediction model could improve patient insight and self-monitoring by connecting their daily experiences to changes in their lapse risk. Second, it can remove patient uncertainty about how to use the digital therapeutic, which could otherwise present a barrier to engagement for some due to the substantial content available. Third, a smart digital therapeutic could encourage risk-relevant engagement.  Rather than simply trying to increase overall time using the digital therapeutic, patients could be guided to engage with the interventions and other supports that specifically target their personal risk factors at that moment in time.  <!-- GEF: I was going to add a clarifying sentence to the second point re: removing patient uncertainty to say something about HOW it would remove this uncertainty (i.e., providing tailored recommendations), but then that feels too overlapping with the third point. That second point feels a bit unfinished/rushed to me right now, but I'm not sure how to provide that clarification without repeating content from the third point about personally relevant engagement -->Thus, smart digital therapeutics are well-positioned to pursue the precision mental health goal to "provide the right treatment to the right patient at the right time, every time"[@kaiserObamaGivesEast2015]. 
+A smart digital therapeutic can potentially improve clinical outcomes in multiple ways.  First, feedback from the prediction model could improve patient insight and self-monitoring by connecting their daily experiences to changes in their lapse risk. Second, it can remove patient uncertainty about how to use the digital therapeutic, which could otherwise present a barrier to engagement for some due to the substantial content available. Third, a smart digital therapeutic could encourage risk-relevant engagement.  Rather than simply trying to increase overall time using the digital therapeutic, patients could be guided to engage with the interventions and other supports that specifically target their personal risk factors at that moment in time.  Thus, smart digital therapeutics are well-positioned to pursue the precision mental health goal to "provide the right treatment to the right patient at the right time, every time"[@kaiserObamaGivesEast2015]. 
 
 ### Categorical Lapse Predictions.
 
