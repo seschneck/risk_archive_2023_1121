@@ -712,7 +712,7 @@ The current study addresses these limitations of previously developed prediction
 
 # Method
 
-## Transparency and openness 
+## Transparency and Openness 
 We adhere to research transparency principals that are crucial for robust and replicable science. We reported how we determined the sample size, all data exclusions, all manipulations, and all study measures. We provide a transparency report in the supplement. Finally, we made the data, analysis scripts, annotated results, questionnaires, and other study materials publicly available ([https://osf.io/w5h9y/](https://osf.io/w5h9y/)). 
 
 Our study design and analyses were not pre-registered. However, we restricted many researcher degrees of freedom via cross-validation. Cross-validation inherently includes replication; models are fit on held-in sets, decisions are made in held-out validation sets, and final performance is evaluated on held-out test sets.
@@ -759,16 +759,16 @@ For more detail on feature engineering steps see Feature Engineering in the Supp
 
 ### Model Training and Evaluation
 
-#### Statistical Algorithm and Hyperparameters
+#### Statistical Algorithm and Hyperparameters.
 
 We trained and evaluated three separate classification models: one each for week, day, and hour  prediction windows.  We initially considered four well-established statistical algorithms (XGBoost, Random Forest, K-Nearest Neighbors, and Elastic Net) that vary across characteristics expected to affect model performance (e.g., flexibility, complexity, and ability to handle higher-order interactions natively) [@kuhnAppliedPredictiveModeling2018]. However, preliminary exploratory analyses suggested that XGBoost consistently outperformed the other three algorithms.  Furthermore, the Shapley Additive Explanations (SHAP) method, which we planned to use for explanatory analyses of feature importance, is optimized for XGBoost.  For these reasons, we focused our primary model training and evaluation on the XGBoost algorithm only.  
   
 Candidate XGBoost model configurations differed across sensible values for the hyperparameters mtry, tree depth, and learning rate using grid search.  All configurations used 500 trees with early stopping to prevent over-fitting.  All other hyperparameters were set to defaults established by the tidymodels packages.  Candidate model configurations also differed on outcome resampling method (i.e., up-sampling and down-sampling of the outcome using majority/no lapse to minority/lapse ratios ranging from 1:1 to 5:1).  We calibrated predicted probabilities using the beta distribution to support optimal decision-making under variable outcome distributions [@kullSigmoidsHowObtain2017].
 
-#### Performance Metric
+#### Performance Metric.
 Our primary performance metric for model selection and evaluation was area under the Receiver Operating Characteristic Curve (auROC) [@kuhnAppliedPredictiveModeling2018]. auROC indexes the probability that the model will predict a higher score for a randomly selected positive case (i.e., lapse) relative to a randomly selected negative case (i.e., no lapse). This metric was selected because it 1) combines sensitivity and specificity, which are both important characteristics to consider for clinical implementation; 2) is an aggregate metric across all decision thresholds, which is important because optimal decision thresholds may differ across settings and goals; and 3) is unaffected by class imbalance, which is important for comparing models with differing window widths and levels of class imbalance.
 
-#### Cross-validation 
+#### Cross-validation.
 We used participant-grouped, nested cross-validation for model training, selection, and evaluation with auROC. Grouped cross-validation assigns all data from a participant as either held-in or held-out to avoid bias introduced when predicting a participant's data from their own data.  
 
 Nested cross-validation uses two nested loops for dividing and holding out folds: an outer loop, where held-out folds serve as *test sets* for model evaluation; and inner loops, where held-out folds serve as *validation sets* for model selection. Importantly, these sets are independent, maintaining separation between data used to train the models, select best models, and evaluate those best models. Therefore, nested cross-validation removes optimization bias from the evaluation of model performance in the test sets and can yield lower variance performance estimates than single test set approaches [@jonathanUseCrossvalidationAssess2000].  
@@ -792,7 +792,7 @@ One hundred ninety-two participants were eligible for enrollment. Of these, 191 
 
 The final sample included approximately equal numbers of men (N=77; 51%) and women (N=74; 49%) who ranged in age from 21 - 72 years old.  The sample was majority White (N=131; 87%) and non-Hispanic (N=147; 97%).  Participants self-reported a mean of 8.9 DSM-5 symptoms of AUD (SD=5.8; range=4-11) and a mean of 5.5 previous quit attempts (SD=5.8, range=0-30).  Most participants (N=84; 56%) reported one or more lapses during their participation.  The mean number of lapses per participant during the study period was 6.8 (SD=12.0; range=0-75).  Table 1 provides more detail on demographic and clinical characteristics of the sample.
 
-## EMA compliance, features, and prediction window labels
+## EMA Compliance, Features, and Prediction Window Labels
 
 Participants on average completed 3.1 (SD=0.6) of the four daily EMAs each day (78% compliance overall).  Participants completed at least one EMA on 95% of days.  Across individual weeks in the study, EMA compliance percentages ranged from 75% to 87% completion for all of the 4x daily EMAs and from 92% - 99% for at least one daily EMA completed (see Figure S3).  
 
@@ -1039,7 +1039,7 @@ The demographic variables included in our models did not display either high glo
 
 ## Considerations for Clinical Implementation
 
-### Smart Digital Therapeutics.
+### Smart Digital Therapeutics
 
 We believe these models may be most effective when embedded in a "smart" digital therapeutic that can guide patients toward optimal, adaptive engagement to address their ongoing and momentary risks.  These models can provide the patient's predicted future lapse probability and the features that meaningfully contribute to that predicted probability.  We consciously selected EMA items to map onto known risk factors from the Relapse Prevention model. Consequently, these outputs can be used to recommend specific intervention and support modules that are risk-relevant for each patient - much like a clinician would do if they were available in the moment.  For example, during sensed periods of high stress, modules that can lower stress (e.g., guided mindfulness, guided body scans) could be recommended.  If increased time with risky people or locations is driving lapse risk, the digital therapeutic can support patients to find and attend AA or other support meetings. They could also be encouraged to participate in the in-app discussion board to build a healthy community there.  
 
@@ -1049,7 +1049,7 @@ Of course, we must first determine how best to provide module recommendations su
 
 A smart digital therapeutic can potentially improve clinical outcomes in multiple ways.  First, feedback from the prediction model could improve patient insight and self-monitoring by connecting their daily experiences to changes in their lapse risk. Second, it can remove patient uncertainty about how to use the digital therapeutic, which could otherwise present a barrier to engagement for some due to the substantial content available. Third, a smart digital therapeutic could encourage risk-relevant engagement.  Rather than simply trying to increase overall time using the digital therapeutic, patients could be guided to engage with the interventions and other supports that specifically target their personal risk factors at that moment in time.  Thus, smart digital therapeutics are well-positioned to pursue the precision mental health goal to "provide the right treatment to the right patient at the right time, every time" [@kaiserObamaGivesEast2015]. 
 
-### Categorical Lapse Predictions.
+### Categorical Lapse Predictions
 
 Our models natively provide quantitative predictions of lapse probabilities.  These lapse probabilities can also be used to make specific categorical predictions (lapse vs. no-lapse) for the relevant future prediction windows.  This is accomplished by applying a decision threshold to the quantitative predicted lapse probabilities; i.e.,  when the probability exceeds the decision threshold, a lapse is predicted.  
 
