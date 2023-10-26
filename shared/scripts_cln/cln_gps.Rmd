@@ -27,7 +27,7 @@ as studies start to use these data
 
 
 ### Notes
-Purpose: This script creates the analysis gps dataset and conducts EDA
+Purpose: This script creates the analyses gps dataset and conducts EDA
 
 Inputs:
 
@@ -36,7 +36,6 @@ Inputs:
 Outputs
 
 * gps.csv
-* gps.rds
 
 ### Setup
 
@@ -51,7 +50,12 @@ switch (Sys.info()[['sysname']],
         # IOS paths
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
-          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"}
+          path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"},
+
+        # Linux paths
+        Linux = {
+          path_raw <- "~/mnt/private/studydata/risk/data_raw"
+          path_processed <- "~/mnt/private/studydata/risk/data_processed/shared"}
         )
 ```
 
@@ -76,13 +80,16 @@ library(readxl)
 library(janitor)
 library(geosphere)
 library(lubridate)
-library(plotKML)
+#library(plotKML) Used for readGPX.  Now we use XML library and source readGPX function
+library(XML)
 library(janitor)
 library(psych)
 library(kableExtra)
 library(readxl)
 library(data.table)
 library(ggplot2)
+
+source("shared/readGPX.R")
 ```
 
 ### Functions
@@ -90,7 +97,7 @@ library(ggplot2)
 Function to import and standardize moves data
 ```{r}
 convert_moves <- function(file_name){
-  
+  # multiple GPX exist for 52 58 59 63 64 65 66 76 77 78 79 80 81 82
   message('......loading: ', file_name)
   
   d_moves <- readGPX(file_name,
@@ -139,7 +146,6 @@ Function to import and standardize followmee data
 ```{r}
 convert_followmee <- function(file_name){
   
-  #multiple GPX exist for 52 58 59 63 64 65 66 76 77 78 79 80 81 82
   message('......Loading: ', file_name)
   
   d_followmee <- read_rds(file_name) %>% 
@@ -274,9 +280,6 @@ Create and save the gps data
 ```{r}
 gps %>% 
   write_csv(file = file.path(path_processed, "gps.csv"))
-
-gps %>% 
-  write_rds(file = file.path(path_processed, "gps.rds"))
 ```
 
 ## EDA
@@ -285,7 +288,7 @@ gps %>%
 
 GPS data
 ```{r}
-notes <- read_csv(here("shared/notes/raw_notes.csv")) 
+notes <- read_csv(here("shared/notes/notes_raw.csv")) 
 
 visit_dates <- read_csv(file.path(path_processed, "visit_dates.csv"))
 
