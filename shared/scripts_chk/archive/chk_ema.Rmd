@@ -1,0 +1,1066 @@
+---
+title: "Check EMA"
+author: "Hannah, Sarah, Megan"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+
+The goal of this script is to chracterize and look for errors in the EMA data for RISK.
+
+### Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, results = "hold")
+Sys.time()
+```
+
+Paths 
+```{r}
+data_path <- "P:/StudyData/RISK/analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse) 
+library(janitor)
+library(lmSupport)
+library(knitr)
+library(mice)
+library(lubridate)
+library(data.table)
+```
+
+### Read in data and glimpse
+```{r}
+ema <- read_rds(file.path(data_path, "ds_ema.rds")) %>% 
+  mutate( #convert unix time to dttm
+    time = as_datetime(utc, tz = 'America/Chicago'),
+    day = date(time), #store day for grouping
+    hour = hour(time), #store time
+    start_date = as_datetime(start_date, tz = 'America/Chicago'), 
+    end_date = as_datetime(end_date, tz = 'America/Chicago')) %>% 
+  select(-utc, -response_id) %>% 
+  as.data.table() %>% #to speed processing
+  glimpse()
+
+lapses <- read_rds(file.path(data_path, "ds_lapses.rds"))
+id <- read_rds(file.path(data_path, "ds_id.rds"))
+
+```
+
+
+## Basic descriptives and properties 
+
+Number of EMA Observations
+```{r}
+counts <- ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n()) %>%
+  varDescribe() %>% 
+  filter(vars == 2)
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n()) %>% 
+  ggplot(aes(x = n)) +
+  geom_histogram(bins = 10) +
+  xlab("ema observations per subject") +
+  ggtitle("histogram of ema observations")
+```
+
+There are `r nrow(ema)` rows from `r counts$n` subjects, who contributed an average of
+`r counts$mean` observations (range `r counts$min` - `r counts$max`).
+
+Morning surveys
+```{r}
+counts_am <- ema %>% 
+  group_by(subid) %>%
+  filter(type == 1) %>% #morning
+  summarize(n = n()) %>% 
+  select(subid, n) %>% 
+  varDescribe() %>% 
+  filter(vars == 2) 
+
+#per day
+counts_am_perday <- ema %>% group_by(subid, day) %>%
+  filter(type == 1) %>% #morning
+  summarize(n = n()) %>% 
+  select(subid, n) %>% 
+  varDescribe() %>% 
+  filter(vars == 2) 
+
+```
+`r counts_am$n` subjects contributed an average of `r counts_am$mean` total morning observations 
+(range `r counts_am$min` - `r counts_am$max`) and an average of `r counts_am_perday$mean` morning surveys per day
+(range `r counts_am_perday$min` - `r counts_am_perday$max`).  
+
+Afternoon surveys
+```{r}
+counts_pm <- ema %>% group_by(subid) %>%
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  select(subid, n) %>% 
+  varDescribe() %>% 
+  filter(vars == 2) 
+
+counts_pm_perday <- ema %>% group_by(subid, day) %>%
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  select(subid, n) %>% 
+  varDescribe() %>% 
+  filter(vars == 2) 
+```
+
+`r counts_pm$n` subjects contributed an average of `r counts_pm$mean` total day observations 
+(range `r counts_pm$min` - `r counts_pm$max`) and an average of `r counts_pm_perday$mean` day surveys per day
+(range `r counts_pm_perday$min` - `r counts_pm_perday$max`).  
+
+Histograms of Observation Counts
+```{r}
+ema %>% 
+  mutate(type_char = as_factor(case_when(type == 1 ~ "morning",
+                                         type == 2 ~ "evening"))) %>% 
+  group_by(subid, type_char) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = n, color = type_char)) +
+  geom_histogram(bins = 10, fill = "white", position = "dodge") +
+  xlab("ema observations per subject") +
+  ggtitle("histogram of ema observations by type")
+
+ema %>% 
+  mutate(type_char = as_factor(case_when(type == 1 ~ "morning",
+                                         type == 2 ~ "evening"))) %>% 
+  group_by(subid, type_char, day) %>% 
+  summarize(n = n()) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = n, color = type_char)) +
+  geom_histogram(bins = 10, fill = "white", position = "dodge") +
+  xlab("ema observations per day per subject") +
+  ggtitle("histogram of ema observations per day by type")
+```
+
+Timing of Observations
+```{r}
+ema %>% 
+  mutate(end_hour = hour(end_date)) %>% #get the time in hour of the day
+  mutate(type_char = as_factor(case_when(type == 1 ~ "morning",
+                         type == 2 ~ "evening"))) %>% 
+  ggplot(aes(x = end_hour, color = type_char)) +
+  geom_histogram(fill = "white", position = "dodge", binwidth = 1) +
+  scale_color_grey() +
+  xlab("hour of the day") +
+  ggtitle("histogram of ema timing")
+
+ema %>% 
+  mutate(end_hour = hour(end_date)) %>% 
+  filter(type == 1) %>% 
+  summarize(median_am_ema_time = median(end_hour, na.rm = TRUE))
+
+ema %>% 
+  mutate(end_hour = hour(end_date)) %>% 
+  filter(type == 1) %>%
+  tabyl(end_hour) %>% 
+  filter(end_hour < 13, end_hour > 5) %>% 
+  mutate(percent = round(percent, 2))
+```
+
+
+### Duplicate Surveys per Day
+
+``` {r}
+
+n_duplicated <-  ema %>% filter(duplicated(ema) == TRUE) %>% nrow()
+
+n_incomplete <- ema %>% group_by(subid, day) %>% 
+  filter(type == 1) %>% 
+  mutate(am_count = cumsum(type)) %>% 
+  filter(am_count > 1) %>% 
+  mutate(missing = is.na(ema_10)) %>% 
+  filter(missing > 0) %>% nrow()
+
+n_startisnotutc <- ema %>% filter(start_date != time) %>% nrow()
+n_startdayisnotutcday <- ema %>% filter(substr(start_date, 1, 10) != substr(time, 1, 10)) %>% nrow()
+
+n_lapsedataonly <- ema %>% filter(ema_1 != 'NA' & ema_3 == 'NA') %>%  nrow()
+``` 
+
+Looking at the data and speaking to project staff, we determined that the following reasons **do** **not** explain many surveys per day:  
+1. Duplicate surveys (number of duplicates is `r n_duplicated`)  
+2. People starting but not finishing (no, removed in cleaning; number of incompletes is `r n_incomplete`)  
+3. Incorrect 'time' - No, the time variable is the Qulatrics start time, which is different for `r n_startisnotutc` people. Looking just at the dates (not the time), only `r n_startdayisnotutcday` are different for utc and start date.
+
+Looking at the data and speaking to project staff, we determined that the following reasons **do** explain many surveys per day:  
+1. Several people early on the in study who are documented to have completed surveys under a different survey distribution system  
+2. A few individual instances of people who had multiple responses for other reasons (e.g., a participant who was completing surveys 'for' someone else, who got data reassigned to them), as described in the data log  
+3. Partial finishes that were recorded as complete if they answered the lapse Qs (clear in the patterns of missingness). Currently, the number of obs this describes is `r n_lapsedataonly`.  
+4. People taking multiple surveys during the 6 hour window when the link was active.  
+
+
+#### Looking closely at people with many *morning* surveys per day 
+
+People with at least one instance of 5 surveys per day
+```{r}
+id_5inaday <- ema %>% 
+  group_by(subid, day) %>% 
+  filter(type == 1) %>%
+  count() %>% 
+  filter(n == 5) %>% 
+  .$subid %>% 
+  unique()
+```
+
+`r length(id_5inaday)` subjects had 5 morning surveys per day, giving many similar responses in a short span. For example:
+
+```{r}
+ema %>% 
+  filter(
+    subid == id_5inaday[1], 
+    day == "2018-08-16", 
+    type == 1) %>% 
+  select(subid, day, time, ema_1, ema_2, ema_3, ema_4, ema_5, ema_6, ema_7, ema_8, ema_9, ema_10) %>% 
+  kable()
+```
+
+People with at least one instance of 4 surveys per day
+```{r}
+id_4inaday <- ema %>% 
+  group_by(subid, day) %>% 
+  filter(type == 1) %>% 
+  summarize(n = n()) %>% 
+  filter(n == 4)
+```
+
+`r length(unique(id_4inaday$subid))` subjects  had 4 morning surveys per day, giving many similar responses in a short span. For example:
+
+```{r}
+ema %>% 
+  filter(
+    subid == id_4inaday$subid[1], 
+    day == "2017-12-24", 
+    type == 1) %>% 
+  select(subid, day, time, ema_1, ema_2, ema_3, ema_4, ema_5, ema_6, ema_7, ema_8, ema_9, ema_10) %>% 
+  kable()
+```
+
+People with at least one instance of 3 surveys per day
+```{r}
+n_3inaday <- ema %>% group_by(subid, day) %>% 
+  filter(type == 1) %>% 
+  summarize(n = n()) %>% 
+  filter(n == 3) %>% 
+  arrange(subid) %>% 
+  group_by(subid) %>% 
+  summarize(n = n()) %>% 
+  nrow()
+```
+
+`r n_3inaday` people had three morning surveys in one day, and some of these people had three morning surveys multiple days.
+
+```{r include = FALSE}
+#Looking at these people
+#subj 52 on 2018-04-15
+ema %>% filter(subid == 52, day == "2018-04-15", type ==1) 
+# spaced out responses throughout the day
+
+#subj 65 on 2018-06-27
+ema %>% filter(subid == 65, day == "2018-06-27", type ==1) 
+#similar duplicates all in a row
+
+#subj 74 on 2018-06-08
+ema %>% filter(subid == 74, day == "2018-06-08", type ==1)
+#similar duplicates all in a row
+
+# subj 85 on 2018-07-28, 2018-08-08, 2018-08-15, 2018-08-21, 
+# 2018-09-03, 2018-09-07, 2018-09-13
+ema %>% filter(subid == 85, 
+               day == "2018-07-28" | 
+                 day == "2018-08-08"| 
+                 day == "2018-08-15"|
+                 day == "2018-08-21"|
+                 day == "2018-09-03"|
+                 day == "2018-09-07"| 
+                 day == "2018-09-13",
+               type ==1) 
+#none of these are lapses
+#giving the same responses to 8, 9, and 10
+#looking at all data from this person
+ema %>%  filter(subid == 85) %>%  .$ema_8 %>% table()
+#I guess this is plausible? almost always said 7 but sometimes 6 and twice 4
+ema %>%  filter(subid == 85) %>%  .$ema_9 %>% table()
+#less plausible, said 11 every time and 7 once
+ema %>%  filter(subid == 85) %>%  .$ema_10 %>% table()
+#said 1 every time. I guess plausible.
+
+# subj 78 on seveal days
+ema %>% filter(subid == 78, 
+               day == "2018-08-17" |
+                 day == "2018-08-19" | 
+                 day == "2018-08-24" | 
+                 day == "2018-08-30",
+               type ==1)
+#seems fine
+
+# subj 190 on 2019-03-03  
+ema %>% filter(subid == 190, day == "2019-03-03", type ==1) 
+#several in a row, seems fine
+
+#subj 185 on several days
+ema %>% filter(subid == 185, 
+               day == "2019-03-04" |   
+                 day == "2019-03-05" |   
+                 day == "2019-03-22" |   
+                 day == "2019-03-31" ,
+               type ==1)
+#Lots of duplicates on the same day in a row
+
+# subj 138 on 2018-12-23  
+ema %>% filter(subid == 138 , day == "2018-12-23", type ==1)
+#ditto
+
+# subj 117 on 2018-10-19   
+ema %>% filter(subid == 117 , day == "2018-10-19", type ==1)
+#same
+
+# subj 98 on 2018-08-27    
+ema %>% filter(subid == 98, day == "2018-08-27", type ==1) 
+#seems fine also
+```
+
+Cases examined; nothing clearly wrong. Here is a representative example of one day from one subject who often completed many surveys per day:
+
+```{r echo = FALSE}
+ema %>% 
+  filter(subid == 185, 
+         day == "2019-03-04",
+         type ==1) %>% 
+  select(subid, day, time, num_range("ema_", 1:10)) %>% 
+  kable()
+
+```
+
+#### Looking closely at people with many *day* surveys per day 
+
+People with multiple instances of surveys per day
+```{r}
+n_3inaday_pm <- ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(n == 3) %>% arrange(subid) %>% group_by(subid) %>% summarize(n = n()) %>% nrow()
+
+#who had 10 per day
+id_10inaday <- ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(n == 10) %>% .$subid
+```
+
+`r n_3inaday_pm` subjects had more than 3 surveys per day, with some having as many as 10! (Subjects `r id_10inaday`). Responses seem a little odd (going from 2 to 10 and back to 2 for ema_7 within a 10 minute span).
+
+Cases examined; nothing clearly wrong. Here is a representative example of one day from someone who often completed many surveys per day:
+
+```{r include = FALSE}
+#Multiple day surveys
+ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(n > 5) %>% arrange(subid)
+
+# subj   7 on 2017-07-02 completed  6 surveys
+# subj   7 on 2017-08-16 completed  6 surveys
+ema %>% filter(subid == 7, day == "2017-07-02" | day == "2017-08-16", type == 2)
+#a lot spaced out throughout the day
+
+# subj  25 on 2018-02-12 completed  6 surveys
+ema %>% filter(subid == 25, day == "2018-02-12", type == 2) 
+#many in a row but seems okay
+
+# subj  53 on 2018-03-30 completed  6 surveys
+# subj  53 on 2018-03-31 completed  6 surveys
+# subj  53 on 2018-04-06 completed  6 surveys
+# subj  53 on 2018-05-12 completed  6 surveys
+ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(subid == 53) %>% arrange(-n)
+#they also completed 5 and 4 on other days 
+ema %>% filter(subid == 53, day == "2018-03-30", type == 2) 
+#responses inconsistent but spaced 
+ema %>% filter(subid == 53, day == "2018-03-31", type == 2) 
+#I think this person just likes reporting when things happen
+
+# subj  65 on 2018-06-19 completed  6 surveys
+ema %>% filter(subid == 65, day == "2018-06-19", type == 2) 
+
+#checking people with 10 in one day and those who have lots of high repeat days
+
+# subj  66 on 2018-05-23 completed 10 surveys
+ema %>% filter(subid == 66, day == "2018-05-23", type == 2)
+#responses don't look totally normal... checking to see if they have lots of
+#other high survey days
+ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(subid == 66) %>% arrange(-n)
+#not a lot,,, 2 with 5, 5 with four
+
+# subj  79 on 2018-06-25 completed  7 surveys
+# subj  79 on 2018-06-28 completed  6 surveys
+# subj  79 on 2018-06-30 completed  6 surveys
+# subj  79 on 2018-07-15 completed  6 surveys
+ema %>% group_by(subid, day) %>% 
+  filter(type == 2) %>% 
+  summarize(n = n()) %>% 
+  filter(subid == 79) %>% arrange(-n)
+#they had multiple surveys on most days
+ema %>% filter(subid == 79, day == "2018-06-30", type == 2) 
+#not sure. seems okay.
+
+
+# subj  84 on 2018-07-26 completed  7 surveys
+# subj  84 on 2018-08-21 completed 10 surveys
+# subj  84 on 2018-08-24 completed 10 surveys
+# subj  84 on 2018-08-25 completed  6 surveys
+# subj  84 on 2018-08-28 completed  7 surveys
+# subj  84 on 2018-08-29 completed  8 surveys
+# subj  84 on 2018-08-30 completed  8 surveys
+# subj  84 on 2018-09-03 completed  8 surveys
+# subj  84 on 2018-09-05 completed  7 surveys
+# subj  84 on 2018-09-21 completed  6 surveys
+# subj  84 on 2018-09-25 completed  6 surveys
+# subj  84 on 2018-09-28 completed  6 surveys
+ema %>% filter(subid == 84, day == "2018-08-21", type == 2) 
+#a bunch within a short window
+
+#Subjects with odd data: 84, 79, 66, 85
+```
+
+
+```{r}
+ema %>% filter(subid == 53, 
+               day == "2018-03-30",
+               type ==2) %>% 
+  select(subid, day, time, num_range("ema_", 1:7)) %>% 
+  kable()
+```
+
+### Characterizing the data
+
+```{r}
+ema %>% 
+  select(-type, -subid, -end_date, -day, -time, -start_date, -ema_1_1, -ema_1_3, -time, -day, -hour) %>% 
+  varDescribe(2) %>% 
+  select(-vars) %>% 
+  kable()
+```
+
+#### Event and affect reports
+
+Urge intensity is zero inflated. ("How intense was your greatest urge to drink alcohol?") 
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_2)) +
+  geom_histogram(bins = 10) +
+  xlab("urge intensity (0 = no urges, 12 = strong urge)") +
+  ggtitle("histogram of greatest urge")
+```
+
+Risk intensity is zero inflated ("Did you encounter any risky situations (people, places, or things)? If yes, rate the intensity of
+the situation. If you experienced more than one risky situation, rate the most intense one.")
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_3)) +
+  geom_histogram(bins = 10) +
+  xlab("risk intensity (0 = no risks, 12 = strong risk)") +
+  ggtitle("histogram of greatest risk")
+```
+
+Stresses and hassles is zero inflated. ("Has a hassle or stressful event occurred? If yes, rate the intensity of the event. If you
+experienced more than one hassle or stressful event, rate the most intense one.")
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_4)) +
+  geom_histogram(bins = 10) +
+  xlab("hassle/stress event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of greatest hassle or stressful event")
+```
+
+Positive events is zero inflated. ("Has a pleasant or positive event occurred? If yes, rate the intensity of the event. If you
+experienced more than one pleasant or positive event, rate the most intense one.")
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_5)) +
+  geom_histogram(bins = 10) +
+  xlab("pleasant or positive event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of greatest pleasant or positive event")
+```
+
+
+Affect - valence is normally distributed. ("How are you feeling right now")
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_6)) +
+  geom_histogram(bins = 10) +
+  xlab("valence (1 = unpleasant/unhappy, 12 = pleasant/happy)") +
+  ggtitle("histogram of affect - valence")
+```
+
+Affect - valence is normally distributed. ("How are you feeling right now")
+```{r}
+ema %>% 
+  ggplot(aes(x = ema_7)) +
+  geom_histogram(bins = 10) +
+  xlab("arousal (1 = aroused/alert, 12 = calm/sleepy)") +
+  ggtitle("histogram of affect - arousal")
+```
+
+
+#### Event and affect mean and max per person
+
+Average and max reports of urges per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            urge_mean = mean(ema_2)) %>%   
+  ggplot(aes(x = urge_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("mean urge intensity (0 = no urges, 12 = strong urge)") +
+  ggtitle("histogram of subject average greatest urge")
+  
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            urge_max = max(ema_2)) %>%   
+  ggplot(aes(x = urge_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max urge intensity (0 = no urges, 12 = strong urge)") +
+  ggtitle("histogram of subject max greatest urge")
+```
+
+Average and max reports of risk per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            risks_mean = mean(ema_3)) %>%   
+  ggplot(aes(x = risks_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("average risk intensity (0 = no risks, 12 = strong risk)") +
+  ggtitle("histogram of subject average greatest risk")
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            risks_max = max(ema_3)) %>%   
+  ggplot(aes(x = risks_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max risk intensity (0 = no risks, 12 = strong risk)") +
+  ggtitle("histogram of subject max greatest risk")
+```
+
+Average and max reports of hassles and stressful events per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            hassle_mean = mean(ema_4)) %>%   
+  ggplot(aes(x = hassle_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("average hassle/stress event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of subject average greatest hassle or stressful event")
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            hassle_max = max(ema_4)) %>%   
+  ggplot(aes(x = hassle_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max hassle/stress event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of subject max greatest hassle or stressful event")
+```
+
+Average and max reports of pleasant and positive events per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            positive_mean = mean(ema_5)) %>%   
+  ggplot(aes(x = positive_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("average pleasant or positive event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of subject average greatest pleasant or positive event")
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            positive_max = max(ema_5)) %>%   
+  ggplot(aes(x = positive_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max pleasant or positive event intensity (0 = none, 12 = strong)") +
+  ggtitle("histogram of subject max greatest pleasant or positive event")
+```
+
+Average and max reports of affect-valence per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            valence_mean = mean(ema_6)) %>%   
+  ggplot(aes(x = valence_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("mean valence (1 = unpleasant/unhappy, 12 = pleasant/happy)") +
+  ggtitle("histogram of subject mean affect - valence")
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            valence_max = max(ema_6)) %>%   
+  ggplot(aes(x = valence_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max valence (1 = unpleasant/unhappy, 12 = pleasant/happy)") +
+  ggtitle("histogram of subject max affect - valence")
+```
+
+Average and max reports of affect-arousal per person.
+```{r}
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            valence_mean = mean(ema_7)) %>%   
+  ggplot(aes(x = valence_mean)) +
+  geom_histogram(bins = 10) +
+  xlab("mean arousal (1 = aroused/alert, 12 = calm/sleepy)") +
+  ggtitle("histogram of subject mean affect - arousal")
+
+ema %>% 
+  group_by(subid) %>% 
+  summarize(n = n(),
+            valence_max = max(ema_7)) %>%   
+  ggplot(aes(x = valence_max)) +
+  geom_histogram(bins = 10) +
+  xlab("max arousal (1 = aroused/alert, 12 = calm/sleepy)") +
+  ggtitle("histogram of subject max affect - arousal")
+```
+
+### Missing data
+
+Table shows the number of observations with a particular pattern and the pattern (i.e., the presence/absence of each item). The bottom row shows the number of observations missing each item.
+```{r}
+ema %>%  
+  select(-type, -subid, -end_date, -day, -time, -start_date, -ema_1_1, -ema_1_3, -ema_1_5, -time, -day, -hour) %>% 
+  md.pattern(plot = FALSE) 
+```
+
+### Checking for errors related to missing data
+
+```{r}
+#did conditional display of questions 1_1, 1_3, 1_5 work as it should?
+n_missedlapse_qs <- ema %>% filter(ema_1 == 2 & is.na(ema_1_1) & is.na(ema_1_3) & is.na(ema_1_5)) %>% nrow()
+#nobody answered yes that they drank but has all three follow-ups NA
+
+n_bonuslapse_qs <- ema %>% filter(ema_1 == 1 & (!is.na(ema_1_1) | !is.na(ema_1_3) | !is.na(ema_1_5))) %>% nrow()
+#nobody answered no that they didn't drink but has any response to a follow-up Q
+#so, yes, conditional display of these questions worked
+
+#some follow up questions are missing from this dataframe (ema 1_2, 1_4)
+#these were collapsed into other items
+
+#did morning and evening surveys have what they should?
+n_missingmorning_qs <- ema %>% filter(type == 1 & is.na(ema_8) & is.na(ema_9) & is.na(ema_10)) %>% nrow()
+#6 people have NAs for all these questions
+#but they have NAs for all the other questions, too... how many are filled in lapses
+n_missingmorning_qs_lapsed <- ema %>% filter(type == 1 & is.na(ema_8) & is.na(ema_9) & is.na(ema_10)) %>% filter(ema_1 == 2) %>% nrow()
+
+#did evening surveys not have what they shouldn't?
+n_bonusmorning_qs <-  ema %>% filter(type == 2 & (!is.na(ema_8) | !is.na(ema_9) | !is.na(ema_10))) %>% nrow()
+#yes
+```
+
+There are `r n_bonuslapse_qs` instances of changed lapse labels (people who did not report a lapse but have responses for questions about the lapse)  
+
+```{r}
+ema %>%filter(ema_1 == 1 & (!is.na(ema_1_1) | !is.na(ema_1_3) | !is.na(ema_1_5))) %>% 
+  select(subid, day, ema_1, ema_1_1, ema_1_3, ema_1_5, ema_2, ema_3, ema_4, ema_5, ema_6, ema_7, ema_8) %>% kable()
+```
+
+Other errors checked for:  
+* The number of people who reported a lapse but have no responses for the lapse questions is `r n_missedlapse_qs`.  
+* The number of morning surveys that don't have responses to questions 8, 9, and 10 is `r n_missingmorning_qs`.     
+    + Of these, `r n_missingmorning_qs_lapsed` were lapses, and were probably filled in based on in-lab information.  
+* The number of evening surveys that have responses to questions 8, 9, and 10 is `r n_bonusmorning_qs`.  
+
+### Survey completion times
+
+```{r}
+survey_duration_summary <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  select(subid, survey_duration_mins) %>% 
+  varDescribe() %>% filter(vars == 2)
+
+n_under3mins <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  filter(survey_duration_mins < 3) %>% nrow()
+
+n_morethan1hr <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration_hours >1) %>% nrow()
+
+n_morethan3hr <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration_hours >3) %>% nrow()
+
+n_morethan5hr <-ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration_hours >5) %>% nrow()
+
+n_slowseveraltimes <-  ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_mins, subid, everything()) %>% 
+  filter(survey_duration_mins > 3) %>% group_by(subid) %>% 
+  summarise(n = n()) %>% filter(n > 1) %>% nrow()
+
+n_slowalot <-  ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_mins, subid, everything()) %>% 
+  filter(survey_duration_mins > 3) %>% group_by(subid) %>% 
+  summarise(n = n()) %>% filter(n > 5) %>% nrow()
+
+n_slowtoomuch <-  ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_mins, subid, everything()) %>% 
+  filter(survey_duration_mins > 3) %>% group_by(subid) %>% 
+  summarise(n = n()) %>% filter(n > 10) %>% nrow()
+
+```
+
+Of `r survey_duration_summary$n` observations, the average time it took to complete the survey was `r survey_duration_summary$mean` minutes (range `r round(survey_duration_summary$min, 0)` - `r round(survey_duration_summary$max, 0)`). Survey duration is exteremely kurtotic `r survey_duration_summary$kurtosis`.
+
+Most surveys (`r n_under3mins`) were completed in under 3 minutes. Among surveys that took less than three minutes, distribution is more normal, though right skewed.
+
+```{r}
+ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  filter(survey_duration_mins < 3) %>% 
+  .$survey_duration_mins %>% hist(main = 'Survey Completion time in Minutes, Obs < 3 mins')
+```
+
+Some surveys were completed exteremly slowly:
+
+* `r n_morethan1hr` surveys took more than an hour
+* `r n_morethan3hr` surveys took more than three hours
+* `r n_morethan5hr` surveys took more than five hours 
+
+Many of the surveys that look a long time were lapses:
+```{r}
+ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(subid, day, survey_duration_hours, type, ema_1, ema_1_5, ema_2, ema_3, ema_4, ema_5, ema_6, ema_7) %>% 
+  filter(survey_duration_hours >5) %>% kable()
+```
+
+Some people were especially slow:
+
+* `r n_slowseveraltimes` people took more than 3 minutes more than once.
+* `r n_slowalot` people took more than 3 minutes more than five times.
+* `r n_slowtoomuch` people took more than 3 minutes more than ten times 
+
+A few people regularly took more than 10 minutes.
+```{r}
+ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_mins = as.numeric(survey_duration / 60)) %>% 
+  select(survey_duration, survey_duration_mins, subid, everything()) %>% 
+  filter(survey_duration_mins > 10) %>% group_by(subid) %>% 
+  summarise(n_morethan10minutes = n()) %>% filter(n_morethan10minutes > 5) %>% kable()
+```
+
+
+```{r}
+
+n_lessthan15secs <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  select(survey_duration_secs,subid, everything()) %>% 
+  filter(survey_duration_secs < 15) %>% nrow()
+
+n_lessthan13secs <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  select(survey_duration_secs,subid, everything()) %>% 
+  filter(survey_duration_secs < 13) %>% nrow()
+
+n_lessthan11secs <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  select(survey_duration_secs,subid, everything()) %>% 
+  filter(survey_duration_secs < 11) %>% nrow()
+
+
+n_fastseveraltimes <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration < 13) %>% group_by(subid) %>% 
+  summarize(n = n()) %>% filter(n > 1) %>% nrow()
+#34 people took less than 15 seconds more than once
+
+n_fastalot <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration < 13) %>% group_by(subid) %>% 
+  summarize(n = n()) %>% filter(n > 5) %>% nrow()
+
+n_fasttoomuch <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_hours = as.numeric(survey_duration / 60 / 60)) %>% 
+  arrange(-survey_duration) %>% 
+  select(survey_duration, survey_duration_hours, subid, everything()) %>% 
+  filter(survey_duration < 13) %>% group_by(subid) %>% 
+  summarize(n = n()) %>% filter(n > 10) %>% nrow()
+
+n_fast_lapses <- ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  select(subid, day, survey_duration_secs, type, ema_1, ema_1_5, ema_2, ema_3, ema_4, ema_5, ema_6, ema_7) %>% 
+  filter(survey_duration_secs < 15) %>% filter(ema_1 == 2) %>% nrow()
+
+```
+
+Other surveys were completed very quickly.
+
+* `r n_lessthan15secs` surveys took more than 15 seconds
+* `r n_lessthan13secs` surveys took more than 13 seconds
+* `r n_lessthan11secs` surveys took more than 11 seconds 
+
+`r n_fast_lapses` of the surveys that were completed in under 15 seconds were lapses.
+
+```{r}
+ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  filter(survey_duration_secs < 15) %>% 
+  .$survey_duration_secs %>% hist(main = 'Survey Completion time in Seconds, Obs < 15 secs', breaks = 5)
+```
+
+Some people were especially fast:
+
+* `r n_fastseveraltimes` people took less than 13 minutes more than once.
+* `r n_fastalot` people took less than 13 minutes more than five times.
+* `r n_fasttoomuch` people took less than 13 minutes more than ten times 
+
+A few people regularly took 10 seconds or less.
+```{r echo = FALSE}
+ema %>% mutate(survey_duration = end_date - start_date) %>% 
+  mutate(survey_duration_secs = as.numeric(survey_duration)) %>% 
+  select(survey_duration, survey_duration_secs, subid, everything()) %>% 
+  filter(survey_duration_secs <= 10) %>% 
+  group_by(subid) %>% 
+  summarise(n_lessthan10secs = n()) %>%
+  filter(n_lessthan10secs > 2) %>% 
+  kable()
+```
+
+## Looking at lapses (y)
+
+Timing of lapses
+```{r}
+ema %>% 
+  filter(!is.na(ema_1_1)) %>% 
+  mutate(lapse_hour = hour(ema_1_1)) %>% 
+  ggplot(aes(x = lapse_hour)) +
+  geom_histogram(bins = 10) +
+  xlab("hour of reported lapse") +
+  ggtitle("histogram of lapse hour")
+
+ema %>% 
+  filter(!is.na(ema_1_1)) %>% 
+  mutate(lapse_hour = hour(ema_1_1)) %>% 
+  summarize(median_lapse_time = median(lapse_hour, na.rm = TRUE))
+
+ema %>% 
+  filter(!is.na(ema_1_1)) %>% 
+  mutate(lapse_hour = hour(ema_1_1)) %>% 
+  tabyl(lapse_hour, show_na = TRUE) %>% 
+  filter(lapse_hour > 6) %>% 
+  mutate(percent = round(percent, 2))
+```
+
+
+```{r echo = FALSE}
+#note: all data included are from the day before the day they were recorded as drinking.
+# (not much here)
+lapses_ema <- ema %>% filter(ema_1 == 2) %>% nrow()
+lapses_y <- lapses%>% filter(lapse == 1) %>% nrow() 
+
+```
+
+There are `r lapses_ema` lapses in the ema dataset and `r lapses_y` lapses in the lapse dataset.
+
+```{r echo = FALSE, warning=FALSE}
+
+#Looking at lapses per day in ema
+lapses_per_day_ema <- ema %>% group_by(subid, day) %>% 
+  filter(ema_1 == 2) %>% 
+  summarize(n = n()) %>% varDescribe() %>% filter(vars == 3)
+
+```
+
+In the ema dataset, most people have just one lapse per day, with an average of `r lapses_per_day_ema$mean` (range `r lapses_per_day_ema$min` - `r lapses_per_day_ema$max`).
+
+```{r}
+#in y lapses
+lapses$day <- lapses$utc %>% #converting into human readable form
+  as.numeric %>% 
+  as.POSIXct(tz='America/Chicago', origin="1970-01-01")
+#note, the time has been removed
+
+##SARAH where did this come from?
+y_TooManylapses_per_dayy <- lapses %>% group_by(subid, day) %>% 
+  filter(lapse == 1) %>% 
+  summarize(n = n()) %>% filter(n > 1) %>% nrow()
+
+lapsesPerPerson <- lapses%>% group_by(subid) %>% 
+  filter(lapse == 1) %>% 
+  summarize(n = n()) %>% 
+  summarize(mean_nlapses = mean(n),
+            max_nlapses = max(n),
+            min_nlapses = min(n))
+```
+
+In the y dataset, there are `r` lapses. `r y_TooManylapses_per_dayy` had more than one lapse per day. Among lapses, some came from the same people. Among those who lapsed, the average number of lapses was `r lapsesPerPerson$mean_nlapses` (range `r lapsesPerPerson$min_nlapses` = `r lapsesPerPerson$max_nlapses`).
+
+## Looking at ema Features (X, looking at id and ema variables)
+##SARAH we no longer have a features file?
+
+```{r} 
+#Do the X dataset and y dataset have the same number of observations? `r nrow(X) #== nrow(lapses)`
+```
+
+```{r echo = FALSE}
+ 
+# #subsetting just to ema and General
+# X_ema <- X %>% as_tibble() %>% 
+#   select(subid, utc, contains("ema"), contains("Gen")) 
+# 
+# #converting dates
+# #these have alreay been standardized to just the day
+# X_ema$Date <- X_ema$utc %>% #converting into human readable form
+#   as.numeric %>% 
+#   as.POSIXct(tz='America/Chicago', origin="1970-01-01") %>% 
+#   substr(1, 10)
+# 
+# #looks normal
+# nrow(X_ema)
+# ncol(X_ema)
+# #there are 206 features
+# #and 9108 observations
+# 
+# #checking the number that are exact duplicates ()
+# duplicated(X_ema) %>% table()
+# #there are zero
+# 
+# #check that the values here are all possible
+# #ema_2 as an example
+# X_ema %>% select(contains("ema_2")) %>% varDescribe()
+# #two are extremely kurtotic
+# #MeanWeekvB
+# X_ema %>% select(contains("MeanWeekvB")) %>% varDescribe()
+# #Mean3dayvB
+# X_ema %>% select(contains("Mean3dayvB")) %>% varDescribe()
+# #MeandayvB
+# X_ema %>% select(contains("MeandayvB")) %>% varDescribe()
+# #these look correct
+```
+
+# Looking at the id dataset 
+```{r}
+# there is a chk_id rmd so this is not necessary
+
+
+# ##SARAH doesnt work
+# #reloading just in case?
+# id <- read_rds(file.path(data_path, "ds_id.rds")) %>% 
+#   glimpse()
+# dim(id)
+# #154 rows
+# 
+# id %>% group_by(subid) %>% 
+#   summarize(n = n()) %>% nrow()
+# #154 people
+# 
+# #vs for ema
+# ema %>% group_by(subid) %>% 
+#   summarize(n = n()) %>% nrow()
+# #also 154
+# 
+# #looking at demographics
+# id %>% select(contains("dem")) %>% varDescribe()
+# #some missing values on Dem2_4, 6, 8
+# #also where are Dem 2_1, 3, 5, 7?
+# #dem_7 must be income
+# ##SARAH error might be here?
+# #hist(id$dem_7)
+# 
+# #looking at alcohol use history
+# id %>% select(contains("auh")) %>% varDescribe()
+# #no missing 
+# 
+# #looking at assist
+# id %>% select(contains("assist")) %>% varDescribe()
+# #no missing 
+# #some insane kurtosis and skew for the self-efficacy
+# 
+# #DSM
+# id %>% .$scale_dtm5_tot %>% hist()
+# #left skew but not too bad
+# 
+# #DTS
+# id %>% select(contains("dts")) %>% varDescribe()
+# #looks good
+# 
+# #FAD
+# id %>% select(contains("fad")) %>% varDescribe()
+# #why are the maxes here all over the place? what was the scale?
+# #otherwise no problems
+# 
+# #ASI
+# id %>% select(contains("asi")) %>% varDescribe()
+# #looks good
+# 
+# #SCL
+# id %>% select(contains("scl")) %>% varDescribe()
+# #mostly normal excelt Pho and Ang are kurtotic
+# #most people scored very low on both
+# 
+# #MPS
+# id %>% select(contains("mps")) %>% varDescribe()
+# #looks normal
+# 
+# #else
+# id %>% select(-contains("mps"), -contains("scl"), -contains("asi"),
+#               -contains("fad"), -contains("dts"), -contains("assist"),
+#               -contains("auh"), -contains("dsm"), -contains("dem"),
+#               -contains("sub"), -contains("utc")) %>% varDescribe()
+# #all good
+
+```
+
+- age is ok
+- gender is ok
+- trait level time 0 is ok as just intercept
+- trait level time 0 is a source of interaction, too
+- id is the id labels, includes things like the DSM-5 checklist, demographics
+- SR is self-report varying

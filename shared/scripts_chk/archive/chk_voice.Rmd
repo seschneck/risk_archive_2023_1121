@@ -1,0 +1,711 @@
+---
+title: "Checking Voice Data"
+author: "Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+ 
+This script checks data from RISK participants' voice calls by computing descriptives and checking 
+for missingness and potential errors.  
+
+Thoughts for discussion:  
+1. How do we want to handle spam/irrelevant calls for analyses?  
+2. What does a call with contact_type self mean?  
+3. Differences between call_type rejected vs. refused?  
+4. Is there a way to identify calls with study staff? It is possible they may be contributing to the
+large number of calls with no contact_type identified.
+  
+  
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+  
+Paths 
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+```
+
+
+### Import Data and glimpse 
+
+Voice data
+```{r}
+voice <- read_rds(file.path(path_data, "ds_voice.rds"))  
+voice <- voice %>%
+  mutate(time_central = as_datetime(utc, tz = 'America/Chicago')) %>%
+  mutate(date_central = date(time_central), 
+         hour_central = hour(time_central),
+         minute_central = minute(time_central), 
+         second_central = second(time_central)) %>%
+  select(-c(utc, time_central)) %>%
+  glimpse()
+```
+
+`r length(unique(voice$subid))` participants contribute to a total of `r nrow(voice)` voice call 
+observations.  The earliest recorded sms message is from `r min(voice$date_central)` and the last 
+is from `r max(voice$date_central)`.
+
+Missing values
+```{r}
+if(any(is.na(voice))){
+  missing <- voice %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values", table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+There are `r sum(is.na(voice))` missing values (NA) from `r length(missing$var)` unique 
+variables in the entire dataset.
+
+Closer look at missing values
+```{r}
+voice %>% 
+  filter(is.na(contact_type)) %>% 
+  select(-c(date_central:second_central)) %>% 
+  head(n = 30) %>% 
+  kable(caption = "Sample observations with missing contact type") %>% 
+  kable_styling(bootstrap_options = "condensed")
+
+missing_contacttype <- voice %>% 
+  filter(is.na(contact_type)) %>% 
+  group_by(subid) %>% 
+  summarise(n_NA = n())
+
+missing_contacttype %>% 
+  head(n = 20) %>% 
+  kable(caption = "Table head of number of missing contact_type values per subid",
+        table.attr = "style='width:40%;'") %>% 
+  kable_styling(position = "left", bootstrap_options = "condensed")
+```
+
+`r length(unique(missing_contacttype$subid))` participants have voice call observations with missing
+contact type values. Participants on average have `r round(mean(missing_contacttype$n_NA), 2)` missing
+contact type values each.
+
+COMMENT KW 2020-08-11: Do we have study calls to participants regularly? I see a lot of repeated 
+numbers within contact_type NA. 
+
+
+Spam/irrelevant calls
+```{r}
+spam <- voice %>%
+  filter(contact_type == "IRRELEVANT/SPAM") %>% 
+  select(-c(date_central:second_central)) 
+
+spam_NA <- spam %>% 
+  filter(across(c(drank_past:emotion), ~is.na(.)))
+
+spam %>% 
+  head(n = 20) %>% 
+  kable(caption = "Sample from spam subset", 
+          table.attr = "style='width:40%;'") %>%
+  kable_styling(position = "left", bootstrap_options = "condensed")
+```
+
+There are `r nrow(spam)` spam calls and `r nrow(spam_NA)` of the spam calls are missing values for 
+all context variables. Will create voice_withoutspam dataframe (below) to run all context analyses.
+
+Spam/Irrelevant calls and missing values
+```{r}
+voice_withoutspam <- voice %>% 
+  filter(!contact_type == "IRRELEVANT/SPAM" | is.na(contact_type))
+
+if(any(is.na(voice_withoutspam))){
+  missing <- voice_withoutspam %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable(caption = "Variables with missing values after spam calls removed", 
+          table.attr = "style='width:40%;'") %>%
+    kable_styling(position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+Once irrelevant and spam calls are removed we now have a new total of `r nrow(voice_withoutspam)` 
+voice calls and missing values decreased from `r sum(is.na(voice))` to `r sum(is.na(voice_withoutspam))`.  
+The majority of remaining missing values are then of contact type NA or self (see below).   
+
+```{r}
+voice_withoutspam %>% 
+  mutate(contact_type = tolower(contact_type)) %>% 
+  group_by(contact_type) %>% 
+  summarise(across(drank_past:emotion, ~sum(is.na(.)))) %>%
+    kable(caption = "Missing values by contact type after spam calls removed") %>%
+    kable_styling()
+```
+
+
+COMMENT KW 2020-08-11: What are calls with contact type self?
+
+
+### Descriptives
+
+#### Voice calls
+
+Call type
+```{r}
+voice %>% 
+  tabyl(type, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Type of voice call") %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+
+COMMENT KW 2020-08-12: Not sure what these call types are. Numbers in codebook also seem off:  
+1 = incoming, 2 = outgoing, 3 = draft, 5 = unknown/undefined, 19 = unknown/undefined, -1 = unknown/undefined.  
+Code block below inspects these types --> see comment after code block for resolution.  
+
+
+```{r}
+# type 3 - call duration = 0
+voice %>% 
+  filter(type == 3) %>% 
+  select(subid, duration, contact_type) %>% 
+  head(n = 15) %>% 
+  kable(caption = "Sample from type 3") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 5 - call duration = 0
+voice %>% 
+  filter(type == 5) %>% 
+  select(subid, duration, contact_type) %>% 
+  head(n = 15) %>% 
+  kable(caption = "Sample from type 5") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 6 - call duration = 0 
+voice %>% 
+  filter(type == 6) %>% 
+  select(subid, duration, contact_type) %>% 
+  head(n = 15) %>% 
+  kable(caption = "Sample from type 6") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 7 - from subid 214 --> call duration = 0
+voice %>% 
+  filter(type == 7) %>% 
+  select(subid, duration, contact_type) %>% 
+  group_by(subid, duration, contact_type) %>%
+  summarise(n_obs = n()) %>% 
+  kable(caption = "Type 7") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 8 - from subid 52
+voice %>% 
+  filter(type == 8) %>% 
+  select(subid, duration, contact_type) %>% 
+  head(n = 15) %>% 
+  kable(caption = "Sample from type 8") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 9 - from subid 52
+voice %>% 
+  filter(type == 9) %>% 
+  select(subid, duration, contact_type)%>% 
+  head(n = 15) %>% 
+  kable(caption = "Sample from type 9") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 10 - from subid 52 and 63 --> call duration = 0
+voice %>% 
+  filter(type == 10) %>% 
+  select(subid, duration, contact_type)%>% 
+  group_by(subid, duration, contact_type) %>%
+  summarise(n_obs = n()) %>% 
+  adorn_totals() %>% 
+  kable(caption = "Type 10") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 1000 - from subid 82 
+voice %>% 
+  filter(type == 1000) %>% 
+  select(subid, duration, contact_type) %>% 
+  group_by(subid, duration, contact_type) %>%
+  summarise(n_obs = n()) %>% 
+  adorn_totals() %>% 
+  kable(caption = "Type 1000") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 1001 - from subid 74 and 82
+voice %>% 
+  filter(type == 1001) %>% 
+  select(subid, duration, contact_type) %>% 
+  group_by(subid, duration, contact_type) %>%
+  summarise(n_obs = n()) %>% 
+  adorn_totals() %>% 
+  kable(caption = "Type 1001") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# type 1002 - from subid 74 and 82  --> call duration = 0
+voice %>% 
+  filter(type == 1002) %>% 
+  select(subid, duration, contact_type) %>% 
+  group_by(subid, duration, contact_type) %>%
+  summarise(n_obs = n()) %>% 
+  adorn_totals() %>% 
+  kable(caption = "Type 1002") %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+  
+  
+From inspection above, it appears:  
+1 = incoming  
+2 = outgoing  
+3, 5, 6 = rejected/missed/sent to voicemail - all have call duration of 0  
+7 = mislabeled, 1 person in category and has call duration of 0  
+8, 9 = mislabeled, all from subid 52  
+10 = mislabeled, from subid 52 and 63 - call duration of 0  
+1000 = mislabeled, from subid 82  
+1001 = mislabeled, from subid 74 and 82  
+1002 = mislabeled, from subid 74 and 82 - call duration of 0  
+  
+Labels according to SMS codebook:  
+1 = incoming  
+2 = outgoing  
+3 = incoming/missed  
+4 = incoming/voicemail  
+5 = incoming/rejected  
+6 = incoming/refused  
+7 = no label  
+8-10, 1000-1002 = unknown/undefined  
+  
+Analyes will use labels 1-6 & undefined until we determine how to proceed for labels 7-10/1000-1002.  
+NOTE: not using unknown in label because do not want to confuse with being an unknown contact (contact 
+types include spouse/significant other and friend) as these are undefined due to labeling error. 
+
+
+```{r}
+voice <- voice %>% 
+  mutate(call_type = case_when(
+    type == "1" ~ "incoming",
+    type == "2" ~ "outgoing",
+    type == "3" ~ "missed",
+    type == "4" ~ "voicemail",
+    type == "5" ~ "rejected",
+    type == "6" ~ "refused",
+    TRUE ~ "undefined"))
+
+voice %>%
+  mutate(call_type = fct_relevel(call_type, c("incoming", 
+                                              "outgoing", 
+                                              "missed", 
+                                              "voicemail", 
+                                              "rejected", 
+                                              "refused", 
+                                              "undefined"))) %>% 
+  tabyl(call_type, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Type of voice call", 
+        table.attr = "style='width:50%;'") %>%
+  kable_styling(position = "left") 
+
+voice %>%
+  mutate(call_type = fct_relevel(call_type, c("incoming", 
+                                              "outgoing", 
+                                              "missed", 
+                                              "voicemail", 
+                                              "rejected", 
+                                              "refused", 
+                                              "undefined"))) %>% 
+  ggplot(aes (x = call_type)) +
+  geom_bar() +
+  xlab("call type") +
+  ggtitle("Frequency plot of type of participants' voice calls") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Total number of voice calls per participant
+```{r}
+voice %>% 
+  group_by(subid) %>% 
+  summarise(n_obs = n()) %>% 
+  ggplot(aes(x = n_obs)) +
+  geom_histogram(bins = 15) +
+  xlab("number of total voice calls") +
+  ggtitle("Histogram of total voice calls per subject") +
+  theme_classic()
+```
+
+Average number of calls per day (per participant)
+```{r}
+mean_avg_calls_per_day <- voice %>%                                                          
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(avg_calls = mean(n_obs)) %>% 
+  .$avg_calls %>% 
+  mean()
+
+max_calls_per_day <- voice %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(max = max(n_obs)) %>% 
+  .$max %>% max()
+
+voice %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_calls_per_day = mean(n_obs)) %>% 
+  ggplot(aes(x = avg_calls_per_day)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of voice calls") +
+  ggtitle("Histogram of average voice calls per day") +
+  theme_classic()
+```
+
+On average, participants had an average of `r round(mean_avg_calls_per_day, 2)` voice calls per day 
+(max = `r max_calls_per_day`).
+
+Average number of calls per day (not including spam)
+```{r}
+mean_avg_calls_per_day_nospam <- voice_withoutspam %>%                                                          
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(avg_calls = mean(n_obs)) %>% 
+  .$avg_calls %>% 
+  mean()
+
+max_calls_per_day_nospam <- voice_withoutspam %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>% 
+  summarise(max = max(n_obs)) %>% 
+  .$max %>% max()
+
+voice_withoutspam %>% 
+  group_by(subid, date_central) %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_calls_per_day = mean(n_obs)) %>% 
+  ggplot(aes(x = avg_calls_per_day)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of non-spam voice calls") +
+  ggtitle("Histogram of average non-spam voice calls per day") +
+  theme_classic()
+```
+
+With spam calls removed, participants had an average of `r round(mean_avg_calls_per_day_nospam, 2)` 
+voice calls per day (max = `r max_calls_per_day_nospam`).
+
+Average number of incoming calls per day
+```{r}
+voice %>% 
+  group_by(subid, date_central) %>% 
+  filter(type == "1") %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_calls_per_day = mean(n_obs)) %>% 
+  ggplot(aes(x = avg_calls_per_day)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of incoming voice calls") +
+  ggtitle("Histogram of average incoming calls per day") +
+  theme_classic()
+```
+
+Average number of outgoing calls per day
+```{r}
+voice %>% 
+  group_by(subid, date_central) %>% 
+  filter(type == "2") %>% 
+  summarise(n_obs = n()) %>% 
+  group_by(subid) %>%
+  summarise(avg_calls_per_day = mean(n_obs)) %>% 
+  ggplot(aes(x = avg_calls_per_day)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of outgoing voice calls") +
+  ggtitle("Histogram of average outgoing calls per day") +
+  theme_classic()
+```
+
+Length of call (in seconds)
+```{r}
+voice %>%
+  ggplot(aes(x = duration)) +
+  geom_histogram() +
+  xlab("call duration (seconds)") +
+  ggtitle("Histogram of length of voice calls") +
+  theme_classic()
+```
+
+Calls with duration of 0 seconds
+```{r}
+duration_0 <- voice %>% 
+  filter(duration == 0) 
+```
+
+`r nrow(duration_0)` calls (`r (round(nrow(duration_0)/nrow(voice), 4))*100`%) had a duration of 0 seconds. 
+
+Contact relationship type
+```{r}
+voice %>%
+  mutate(contact_type = tolower(contact_type),
+         contact_type = fct_infreq(factor(contact_type))) %>% 
+  tabyl(contact_type, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Relationship with voice call contact") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice %>%
+  mutate(contact_type = tolower(contact_type),
+         contact_type = fct_infreq(factor(contact_type))) %>%
+  ggplot(aes (x = contact_type)) +
+  geom_bar() +
+  xlab("contact relationship type") +
+  ggtitle("Frequency plot of contact relationship from voice call") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+`r sum(is.na(voice$contact_type))` voice calls (`r (round((sum(is.na(voice$contact_type)))/(nrow(voice)), 4))*100`%) 
+were from unknown contacts. 
+
+Number of calls from known contacts per participant
+```{r}
+voice %>%
+  filter(!is.na(contact_type)) %>%
+  group_by(subid) %>%
+  summarise(n_obs = n()) %>%
+  ggplot(aes(x = n_obs)) +
+  geom_histogram(bins = 15) +
+  xlab("number of calls from known contacts") +
+  ggtitle("Histogram of voice calls with known contacts per subject") +
+  theme_classic()
+```
+
+Number of calls from unknown contacts per participant (contact_type = NA)
+```{r}
+voice %>%
+  filter(is.na(contact_type)) %>%
+  group_by(subid) %>%
+  summarise(n_obs = n()) %>%
+  ggplot(aes(x = n_obs)) +
+  geom_histogram(bins = 15) +
+  xlab("number of calls from unknown contacts") +
+  ggtitle("Histogram of voice calls with unknown contacts per subject") +
+  theme_classic()
+```
+
+Number of calls from spam
+```{r}
+voice %>%
+  filter(contact_type == "IRRELEVANT/SPAM") %>%
+  group_by(subid) %>%
+  summarise(n_obs = n()) %>%
+  ggplot(aes(x = n_obs)) +
+  geom_histogram(bins = 15) +
+  xlab("number of calls from spam") +
+  ggtitle("Histogram of number of spam voice calls per subject") +
+  theme_classic()
+```
+
+Average call length by contact type
+```{r}
+voice %>%
+  mutate(contact_type = tolower(contact_type),
+         contact_type = fct_reorder(contact_type, desc(duration), .fun = "mean")) %>%
+  group_by(contact_type) %>% 
+  summarise(avg_duration = mean(duration)) %>% 
+  ggplot(aes (x = contact_type, y = avg_duration)) +
+  geom_col() +
+  xlab("contact relationship type") +
+  ylab("average duration of call (seconds)") +
+  ggtitle("Plot of average call duration by contact type") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Average number of contacts per participant
+```{r}
+voice %>%
+  group_by(subid) %>%
+  mutate(n_contacts = n_distinct(phone))  %>%
+  summarise(avg_contacts_per_sub = mean(n_contacts)) %>%
+  ggplot(aes(x = avg_contacts_per_sub)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of contacts per participant") +
+  ggtitle("Histogram of average number of voice contacts per participant") +
+  theme_classic()
+```
+
+Average number of contacts per day (per participant)
+```{r}
+voice %>%
+  group_by(subid, date_central) %>%
+  mutate(n_contacts = n_distinct(phone))  %>%
+  summarise(avg_contacts_perday = mean(n_contacts)) %>%
+  ggplot(aes(x = avg_contacts_perday)) +
+  geom_histogram(bins = 15) +
+  xlab("avg number of contacts called each day") +
+  ggtitle("Histogram of average number of contacts per day by participant") +
+  theme_classic()
+```
+
+
+#### Context variables
+
+Context analyses are run on dataframe with spam/irrelevant calls removed because these calls have
+no context information.
+
+Drank alcohol in past
+```{r}
+voice_withoutspam %>%
+  mutate(drank_past = tolower(drank_past),
+         drank_past = fct_relevel(factor(drank_past, c("never/almost never", "occasionally",
+                                                        "almost always/always")))) %>%
+  tabyl(drank_past, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Level of drinking with voice contact in the past") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(drank_past = tolower(drank_past),
+         drank_past = fct_relevel(factor(drank_past, c("never/almost never", "occasionally",
+                                                        "almost always/always")))) %>%
+  ggplot(aes (x = drank_past)) +
+  geom_bar() +
+  xlab("past drinking status with contact") +
+  ggtitle("Frequency plot of level of past drinking with voice contact") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Drinker status
+```{r}
+voice_withoutspam %>%
+  mutate(drinker_status = tolower(drinker_status),
+         drinker_status = fct_relevel(factor(drinker_status, c("drinker", "nondrinker",
+                                                        "dont know")))) %>%
+  tabyl(drinker_status, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Drinking status of voice contact") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(drinker_status = tolower(drinker_status),
+         drinker_status = fct_relevel(factor(drinker_status, c("drinker", "nondrinker",
+                                                        "dont know")))) %>%
+  ggplot(aes (x = drinker_status)) +
+  geom_bar() +
+  xlab("drinking status of voice contact") +
+  ggtitle("Frequency plot of the drinking status of participants' voice contacts") +
+  theme_classic()
+```
+
+Drink in your presence 
+```{r}
+voice_withoutspam %>%
+  mutate(drink_future = tolower(drink_future),
+         drink_future = fct_relevel(factor(drink_future, c("yes", "no",
+                                                        "uncerain")))) %>%
+  tabyl(drink_future, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Is voice contact likely to drink in your presence?") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(drink_future = tolower(drink_future),
+         drink_future = fct_relevel(factor(drink_future, c("yes", "no",
+                                                        "uncertain")))) %>%
+  ggplot(aes (x = drink_future)) +
+  geom_bar() +
+  xlab("likelihood of contact drinking in front of participant in future") +
+  ggtitle("Frequency plot of likelihood contact will drink in front of participant in future") +
+  theme_classic()
+```
+
+In recovery
+```{r}
+voice_withoutspam %>%
+  mutate(recovery = tolower(recovery),
+         recovery = fct_relevel(factor(recovery, c("yes", "no",
+                                                        "dont know")))) %>%
+  tabyl(recovery, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Is voice contact in recovery?") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(recovery = tolower(recovery),
+         recovery = fct_relevel(factor(recovery, c("yes", "no",
+                                                        "dont know")))) %>%
+  ggplot(aes (x = recovery)) +
+  geom_bar() +
+  xlab("recovery status of voice contact") +
+  ggtitle("Frequency plot of whether voice contact is in recovery") +
+  theme_classic()
+```
+
+Support of recovery
+```{r}
+voice_withoutspam %>%
+  mutate(support = tolower(support),
+         support = fct_relevel(factor(support, c("supportive", "unsupportive", "mixed", 
+                                                 "neutral", "dont know", "no")))) %>%
+  tabyl(support, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Contact's support of participant's recovery goals") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(support = tolower(support),
+         support = fct_relevel(factor(support, c("supportive", "unsupportive", "mixed", 
+                                                 "neutral", "dont know", "no")))) %>%
+  ggplot(aes (x = support)) +
+  geom_bar() +
+  xlab("contact support of participant recovery") +
+  ggtitle("Frequency plot of level of voice contacts' support of participants' recovery") +
+  theme_classic()
+```
+
+Emotion from experiences with contact
+```{r}
+voice_withoutspam %>%
+  mutate(emotion = tolower(emotion),
+         emotion = fct_relevel(factor(emotion, c("pleasant", "unpleasant", 
+                                                 "mixed", "neutral")))) %>%  
+  tabyl(emotion, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable(caption = "Emotion from experiences with voice contact") %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+voice_withoutspam %>%
+  mutate(emotion = tolower(emotion),
+         emotion = fct_relevel(factor(emotion, c("pleasant", "unpleasant", 
+                                                 "mixed", "neutral")))) %>% 
+  ggplot(aes (x = emotion)) +
+  geom_bar() +
+  xlab("emotion from experiences with voice contact") +
+  ggtitle("Frequency plot of types of emotion participants feel from voice contact interactions") +
+  theme_classic()
+```

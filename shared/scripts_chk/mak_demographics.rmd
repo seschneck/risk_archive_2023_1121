@@ -1,0 +1,208 @@
+---
+title: "mak_demographics.RMD"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+##Summarize Age, sex, race, ethnicity, & income for final Risk N = 154
+
+### Environment and setup
+```{r,results="hide"}
+# Libraries
+library("tidyverse")
+library("StudySupport")
+library("scales")
+
+
+# Set paths
+data_path <- "P:/studydata/risk/data_processed/shared"
+rppr_path <- "P:/grants/Curtin_R01_NIAAA(RiskPrediction)/NIH Correspondence/Final RPPR 2022"
+```
+
+### Get Valid subIDs
+```{r,results="hide"}
+visit_dates <- read_csv(file.path(data_path,"visit_dates.csv"))
+
+started_subs <- visit_dates %>% filter(!is.na(intake)) %>% select(subid)
+valid_subs <- visit_dates %>% filter(!is.na(followup_1)) %>% select(subid)
+
+```
+
+### Open and process ID data file containing demographics
+```{r,results="hide"}
+dem_data <- read_csv(file.path(data_path, "screen.csv")) %>%
+  select(subid,  
+         age = dem_1, 
+         sex = dem_2, 
+         race = dem_3, 
+         hispanic = dem_4) %>%
+         mutate(hispanic = if_else(str_detect(hispanic, "Yes"), "1", "0")) %>% 
+    mutate(american_native = ifelse(str_detect(race,"American Indian/Alaska Native"),1,0),
+        asian = ifelse(str_detect(race,"Asian"),1,0),
+        pacific = ifelse(str_detect(race,"Native Hawaiian or Other Pacific Islander"),1,0),
+        black = ifelse(str_detect(race,"Black/African American"),1,0),
+        white = ifelse(str_detect(race,"White/Caucasian"),1,0),
+        other = ifelse(str_detect(race,"Other/Multiracial"),1,0),
+        )
+
+#add pilot data for NIH
+pilot_subs <- read_csv(file.path(rppr_path, "pilot_participants.csv")) %>%
+         mutate(hispanic = if_else(str_detect(hispanic, "Yes"), "1", "0")) %>% 
+    mutate(american_native = ifelse(str_detect(race,"American Indian/Alaska Native"),1,0),
+        asian = ifelse(str_detect(race,"Asian"),1,0),
+        pacific = ifelse(str_detect(race,"Native Hawaiian or Other Pacific Islander"),1,0),
+        black = ifelse(str_detect(race,"African American"),1,0),
+        white = ifelse(str_detect(race,"White"),1,0),
+        other = ifelse(str_detect(race,"Other/Multiracial"),1,0),
+        not_specified = ifelse(str_detect(race,"Not specified"),1,0),)
+
+pilot_subids <- pilot_subs %>% select(subid)
+
+
+dem_data <- full_join(dem_data %>% mutate(subid = as.character(subid)), pilot_subs) %>%
+  mutate_if(is.numeric , replace_na, replace = 0)
+
+```
+
+
+All subs including screen fails
+```{r}
+#N
+dem_data  %>% nrow()
+
+#by sex
+dem_data %>% group_by(sex) %>% tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+
+# hispanic
+dem_data %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+  
+```
+
+
+Only started subs (screened in)
+```{r}
+#N
+dem_data  %>% 
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
+  nrow()
+
+#by sex
+dem_data %>% 
+    filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
+    group_by(sex) %>% 
+  tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+
+# hispanic
+dem_data %>%
+  filter(subid %in% started_subs$subid | subid %in% pilot_subids$subid) %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+  
+```
+
+
+
+Only valid subs (made to FU1)
+```{r}
+#N
+dem_data  %>% 
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
+  nrow()
+
+#by sex
+dem_data %>% 
+    filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
+    group_by(sex) %>% 
+  tally()  
+
+
+# non-hispanic
+dem_data %>%
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
+  filter(hispanic == 0) %>%
+  group_by(sex,  american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+
+# hispanic
+dem_data %>%
+  filter(subid %in% valid_subs$subid | subid %in% pilot_subids$subid) %>%
+  filter(hispanic == 1) %>%
+  group_by(sex, american_native, asian, pacific, black, white, other, not_specified) %>%
+  tally()
+  
+```
+
+
+
+### Age
+```{r}
+
+age_summary <- dem_data %>%
+  summarize(mean=round(mean(age),1), sd=round(sd(age),1), min=min(age), max=max(age))
+age_summary
+```
+
+
+### Sex
+```{r}
+sex_summary <- dem_data %>%
+  group_by(sex) %>%
+  summarize(n = n()) %>%
+  mutate(`%` = percent(n/sum(n)))
+sex_summary
+```
+
+
+### Race
+```{r}
+race_summary <- dem_data %>%
+  group_by(race) %>%
+  summarize(n = n()) %>%
+  mutate(`%` = percent(n/sum(n)))
+race_summary
+```
+
+
+### Ethnicity
+```{r}
+hisp_summary <- dem_data %>%
+  group_by(hispanic) %>%
+  summarize(n = n()) %>%
+  mutate(`%` = percent(n/sum(n)))
+hisp_summary  
+```
+
+
+### Income
+```{r}
+income_summary <- dem_data %>%
+  summarize(mean=dollar(round(mean(income))), sd=dollar(round(sd(income))), min=dollar(min(income)), max=dollar(max(income)))
+income_summary
+```
+
+
+### Conclusions
+
+This sample contains `r nrow(valid_subs)` Risk participants who completed through Followup Visit 1. Mean age is `r age_summary[[1]]` (sd=`r age_summary[[2]]`) and `r sex_summary[[1,3]]` are `r sex_summary[[1,1]]`. The sample is `r race_summary[[5,3]]` `r race_summary[[5,1]]` and `r hisp_summary[[2,3]]` are hispanic.  The average sample income is `r income_summary[[1]]` (sd=`r income_summary[[2]]`).

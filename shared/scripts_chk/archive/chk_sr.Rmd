@@ -1,0 +1,1680 @@
+---
+title: "Checking SR Variables"
+author: "Megan Schultz and Kendra Wyant"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    code_folding: show
+    toc: true 
+    toc_depth: 3
+editor_options: 
+  chunk_output_type: console
+---
+  
+### Notes
+This script checks SR (self report) variables from RISK participants' data by computing 
+descriptives and checking for missingness and potential errors. 
+
+
+KW COMMENT: Below are error note logs to discuss that are not corrected for yet.
+
+var_name (subid): issue
+assist_ (42): Sub didn't answer any of the assist questions at follow up 1. Documented in datalog. 
+
+mam_15/scale_mam_numdaysworkschoolvol (66) reported 40 days in the last month at followup2.
+mam_15/scale_mam_numdaysworkschoolvol (269) reported 175 days in the last month at followup2.
+
+mam_8/scale_mam_numindcounsel (79): 30 counseling sessions in past 30 days at intake and followup1.
+mam_9/scale_mam_numgrpcounsel (79): 30 group counseling sessions in past 30 days at followup1 and 2.
+mam_10/scale_mam_numselfhelp (79): 30 self help sessions in past 30 days at intake.
+
+mam_1_4/mam_1_5/mam_1_6 (85): living arrangement changed dramatically. They reported different answers all 
+3 times for number of children/grandchildren (NA, 1, 6) and number of relatives (NA, 7, 2) in household
+and different number of parents twice (NA, 2). 
+
+mam_1_1: other living arrangements
+10/15 "other" responses can be recoded to independent (living with family/others):
+subid 166 - living w/boyfriend (x 3), 156 - house with roommates, 85 - with parents, 82 - wwith family, 
+80 - with parent, 63 - partner, 64 - apartment, 39 - dependent on family.
+1/15 Possibly recoded as other:
+39 - "I could stay with my folks, however transportation is complicated. So I mostly stay in Madison, where I can catch a bus"
+Remaining 4 = treatment/sober living -> stay coded as "other"
+
+mam_1.3/mam_1.4 (197): From data cleaning log - participant reported to RA that he forgot to select Child/Grandchild 
+for item MAM_1.3 (MAM_1.4 should be 2 for number of children).
+
+mam_1.2 (003): From data cleaning log - Participant responded “yes” to MAM_1.2 (Do you live alone?) at FU2, but her response should have been “no.” This error was caught by Candace when reviewing the participant’s data. Participant then proceeded to question MAM_1.3 (Who do you live with? Check all that apply?) and indicated who she lived with.  Participant was able to move to MAM_1.3 because the display logic for question MAM_1.3, in the Monthly Addiction Monitor survey (MAM), was missing. 
+
+  
+### Setup
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = TRUE)
+```
+
+Paths
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+Packages
+```{r}
+library(tidyverse)
+library(janitor)
+library(psych)
+library(lubridate)
+library(kableExtra)
+```
+
+### Import data and glimpse
+```{r}
+sr <- read_rds(file.path(path_data, "ds_sr.rds"))
+
+sr_scale <- sr %>%
+  mutate(time_central = as_datetime(sr$utc, tz = 'America/Chicago')) %>%
+  select(subid, time_central, contains("scale")) %>%
+  glimpse()
+```
+
+The SR data file has `r length(unique(sr$subid))` unique subids contributing to 
+`r length(sr$subid)` total observations. We would expect to have `r (length(unique(sr$subid)) * 3)` 
+observations if each participant completed the study through both follow-ups and final 
+visit.
+
+```{r}
+less_than_3_visits <- sr_scale %>%
+  group_by(subid) %>%
+  summarise(n_obs = n()) %>%
+  filter(n_obs < 3)
+
+more_than_3_visits <- sr_scale %>%
+  group_by(subid) %>%
+  summarise(n_obs = n()) %>%
+  filter(n_obs > 3)
+
+less_than_3_visits %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left",  bootstrap_options ="condensed")
+```
+
+`r length(less_than_3_visits$subid)` participants had less than 3 observations. 
+`r length(more_than_3_visits$subid)` participants had more than 3 observations.
+
+The earliest observation was recorded on `r min(sr_scale$time_central)` and the latest 
+was on `r max(sr_scale$time_central)`.
+
+Check all items for missing values
+```{r}
+if(any(is.na(sr))){
+  missing <- sr %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0)
+  missing %>%
+    kable() %>%
+    kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+}else {
+  paste("No missing values")
+}
+```
+
+There are `r sum(is.na(sr))` missing values (NA) from `r length(missing$var)` unique 
+variables in the entire dataset. A closer look at the missing values will be done in 
+the 3 scales (MAM, DAS, and ASSIST) that contain the vars with missing values.
+
+
+### Penn Alcohol Craving Scale (PACS)
+
+#### Descriptives
+
+
+Comment KW 7-27-2020: (pacs_1 - pacs_5) no scaled vars for individual pacs items. Recoding 
+vars to 0-6 scale (instead of 1-7) to analyze the items individually and be consistent with 
+the codebook and scaled total score variable (0-30).
+
+
+Recode individual items
+```{r}
+sr <- sr %>%
+  mutate(across(pacs_1:pacs_5, ~recode(., '1' = 0, '2' = 1, '3' = 2, '4' = 3, '5' = 4, 
+                                    '6' = 5, '7' = 6)))
+```
+
+Thinking about drinking (how often)
+```{r}
+describe(sr$pacs_1) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = pacs_1)) +
+  geom_bar() +
+  xlab("how often thinking about drinking") +
+  ggtitle("Frequency plot of participants' PACS question 1 score") +
+  scale_x_continuous(breaks=c(0, 1, 2, 3, 4, 5, 6),
+                      labels=c("never (0 times)", "rarely (1-2 times)", "occasionally (3-4 times)",
+                               "sometimes (5-10 times)", "often (11-20 times)", 
+                               "most of the time (21-40 times)", "nearly all the time (40+ times)")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+Strength of craving (at most severe point)
+```{r}
+describe(sr$pacs_2) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = pacs_2)) +
+  geom_bar() +
+  xlab("strength of most severe craving") +
+  ggtitle("Frequency plot of participants' PACS question 2 score") +
+  scale_x_continuous(breaks=c(0, 1, 2, 3, 4, 5, 6),
+                      labels=c("no urge at all", "slight (very mild)", "mild", "moderate", 
+                               "strong - easy to control", "strong - difficult to control", 
+                               "strong - would have drunk if available")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Thinking about drinking (amount of time)
+```{r}
+describe(sr$pacs_3) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = pacs_3)) +
+  geom_bar() +
+  xlab("time spent thinking about drinking") +
+  ggtitle("Frequency plot of participants' PACS question 3 score") +
+  scale_x_continuous(breaks=c(0, 1, 2, 3, 4, 5, 6),
+                      labels=c("none", "< 20 min", "21-45 min", "46-90 min", "90 min-3 hr", 
+                               "3-6 hr", "> 6 hr")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+Difficulty to resist drinking if alcohol in home
+```{r}
+describe(sr$pacs_4) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = pacs_4)) +
+  geom_bar() +
+  xlab("difficulty to resist drinking if alcohol in home") +
+  ggtitle("Frequency plot of participants' PACS question 4 score") +
+  scale_x_continuous(breaks=c(0, 1, 2, 3, 4, 5, 6),
+                      labels=c("not difficult at all", "very mildly difficult", "mildly difficult",
+                               "moderately difficult", "very difficult", 
+                               "extremely difficult", "would not be able to resist")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+Alcohol craving (average over past month)
+```{r}
+describe(sr$pacs_5) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = pacs_5)) +
+  geom_bar() +
+  xlab("average alcohol craving (urge to drink) for the past month") +
+  ggtitle("Frequency plot of participants' PACS question 5 score") +
+  scale_x_continuous(breaks=c(0, 1, 2, 3, 4, 5, 6),
+                      labels=c("never had urge", "rarely had urge", "occasionally had urge",
+                               "sometimes had urge", "often had urge", 
+                               "had urge most of the time", "had urge nearly all of the time")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+```
+
+Total score
+```{r}
+describe(sr_scale$scale_pacs_tot) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr_scale %>%
+  ggplot(aes(x = scale_pacs_tot)) +
+  geom_bar() +
+  xlab("PACS total score (0-30)") +
+  ggtitle("Frequency plot of participants' total PACS score") +
+  theme_classic()
+```
+
+#### Item analysis
+
+```{r}
+sr %>%
+  select(pacs_1:pacs_5) %>%
+  alpha()
+```
+
+
+### Alcohol Abstinence Self-Efficacy (AASE)
+
+### Descriptives
+
+Negative affect score
+```{r}
+describe(sr_scale$scale_aase_na) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr_scale %>%
+  ggplot(aes(x = scale_aase_na)) +
+  geom_histogram(bins = 12) +
+  xlab("AASE negative affect score") +
+  ggtitle("Histogram of participants' negative affect AASE score") +
+  theme_classic()
+```
+
+Social interaction score
+```{r}
+describe(sr_scale$scale_aase_soc) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr_scale %>%
+  ggplot(aes(x = scale_aase_soc)) +
+  geom_histogram(bins = 12) +
+  xlab("AASE social interaction score") +
+  ggtitle("Histogram of participants' social interaction AASE score") +
+  theme_classic()
+```
+
+Physical concerns score
+```{r}
+describe(sr_scale$scale_aase_phys) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr_scale %>%
+  ggplot(aes(x = scale_aase_phys)) +
+  geom_histogram(bins = 12) +
+  xlab("AASE physical concerns score") +
+  ggtitle("Histogram of participants' physical concerns AASE score") +
+  theme_classic()
+```
+
+Cravings and urges score
+```{r}
+describe(sr_scale$scale_aase_crav) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr_scale %>%
+  ggplot(aes(x = scale_aase_crav)) +
+  geom_histogram(bins = 12) +
+  xlab("AASE cravings and urges score") +
+  ggtitle("Histogram of participants' cravings and urges AASE score") +
+  theme_classic()
+```
+
+### Item analysis
+
+Negative affect scale
+```{r}
+sr  %>% 
+  select(c(aase_18, aase_16,aase_3, aase_14, aase_6)) %>% 
+  alpha()
+```
+
+Social interaction scale
+```{r}
+sr %>% 
+  select(c(aase_15, aase_20, aase_4, aase_17, aase_8)) %>% 
+  alpha()
+```
+
+Physical concerns scale
+```{r}
+sr %>% 
+  select(c(aase_2, aase_12, aase_5, aase_13, aase_9)) %>% 
+  alpha()
+```
+
+Cravings and urges scale
+```{r}
+sr %>% 
+  select(c(aase_1, aase_7, aase_11, aase_10, aase_19)) %>% 
+  alpha()
+```
+
+
+### Monthly Addiction Monitor (MAM)
+
+#### Descriptives 
+
+List of vars with missing values
+```{r}
+sr %>%
+    select(contains("mam")) %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0) %>%
+    kable() %>%
+    kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+
+# mam <- sr %>%
+#   select(contains("mam"))
+# 
+# mice::md.pattern(mam)
+```
+
+
+Comment KW 7-27-2020: mam_1_1 is a text entry response if other was selected for living arrangement.
+mam_1_2 is skipped for participants that did not select independent for living arrangement.
+mam_1_4 - mam_1_7 shown depending on responses checked for living arrangement question. 
+mam_8 - mam_9 (same as scale_mam_numindcounsel and numgrpcounsel) NAs expected (conditional questions).
+mam_12 (same as scale_mam_numothercounse) NAs expected (conditional question).
+mam_18 and mam_20 NAs expected (conditional questions).
+
+Comment MES 4/24/20: mam_1_7: on NA = 363: One additional NA than expected. From what I can find it looks like Subid 003s response to mam_1_3_5 was yes, however, according to qualtrics I don't see any reports of living with a NON-relative. The follow up q mam_1_7 was never displayed for the participant which resulted in this extra NA here.
+
+
+living arrangement
+```{r}
+# (mam_1) living arrangement
+sr %>% 
+  select(mam_1) %>%
+  mutate(living_arrangement = recode(mam_1, "1" = "Independent", "2" = "Homeless shelter", 
+                                           "3" = "Homeless unsheltered", "4" = "Other")) %>%
+  tabyl(living_arrangement, show_na = TRUE, show_missing_levels = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_1) if other living arrangement
+sr %>% 
+  select(other_living_arrangement = mam_1_1, subid) %>%
+  filter(!is.na(.)) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+
+Comment KW 7/27/20: (mam_1_1) 
+
+10/15 "other" responses can be recoded to independent (living with family/others):
+subid 166 - living w/boyfriend (x 3), 156 - house with roommates, 85 - with parents, 82 - wwith family, 
+80 - with parent, 63 - partner, 64 - apartment, 39 - dependent on family.
+
+Possibly recoded as other:
+39 - "I could stay with my folks, however transportation is complicated. So I mostly stay in Madison, where I can catch a bus"
+
+Remaining 4 = treatment/sober living
+
+
+```{r}
+# (mam_1_2) do you live alone
+sr %>% 
+  select(mam_1_2) %>%
+  mutate(live_alone = recode(mam_1_2, "1" = "No", "2" = "Yes")) %>%
+  tabyl(live_alone, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# do you live with...
+# (mam_1_3_1) spouse/significant other
+sr %>% 
+  select(mam_1_3_1) %>%
+  mutate(spouse = recode(mam_1_3_1, "0" = "No", "1" = "Yes")) %>%
+  tabyl(spouse, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_3_2) child/grandchild
+sr %>% 
+  select(mam_1_3_2) %>%
+  mutate(child = recode(mam_1_3_2, "0" = "No", "1" = "Yes")) %>%
+  tabyl(child, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_4) number of children/grandchildren in household
+describe(sr$mam_1_4) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = mam_1_4)) +
+  geom_bar() +
+  xlab("number of children/grandchildren in household") +
+  ggtitle("Frequency plot of number of children/grandchildren in household") +
+  theme_classic()
+
+# answer variation by subid
+subid_children <- sr %>%
+  select(mam_1_4, subid) %>%
+  distinct() %>%
+  filter(duplicated(subid)) %>%
+  distinct(subid)
+
+sr %>%
+  select(num_children = mam_1_4, subid) %>%
+  inner_join(., as.data.frame(subid_children)) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+`r length(subid_children$subid)` subids had different answers about number of children in household.
+Subids 63 and 85 reported different answers at all 3 visits.
+
+
+Comment KW 7-27-20: (mam_1_4) subid 63 and 85 may be of concern since their answers changed notably
+and was different at all three visits.
+
+
+```{r}
+# (mam_1_3_3) parent
+sr %>% 
+  select(mam_1_3_3) %>%
+  mutate(parent = recode(mam_1_3_3, "0" = "No", "1" = "Yes")) %>%
+  tabyl(parent, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_5) number of parents in household
+describe(sr$mam_1_5) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>% 
+  select(num_parents = mam_1_5) %>%
+  tabyl(num_parents, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# answer variation by subid
+subid_parents <- sr %>%
+  select(mam_1_5, subid) %>%
+  distinct() %>%
+  filter(duplicated(subid)) %>%
+  distinct(subid)
+
+sr %>%
+  select(num_parents = mam_1_5, subid) %>%
+  inner_join(., as.data.frame(subid_parents)) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+
+`r length(subid_parents$subid)` subids varied in reponse of number of parents in household, but never
+more than 2 times. Appears okay.
+
+
+```{r}
+# (mam_1_3_4) other relative
+sr %>% 
+  select(mam_1_3_4) %>%
+  mutate(relative = recode(mam_1_3_4, "0" = "No", "1" = "Yes")) %>%
+  tabyl(relative, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_6) number of other relatives in household
+describe(sr$mam_1_6) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = mam_1_6)) +
+  geom_bar() +
+  xlab("number of other relatives in household") +
+  ggtitle("Frequency plot of number of other relatives in household") +
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7),
+                   labels = c("1", "2", "3", "4", "5", "6", "7")) +
+  scale_y_continuous(breaks = c(2, 4, 6, 8),
+                   labels = c("2", "4", "6", "8")) +
+  theme_classic()
+
+# answer variation by subid
+subid_relative <- sr %>%
+  select(mam_1_6, subid) %>%
+  distinct() %>%
+  filter(duplicated(subid)) %>%
+  distinct(subid)
+
+sr %>%
+  select(num_relatives = mam_1_6, subid) %>%
+  inner_join(., as.data.frame(subid_relative)) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+`r length(subid_relative$subid)` subids varied in reponse of number of other relatives in household.
+Subids 3 and 85 reported different answers at all 3 visits.
+
+
+Comment KW 7-27-20: (mam_1_6) subid 85 looks suspicious (NA, 7, 2). They also reported different answers all 
+3 times for number of children/grandchildren (NA, 1, 6) and different number of parents twice (NA, 2). Seems 
+like quite a big change.
+
+
+```{r}
+# (mam_1_3_5) non-relative
+sr %>% 
+  select(mam_1_3_5) %>%
+  mutate(nonrelative = recode(mam_1_3_5, "0" = "No", "1" = "Yes")) %>%
+  tabyl(nonrelative, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# (mam_1_7) number of non-relatives in household
+describe(sr$mam_1_7) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = mam_1_7)) +
+  geom_histogram(bins = 9) +
+  xlab("number of non-relatives in household") +
+  ggtitle("Histogram of number of non-relatives in household") +
+  scale_x_continuous(breaks = c(2, 4, 6, 8, 10),
+                   labels = c("2", "4", "6", "8", "10")) +
+  theme_classic()
+
+# answer variation by subid
+subid_nonrelative <- sr %>%
+  select(mam_1_7, subid) %>%
+  distinct() %>%
+  filter(duplicated(subid)) %>%
+  distinct(subid)
+
+sr %>%
+  select(num_nonrelatives = mam_1_7, subid) %>%
+  inner_join(., as.data.frame(subid_nonrelative)) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+`r length(subid_nonrelative$subid)` subids varied in reponse of number of non-relatives in household.
+Subids 27, 117, 222, 231 and 259 reported different answers at all 3 visits.
+
+Psych hospitalization - past 30 days
+```{r}
+sr %>% 
+  select(psych_hospitalization = scale_mam_psychhosp) %>%
+  tabyl(psych_hospitalization, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Arrested - past 30 days
+```{r}
+sr %>% 
+  select(arrested = scale_mam_arrest) %>%
+  tabyl(arrested, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Night in jail - past 30 days
+```{r}
+sr %>% 
+  select(jail = scale_mam_jail) %>%
+  tabyl(jail, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Victim of violent crime - past 30 days
+```{r}
+sr %>% 
+  select(violent_crime = scale_mam_violentcrime) %>%
+  tabyl(violent_crime, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Victim of non-violent crime - past 30 days
+```{r}
+sr %>% 
+  select(nonviolent_crime = scale_mam_nonviolentcrime) %>%
+  tabyl(nonviolent_crime, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Enrolled in alcohol/drug tx program - past 30 days
+```{r}
+sr %>% 
+  select(aod_tx = scale_mam_aodtxt) %>%
+  tabyl(aod_tx, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# individual counseling
+describe(sr$scale_mam_numindcounsel) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numindcounsel)) +
+  geom_histogram(bins = 15) +
+  xlab("individual counseling sessions attended over past 30 days") +
+  ggtitle("Histogram of number of individual counseling sessions participants attended") +
+  theme_classic()
+
+# more than 8 sessions
+indiv_counsel <- sr %>%
+  select(sessions_indiv_counsel = scale_mam_numindcounsel, subid) %>%
+  distinct() %>%
+  filter(sessions_indiv_counsel > 8) 
+indiv_counsel %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Subid 79 reported attending 30 individual counseling sessions over the past 30 days.
+`r length(indiv_counsel$subid)` participants reported going to individual counseling more than
+8 times (2 times/week) in the last 30 days. 
+
+```{r}
+# group counseling
+describe(sr$scale_mam_numgrpcounsel) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numgrpcounsel)) +
+  geom_histogram(bins = 15) +
+  xlab("group counseling sessions attended over past 30 days") +
+  ggtitle("Histogram of number of group counseling sessions participants attended") +
+  theme_classic()
+
+# more than 8 sessions
+group_counsel <- sr %>%
+  select(sessions_group_counsel = scale_mam_numgrpcounsel, subid) %>%
+  distinct() %>%
+  filter(sessions_group_counsel > 8) 
+group_counsel %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Subid 79 reported attending 30 group counseling AND 30 individual sessions over the past 30 days.
+`r length(group_counsel$subid)` participants reported going to group counseling more than
+8 times (2 times/week) in the last 30 days. Some overlap with subs who also attended individual
+counseling more than 8 times.
+
+```{r}
+# self-help groups
+describe(sr$scale_mam_numselfhelp) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numselfhelp)) +
+  geom_histogram(bins = 15) +
+  xlab("self-help group sessions attended over past 30 days") +
+  ggtitle("Histogram of number of self-help group sessions participants attended") +
+  theme_classic()
+
+# more than 15 sessions
+self_help <- sr %>%
+  select(sessions_selfhelp = scale_mam_numselfhelp, subid) %>%
+  distinct() %>%
+  filter(sessions_selfhelp > 15) 
+self_help %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+Subid 79 reported attending 30 self-help group sessions (intake) AND 30 group counseling 
+sessions (FU1/FU2) AND 30 individual counseling sessions (intake/FU1) over the past 30 days.
+
+`r length(self_help$subid)` participants reported attending self-help groups more than
+15 times in the last 30 days.
+
+Other counseling (non-alcohol or drug related)
+```{r}
+sr %>% 
+  select(other_counsel = scale_mam_othercounsel) %>%
+  tabyl(other_counsel, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# number of sessions
+describe(sr$scale_mam_numothercounse) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numothercounse)) +
+  geom_histogram(bins = 15) +
+  xlab("other counseling sessions attended over past 30 days") +
+  ggtitle("Histogram of number of other counseling sessions participants attended") +
+  theme_classic()
+
+# more than 8 sessions
+other_counsel <- sr %>%
+  select(other_counsel_sessions = scale_mam_numothercounse, subid) %>%
+  distinct() %>%
+  filter(other_counsel_sessions > 8) 
+other_counsel %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+`r length(other_counsel$subid)` participants reported going to another type of counseling more 
+than 8 times (2 times/week) in the last 30 days.
+
+Family/friends
+```{r}
+# supportive
+describe(sr$scale_mam_numdayssupport) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numdayssupport)) +
+  geom_histogram(bins = 12) +
+  xlab("days spent with supportive family/friends") +
+  ggtitle("Histogram of number of days spent with supportive family and friends") +
+  theme_classic()
+
+# unsupportive
+describe(sr$scale_mam_numdaysnotsupport) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numdaysnotsupport)) +
+  geom_histogram(bins = 12) +
+  xlab("days spent with unsupportive family/friends") +
+  ggtitle("Histogram of number of days spent with unsupportive family and friends") +
+  theme_classic()
+```
+
+
+Other life routines
+```{r}
+# work/school/volunteer
+describe(sr$scale_mam_numdaysworkschoolvol) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_numdaysworkschoolvol)) +
+  geom_histogram(bins = 12) +
+  xlab("days spent at work/school/volunteer") +
+  ggtitle("Histogram of number of days spent at work activities in the past month") +
+  theme_classic()
+
+# over 30 days
+work_volunteer<- sr %>%
+  select(work_volunteer = scale_mam_numdaysworkschoolvol, subid) %>%
+  distinct() %>%
+  filter(work_volunteer > 30) 
+
+work_volunteer %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+`r length(work_volunteer$subid)` participants reported engaging in work, school, and volunteer 
+work for more than 30 days in the past month.
+
+
+Comment KW 7-27-2020: (mam_15/scale_mam_numdaysworkschoolvol) subid 66 = 40 days on followup2 and 
+subid 269 = 175 days on followup 2. I think they may have counted days of work and added it to 
+days of school, days of volunteer, etc. How to proceed?
+
+
+```{r}
+# religion/spirituality
+describe(sr$scale_mam_religonassupport) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mam_religonassupport)) +
+  geom_bar() +
+  xlab("days religion helped recovery") +
+  ggtitle("Frequency plot of number of days religion helped participants' recovery") +
+  theme_classic()
+```
+
+Prescription meds for alcohol
+```{r}
+sr %>% 
+  select(rxmeds_alcohol = scale_mam_alcmeduse) %>%
+  tabyl(rxmeds_alcohol, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# number of days
+describe(sr$mam_18) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = mam_18)) +
+  geom_histogram(bins = 12) +
+  xlab("days taken prescribed medication for alcohol") +
+  ggtitle("Histogram of number of days participants took prescribed medication for alcohol") +
+  theme_classic()
+```
+
+Psychiatric medication
+```{r}
+sr %>% 
+  select(mam_19) %>%
+  mutate(rxmeds_psych = recode(mam_19, "1" = "No", "2" = "Yes")) %>%
+  tabyl(rxmeds_psych, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# number of days
+describe(sr$mam_20) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = mam_20)) +
+  geom_histogram(bins = 12) +
+  xlab("days taken prescribed psychiatric medication") +
+  ggtitle("Histogram of number of days participants took psychiatric medication") +
+  theme_classic()
+```
+
+Abstinence
+```{r}
+# satisfaction with progress towards recovery
+sr %>% 
+  select(mam_21) %>%
+  ggplot(aes(x = mam_21)) +
+  geom_bar() +
+  xlab("satisfaction with progress towards recovery") +
+  ggtitle("Frequency plot of participants' satisfaction of recovery progress") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4, 5),
+                      labels=c("not at all", "slightly", "moderately",
+                               "considerably", "extremely")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# is goal still to be abstinent in future?
+sr %>% 
+  select(mam_22) %>%
+  mutate(abstinence_goal= recode(mam_22, "1" = "No", "2" = "Yes", "3" = "Uncertain")) %>%
+  tabyl(abstinence_goal, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+# confidence in ability to abstain - next 30 days
+sr %>% 
+  select(mam_23) %>%
+  ggplot(aes(x = mam_23)) +
+  geom_bar() +
+  xlab("confidence in ability to abstain over next 30 days") +
+  ggtitle("Frequency plot of participants' confidence in their ability to abstain") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4, 5),
+                      labels=c("not at all", "slightly", "moderately",
+                               "considerably", "extremely")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+### Depression Anxiety Stress Scale-21 (DASS21) 
+
+#### Descriptives
+
+Anxiety score
+```{r}
+describe(sr$scale_dass21_anx) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_dass21_anx)) +
+  geom_histogram(bins = 15) +
+  xlab("DASS21 anxiety score") +
+  ggtitle("Histogram of participants' anxiety DASS21 score") +
+  theme_classic()
+```
+
+Depression score
+```{r}
+describe(sr$scale_dass21_dep) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_dass21_dep)) +
+  geom_histogram(bins = 15) +
+  xlab("DASS21 depression score") +
+  ggtitle("Histogram of participants' depression DASS21 score") +
+  theme_classic()
+```
+
+Stress score
+```{r}
+describe(sr$scale_dass21_str) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_dass21_str)) +
+  geom_histogram(bins = 15) +
+  xlab("DASS21 stress score") +
+  ggtitle("Histogram of participants' stress DASS21 score") +
+  theme_classic()
+```
+
+Total score
+```{r}
+describe(sr$scale_dass21_tot) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_dass21_tot)) +
+  geom_histogram(bins = 15) +
+  xlab("DASS21 total score") +
+  ggtitle("Histogram of participants' total DASS21 score") +
+  theme_classic()
+```
+
+#### Item analysis
+
+Anxiety scale
+```{r}
+sr %>% 
+  select(c(dass21_2, dass21_4, dass21_7, dass21_9, 
+           dass21_15, dass21_19, dass21_20)) %>% 
+  alpha()
+```
+
+Depression scale
+```{r}
+sr %>% 
+  select(c(dass21_3, dass21_5, dass21_10, dass21_13, 
+           dass21_16, dass21_17, dass21_21)) %>% 
+  alpha()
+```
+
+Stress scale
+```{r}
+sr %>% 
+  select(c(dass21_1, dass21_6, dass21_8, dass21_11, 
+           dass21_12, dass21_14, dass21_18)) %>% 
+  alpha()
+```
+
+Total scale
+```{r}
+sr %>% 
+  select(contains("dass21")) %>%
+  select(-c(scale_dass21_anx, scale_dass21_dep, 
+            scale_dass21_str, scale_dass21_tot)) %>% 
+  alpha()
+```
+
+
+### Perceived Stress Scale-10 (PSS)
+
+#### Descriptives
+
+```{r}
+describe(sr$scale_pss_tot) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_pss_tot)) +
+  geom_histogram(bins = 15) +
+  xlab("PSS total score") +
+  ggtitle("Histogram of participants' total PSS score") +
+  theme_classic()
+```
+
+#### Item analysis
+
+```{r}
+sr %>%
+  select(starts_with("pss")) %>% 
+  alpha(c("pss_4", "pss_5", "pss_7", "pss_8"))
+```
+
+
+### Quality of Life Questions (QOL)
+
+#### Descriptives
+
+```{r}
+describe(sr$scale_qol_tot) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_qol_tot)) +
+  geom_histogram(bins = 15) +
+  xlab("QOL total score") +
+  ggtitle("Histogram of participants' total QOL score") +
+  theme_classic()
+```
+
+#### Item analysis
+```{r}
+sr %>%
+  select(contains("qol")) %>%
+  select(-c(scale_qol_tot)) %>% 
+  alpha()
+```
+
+
+### Dyadic Adjustment Scale (DAS)
+
+#### Descriptives
+
+List of vars with missing values
+```{r}
+sr %>%
+    select(contains("das_")) %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0) %>%
+    kable() %>%
+    kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+```
+
+Relationship status (accounts for NAs)
+```{r}
+relation <- sr %>%
+  mutate(relationship = recode(das_0, "1" = "No", "2" = "Yes")) %>%
+  group_by(relationship) %>%
+  summarise(n_obs = n())
+
+relation %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+```
+
+Missing values are expected since `r relation$n_obs[relation$relationship == "No"]` participants
+said they were not in a relationship (all vars have 187 missing values).
+
+Consensus score
+```{r}
+describe(sr$scale_das_con) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_das_con)) +
+  geom_histogram(bins = 12) +
+  xlab("DAS consensus score") +
+  ggtitle("Histogram of participants' consensus DAS score") +
+  theme_classic()
+```
+
+Satisfaction score
+```{r}
+describe(sr$scale_das_sat) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_das_sat)) +
+  geom_histogram(bins = 12) +
+  xlab("DAS satisfaction score") +
+  ggtitle("Histogram of participants' satisfaction DAS score") +
+  theme_classic()
+```
+
+Dyadic cohesion score
+```{r}
+describe(sr$scale_das_coh) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_das_coh)) +
+  geom_histogram(bins = 12) +
+  xlab("DAS dyadic cohesion score") +
+  ggtitle("Histogram of participants' dyadic cohesion DAS score") +
+  theme_classic()
+```
+
+Affectional expression score
+```{r}
+describe(sr$scale_das_aff) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_das_aff)) +
+  geom_histogram(bins = 12) +
+  xlab("DAS affectional expression score") +
+  ggtitle("Histogram of participants' affectional expression DAS score") +
+  theme_classic()
+```
+
+Total score
+```{r}
+describe(sr$scale_das_tot) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_das_tot)) +
+  geom_histogram(bins = 15) +
+  xlab("DAS total score") +
+  ggtitle("Histogram of participants' total DAS score") +
+  theme_classic()
+```
+
+#### Item analysis
+
+Consensus scale
+```{r}
+sr %>% 
+  select(c(das_1, das_2, das_3, das_5, das_7, das_8, das_9, das_10, das_11, das_12, 
+  das_13, das_14, das_15)) %>%
+  alpha()
+```
+
+Satisfaction scale
+```{r}
+sr %>% 
+  select(c(das_16, das_17, das_18, das_19, das_20, 
+           das_21, das_22, das_23, das_31, das_32)) %>%
+  alpha(c("das_16","das_17", "das_20", "das_21", 
+          "das_22"))
+```
+
+Dyadic cohesion scale
+```{r}
+sr %>% 
+  select(c(das_24, das_25, das_26, das_27, 
+  das_28)) %>%
+  alpha()
+```
+
+Affectional expression scale
+```{r}
+sr %>% 
+  select(c(das_4, das_6, das_29, das_30)) %>%
+  alpha(c("das_29", "das_30"))
+```
+
+Total scale
+```{r}
+sr %>%
+  select(contains("das_")) %>%
+  select(-c(das_0, scale_das_tot, scale_das_con, 
+            scale_das_sat, 
+            scale_das_coh, scale_das_aff)) %>%
+  alpha(c("das_16","das_17", "das_20", "das_21", 
+          "das_22", "das_29", "das_30"))
+```
+
+
+### Multidimensional Scale of Perceived Social Support (MSPSS)
+
+#### Descriptives
+
+Family
+```{r}
+describe(sr$scale_mspss_fam) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mspss_fam)) +
+  geom_histogram(bins = 12) +
+  xlab("MSPSS family scale score") +
+  ggtitle("Histogram of participants' family MSPSS scale score") +
+  theme_classic()
+```
+
+Friends
+```{r}
+describe(sr$scale_mspss_fri) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mspss_fri)) +
+  geom_histogram(bins = 12) +
+  xlab("MSPSS friends scale score") +
+  ggtitle("Histogram of participants' friends MSPSS scale score") +
+  theme_classic()
+```
+
+Significant other
+```{r}
+describe(sr$scale_mspss_so) %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = scale_mspss_so)) +
+  geom_histogram(bins = 12) +
+  xlab("MSPSS significant other scale score") +
+  ggtitle("Histogram of participants' significant other MSPSS scale score") +
+  theme_classic()
+```
+
+#### Item analysis
+
+Family scale
+```{r}
+sr %>% 
+  select(c(mspss_3, mspss_4, mspss_8, mspss_11)) %>% 
+  alpha()
+```
+
+Friends scale
+```{r}
+sr %>% 
+  select(c(mspss_6, mspss_7, mspss_9, mspss_12)) %>% 
+  alpha()
+```
+
+Significant other scale
+```{r}
+sr  %>% 
+  select(c(mspss_1, mspss_2, mspss_5, mspss_10)) %>% 
+  alpha()
+```
+
+
+### WHO-ASSIST
+
+#### Descriptives
+
+List of vars with missing values
+```{r}
+sr %>%
+    select(contains("assist_")) %>%
+    summarise(across(everything(), ~sum(is.na(.)))) %>%
+    gather(key = "var", value = "num_NA" ) %>%
+    filter(num_NA > 0) %>%
+    kable() %>%
+    kable_styling(full_width = FALSE, position = "left", bootstrap_options = "condensed")
+```
+
+All variables have a single missing value. See comment below.
+
+Comment MES 4/24/20: on who-assist: Subid 042 did not answer any of the assist questions. Qualtrics shows the questions were displayed, but they are all blank SUSAN COMMENT: this is documented in the data log.
+
+
+Tobacco products - use past month
+```{r}
+sr %>% 
+  select(assist_2_1) %>%
+  mutate(tobacco_use = recode(assist_2_1, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(tobacco_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_1)) +
+  geom_bar() +
+  xlab("use of tobacco over past month") +
+  ggtitle("Frequency plot of participants' past month use of tobacco products") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Cannabis - use past month
+```{r}
+sr %>% 
+  select(assist_2_2) %>%
+  mutate(cannabis_use = recode(assist_2_2, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(cannabis_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_2)) +
+  geom_bar() +
+  xlab("use of cannabis over past month") +
+  ggtitle("Frequency plot of participants' past month use of cannabis") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Cocaine - use past month
+```{r}
+sr %>% 
+  select(assist_2_3) %>%
+  mutate(cocaine_use = recode(assist_2_3, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(cocaine_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_3)) +
+  geom_bar() +
+  xlab("use of cocaine over past month") +
+  ggtitle("Frequency plot of participants' past month use of cocaine") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Amphetamines - use past month
+```{r}
+sr %>% 
+  select(assist_2_4) %>%
+  mutate(amphetamine_use = recode(assist_2_4, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(amphetamine_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_4)) +
+  geom_bar() +
+  xlab("use of amphetamines over past month") +
+  ggtitle("Frequency plot of participants' past month use of amphetamines") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Inhalants - use past month
+```{r}
+sr %>% 
+  select(assist_2_5) %>%
+  mutate(inhalant_use = recode(assist_2_5, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(inhalant_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_5)) +
+  geom_bar() +
+  xlab("use of inhalants over past month") +
+  ggtitle("Frequency plot of participants' past month use of inhalants") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily"), limits = c(.5,4.25)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Sedatives - use past month
+```{r}
+sr %>% 
+  select(assist_2_6) %>%
+  mutate(sedative_use = recode(assist_2_6, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(sedative_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_6)) +
+  geom_bar() +
+  xlab("use of sedatives over past month") +
+  ggtitle("Frequency plot of participants' past month use of sedatives") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Hallucinogens - use past month
+```{r}
+sr %>% 
+  select(assist_2_7) %>%
+  mutate(hallucinogen_use = recode(assist_2_7, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(hallucinogen_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_7)) +
+  geom_bar() +
+  xlab("use of hallucinogens over past month") +
+  ggtitle("Frequency plot of participants' past month use of hallucinogens") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily"), limits = c(.5,4.25)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Opioids - use past month
+```{r}
+sr %>% 
+  select(assist_2_8) %>%
+  mutate(opioid_use = recode(assist_2_8, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(opioid_use, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_2_8)) +
+  geom_bar() +
+  xlab("use of opioids over past month") +
+  ggtitle("Frequency plot of participants' past month use of opioids") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Tobacco products - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_1) %>%
+  mutate(tobacco_urge = recode(assist_3_1, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(tobacco_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_1)) +
+  geom_bar() +
+  xlab("tobacco cravings over past month") +
+  ggtitle("Frequency plot of participants' tobacco cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Cannabis - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_2) %>%
+  mutate(cannabis_urge = recode(assist_3_2, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(cannabis_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_2)) +
+  geom_bar() +
+  xlab("cannabis cravings over past month") +
+  ggtitle("Frequency plot of participants' cannabis cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Cocaine - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_3) %>%
+  mutate(cocaine_urge = recode(assist_3_3, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(cocaine_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_3)) +
+  geom_bar() +
+  xlab("cocaine cravings over past month") +
+  ggtitle("Frequency plot of participants' cocaine cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Amphetamines - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_4) %>%
+  mutate(amphetamine_urge = recode(assist_3_4, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(amphetamine_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_4)) +
+  geom_bar() +
+  xlab("amphetamine cravings over past month") +
+  ggtitle("Frequency plot of participants' amphetamine cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Inhalants - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_5) %>%
+  mutate(inhalant_urge = recode(assist_3_5, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(inhalant_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_5)) +
+  geom_bar() +
+  xlab("inhalant cravings over past month") +
+  ggtitle("Frequency plot of participants' inhalant cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily"), limits = c(.5, 4.25)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Sedatives - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_6) %>%
+  mutate(sedatives_urge = recode(assist_3_6, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(sedatives_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_6)) +
+  geom_bar() +
+  xlab("sedative cravings over past month") +
+  ggtitle("Frequency plot of participants' sedative cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Hallucinogens - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_7) %>%
+  mutate(hallucinogen_urge = recode(assist_3_7, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(hallucinogen_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_7)) +
+  geom_bar() +
+  xlab("hallucinogen cravings over past month") +
+  ggtitle("Frequency plot of participants' hallucinogen cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Opioids - cravings past month
+```{r}
+sr %>% 
+  select(assist_3_8) %>%
+  mutate(opioid_urge = recode(assist_3_8, "1" = "Never", "2" = "Once or twice", 
+                                           "3" = "Weekly", "4" = "Daily/almost daily")) %>%
+  tabyl(opioid_urge, show_na = TRUE) %>% 
+  adorn_totals("row") %>%
+  kable() %>%
+  kable_styling(full_width = FALSE, position = "left")
+
+sr %>%
+  ggplot(aes(x = assist_3_8)) +
+  geom_bar() +
+  xlab("opioid cravings over past month") +
+  ggtitle("Frequency plot of participants' opioid cravings/urges over the past month") +
+  scale_x_continuous(breaks=c(1, 2, 3, 4),
+                      labels=c("never", "once or twice", "weekly", "daily/almost daily")) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```

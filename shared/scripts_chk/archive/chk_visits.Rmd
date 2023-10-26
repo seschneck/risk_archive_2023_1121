@@ -1,0 +1,130 @@
+---
+title: "Check script for ds_visits.rds"
+author: "Ali Colmenares and Hannah Moshontz"
+date: '`r format(Sys.time(), "%Y-%m-%d")`'
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+Purpose: The purpose of this script is to check ds_visits.rds for errors. 
+
+### Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+
+Paths 
+```{r}
+path_data <- "./analysis/shared/data"
+```
+
+Packages and Source
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(kableExtra)
+library(formattable)
+```
+
+### Import Data and Glimpse
+
+```{r}
+visits <- read_rds(file.path(path_data, "ds_visits.rds")) %>% 
+  glimpse()
+```
+
+### Basic Properties
+
+There are `r length(unique(visits$subid))` subjects in ds_visits.rds. 
+
+#### Earliest and latest dates for each visit type.
+```{r}
+visits %>% 
+  summarize(
+    screen = min(screen, na.rm = TRUE),
+    intake = min(intake, na.rm = TRUE),
+    start_study = min(start_study, na.rm = TRUE),
+    followup1 = min(followup1, na.rm = TRUE),
+    followup2 = min(followup2, na.rm = TRUE),
+    final_visit = min(final_visit, na.rm = TRUE),
+    end_study = min(end_study, na.rm = TRUE)) %>% 
+  gather(key = "visit_type", value = "earliest") %>% 
+  left_join(.,  
+visits %>% 
+  summarize(
+    screen = max(screen, na.rm = TRUE),
+    intake = max(intake, na.rm = TRUE),
+    start_study = max(start_study, na.rm = TRUE),
+    followup1 = max(followup1, na.rm = TRUE),
+    followup2 = max(followup2, na.rm = TRUE),
+    final_visit = max(final_visit, na.rm = TRUE),
+    end_study = max(end_study, na.rm = TRUE)) %>% 
+  gather(key = "visit_type", value = "latest"), by = "visit_type")
+
+```
+
+The latest final visit happened after the latest end study, which is not an error. People sometimes came in for their final session after they were off study. We use observations within the on-study period.
+
+#### Timing of visits within participants
+
+```{r}
+visits %>% 
+  mutate(visits_in_order = ifelse(screen < intake & 
+                               intake < start_study & 
+                               start_study < followup1 & 
+                               followup1 < followup2 & 
+                               followup2 < end_study &
+                               end_study < final_visit, TRUE, FALSE))
+```
+
+### Checking Validity of Each Date by Visit Type
+
+#### start_study
+
+Duplicating start study
+```{r}
+visits %>% 
+  mutate(start_study_recreated = intake + days(1)) %>% 
+  select(subid, start_study, start_study_recreated) %>% 
+  mutate(identical = ifelse(start_study == start_study_recreated, TRUE, FALSE)) %>% 
+  filter(identical == FALSE)
+```
+
+For all participants except 1, start_study is the day after intake. Per the 048_DataLog.docx file in rawdata/048:
+Participant came to his intake visit (3/26/18) at 6 days of sobriety. PI directed study staff to complete intake and have participant’s study start date be one day after he reaches a full week of sobriety (3/28/18).
+
+```{r}
+#to do: check start dates against the EMA start dates
+```
+
+
+#### end_study
+
+Duplicating end_study
+
+```{r}
+read_rds("./analysis/shared/data/ds_ema.rds") %>% #note: should use the more recent ema data
+  mutate(ema_complete_date = end_date) %>% 
+  select(subid, ema_complete_date, response_id) %>% 
+  group_by(subid) %>% 
+  slice_max(ema_complete_date) %>% 
+  ungroup() %>% 
+  mutate(end_ema = date(ema_complete_date)) %>% 
+  select(subid, end_ema) %>% 
+  left_join(visits, by = "subid") %>% 
+  select(subid, end_study, final_visit, end_ema) %>% 
+  mutate(identical = ifelse(end_study == end_ema, TRUE, FALSE)) %>% 
+  filter(identical == FALSE)
+```
+
+End date is not the last EMA date for most participants. My understanding is that this date was set at the begining of the study and was used to schedule and plan, but didn't align with participants' actual last day on study.
+
+For data analysis purposes, the end date should be defined by the date of the last ema.

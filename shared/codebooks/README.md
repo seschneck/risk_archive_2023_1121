@@ -1,0 +1,1 @@
+This folder contains codebooks BUT we do not know who made them or if they are up to date.  We will consult these as we re-create data dictionaries for data sources but eventually we will delete this folder.
