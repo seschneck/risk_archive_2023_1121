@@ -203,7 +203,7 @@ metrics_out |>
   ggplot(aes(x = roc_auc, fill = as.factor(model))) +
   geom_density(alpha = 0.5) +
   geom_vline(data = med_roc, aes(xintercept = median, 
-                                 color = as.factor(model)), size = 1) +
+                                 color = as.factor(model)), linewidth = 1) +
   labs(fill = "Model", color = "Model")
 ```
 
@@ -211,72 +211,22 @@ Table for each outer fold
 ```{r metrics_out_kbl}
 models <- unique(metrics_out$model)
 
-for (model in models) {
-  metrics_out |> 
-    filter(model == model) |> 
-    print_kbl()
-}
+metrics_out |> 
+  filter(model == "1week_all") |> 
+  print_kbl()
 
-```
+metrics_out |> 
+  filter(model == "1week_insight_only") |> 
+  print_kbl()
 
-#### ROC curve
-This is single ROC by concatenating all outer folds.
-Could consider reporting this AUC though likely average of outer fold AUCs is more appropriate. Could also consider curves for each outer fold
-```{r roc_info, include = FALSE, eval = FALSE}
-preds_out %>%
-  group_by(model) |> 
-  roc_auc(prob_raw, truth = label)
+metrics_out |> 
+  filter(model == "1week_aase_only") |> 
+  print_kbl()
 
-# roc_data <- preds_out %>% 
-#   roc_curve(prob_raw, truth = label)
-#   
-# roc_data %>% 
-#   ggplot(aes(x = 1 - specificity, y = sensitivity, color = .threshold)) +
-#   geom_path(linewidth = 2) +
-#   geom_abline(lty = 3) +
-#   coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-#   labs(x = "Specificity",
-#        y = "Sensitivity") +
-#   scale_x_continuous(breaks = seq(0,1,.25),
-#     labels = sprintf("%.2f", seq(1,0,-.25))) +
-#   scale_color_gradient(low="blue", high="red") +
-#   theme(axis.text = element_text(size = rel(1.50)), 
-#         axis.title = element_text(size = rel(1.75)))
-```
+metrics_out |> 
+  filter(model == "dichotomous_aase_only") |> 
+  print_kbl()
 
-```{r, include = FALSE, eval = FALSE}
-
-# rocs per fold
-roc_folds <- preds_out %>%
-  nest(.by = outer_split_num, .key = "preds") |> 
-  mutate(roc = map(preds, \(preds) roc_curve(preds, prob_raw, # note changed from prob_beta while debugging
-                                             truth = label)))
-
-fig_roc_folds <- roc_data %>%  # plot region from full concatenated data 
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) + 
-  geom_abline(lty = 3) +
-  coord_fixed(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Specificity",
-       y = "Sensitivity") +
-  scale_x_continuous(breaks = seq(0,1,.25),
-                     labels = sprintf("%.2f", seq(1,0,-.25))) +
-  theme(axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
-
-for (i in 1:nrow(roc_folds)) {
-  fig_roc_folds <- fig_roc_folds +
-    geom_path(data = roc_folds$roc[[i]],
-              mapping = aes(x = 1 - specificity, y = sensitivity),
-              color = "gray")
-}
-
-#add full concatenated curve
-fig_roc_folds +
-  geom_path(data = roc_data,
-            mapping = aes(x = 1 - specificity, y = sensitivity, color = .threshold),
-            linewidth = 2) +
-  scale_color_gradient(low="blue", high="red")
 ```
 
 #### Outer individual metrics
@@ -498,7 +448,7 @@ shapsgrp_out <- shaps_files |>
 glimpse(shapsgrp_out)
 ```
 
-Global importance SHAP plot for grouped features
+Global importance Shapley value plot for grouped features
 
 *1 week / all features model*
 ```{r }
@@ -513,57 +463,34 @@ shapsgrp_out %>%
   geom_point(size = 2, color = "red") +
   geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
                yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
+  ylab("Mean |Shapley value|") +
   coord_flip()
 ```
 
-*1 week / insight_only model*
-```{r }
-shapsgrp_out %>% 
-  filter(model == "1week_insight_only") |> 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
-  arrange(mean_value) %>% 
-  mutate(variable_grp = factor(variable_grp),
-         variable_grp = fct_inorder(variable_grp)) %>% 
-  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
+Sina plot for grouped features
+
+*1 week / all features model*
+```{r}
+# downsample to 10% of observations for plot
+ids <- shapsgrp_out |> 
+  filter(model == "1week_all") |> 
+  pull(id_obs) |> 
+  unique()
+ids <- ids |> 
+  sample(size = round(length(ids)/(1/.1)))
+
+shapsgrp_out |> 
+  filter(model == "1week_all" & id_obs %in% ids) |> 
+  group_by(variable_grp) |> 
+  mutate(variable_grp = factor(variable_grp)) |> 
+  ggplot(mapping = aes(x = variable_grp, y = value)) +
+  ggforce::geom_sina(method = "counts", maxwidth = 0.7, alpha = 0.4) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(limits = c(-2, 3), breaks = seq(-2, 3)) +
+  ylab("Shapley value") +
+  xlab("") +
+  theme(axis.text = element_text(size = 9.5)) +
   coord_flip()
+
 ```
 
-*1 week / aase_only model*
-```{r }
-shapsgrp_out %>% 
-  filter(model == "1week_aase_only") |> 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
-  arrange(mean_value) %>% 
-  mutate(variable_grp = factor(variable_grp),
-         variable_grp = fct_inorder(variable_grp)) %>% 
-  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  coord_flip()
-```
-
-*dichotomous / aase_only model*
-```{r }
-shapsgrp_out %>% 
-  filter(model == "dichotomous_aase_only") |> 
-  group_by(variable_grp) %>% 
-  summarize(mean_value = mean(abs(value)), .groups = "drop") %>% 
-  arrange(mean_value) %>% 
-  mutate(variable_grp = factor(variable_grp),
-         variable_grp = fct_inorder(variable_grp)) %>% 
-  ggplot(mapping = aes(x = variable_grp, y = mean_value)) +
-  geom_point(size = 2, color = "red") +
-  geom_segment(aes(x = variable_grp, y = mean_value, xend = variable_grp), 
-               yend = 0, colour = "grey50")  +
-  ylab("Mean |SHAP| value") +
-  coord_flip()
-```
