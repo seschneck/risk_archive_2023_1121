@@ -35,7 +35,6 @@ table(d$data_type)
 d <- d |>
   mutate_at(
   "data_type", 
-  # input the names of the variables we want to manipulate
   function(x) sub(" ", "", x)
   )
 ```
@@ -44,7 +43,6 @@ d <- d |>
 # do conversions
 
 d$data_type <- recode(d$data_type, "datetime" = "<dttm>")
-d$data_type <- recode(d$data_type, "POSIXct" = "<dttm>")
 d$data_type <- recode(d$data_type, "numeric" = "<dbl>")
 d$data_type <- recode(d$data_type, "ordered" = "<fct>")
 d$data_type <- recode(d$data_type, "unordered" = "<fct>")
