@@ -1,0 +1,52 @@
+---
+title: "data_dict_rework"
+author: "Coco and Claire"
+format: html
+editor: visual
+---
+
+## 
+
+```{r}
+library(tidyverse)
+
+setwd("C:/Users/punturieri/Documents/GitHub/analysis_risk/shared/notes/dictionaries")
+```
+
+```{r}
+d <- read.csv("data_dictionary.csv")
+```
+
+```{r}
+table(d$data_type)
+
+# datetime, POSIXct -> <dttm>
+# numeric -> <dbl>
+# ordered -> <fct>
+      #(should this be <ord> instead? should ordered and unordered be separated out       (<chr>)?)
+# string -> <chr>
+      # what about phone numbers?
+# there are some missing values here
+```
+
+```{r}
+# clean up spaces
+
+d <- d |>
+  mutate_at(
+  "data_type", 
+  # input the names of the variables we want to manipulate
+  function(x) sub(" ", "", x)
+  )
+```
+
+```{r}
+# do conversions
+
+d$data_type <- recode(d$data_type, "datetime" = "<dttm>")
+d$data_type <- recode(d$data_type, "POSIXct" = "<dttm>")
+d$data_type <- recode(d$data_type, "numeric" = "<dbl>")
+d$data_type <- recode(d$data_type, "ordered" = "<fct>")
+d$data_type <- recode(d$data_type, "unordered" = "<fct>")
+d$data_type <- recode(d$data_type, "string" = "<chr>")
+```
