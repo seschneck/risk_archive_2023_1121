@@ -7,13 +7,14 @@ output:
     toc: true 
     toc_depth: 4
 knit: (function(input, ...) {
+    )
     rmarkdown::render(
       input,
+      "/Volumes/private/studydata/risk/knits/ema")
       output_dir = dplyr::if_else(Sys.info()[["sysname"]] == "Windows",
       "P:/studydata/risk/knits/ema", 
-      "/Volumes/private/studydata/risk/knits/ema")
-    )
-  })
+editor_options: 
+  chunk_output_type: console
 ---
 
 ### Code Status
@@ -141,7 +142,14 @@ switch (Sys.info()[['sysname']],
         Darwin = {
           path_raw <- "/Volumes/private/studydata/risk/data_raw"
           path_processed <- "/Volumes/private/studydata/risk/data_processed/shared"
-          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"}
+          path_ema <- "/Volumes/private/studydata/risk/data_processed/ema"},
+        
+        # Linux paths
+        Linux = {
+          path_raw <- "~/mnt/private/studydata/risk/data_raw"
+          path_processed <- "~/mnt/private/studydata/risk/data_processed/shared"
+          path_ema <- "~/mnt/private/studydata/risk/data_processed/ema"},
+        
         )
 ```
 
@@ -168,7 +176,7 @@ library(furrr)
 
 Source for script
 ```{r, source_script, message=FALSE, warning=FALSE}
-source(here("../lab_support/print_kbl.R"))
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/print_kbl.R?raw=true")
 source(here("shared/fun_local.R"))
 ```
 
