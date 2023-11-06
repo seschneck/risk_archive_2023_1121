@@ -1,0 +1,63 @@
+---
+title: "eda_text"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(tidytext)
+
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_shared = "P:/studydata/risk/data_processed/shared"},
+
+        # IOS paths
+        Darwin = {
+          path_shared = "/Volumes/private/studydata/risk/data_processed/shared"},
+        
+        # Linux paths
+        Linux = {
+          path_shared = "~/mnt/private/studydata/risk/data_processed/shared"}
+        )
+```
+
+```{r}
+d_raw <- read_csv(file.path(path_shared, "sms_android.csv"),
+                        col_type = cols()) |> 
+  glimpse()
+```
+
+
+```{r}
+d_graph <- d_raw |>
+  drop_na(body) |>
+  subset(type %in% c("inbox", "sent")) |>
+  unnest_tokens(word, body) |>
+  anti_join(stop_words) |>
+  count(type, word, sort = TRUE) |>
+  group_by(type) |>
+  mutate(proportion = n / sum(n))
+
+d_graph |>
+  head(15) |>
+  ggplot(aes(proportion, word)) +
+  geom_col() +
+  facet_wrap(~type, ncol = 2)
+```
+
+```{r}
+library(scales)
+
+d_graph |>
+  pivot_wider(id_cols = word, names_from = type, values_from = proportion) |>
+  ggplot(aes(x = inbox, y = sent, color = abs(inbox - sent))) +
+  geom_abline(color = "gray40", lty = 2) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
+  theme(legend.position =)
+```
+
