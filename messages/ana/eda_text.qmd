@@ -6,6 +6,8 @@ format: html
 ```{r}
 library(tidyverse)
 library(tidytext)
+library(wordcloud2)
+library(RColorBrewer)
 
 switch (Sys.info()[['sysname']],
         # PC paths
@@ -28,6 +30,7 @@ d_raw <- read_csv(file.path(path_shared, "sms_android.csv"),
   glimpse()
 ```
 
+# Exploratory Analysis using word count
 
 ```{r}
 d_graph <- d_raw |>
@@ -54,10 +57,25 @@ d_graph |>
   ggplot(aes(x = inbox, y = sent, color = abs(inbox - sent))) +
   geom_abline(color = "gray40", lty = 2) +
   geom_jitter(alpha = 0.1, size = 2.5, width = 0.3, height = 0.3) +
-  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  geom_text(aes(label = word), check_overlap = TRUE) +
   scale_x_log10(labels = percent_format()) +
   scale_y_log10(labels = percent_format()) +
-  scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
+  scale_color_gradient(limits = c(0, 0.001), 
+                       low = "darkslategray4", high = "gray75") +
   theme(legend.position =)
 ```
 
+```{r}
+library(wordcloud2)
+library(RColorBrewer)
+
+data.frame(word = d_graph[d_graph$type=="inbox", ]$word[1:100], 
+           freq = d_graph[d_graph$type=="inbox", ]$n[1:100]) |>
+  wordcloud2(color = "random-dark", size = 0.4, ellipticity = 0.9)
+
+data.frame(word = d_graph[d_graph$type=="sent", ]$word[1:100], 
+           freq = d_graph[d_graph$type=="sent", ]$n[1:100]) |>
+  wordcloud2(color = "random-dark", size = 0.4, ellipticity=0.9)
+```
+
+# Sentiment Analysis with tidy data
