@@ -79,3 +79,48 @@ data.frame(word = d_graph[d_graph$type=="sent", ]$word[1:100],
 ```
 
 # Sentiment Analysis with tidy data
+
+```{r}
+# d_graph |>
+#   inner_join(get_sentiments("bing")) |>
+#   ggplot(aes(word, sentiment, fill = type)) +
+#   geom_col(show.legend = FALSE, size = .0001) +
+#   facet_wrap(~type, ncol = 2)
+
+sent_graph <- function(d_graph, dictionary){
+  d_sentiment <- d_graph |>
+  inner_join(get_sentiments(dictionary))
+  
+  if (dictionary == "afinn"){
+    d_sentiment$sentiment[d_sentiment$value < 0] <- -1
+    d_sentiment$sentiment[d_sentiment$value > 0] <- 1
+  }
+  else {
+    d_sentiment$sentiment <- recode(d_sentiment$sentiment, "positive" = 1, "negative" = -1)
+  }
+  
+  d_sentiment |>
+  ggplot(aes(word, sentiment, fill = type)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~type, ncol = 2)
+}
+
+sent_graph(d_graph, "bing")
+sent_graph(d_graph, "nrc")
+sent_graph(d_graph, "afinn")
+```
+
+```{r}
+d_sent <- d_graph |>
+  inner_join(get_sentiments("bing"))
+d_sent$sentiment <- recode(d_sent$sentiment, "positive" = "green", "negative" = "red")
+
+data.frame(word = d_sent[d_sent$type=="inbox", ]$word[1:100], 
+           freq = d_sent[d_sent$type=="inbox", ]$n[1:100]) |>
+  wordcloud2(color = d_sent[d_sent$type=="inbox", ]$sentiment[1:100])
+
+data.frame(word = d_sent[d_sent$type=="sent", ]$word[1:100], 
+           freq = d_sent[d_sent$type=="sent", ]$n[1:100]) |>
+  wordcloud2(color = d_sent[d_sent$type=="sent", ]$sentiment[1:100])
+```
+
