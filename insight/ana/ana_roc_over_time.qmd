@@ -244,28 +244,44 @@ configs_best |> print_kbl()
 ## Get all probabilities from held-out folds & tag with study_week
 
 ```{r}
-batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+if (file.exists(file.path(path_models, 
+                          str_c("probs_by_week_", version, ".csv")))) {
+  
+  message("Probabilities by week already exist for this version. Reading in file. If you need to re-calculate the probabilities, delete the file.")
+  
+  all_probs <- read_csv(file.path(path_models, str_c("probs_by_week_", version, ".csv")),
+                        show_col_types = FALSE) |> 
+    mutate(label = factor(label, levels = c("Lapse", "No lapse")))
+  
+} else {
+  
+  batch_names <- list.dirs(path_input, full.names = FALSE, recursive = FALSE)
+  
+  batch_names <- batch_names[str_detect(batch_names, "train") & 
+                               str_detect(batch_names, cv) &
+                               str_detect(batch_names, version) &
+                               str_detect(batch_names, "1week")] 
+  batch_name <- batch_names[1] 
+  # all TC files are the same except feature_set, which we set manually within map loop
+  
+  source(file.path(path_input, batch_name, "input", "training_controls.R"))
+  
+  d <- format_data(d)
+  
+  splits <- d %>% 
+    make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
+                cv_inner_resample, cv_group, seed_splits)
+  
+  all_probs <- configs_best$row_id |> 
+    map(\(row_num) fit_predict_eval(row_num, splits, configs_best)) |> 
+    list_rbind()
+  
+  rm(splits)
+  
+  all_probs |> 
+    write_csv(file.path(path_models, str_c("probs_by_week_", version, ".csv")))
+}
 
-batch_names <- batch_names[str_detect(batch_names, "train") & 
-                             str_detect(batch_names, cv) &
-                             str_detect(batch_names, version) &
-                             str_detect(batch_names, "1week")] 
-batch_name <- batch_names[1] 
-# all TC files are the same except feature_set, which we set manually within map loop
-
-source(file.path(path_input, batch_name, "input", "training_controls.R"))
-
-d <- format_data(d)
-
-splits <- d %>% 
-  make_splits(cv_resample_type, cv_resample, cv_outer_resample, 
-              cv_inner_resample, cv_group, seed_splits)
-
-all_probs <- configs_best$row_id |> 
-  map(\(row_num) fit_predict_eval(row_num, splits, configs_best)) |> 
-  list_rbind()
-
-rm(splits)
 ```
 
 ## Get ROC over time by model
@@ -273,7 +289,7 @@ rm(splits)
 ```{r}
 all_roc <- all_probs |> 
   group_by(outer_split_num, feature_set, study_week) |> 
-  mutate(roc = roc_auc_vec(prob_raw, truth = label))
+  mutate(roc = roc_auc_vec(prob_raw, truth = label, event_level = "first"))
 ```
 
 ## Visualize
@@ -287,15 +303,39 @@ med_roc <- all_roc |>
   ungroup()
 ```
 
-
+Plots
 ```{r}
 med_roc |> 
   mutate(study_week = factor(study_week,
                              levels = str_c("week_", 1:12))) |> 
   ggplot(mapping = aes(x = study_week, y = median_roc, 
                        group = feature_set, color = feature_set)) +
-  geom_line() 
+  geom_line() +
+  theme(legend.position = "bottom")
+
+med_roc |> 
+  mutate(study_week = factor(study_week,
+                             levels = str_c("week_", 1:12))) |> 
+  ggplot(mapping = aes(x = study_week, y = median_roc, 
+                       group = feature_set, color = feature_set)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", linewidth = .75) +
+  theme(legend.position = "bottom")
+  
 ```
+
+Tables by model/week
+```{r}
+med_roc |> 
+  pivot_wider(names_from = feature_set, values_from = median_roc,
+              names_prefix = "roc_") |> 
+  relocate(roc_insight_only, .before = "roc_all") |> 
+    mutate(study_week = factor(study_week,
+                             levels = str_c("week_", 1:12))) |> 
+  arrange(study_week)
+```
+
 
 
 
