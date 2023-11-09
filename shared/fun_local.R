@@ -1,7 +1,7 @@
-library(readxl)
-library(tidyverse)  # local functions so fine to load all tidyverse packages
+# tidyverse must be loaded in calling script
+
+conflictRules("foreach", mask.ok = c("accumulate", "when"))  # masks purrr
 library(purrr)
-library(lubridate)
 library(foreach)
 
 merge_excel_files <- function(file_suffix, path_root) {
@@ -13,7 +13,7 @@ merge_excel_files <- function(file_suffix, path_root) {
   # path_root: root folder for the subject folders containing the excel files
   
   import_w_subid <- function(xlsxfile){
-    read_excel(xlsxfile) %>% 
+    readxl::read_excel(xlsxfile) %>% 
       mutate(subid = str_extract(xlsxfile, "\\d\\d\\d"))
   }
   
