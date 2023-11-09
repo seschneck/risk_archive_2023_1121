@@ -47,8 +47,8 @@ version <- "v2"
 cv <- "nested"
 algorithms <- "xgboost"
 
-window <- "dichotomous" # ("1week", "dichotomous")
-features <- "aase_only" # ("all", "insight_only", "aase_only")
+window <- "1week" 
+features <- "insight_only" # ("all", "insight_only", "aase_only")
 
 batch_nums <- NULL
 if (features == "all") {
@@ -57,11 +57,8 @@ if (features == "all") {
 if (features == "insight_only") {
   batch_nums <- c("batch1", "batch4")
 }
-if (features == "aase_only" & window == "1week") {
+if (features == "aase_only") {
   batch_nums <- c("batch3")
-}
-if (window == "dichotomous" & features == "aase_only") {
-  batch_nums <- c("batch1")
 }
 if (is.null(batch_nums)) {
   stop("No valid combination of outcome window & features")
@@ -403,7 +400,7 @@ if(!file.exists(file.path(path_models, str_c("outer_metrics_", version, "_",
                               str_detect(batch_names, cv) &
                               str_detect(batch_names, version) &
                               str_detect(batch_names, window) &
-                              str_detect(batch_names, batch_nums[1])] # ok bc just using to source TC script
+                              str_detect(batch_names, batch_nums[1])] # just using to source TC script
   
   path_batch <- file.path(path_input, batch_name)
   source(file.path(path_batch, "input", "training_controls.R"))
