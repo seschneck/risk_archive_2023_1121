@@ -212,19 +212,55 @@ Participants completed five study visits over approximately three months. After 
 ## Measures
 
 ### EMA
+Participants completed four brief (7-10 questions) EMAs daily following text message reminders. All EMAs included seven items that asked about any past alcohol use; current affective state (valence and arousal); craving; and past stressful events, risky situations, and pleasant events. The first EMA each day included three additional questions about the likelihood of future risky situations, stressful events, and drinking alcohol in the upcoming week (i.e., future efficacy). 
+
+The first and last EMAs of the day were scheduled within one hour of participants' typical wake and sleep times. The other two EMAs were scheduled randomly within the first and second halves of the participants' typical day, with at least one hour between EMAs. 
 
 ### AASE
 
 ### Individual Differences
 <!-- just to characterize data, not included in analyses -->
+We collected self-report information about demographics (age, sex, race, ethnicity, education, employment, income, and marital status) and clinical characteristics (AUD milestones, number of quit attempts, lifetime AUD treatment history, lifetime receipt of AUD medication, DSM-5 AUD symptom count, and current drug use [@whoassistworkinggroupAlcoholSmokingSubstance2002]). 
 
 ## Data Analytic Strategy
+Data preprocessing, modeling, and Bayesian analyses were done in R using the tidymodels ecosystem [@kuhnTidymodelsCollectionPackages2020]. All models were trained and evaluated using high-throughput computing resources provided by the University of Wisconsin Center for High Throughput Computing [@chtc].
 
 ### Lapse Labels
+We predicted future lapses in three window widths that varied in their temporal precision: one week, one day, and one hour. Prediction windows were updated hourly. All classification models provide hour-by-hour predictions of future lapse probability for all three window widths.
+
+We labeled each prediction window as *lapse* or *no lapse* using the EMA item "Have you drank any alcohol that you have not yet reported?". If participants answered yes to this question, they were prompted to enter the hour and date of the start and end of the drinking episode. Their responses were validated by study staff during monthly follow-up visits. 
+
+For more detail on the creation of our prediction windows, see Lapse Labels in the Supplemental Methods section of our Supplement.
 
 ### Feature Engineering
+Features were calculated using only data collected prior to the start of each prediction window. This ensured our models were making true *future predictions* versus identifying concurrent associations.  
+
+Features were derived from three sources: baseline demographic characteristics (i.e., age, sex, race, marital status, education); day of the week and the time of day (daytime vs. evening/night) of the start of the prediction window; and previous EMA responses. We scored raw min, max, median, and count features from EMA items within varying lead up times (6, 12, 24, 48, 72, and 168 hours prior to start of prediction window).  We scored change EMA response features by subtracting the mean response for each feature over all data prior to the start of the prediction window from the associated raw feature.  
+
+For more detail on feature engineering steps see Feature Engineering in the Supplemental Methods section of our Supplement. We also made a sample feature engineering script (i.e., tidymodels recipe) available on our study's OSF page.
 
 ### Model Training and Evaluation
+
+#### Statistical Algorithm and Hyperparameters.
+We trained and evaluated three separate classification models: one each for week, day, and hour prediction windows.  We initially considered four well-established statistical algorithms (XGBoost, Random Forest, K-Nearest Neighbors, and Elastic Net) that vary across characteristics expected to affect model performance (e.g., flexibility, complexity, and ability to handle higher-order interactions natively) [@kuhnAppliedPredictiveModeling2018]. However, preliminary exploratory analyses suggested that XGBoost consistently outperformed the other three algorithms.  Furthermore, the Shapley Additive Explanations (SHAP) method, which we planned to use for explanatory analyses of feature importance, is optimized for XGBoost.  For these reasons, we focused our primary model training and evaluation on the XGBoost algorithm only.  
+  
+Candidate XGBoost model configurations differed across sensible values for the hyperparameters mtry, tree depth, and learning rate using grid search.  All configurations used 500 trees with early stopping to prevent over-fitting.  All other hyperparameters were set to defaults established by the tidymodels packages.  Candidate model configurations also differed on outcome resampling method (i.e., up-sampling and down-sampling of the outcome using majority/no lapse to minority/lapse ratios ranging from 1:1 to 5:1).  We calibrated predicted probabilities using the beta distribution to support optimal decision-making under variable outcome distributions [@kullSigmoidsHowObtain2017].
+
+#### Performance Metric.
+Our primary performance metric for model selection and evaluation was area under the Receiver Operating Characteristic Curve (auROC) [@kuhnAppliedPredictiveModeling2018]. auROC indexes the probability that the model will predict a higher score for a randomly selected positive case (i.e., lapse) relative to a randomly selected negative case (i.e., no lapse). This metric was selected because it 1) combines sensitivity and specificity, which are both important characteristics to consider for clinical implementation; 2) is an aggregate metric across all decision thresholds, which is important because optimal decision thresholds may differ across settings and goals; and 3) is unaffected by class imbalance, which is important for comparing models with differing window widths and levels of class imbalance.
+
+#### Cross-validation.
+We used participant-grouped, nested cross-validation for model training, selection, and evaluation with auROC. Grouped cross-validation assigns all data from a participant as either held-in or held-out to avoid bias introduced when predicting a participant's data from their own data.  
+
+Nested cross-validation uses two nested loops for dividing and holding out folds: an outer loop, where held-out folds serve as *test sets* for model evaluation; and inner loops, where held-out folds serve as *validation sets* for model selection. Importantly, these sets are independent, maintaining separation between data used to train the models, select best models, and evaluate those best models. Therefore, nested cross-validation removes optimization bias from the evaluation of model performance in the test sets and can yield lower variance performance estimates than single test set approaches [@jonathanUseCrossvalidationAssess2000].  
+
+We used 1 repeat of 10-fold cross-validation for the inner loops and 3 repeats of 10-fold cross-validation for the outer loop.  Best model configurations were selected based on the median auROC across the 10 *validation sets*.  Final performance evaluation of those best model configurations was based on the median auROC across the 30 *test sets*.  For completeness, we report median auROC for our best model configurations for each model (week, day, and hour) separately from both the validation and test sets. In addition, we report other key performance metrics for the best model configurations including sensitivity, specificity, balanced accuracy, positive predictive value (PPV), and negative predictive value (NPV) from the test sets [@kuhnAppliedPredictiveModeling2018].
+
+### Bayesian Estimation of auROC and Model Comparisons 
+We used a Bayesian hierarchical generalized linear model to estimate the posterior probability distributions and 95% Bayesian confidence intervals (CIs) for auROC for the three best models (i.e., week, day, and hour). To determine the probability that these models' performance differed systematically from each other, we regressed the auROCs (logit transformed) from the 30 test sets for each model as a function of window width. Following recommendations from the tidymodels team [@kuhnTidyposteriorBayesianAnalysis2022; @kuhnBayesianAnalysisResampling], we set two random intercepts: one for the repeat, and another for the fold within repeat (folds are nested within repeats for auROCs collected with 3x10-fold cross-validation). We report the 95% (equal-tailed) Bayesian CIs from the posterior probability distributions for our models' auROCs.  We also report 95% (equal-tailed) Bayesian CIs for the differences in performance among the three models. For more detail on these analyses see Bayesian Analyses in Supplemental Methods section of the Supplement.  
+
+### Shapley Additive Explanations for Feature Importance
+We computed Shapley Values [@lundbergUnifiedApproachInterpreting2017] to provide a consistent and objective explanation of the importance of categories of features (based on EMA items) across our three models. Shapley values are model-agnostic and possess several useful properties including: Additivity (Shapley values for each feature can be computed independently and summed); Efficiency (the sum of Shapley values across features must add up to the difference between predicted and observed outcomes for each observation); Symmetry (Shapley values for two features should be equal if the two features contribute equally to all possible coalitions); and Dummy (a feature that does not change the predicted value in any coalition will have a Shapley value of 0).  We calculated Shapley values from the 30 test sets using the SHAPforxgboost package that provides Shapley values in log-odds units for binary classification models.  We averaged the three Shapley values for each observation for each feature across the three repeats to increase their stability. To calculate the local (i.e., for each observation) impact of categories of features (e.g., all features associated with the EMA craving item), we added Shapley values across all features in a category, separately for each observation.  To calculate global importance for categories of features, we averaged the absolute value of the Shapley values of all features in the category across all observations.  
 
 # Results
 
