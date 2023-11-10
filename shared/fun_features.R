@@ -53,7 +53,7 @@ get_x_period <- function(the_subid, the_dttm_label, x_all, lead, period_duration
   # Pass in subid and hour from lapse label - use map2_dfr to iterate through each 
   # row of lapse tibble
   # Pass in data tibble that will be filtered on by labels (MUST INCLUDE dttm_obs VARIABLE)
-  # Set lead_hours parameter to number of hours out from lapse you wish to predict 
+  # Set lead parameter to number of hours out from lapse you wish to predict 
   # Set period duration hours to get the duration over which you wish to use data from  
   # set period_duration to Inf if you want all the way back to the first observation
   
