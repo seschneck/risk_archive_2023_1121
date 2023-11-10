@@ -4,9 +4,8 @@
 # This is version 5 (to align with current versioning convention)
 
 # Constants: EDIT
-window <- "1week"  # window for calculating labels
-lead <-  0 # feature lead time
-version <- "v5"  #matches new feature engineering with end_date for ema
+lag <-  0 # feature lead time
+version <- "v1"  #matches new feature engineering with end_date for ema
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 

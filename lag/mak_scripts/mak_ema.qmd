@@ -1,5 +1,5 @@
 ---
-title: "Make combined EMA for lag study"
+title: "Make combined EMA for LAG study"
 author: "John Curtin"
 date: "`r lubridate::today()`"
 editor_options: 
@@ -11,12 +11,9 @@ format:
 
 ### Code Status
 
-Complete
+Complete.  Combines the morning and later ema files from shared folder and saves in processed data for lag study.  This is essentially the same code as for the ema study with minor updates for new lab conventions (including change to qmd)
 
-### Notes
-
-Combines the morning and later ema files from shared folder and saves in processed data for lag study.  This is essentially the same code as for the ema study with minor updates for new lab conventions (including change to qmd)
-
+### Setup
 
 Absolute paths
 ```{r, absolute paths}
@@ -41,10 +38,8 @@ switch (Sys.info()[['sysname']],
 Load packages
 ```{r, packages_script}
 options(conflicts.policy = "depends.ok")
-
 library(tidyverse)
 ```
-
 
 ### Process and save ema
 ```{r}
@@ -63,7 +58,6 @@ ema <- ema_morning |>
   rename(dttm_obs = end_date) |>   # use end_date for timestamp to be certain features occur before labels
   glimpse()
 ```
-
 
 ```{r}
 ema |> 

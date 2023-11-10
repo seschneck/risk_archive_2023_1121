@@ -9,7 +9,7 @@
 <meta name="author" content="John Curtin">
 <meta name="dcterms.date" content="2023-11-10">
 
-<title>Make combined EMA for LAG study</title>
+<title>Make study dates df for LAG study</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3025,7 +3025,7 @@ vertical-align: -.125em;
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Make combined EMA for LAG study</h1>
+<h1 class="title">Make study dates df for LAG study</h1>
 </div>
 
 
@@ -3054,10 +3054,61 @@ vertical-align: -.125em;
 
 <section id="code-status" class="level3">
 <h3 class="anchored" data-anchor-id="code-status">Code Status</h3>
-<p>Complete. Combines the morning and later ema files from shared folder and saves in processed data for lag study. This is essentially the same code as for the ema study with minor updates for new lab conventions (including change to qmd)</p>
+<p>Complete. This code is based on same script for EMA study with minor updates for qmd and new lab conventions.</p>
+<p>This script creates an EMA study-level dates file that includes the study start date, which is also called data_start (see below). It also includes study end and ema_end for use in mak_labels.</p>
+<p>This script is essentially the same as Kendra’ meta script because the EMA study currently includes the same sample as the meta study. The only change is how we handle 74 (who had communications file issue). They are retained in the EMA study.</p>
 </section>
-<section id="setup" class="level3">
-<h3 class="anchored" data-anchor-id="setup">Setup</h3>
+<section id="conclusions" class="level3">
+<h3 class="anchored" data-anchor-id="conclusions">Conclusions</h3>
+<ul>
+<li>John and Kendra have decided to drop subid 104’s data for the following reasons:
+<ul>
+<li>They had lapses every day on study except one day.<br>
+</li>
+<li>Only had 75 surveys where a lapse was not reported.<br>
+</li>
+<li>Viewing their lapse times it appears they were drinking constantly (morning and night).<br>
+</li>
+<li>They consistently report being uncertain that their goal is to be abstinent (uncertain on 125 of 137 lapses. They also report they are uncertain in this goal at followup 1 and 2.<br>
+</li>
+<li>They are ultimately discontinued since they were struggling to gain sobriety.<br>
+</li>
+<li>Unfortunately this drops 109 valid lapses.</li>
+</ul></li>
+<li>John and Kendra have decided to drop subid 269’s data for the following reasons:
+<ul>
+<li>They completed 10-15 surveys on many days on study (avg number of surveys per day is 6.76).<br>
+</li>
+<li>Their responses indicate careless responding - they were filling 2-4 surveys out within an hour of each other and the responses to the questions were completely different.<br>
+</li>
+<li>They have questionable no lapse labels - they reported no lapses while on study but according to notes left two messages for study staff where they admitted to drinking over the weekend.</li>
+</ul></li>
+<li>John and Kendra have decided to drop subid 204’s data for the following reasons:
+<ul>
+<li>Subid 204 had extremely poor compliance. 33 out of 89 study days had an EMA completed. They only did a total of 5 surveys between followup 2 and 3.<br>
+</li>
+<li>We don’t trust their lapse labels - They report several lapses during their interviews but times appear questionable (same time every night). They only report 1 lapse with EMA.</li>
+<li>From notes - “Participant did not do many surveys during their second month of participation. At their Follow-up 2 visit they reported several lapses that were not documented in their EMAs - estimated lapse days/times in subid’s raw data log.”<br>
+</li>
+<li>JC note: “There are issues with 204. They are missing lapses reported by interview. But they<br>
+also stopped doing any ema by 5/17 even though their study end date was 6/13. Probably need to drop them for lapse analyses for anything after 5/17. Probably also need to add in their reported lapses at follow-up 2. OR we drop them at the end of follow-up 1 or wherever their ema gets sketchy”</li>
+</ul></li>
+<li>John and Kendra have decided to decided to retain 128’s data even though they have over 100 lapses for the following reasons:
+<ul>
+<li>Compliance is good (averaged over 3 surveys per day, no days without an EMA).<br>
+</li>
+<li>completed the study for the full 90 days.<br>
+</li>
+<li>appeared to still want abstinence as they reported they were uncertain to ema_1_5 on only 3 surveys. They reported they were uncertain that their goal was to remain abstinent at followup 1 and confirmed their goal was to remain abstinent at followup 2.<br>
+</li>
+<li>Has more non-lapse surveys than lapse surveys.</li>
+</ul></li>
+<li>All final timezones are in America/Chicago timezone.</li>
+</ul>
+</section>
+<section id="set-up-environment" class="level3">
+<h3 class="anchored" data-anchor-id="set-up-environment">Set Up Environment</h3>
+<p>Chunk Defaults</p>
 <p>Absolute paths</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">switch</span> (<span class="fu">Sys.info</span>()[[<span class="st">&#39;sysname&#39;</span>]],</span>
@@ -3077,7 +3128,7 @@ vertical-align: -.125em;
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>          path_lag <span class="ot">&lt;-</span> <span class="st">&quot;~/mnt/private/studydata/risk/data_processed/lag&quot;</span>}</span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Load packages</p>
+<p>Packages for script</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">conflicts.policy =</span> <span class="st">&quot;depends.ok&quot;</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -3095,105 +3146,125 @@ vertical-align: -.125em;
 </div>
 </div>
 </section>
-<section id="process-and-save-ema" class="level3">
-<h3 class="anchored" data-anchor-id="process-and-save-ema">Process and save ema</h3>
+<section id="visitema-dates" class="level3">
+<h3 class="anchored" data-anchor-id="visitema-dates">Visit/EMA Dates</h3>
+<p>visit dates</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>ema_morning <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">file.path</span>(path_shared, <span class="st">&quot;ema_morning.csv&quot;</span>), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>)  <span class="sc">|&gt;</span> </span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">file.path</span>(path_shared, <span class="st">&quot;visit_dates.csv&quot;</span>), <span class="at">col_types =</span> <span class="fu">cols</span>()) <span class="sc">|&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(subid, <span class="at">study_start =</span> start_study, <span class="at">study_end =</span> end_study, followup_1) <span class="sc">|&gt;</span> </span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">study_start =</span> <span class="fu">force_tz</span>(study_start, <span class="at">tzone =</span> <span class="st">&quot;America/Chicago&quot;</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">study_end =</span> <span class="fu">force_tz</span>(study_end, <span class="at">tzone =</span> <span class="st">&quot;America/Chicago&quot;</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Rows: 11,335
-Columns: 26
-$ response_id &lt;chr&gt; &quot;R_1HkvSG8QkPx8Eu8&quot;, &quot;R_2uBUNUJQQ1vkJwa&quot;, &quot;R_2fy75pv8FOdwY…
-$ start_date  &lt;dttm&gt; 2017-03-02 15:17:11, 2017-03-03 12:31:39, 2017-03-05 12:3…
-$ end_date    &lt;dttm&gt; 2017-03-02 15:20:19, 2017-03-03 12:35:33, 2017-03-05 12:3…
-$ finished    &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
-$ status      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
-$ subid       &lt;chr&gt; &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;0…
-$ utc         &lt;dbl&gt; 1488489431, 1488544299, 1488717171, 1488803446, 1488820692…
-$ send_date   &lt;chr&gt; &quot;02-Mar-17&quot;, &quot;03-Mar-17&quot;, &quot;05-Mar-17&quot;, &quot;06-Mar-17&quot;, &quot;06-Ma…
-$ send_time   &lt;dbl&gt; 630, 630, 630, 630, 630, 630, 630, 630, 630, 630, 630, 630…
-$ ema_1       &lt;chr&gt; &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;…
-$ ema_1_1     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_2     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_3     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_4     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_5     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_6     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_2       &lt;dbl&gt; 4, 2, 2, 2, 3, 1, 3, 2, 4, 3, 1, 2, 1, 2, 4, 3, 2, 9, 2, 1…
-$ ema_3       &lt;dbl&gt; 12, 4, 0, 1, 4, 1, 6, 2, 2, 7, 2, 1, 3, 2, 2, 3, 2, 9, 3, …
-$ ema_4       &lt;dbl&gt; 12, 4, 0, 4, 4, 1, 1, 1, 5, 7, 2, 1, 4, 4, 4, 1, 8, 9, 2, …
-$ ema_5       &lt;dbl&gt; 8, 8, 5, 8, 7, 4, 4, 1, 1, 8, 4, 4, 4, 8, 4, 4, 7, 6, 7, 2…
-$ ema_6       &lt;dbl&gt; 6, 6, 6, 8, 8, 7, 4, 5, 4, 5, 7, 6, 7, 7, 7, 7, 4, 5, 8, 8…
-$ ema_7       &lt;dbl&gt; 8, 3, 3, 8, 7, 8, 4, 4, 6, 7, 4, 4, 4, 5, 7, 5, 8, 5, 4, 4…
-$ ema_8       &lt;dbl&gt; 5, 5, 4, 7, 5, 6, 6, 5, 5, 7, 5, 6, 6, 6, 6, 6, 6, 7, 6, 6…
-$ ema_9       &lt;dbl&gt; 5, 7, 6, 5, 6, 6, 6, 6, 5, 7, 6, 6, 6, 6, 6, 6, 6, 7, 6, 6…
-$ ema_10      &lt;dbl&gt; 4, 4, 4, 4, 5, 5, 5, 4, 6, 5, 5, 5, 5, 5, 6, 5, 6, 6, 5, 5…
-$ ema_type    &lt;chr&gt; &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;mo…</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>ema_later <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">file.path</span>(path_shared, <span class="st">&quot;ema_later.csv&quot;</span>), <span class="at">show_col_types =</span> <span class="cn">FALSE</span>) <span class="sc">|&gt;</span> </span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Rows: 34,125
-Columns: 23
-$ response_id &lt;chr&gt; &quot;R_DCzfrTzvmKyStd7&quot;, &quot;R_2dsYfdSOBQqnVZa&quot;, &quot;R_2eXz8kIJqIBmp…
-$ start_date  &lt;dttm&gt; 2017-03-02 20:27:53, 2017-03-03 03:00:38, 2017-03-03 14:1…
-$ end_date    &lt;dttm&gt; 2017-03-02 20:37:43, 2017-03-03 03:02:47, 2017-03-03 14:1…
-$ finished    &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
-$ status      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…
-$ subid       &lt;chr&gt; &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;001&quot;, &quot;0…
-$ utc         &lt;dbl&gt; 1488486473, 1488510038, 1488550270, 1488631626, 1488645112…
-$ send_date   &lt;chr&gt; &quot;02-Mar-17&quot;, &quot;02-Mar-17&quot;, &quot;03-Mar-17&quot;, &quot;03-Mar-17&quot;, &quot;04-Ma…
-$ send_time   &lt;dbl&gt; 1342, 1900, 806, 1340, 1030, 849, 1524, 1203, 1323, 1900, …
-$ ema_1       &lt;chr&gt; &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;…
-$ ema_1_1     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_2     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_3     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_4     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_5     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_1_6     &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ema_2       &lt;dbl&gt; 5, 1, 1, 3, 3, 1, 3, 4, 2, 2, 3, 3, 2, 3, 2, 3, 4, 1, 1, 2…
-$ ema_3       &lt;dbl&gt; 11, 4, 0, 2, 4, 3, 1, 5, 4, 2, 3, 1, 4, 1, 5, 6, 4, 5, 2, …
-$ ema_4       &lt;dbl&gt; 10, 4, 0, 0, 4, 2, 4, 4, 8, 2, 3, 5, 8, 10, 5, 6, 6, 7, 1,…
-$ ema_5       &lt;dbl&gt; 8, 4, 0, 8, 5, 4, 3, 2, 5, 4, 2, 4, 1, 1, 4, 2, 7, 5, 8, 4…
-$ ema_6       &lt;dbl&gt; 7, 8, 7, 9, 8, 8, 7, 5, 9, 8, 8, 4, 5, 3, 5, 5, 5, 5, 8, 8…
-$ ema_7       &lt;dbl&gt; 7, 7, 8, 6, 7, 7, 8, 6, 5, 7, 4, 5, 5, 3, 5, 4, 5, 8, 5, 6…
-$ ema_type    &lt;chr&gt; &quot;later&quot;, &quot;later&quot;, &quot;later&quot;, &quot;later&quot;, &quot;later&quot;, &quot;later&quot;, &quot;lat…</code></pre>
+<pre style="max-height: 500px;"><code>Rows: 207
+Columns: 4
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…
+$ followup_1  &lt;date&gt; 2017-03-31, 2017-04-21, 2017-04-26, 2017-07-19, 2017-07-1…</code></pre>
 </div>
 </div>
+<p>Filter out subids who did not make it to followup_1</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>ema <span class="ot">&lt;-</span> ema_morning <span class="sc">|&gt;</span> </span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(ema_later) <span class="sc">|&gt;</span> </span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">subid =</span> <span class="fu">as.numeric</span>(subid)) <span class="sc">|&gt;</span> </span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>response_id, <span class="sc">-</span>start_date, <span class="sc">-</span>finished, <span class="sc">-</span>status, <span class="sc">-</span>utc, <span class="sc">-</span>send_date, <span class="sc">-</span>send_time) <span class="sc">|&gt;</span> </span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">dttm_obs =</span> end_date) <span class="sc">|&gt;</span>   <span class="co"># use end_date for timestamp to be certain features occur before labels</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> dates <span class="sc">|&gt;</span> </span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(followup_1)) <span class="sc">|&gt;</span> </span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="sc">-</span>followup_1) <span class="sc">|&gt;</span> </span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>Rows: 45,460
-Columns: 19
-$ dttm_obs &lt;dttm&gt; 2017-03-02 15:20:19, 2017-03-03 12:35:33, 2017-03-05 12:34:4…
-$ subid    &lt;dbl&gt; 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1…
-$ ema_1    &lt;chr&gt; &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;No&quot;, &quot;…
-$ ema_1_1  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_1_2  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_1_3  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_1_4  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_1_5  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_1_6  &lt;chr&gt; NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, N…
-$ ema_2    &lt;dbl&gt; 4, 2, 2, 2, 3, 1, 3, 2, 4, 3, 1, 2, 1, 2, 4, 3, 2, 9, 2, 1, 3…
-$ ema_3    &lt;dbl&gt; 12, 4, 0, 1, 4, 1, 6, 2, 2, 7, 2, 1, 3, 2, 2, 3, 2, 9, 3, 1, …
-$ ema_4    &lt;dbl&gt; 12, 4, 0, 4, 4, 1, 1, 1, 5, 7, 2, 1, 4, 4, 4, 1, 8, 9, 2, 1, …
-$ ema_5    &lt;dbl&gt; 8, 8, 5, 8, 7, 4, 4, 1, 1, 8, 4, 4, 4, 8, 4, 4, 7, 6, 7, 2, 3…
-$ ema_6    &lt;dbl&gt; 6, 6, 6, 8, 8, 7, 4, 5, 4, 5, 7, 6, 7, 7, 7, 7, 4, 5, 8, 8, 8…
-$ ema_7    &lt;dbl&gt; 8, 3, 3, 8, 7, 8, 4, 4, 6, 7, 4, 4, 4, 5, 7, 5, 8, 5, 4, 4, 5…
-$ ema_8    &lt;dbl&gt; 5, 5, 4, 7, 5, 6, 6, 5, 5, 7, 5, 6, 6, 6, 6, 6, 6, 7, 6, 6, 6…
-$ ema_9    &lt;dbl&gt; 5, 7, 6, 5, 6, 6, 6, 6, 5, 7, 6, 6, 6, 6, 6, 6, 6, 7, 6, 6, 6…
-$ ema_10   &lt;dbl&gt; 4, 4, 4, 4, 5, 5, 5, 4, 6, 5, 5, 5, 5, 5, 6, 5, 6, 6, 5, 5, 5…
-$ ema_type &lt;chr&gt; &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;morning&quot;, &quot;morni…</code></pre>
+<pre style="max-height: 500px;"><code>Rows: 154
+Columns: 3
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 18, 19, 20, 21, 23, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…</code></pre>
 </div>
 </div>
+<p>Filter out excluded subids for lapse reporting issues</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>ema <span class="sc">|&gt;</span> </span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">write_csv</span>(<span class="fu">file.path</span>(path_lag, <span class="st">&quot;ema.csv&quot;</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> dates <span class="sc">|&gt;</span> </span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span>subid <span class="sc">%in%</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">269</span>, <span class="dv">204</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre style="max-height: 500px;"><code>Rows: 151
+Columns: 3
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 18, 19, 20, 21, 23, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…</code></pre>
+</div>
+</div>
+</section>
+<section id="data-start-date" class="level3">
+<h3 class="anchored" data-anchor-id="data-start-date">Data Start Date</h3>
+<p>Add column for data_start - will be = study start for EMA b/c everyone started EMA with study start. Keeping this new column because we use data_start for other studies and some study generic code may expect it.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> dates <span class="sc">|&gt;</span> </span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">data_start =</span> study_start) <span class="sc">|&gt;</span> </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre style="max-height: 500px;"><code>Rows: 151
+Columns: 4
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 18, 19, 20, 21, 23, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…
+$ data_start  &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…</code></pre>
+</div>
+</div>
+</section>
+<section id="ema-end-date" class="level3">
+<h3 class="anchored" data-anchor-id="ema-end-date">EMA End Date</h3>
+<p>Get last ema data for EMA end</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>ema <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="fu">file.path</span>(path_shared, <span class="st">&quot;ema_morning.csv&quot;</span>), <span class="at">col_types =</span> <span class="fu">cols</span>()) <span class="sc">|&gt;</span>  </span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(subid, start_date) <span class="sc">|&gt;</span>  </span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(<span class="fu">read_csv</span>(<span class="fu">file.path</span>(path_shared, <span class="st">&quot;ema_later.csv&quot;</span>), <span class="at">col_types =</span> <span class="fu">cols</span>())) <span class="sc">|&gt;</span> </span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(subid, start_date) <span class="sc">|&gt;</span> </span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">subid =</span> <span class="fu">as.numeric</span>(subid),</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">start_date =</span> <span class="fu">with_tz</span>(start_date, <span class="at">tzone =</span> <span class="st">&quot;America/Chicago&quot;</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">ema_end =</span> start_date) <span class="sc">|&gt;</span> </span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(subid, <span class="fu">desc</span>(ema_end)) <span class="sc">|&gt;</span> </span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(subid) <span class="sc">|&gt;</span> </span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="dv">1</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre style="max-height: 500px;"><code>Rows: 169
+Columns: 2
+Groups: subid [169]
+$ subid   &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21, 23…
+$ ema_end &lt;dttm&gt; 2017-05-30 11:10:53, 2017-06-16 09:18:40, 2017-06-19 21:07:42…</code></pre>
+</div>
+</div>
+<p>Add ema_end date</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>dates <span class="ot">&lt;-</span> dates <span class="sc">|&gt;</span> </span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(ema, <span class="at">by =</span> <span class="st">&quot;subid&quot;</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">relocate</span>(subid, study_start, data_start) <span class="sc">|&gt;</span> </span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre style="max-height: 500px;"><code>Rows: 151
+Columns: 5
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 18, 19, 20, 21, 23, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ data_start  &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…
+$ ema_end     &lt;dttm&gt; 2017-05-30 11:10:53, 2017-06-16 09:18:40, 2017-06-19 21:0…</code></pre>
+</div>
+</div>
+</section>
+<section id="save" class="level3">
+<h3 class="anchored" data-anchor-id="save">Save</h3>
+<p>save dates</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>dates <span class="sc">|&gt;</span> </span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">write_csv</span>(<span class="fu">file.path</span>(path_lag, <span class="st">&quot;study_dates.csv&quot;</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre style="max-height: 500px;"><code>Rows: 151
+Columns: 5
+$ subid       &lt;dbl&gt; 1, 2, 3, 5, 6, 7, 9, 10, 11, 15, 16, 18, 19, 20, 21, 23, 2…
+$ study_start &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ data_start  &lt;dttm&gt; 2017-03-02, 2017-03-24, 2017-03-22, 2017-06-20, 2017-06-1…
+$ study_end   &lt;dttm&gt; 2017-05-31, 2017-06-16, 2017-06-20, 2017-09-18, 2017-09-1…
+$ ema_end     &lt;dttm&gt; 2017-05-30 11:10:53, 2017-06-16 09:18:40, 2017-06-19 21:0…</code></pre>
+</div>
 </div>
 </section>
 
