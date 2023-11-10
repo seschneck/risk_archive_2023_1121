@@ -1,15 +1,16 @@
 # setup jobs to make EMA features on CHTC 
 
-# EDIT THESE
-lag <- 0
-version <- "v1"  # matches features from ema study v5
+# Constants: EDIT
+# MUST EDIT IN mak_features_chtc.R as well
+lead_hours <- 0   # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
+version <- "v1" 
 
 # load packages
 library(tidyverse)
 
 # Paths and filenames
 path_jobs <- str_c("~/mnt/private/studydata/risk/chtc/lag")
-name_job <- str_c("features_", lag, "_", version)
+name_job <- str_c("features_", lead_hours, "_", version)
 
 path_processed <- "~/mnt/private/studydata/risk/data_processed/lag" 
 name_ema <- "ema.csv"

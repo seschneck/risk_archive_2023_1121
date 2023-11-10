@@ -2,7 +2,8 @@
 # Version 1 - uses features from v5 of ema study
 
 # Constants: EDIT
-lead <-  0 # feature lead time
+# MUST EDIT IN mak_jobs as well
+lead_hours <- 0   # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
 version <- "v1" 
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
@@ -107,7 +108,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                                     the_dttm_label = dttm_label, 
                                     x_all = lapses, 
                                     period_durations  = period_durations_later, # use all durations
-                                    lead = lead, 
+                                    lead = lead_hours, 
                                     data_start = dates, 
                                     col_name = "count", 
                                     col_values = "lapse"),
@@ -120,7 +121,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                                     the_dttm_label = dttm_label,
                                     x_all = ema_count,
                                     period_durations  = period_durations_later, # use all durations
-                                    lead = lead,
+                                    lead = lead_hours,
                                     data_start = dates,
                                     col_name = "count",
                                     col_values = "ema"),
@@ -131,7 +132,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
     full_join(score_most_recent(the_subid = subid,
                            the_dttm_label = dttm_label,
                            x_all  = ema_long,
-                           lead = lead,
+                           lead = lead_hours,
                            data_start = dates,
                            col_name = "response",
                            data_type_col_name = "ema_num",
@@ -145,7 +146,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                            the_dttm_label = dttm_label,
                            x_all  = ema_long,
                            period_durations = period_durations_morning,  # use only longer durations for 1x items
-                           lead = lead,
+                           lead = lead_hours,
                            data_start = dates,
                            col_name = "response",
                            data_type_col_name = "ema_num",
@@ -157,7 +158,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                            the_dttm_label = dttm_label,
                            x_all  = ema_long,
                            period_durations = period_durations_later,
-                           lead = lead,
+                           lead = lead_hours,
                            data_start = dates,
                            col_name = "response",
                            data_type_col_name = "ema_num",
@@ -171,7 +172,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
                         period_durations = period_durations_morning,
-                        lead = lead,
+                        lead = lead_hours,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
@@ -183,7 +184,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
                         period_durations = period_durations_later,
-                        lead = lead,
+                        lead = lead_hours,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
@@ -197,7 +198,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
                         period_durations = period_durations_morning,
-                        lead = lead,
+                        lead = lead_hours,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
@@ -209,7 +210,7 @@ features <- foreach (i_label = 1:nrow(labels), .combine = "rbind") %do% {
                         the_dttm_label = dttm_label,
                         x_all  = ema_long,
                         period_durations = period_durations_later,
-                        lead = lead,
+                        lead = lead_hours,
                         data_start = dates,
                         col_name = "response",
                         data_type_col_name = "ema_num",
@@ -230,5 +231,5 @@ features <- features %>%
 features %>%
   mutate(lapse = labels$lapse) %>% 
   relocate(label_num, subid, dttm_label, lapse) %>% 
-  write_csv(str_c("features_", window, "_", lead, "_", version, "_", 
+  write_csv(str_c("features_", lead_hours, "_", version, "_", 
                     job_start, "_", job_stop, ".csv"))
