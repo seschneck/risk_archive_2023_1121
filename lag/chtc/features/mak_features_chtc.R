@@ -1,12 +1,9 @@
-# Script to engineer EMA features on CHTC
-# Version 1 was for CBIT
-# Version 2 was for Nowak group
-# This is version 5 (to align with current versioning convention)
+# Script to engineer EMA features on CHTC for lag study
+# Version 1 - uses features from v5 of ema study
 
 # Constants: EDIT
-window <- "1week"  # window for calculating labels
 lead <-  0 # feature lead time
-version <- "v5"  #matches new feature engineering with end_date for ema
+version <- "v1" 
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
 period_durations_later <- c(12, 24, 48, 72, 168) # feature duration window for items 2-7 
@@ -16,15 +13,17 @@ suppressWarnings(suppressPackageStartupMessages({
   library(readr)
   library(lubridate)
   library(foreach)
-  library(tidyr) # for pivot_wider.
+  library(tidyr) # for pivot_wider
   source("fun_features.R")
 }))
 
 # get chtc process num
 args <- commandArgs(trailingOnly = TRUE) 
+
+# for testing
 # job_start <- 1
 # job_stop <- 10
-job_start <- as.numeric(args[1]) # CHTC arg starts at 1 because using passed in row numbers
+job_start <- as.numeric(args[1])
 job_stop <- as.numeric(args[2])
 
 # read in ema
