@@ -67,11 +67,12 @@ file.copy(from = here::here(path_shared, "screen.csv"),
 file.copy(from = here::here("shared", name_fun),
           to = here::here(path_jobs, name_job, "input", name_fun))
 
-# copy over condor files(sh and sub)
-file.copy(from = here::here("lag", "chtc", "features", "condor"),
-          to = here::here(path_jobs, name_job, "input"),
-          recursive = TRUE)
-
 # copy R script
-file.copy(from = here::here("ema", "chtc", "features", name_script),
+file.copy(from = here::here("lag", "chtc", "features", name_script),
           to = here::here(path_jobs, name_job, "input", name_script))
+
+# copy over condor files(sh and sub)
+file.copy(from = here::here("lag", "chtc", "features", "condor", "features.sh"),
+          to = here::here(path_jobs, name_job, "input", "features.sh")) 
+file.copy(from = here::here("lag", "chtc", "features", "condor", "features.sub"),
+          to = here::here(path_jobs, name_job, "input", "features.sub")) 
