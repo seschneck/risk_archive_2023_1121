@@ -43,9 +43,10 @@ d_graph <- d_raw |>
   mutate(proportion = n / sum(n))
 
 d_graph |>
-  head(15) |>
-  ggplot(aes(proportion, word)) +
-  geom_col() +
+  slice_max(proportion, n = 15) |>
+  ungroup() |>
+  ggplot(aes(proportion, fct_reorder(word, proportion), fill = type)) +
+  geom_col(show.legend = FALSE) +
   facet_wrap(~type, ncol = 2)
 ```
 
@@ -122,5 +123,76 @@ data.frame(word = d_sent[d_sent$type=="inbox", ]$word[1:100],
 data.frame(word = d_sent[d_sent$type=="sent", ]$word[1:100], 
            freq = d_sent[d_sent$type=="sent", ]$n[1:100]) |>
   wordcloud2(color = d_sent[d_sent$type=="sent", ]$sentiment[1:100])
+```
+
+# Word and Document Frequency: tf-idf
+
+```{r}
+d_tfidf <- d_graph |>
+  group_by(type) |>
+  mutate(rank = row_number()) |>
+  ungroup() |>
+  rename_at("proportion", ~"tf")
+
+attributes(lm(log10(tf) ~ log10(rank), data = d_tfidf))
+summary(lm(log10(tf) ~ log10(rank), data = d_tfidf))$coefficients
+summary(lm(log10(tf) ~ log10(rank), data = d_tfidf))$coefficients[2, 1]
+
+d_tfidf |>
+  ggplot(aes(rank, tf, color = type)) +
+  geom_abline(intercept = summary(lm(log10(tf) ~ log10(rank), data = d_tfidf))$coefficients[1, 1],
+              slope = summary(lm(log10(tf) ~ log10(rank), data = d_tfidf))$coefficients[2, 1],
+              color = "gray50",
+              linetype = 2) +
+  geom_line(size = 1.1, alpha = .8) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(x = NULL, y = "term frequency")
+```
+
+```{r}
+d_tfidf |>
+  bind_tf_idf(word, type, n) |>
+  arrange(desc(tf_idf)) |>
+  group_by(type) |>
+  slice_max(tf_idf, n = 15) |>
+  ungroup() |>
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = type)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~type, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+```
+
+# Relationships between words: n-grams and correlations
+
+```{r}
+d_n_gram <- d_raw |>
+  drop_na(body) |>
+  subset(type %in% c("inbox", "sent")) |>
+  unnest_tokens(bigram, body, token = "ngrams", n = 2) |>
+  filter(!is.na(bigram)) |>
+  count(type, bigram, sort = TRUE) |>
+  separate(bigram, c("word1", "word2")) |>
+  filter(!word1 %in% stop_words$word) |>
+  filter(!word2 %in% stop_words$word) |>
+  unite(bigram, word1, word2, sep = " ")
+```
+
+```{r}
+# tf_idf very identical
+d_n_gram <- d_n_gram |>
+  count(type, bigram) |>
+  bind_tf_idf(bigram, type, n) |>
+  arrange(desc(tf_idf))
+
+d_n_gram |> 
+  group_by(type) |>
+  slice_max(tf_idf, n = 15) |>
+  ungroup() |>
+  ggplot(aes(tf_idf, fct_reorder(bigram, tf_idf), fill = type)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~type, ncol = 2, scales = "free")
+
+summary(d_n_gram$tf_idf)
 ```
 
