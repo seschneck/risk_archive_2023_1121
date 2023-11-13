@@ -3,7 +3,7 @@
 
 # Constants: EDIT
 # MUST EDIT IN mak_jobs as well
-lead_hours <- 0   # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
+lead_hours <- 24  # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
 version <- "v1" 
 
 period_durations_morning <- c(48, 72, 168) # feature duration window for items 8-10
