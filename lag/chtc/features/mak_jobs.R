@@ -2,7 +2,7 @@
 
 # Constants: EDIT
 # MUST EDIT IN mak_features_chtc.R as well
-lead_hours <- 24  # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
+lead_hours <- 72  # considering 0, 24, 72, 168 (1 week), and 336(2 weeks)
 version <- "v1" 
 
 # load packages
