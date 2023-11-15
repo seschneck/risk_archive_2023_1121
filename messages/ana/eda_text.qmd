@@ -8,6 +8,8 @@ library(tidyverse)
 library(tidytext)
 library(wordcloud2)
 library(RColorBrewer)
+library(igraph)
+library(ggraph)
 
 switch (Sys.info()[['sysname']],
         # PC paths
@@ -194,5 +196,29 @@ d_n_gram |>
   facet_wrap(~type, ncol = 2, scales = "free")
 
 summary(d_n_gram$tf_idf)
+```
+
+```{r}
+d_n_gram |>
+  separate(bigram, c("word1", "word2"), sep = " ") |>
+  filter(n > 200) |>
+  filter(type == "inbox") |>
+  select(c("word1", "word2", "n")) |>
+  graph_from_data_frame() |>
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n)) +
+  geom_node_point() +
+  geom_node_text(aes(label = name, ), vjust = 1, hjust = 1)
+
+d_n_gram |>
+  separate(bigram, c("word1", "word2"), sep = " ") |>
+  filter(n > 70) |>
+  filter(type == "sent") |>
+  select(c("word1", "word2")) |>
+  graph_from_data_frame() |>
+  ggraph(layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name, ), vjust = 1, hjust = 1)
 ```
 
