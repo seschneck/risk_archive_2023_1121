@@ -176,10 +176,16 @@ fit_predict_eval <- function(row_num, splits, configs_best){
   d_out <- testing(splits$splits[[split_num]])
   
   rec <- build_recipe(d = d_in, config = config_best)
-  model_best <- fit_best_model(config_best, rec, d_in, "classification")
   
-  feat_out <- rec %>% 
-    prep(training = d_in, strings_as_factors = FALSE) %>% 
+  rec_prepped <- rec |> 
+    prep(training = d_in, strings_as_factors = FALSE)
+  
+  feat_in <- rec_prepped |> 
+    bake(new_data = NULL)
+  
+  model_best <- fit_best_model(config_best, feat_in, "classification")
+  
+  feat_out <- rec_prepped %>% 
     bake(new_data = d_out)
   
   # metrics from raw (uncalibrated) predictions for held out fold
