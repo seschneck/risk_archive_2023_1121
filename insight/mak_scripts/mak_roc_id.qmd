@@ -1,0 +1,130 @@
+---
+title: "Makes ROC by ID dataset for the Insight study (version `r version`)"
+author: "Gaylen Fronk"
+date: "`r lubridate::today()`"
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+format:
+  html:
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+---
+
+### Set Up Environment
+
+```{r set_values}
+study <- "insight"
+version <- "v2"
+cv <- "nested"
+```
+
+Function conflicts
+```{r, packages_workflow}
+#| message: false
+#| warning: false
+
+# source
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_ml.R?raw=true")
+
+# handle conflicts
+options(conflicts.policy = "depends.ok")
+tidymodels_conflictRules()
+```
+
+Packages for script
+```{r, packages_script}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(tidymodels)
+library(lubridate)
+```
+
+Source support functions
+```{r source_functions}
+# EDA
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/fun_eda.R?raw=true")
+
+# CHTC support functions
+devtools::source_url("https://github.com/jjcurtin/lab_support/blob/main/chtc/static_files/fun_chtc.R?raw=true")
+```
+
+Absolute paths
+```{r, absolute_paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_input <- str_c("P:/studydata/risk/chtc/", study)
+          path_processed <- str_c("P:/studydata/risk/data_processed/", study)
+          path_models <- str_c("P:/studydata/risk/models/", study)
+          path_knits <- str_c("P:/studydata/risk/knits/", study)},
+        
+        # IOS paths
+        Darwin = {
+          path_input <- str_c("/Volumes/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("/Volumes/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("/Volumes/private/studydata/risk/models/", study)
+          path_knits <- str_c("/Volumes/private/studydata/risk/knits/", study)},
+        
+        # Linux paths
+        Linux = {
+          path_input <- str_c("~/mnt/private/studydata/risk/chtc/", study)
+          path_processed <- str_c("~/mnt/private/studydata/risk/data_processed/",
+                                  study)
+          path_models <- str_c("~/mnt/private/studydata/risk/models/", study)
+          path_knits <- str_c("~/mnt/private/studydata/risk/knits/", study)}
+)
+```
+
+Chunk Defaults
+```{r defaults}
+#| include: false
+
+knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+
+options(tibble.width = Inf)
+options(tibble.print_max = Inf)
+```
+
+Knit to specific directory
+```{r, eval = FALSE, include=FALSE}
+# Render knit file manually to different location
+
+rmarkdown::render(input = file.path("insight/mak_scripts/mak_roc_id.qmd"),
+                  output_dir = file.path(path_knits),
+                  output_file = str_c("mak_roc_id.html"),
+                  env = new.env())
+```
+
+## Read in data
+
+Features file
+```{r}
+d <- read_csv(file.path(path_processed, "features_v1.csv"), 
+              show_col_types = FALSE) |> 
+  mutate(dttm_label = with_tz(dttm_label, tz = "America/Chicago"))
+
+```
+
+Dates
+```{r}
+dates <- read_csv(file.path(path_processed, "study_dates.csv"),
+                  show_col_types = FALSE) |> 
+  mutate(across(c(study_start, data_start, study_end, ema_end),
+                ~ with_tz(., tz = "America/Chicago")))
+```
+
+
+
+Combine
+```{r}
+d <- d |> 
+  left_join(dates, by = "subid")
+
+glimpse(d)
+```
