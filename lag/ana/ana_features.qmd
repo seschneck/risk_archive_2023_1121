@@ -62,20 +62,10 @@ for (batch in feature_batches) {
   
   print(str_c(c("Features for ", lag, " lag"), collapse = ""))
   
-  # adds linebreaks in output
-  cat("\n")
-  cat("    \n")
-  cat("\n")
-  
   
   features <- read_csv(file.path(path_chtc, batch, "output/batch_features.csv"),
-                       show_col_types = FALSE) |> 
-    glimpse()
+                       show_col_types = FALSE)
   
-  # line break  
-  cat("\n")
-  cat("    \n")
-  cat("\n")
   
   # check if 0 lag matches EMA week features V5
   if (lag == 0) {
@@ -84,11 +74,7 @@ for (batch in feature_batches) {
     print(waldo::compare(features, feat_ema))
     print("between 0 lag and EMA V5 week features")
   }
-  #linebreak
-  cat("\n")
-  cat("    \n")
-  cat("\n")
-  
+
   print(str_c(c(nrow(features), " features detected"), collapse = ""))
   
   duplicates <- features |> 
@@ -105,18 +91,16 @@ for (batch in feature_batches) {
   print(str_c("Features created for ", length(unique(features$subid)), " subids"), 
         collapse = "")
   
-  cat("\n")
-  cat("    \n")
-  cat("\n")
-  
   
   features |> 
     janitor::tabyl(lapse) |> 
     print()
+
   
-  cat("\n")
-  cat("    \n")
-  cat("\n")
+  features |>  
+    skimr::skim_without_charts() |> 
+    summary() |> 
+    print()
   
   features |>  
     skimr::skim_without_charts() |> 
@@ -124,9 +108,6 @@ for (batch in feature_batches) {
     arrange(desc(n_missing), skim_variable) |> 
     print(n = Inf)
   
-  cat("\n")
-  cat("    \n")
-  cat("\n")
   
   features|>  
     skimr::skim_without_charts() |> 
@@ -136,10 +117,12 @@ for (batch in feature_batches) {
     arrange(desc(mean), skim_variable) |> 
     print(n = Inf)
   
+  
+  
+  # add space between next lag window in knitted file
   cat("\n")
   cat("    \n")
   cat("\n")
-  
 } 
 ```
 
