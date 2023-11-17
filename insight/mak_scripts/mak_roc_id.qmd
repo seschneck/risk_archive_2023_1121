@@ -247,7 +247,8 @@ fit_predict_eval <- function(split_num, splits, configs_best){
   d_id <- d_out |> 
     select(study_week, starts_with("years_"), starts_with("id_yap_"),
            id_dsm5_total, id_number_quit_attempts, mps_constraint,
-           starts_with("id_scl90"), starts_with("dass_"))
+           starts_with("id_scl90"), starts_with("dass_"),
+           demo_sex, demo_educ)
   
   rec <- build_recipe(d = d_in, config = config_best)
   
@@ -349,3 +350,67 @@ all_probs |>
   write_csv(file.path(path_models, str_c("probs_by_ids_", version, ".csv")))
 
 ```
+
+## Calculate ROCs by ID
+
+### Categorical variables
+
+Sex 
+```{r}
+roc_sex <- all_probs |> 
+  select(outer_split_num, prob_raw, label, demo_sex) |> 
+  group_by(outer_split_num, demo_sex) |> 
+  summarize(roc = roc_auc_vec(prob_raw, truth = label, 
+                              event_level = "first")) |> 
+  ungroup() |> 
+  pivot_wider(names_from = demo_sex, values_from = roc,
+              names_prefix = "roc_") |> 
+  arrange(outer_split_num) |> 
+  mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
+         fold_num = rep(str_c("fold", 1:10), 3)) |> 
+  select(-outer_split_num) |> 
+  janitor::clean_names() |> 
+  relocate(repeat_num, fold_num) |> 
+  glimpse()
+```
+
+Education
+```{r}
+roc_educ <- all_probs |> 
+  select(outer_split_num, prob_raw, label, demo_educ) |> 
+  group_by(outer_split_num, demo_educ) |> 
+  summarize(roc = roc_auc_vec(prob_raw, truth = label, 
+                              event_level = "first")) |> 
+  ungroup() |> 
+  pivot_wider(names_from = demo_educ, values_from = roc,
+              names_prefix = "roc_") |> 
+  arrange(outer_split_num) |> 
+  mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
+         fold_num = rep(str_c("fold", 1:10), 3)) |> 
+  select(-outer_split_num) |> 
+  janitor::clean_names() |> 
+  relocate(repeat_num, fold_num) |> 
+  glimpse()
+```
+Causes warnings & NAs because some groups (e.g., fold, repeat, education level) don't have any observations in "truth" with event label "Lapse" (so no true positives?)
+
+Study week (maybe make ordinal/numeric?)
+```{r}
+roc_week <- all_probs |> 
+  select(outer_split_num, prob_raw, label, study_week) |> 
+  group_by(outer_split_num, study_week) |> 
+  summarize(roc = roc_auc_vec(prob_raw, truth = label, 
+                              event_level = "first")) |> 
+  ungroup() |> 
+  pivot_wider(names_from = study_week, values_from = roc,
+              names_prefix = "roc_") |> 
+  arrange(outer_split_num) |> 
+  mutate(repeat_num = rep(str_c("repeat", 1:3), each = 10),
+         fold_num = rep(str_c("fold", 1:10), 3)) |> 
+  select(-outer_split_num) |> 
+  janitor::clean_names() |> 
+  relocate(repeat_num, fold_num) |> 
+  glimpse()
+```
+
+### Continuous variables
