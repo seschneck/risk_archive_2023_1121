@@ -1,0 +1,145 @@
+---
+title: "Check features"
+author: "Kendra Wyant"
+date: "`r lubridate::today()`"
+format:
+  html:
+    embed-resources: true
+output: 
+  html_document:
+    toc: true 
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+### Notes
+This script reads in the lagged features for one week prediction windows and performs checks. 
+ 
+ 
+### Set Up Environment
+
+Packages for script
+```{r packages_script, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+Chunk options
+```{r}
+# knitr::opts_chunk$set(attr.output='style="max-height: 500px;"')
+```
+
+Absolute paths
+```{r absolute_paths}
+switch (Sys.info()[['sysname']],
+        # PC paths
+        Windows = {
+          path_chtc <- str_c("P:/studydata/risk/chtc/lag")},
+
+        # IOS paths
+        Darwin = {
+          path_chtc <- str_c("P:/studydata/risk/chtc/lag")},
+        
+        # Linux paths
+        Linux = {
+          path_shared <- str_c("~/mnt/private/studydata/risk/chtc/lag")}
+        )
+```
+
+
+
+### Loop through features and perform basic eda
+
+get feature batches
+```{r}
+feature_batches <- list.dirs(path = path_chtc, full.names = FALSE, recursive = FALSE)
+```
+
+
+```{r}
+for (batch in feature_batches) {
+  lag <- str_split(batch, "_")[[1]][2]
+  
+  print(str_c(c("Features for ", lag, " lag"), collapse = ""))
+  
+  # adds linebreaks in output
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  
+  features <- read_csv(file.path(path_chtc, batch, "output/batch_features.csv"),
+                       show_col_types = FALSE) |> 
+    glimpse()
+  
+  # line break  
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  # check if 0 lag matches EMA week features V5
+  if (lag == 0) {
+    feat_ema <- read_csv(file.path("P:/studydata/risk/chtc/ema/features_1week_0_v5/output/batch_features.csv"), show_col_types = FALSE)
+    
+    print(waldo::compare(features, feat_ema))
+    print("between 0 lag and EMA V5 week features")
+  }
+  #linebreak
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  print(str_c(c(nrow(features), " features detected"), collapse = ""))
+  
+  duplicates <- features |> 
+    count(subid, dttm_label) |> 
+    filter(n > 1)
+  
+  if (nrow(duplicates) == 0) {
+    print("No duplicate labels detected")
+    rm(duplicates)
+  } else {
+    warning("Duplicate labels detected!")
+  }
+  
+  print(str_c("Features created for ", length(unique(features$subid)), " subids"), 
+        collapse = "")
+  
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  
+  features |> 
+    janitor::tabyl(lapse) |> 
+    print()
+  
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  features |>  
+    skimr::skim_without_charts() |> 
+    select(skim_variable, n_missing, complete_rate) |> 
+    arrange(desc(n_missing), skim_variable) |> 
+    print(n = Inf)
+  
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+  features|>  
+    skimr::skim_without_charts() |> 
+    skimr::yank("numeric") |> 
+    select(skim_variable, mean, p50, p0, p100) |> 
+    filter(!skim_variable == "subid" & !skim_variable == "label_num") |> 
+    arrange(desc(mean), skim_variable) |> 
+    print(n = Inf)
+  
+  cat("\n")
+  cat("    \n")
+  cat("\n")
+  
+} 
+```
+
